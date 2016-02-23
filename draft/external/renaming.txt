@@ -1,0 +1,58 @@
+source	target	type
+country	Country	gsub
+cases	Cases	gsub
+total	Total	gsub
+avggdp	Avg. GDP per capita	gsub
+zitalicTotal	\\textit{Total}	gsub
+price[_]welast	Price elast.	grepl
+dist[_]welast	Distribution elast.	grepl
+llength[_]welast	Line length elast.	grepl
+novel[_]welast	Novel elast.	grepl
+rosenthalznw	Z	grepl
+signstars	Sign.	grepl
+rwpsprice	Price	gsub
+llength	Line length	gsub
+wpswdist	Distribution	gsub
+novel	Novelty	gsub
+percnonnormal	\\% non-normal	gsub
+australia	Austra-lia	gsub
+china	China	gsub
+hong kong	Hong Kong	gsub
+india	India	gsub
+indonesia	Indo-nesia	gsub
+japan	Japan	gsub
+malaysia	Malay-sia	gsub
+philippines	Philip-pines	gsub
+singapore	Singa-pore	gsub
+south korea	South Korea	gsub
+taiwan	Taiwan	gsub
+thailand	Thail-and	gsub
+vietnam	Vietnam	gsub
+new zealand	New Zealand	gsub
+camera_compact	Digital cameras (compact)	gsub
+camera_slr	Digital cameras (SLR)	gsub
+refrigerators	Refri-gera-tors	grepl
+desktoppc	Desktop computers	grepl
+dvd	DVD players	grepl
+microwave	Micro-wave ovens	gsub
+minioven	Mini-oven	gsub
+cooling	Refri-gera-tors	gsub
+tumbledr	Tumble-dryers	grepl
+laptop	Laptops	gsub
+phones_mobile	Mobile phones	grepl
+phones_smart	Smart-phones	gsub
+tv_gen1_crtv	TV (CRTV, first gen.)	gsub
+tv_gen2_lcd	TV (LCD, second gen.)	gsub
+tv_gen3_lcdwithled	TV (LCD with LED, third gen.)	gsub
+tablets	Tablets	gsub
+tv	TVs	gsub
+washing	Washing machines	grepl
+category	Category	gsub
+rowtotal	Total	gsub
+coltotal	Total	gsub
+ur_sales	Unit root in sales	gsub
+mean_R2	Mean R2	gsub
+makelag[(]log	lag log sales	grepl
+attr_ram	Memory (in MB)	gsub
+attr_cpu	Processor speed (in Mhz)	gsub
+attr_hdd	Hard disk size (in GB)	gsub

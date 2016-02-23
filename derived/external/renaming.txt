@@ -1,0 +1,28 @@
+source	target	type
+AUSTRALIA	Austra-lia	gsub
+CHINA	China	gsub
+HONG KONG	Hong Kong	gsub
+INDIA	India	gsub
+INDONESIA	Indo-nesia	gsub
+JAPAN	Japan	gsub
+MALAYSIA	Malaysia	gsub
+PHILIPPINES	Philip-pines	gsub
+SINGAPORE	Singa-pore	gsub
+SOUTH KOREA	South Korea	gsub
+TAIWAN	Taiwan	gsub
+THAILAND	Thail-and	gsub
+VIETNAM	Viet-nam	gsub
+NEW ZEALAND	New Zealand	gsub
+CAMERAS ADVANCED	Digital cameras (adv.)	grepl
+CAMERAS STANDARD	Digital cameras (point-and-shoot)	grepl
+COOLING	Refrigerators	grepl
+DESK COMPUT	Desktop computers	grepl
+DVDPLAYERREC	DVD-Players	grepl
+MICROWAVE OVENS	Microwave ovens	gsub
+MOBILE COMPUTING	Laptops	gsub
+REGULAR MOBILE PHO	Mobile phones	grepl
+SMARTPHONES	Smartphones	gsub
+TABLETS	Tablets	gsub
+TV	TVs	gsub
+WASHING	Washing machines	grepl
+category	Category	gsub

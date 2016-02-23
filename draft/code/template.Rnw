@@ -1,0 +1,649 @@
+%% Template for plotting figures and tables
+
+\documentclass{article}
+\usepackage[sc]{mathpazo}
+\usepackage[T1]{fontenc}
+\usepackage{geometry}
+\geometry{verbose,tmargin=2.5cm,bmargin=2.5cm,lmargin=2.5cm,rmargin=2.5cm}
+
+\setcounter{secnumdepth}{2}
+\setcounter{tocdepth}{2}
+
+\usepackage{url}
+\usepackage[flushleft]{threeparttable}
+\usepackage[unicode=true,pdfusetitle,
+ bookmarks=true,bookmarksnumbered=true,bookmarksopen=true,bookmarksopenlevel=2,
+ breaklinks=false,pdfborder={0 0 1},backref=false,colorlinks=false]
+ {hyperref}
+ 
+\hypersetup{
+ pdfstartview={XYZ null null 1}}
+
+%% Allow for table captions to be put on top
+\usepackage{float}
+\floatstyle{plaintop}
+\restylefloat{table}
+
+%% Add margin to table caption
+\usepackage{caption} 
+\captionsetup[table]{skip=1pt}
+
+%% Define new column types for resizing
+\usepackage{array}
+\newcolumntype{L}[1]{>{\raggedright\let\newline\\\arraybackslash\hspace{0pt}}m{#1}}
+\newcolumntype{C}[1]{>{\centering\let\newline\\\arraybackslash\hspace{0pt}}m{#1}}
+\newcolumntype{R}[1]{>{\raggedleft\let\newline\\\arraybackslash\hspace{0pt}}m{#1}}
+
+\usepackage{longtable}
+\usepackage{lscape}
+\usepackage{booktabs}
+\usepackage{dcolumn}
+\usepackage{pdflscape}
+\begin{document}
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%% BEGIN OF ANALYSIS 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+<<setup, include=FALSE, cache=FALSE>>=
+library(knitr)
+require(lattice)
+require(latticeExtra)
+require(memisc)
+source('xtable_upd.R')
+
+# set global chunk options
+opts_chunk$set(fig.path='figure/minimal-', fig.align='center', fig.show='hold')
+options(formatR.arrow=TRUE,width=90)
+
+dependentvar = brand_results[[1]]$variables$y
+xvars = unique(unlist(lapply(brand_results, function(obj) try(obj$variables$x, silent=T))))
+xvars = xvars[!grepl('trend|error', xvars, ignore.case=T)]
+
+# Diagnosis of errors
+	err=which(brands_check=='error')
+#	err=114 # sanyo/cascade problem in NZ
+	length(err)
+	brands_check[[114]]<-'error'
+	# extract error messages
+	
+	errmsg <- lapply(brand_results[brands_check=='error'], function(x) x[1])
+	
+	
+options_float = T
+options_tableplacement = 'H'
+	
+@
+
+\begin{landscape}
+
+<<results='asis', echo = FALSE>>=
+
+######################################
+# TABLE: Country / category overview #
+######################################
+
+tmp = brand_panel[selected==T, list(nbrands = length(unique(brand)),
+						 obs = length(unique(date)))
+						 , by = c('category', 'country')]
+nnbrands = sum(tmp$nbrands)
+meanobs = mean(tmp$obs)					
+totals = lapply(c('category', 'country'), function(tot) tmp[, list(nbrands = sum(nbrands), obs = mean(obs)), by = c(tot)])
+totals[[1]][, country:='zitalicTotal']
+totals[[2]][, category:='zitalicTotal']
+setcolorder(totals[[1]], c('category','country', 'nbrands', 'obs'))
+setcolorder(totals[[2]], c('category','country', 'nbrands', 'obs'))
+
+tmp <- rbind(tmp, totals[[1]], totals[[2]])
+tmp <- rbind(tmp, data.frame(category='zitalicTotal', country = 'zitalicTotal', nbrands = nnbrands, obs = meanobs))
+
+tmp[, text := paste0(nbrands, '\\newline(', obs, ')')]
+tmp[country=='zitalicTotal'|category=='zitalicTotal', text := paste0(nbrands, '\\newline(', round(obs,2), ')')]
+
+tmp = dcast(tmp, category ~ country, value.var = 'text')
+
+
+# put total columns last
+
+xtable.tmp = xtable(tmp)
+
+align = paste0('{c L{3cm} *{', ncol(tmp)-1,'}{C{1cm}}}')
+print.xtable2(xtable.tmp, heading = 'Data Coverage -- Number of brands (observations) per category and country', 
+	note = paste0('\\item Notes: Number of brands per category and country. Number of monthly observations in parentheses (averages for totals).'),
+	hline.after=c(-1,0, nrow(xtable.tmp)),sanitize.text.function=rename.fkt, scalebox = .9, align = align)
+
+@
+
+\end{landscape}	
+	
+<<results='asis', echo = FALSE>>=
+
+################################################
+# TABLE: Unit Root outcomes / Market evolution #
+################################################
+
+adf = rbindlist(lapply(brand_results[which(brands_check=='ok')], function(x) cbind(market_id=x$specs$market_id[1], x$adf_untransformed)))
+tmp = dcast(adf, market_id+category+country+brand ~ variable, value.var=c('ur'))
+
+gdpavg <- gdppercap[, list('avggdp' = mean(gdppercap,na.rm=T)), by=c('country')]
+
+classific <- function(X, integr) {
+	x=X[2]
+	y=X[1]
+	if (any(is.na(X))) return(NA)
+	ret=''
+	if (y==0 & x == 0) ret='business as usual'
+	if (y==0 & x == 1) ret='escalation'
+	if (y==1 & x == 0) ret='hysteresis'
+	if (y==1 & x == 1) ret='evolving'
+	return(ret)
+	}
+
+out=lapply(xvars, function(x) {
+	data.table(variable=x, tmp[,c('category','country', 'market_id'),with=F], classification=unlist(apply(tmp[,c(dependentvar, x),with=F], 1, classific)))
+	})
+ur_res = rbindlist(out)
+ur_res[, total := 'zitalicTotal']
+
+# by variable
+tmp=lapply(c('total', 'country', 'category'), function(iter) {
+	tmp=ur_res[, list(cases = length(which(!is.na(classification))), 
+							  '(1)\\newline business as usual' = length(which(classification=='business as usual'))/length(which(!is.na(classification))),
+							  '(2)\\newline escalation' = length(which(classification=='escalation'))/length(which(!is.na(classification))),
+							  '(1)+(2)' = length(which(classification%in%c('business as usual', 'escalation')))/length(which(!is.na(classification))),
+							  '(3)\\newline evolving' = length(which(classification=='evolving'))/length(which(!is.na(classification))),
+							  '(4)\\newline hysteresis' = length(which(classification=='hysteresis'))/length(which(!is.na(classification))),
+							  '(3)+(4)' = length(which(classification%in%c('evolving', 'hysteresis')))/length(which(!is.na(classification)))), by=c(iter)]
+	setnames(tmp, colnames(tmp)[1], 'var')
+	
+	tmp
+	})
+
+# (2) TABLE BY COUNTRY
+tab2 = tmp[[2]]
+setnames(tab2, 'var','country')
+tab2 = merge(tab2, gdpavg, by=c('country'))
+corcoef = cor(tab2[, 'avggdp',with=F], tab2[, '(1)+(2)', with=F])
+
+firstcols = c('country', 'cases', 'avggdp')
+setcolorder(tab2, c(firstcols, colnames(tab2)[!colnames(tab2)%in%firstcols]))
+setorderv(tab2, c('avggdp'), order= -1L)
+
+tab2[, avggdp := paste0('\\$',formatC( avggdp, big.mark=',', digits=0,format = 'f'))]
+
+
+tmpx = cbind(tab2[, list(country='total', cases = sum(cases), 'avggdp' = '')], tmp[[1]][,3:ncol(tmp[[1]]),with=F])
+tab2 = rbindlist(list(tab2, tmpx))
+setnames(tab2, 'avggdp', 'avg. GDP per capita')
+
+xtable.tmp = xtable(tab2)
+
+note = 
+print.xtable2(xtable.tmp, heading = 'Market evolution between 2004-2014: Countries', 
+	note = paste0('\\item Notes: Classification of unit root test outcomes (Dekimpe and Hanssens 1999) for the combination of a brand\\textquotesingle s market share and one marketing mix instrument per market (\\%-cases by category-country). Unit roots tested using cross-sectional ADF tests on unlogged time series, following the modified Enders procedure by Elder and Kennedy (2001). Countries are ordered by their average GDP per capita (2004-2014, retrieved from World Bank, except for Taiwan, which is retrieved from Datastream; converted to US\\$).', '\\item The correlation between (1)+(2) and avg. GDP per capita is ', round(corcoef, 2), '.'),
+	hline.after=c(-1,0,nrow(xtable.tmp)),sanitize.text.function=rename.fkt, scalebox = .9, align = '{c L{2.6cm} L{.8cm} R{2cm} *{6}{R{1.5cm}}}')
+
+
+# (3) TABLE BY CATEGORY
+tab3 = tmp[[3]]
+setorderv(tab3, c('(1)+(2)'))
+tab3 = rbindlist(list(tab3, tmp[[1]]))
+setnames(tab3, 'var', 'category')
+
+xtable.tmp = xtable(tab3)
+
+
+print.xtable2(xtable.tmp, heading = 'Market evolution between 2004-2014: Categories', 
+	note = paste0('\\item Notes: Classification of unit root test outcomes (Dekimpe and Hanssens 1999) for the combination of a brand\\textquotesingle s market share and one marketing mix instrument per market (\\%-cases by category-country). Unit roots tested using cross-sectional ADF tests on unlogged time series, following the modified Enders procedure by Elder and Kennedy (2001). Categories are ordered by a category\\textquotesingle s \\%-cases with non-evolving sales, columns (1)+(2).'),
+	hline.after=c(-1,0, nrow(xtable.tmp)),sanitize.text.function=rename.fkt, scalebox = .9, align = '{c L{5cm} L{.8cm} *{6}{R{1.5cm}}}')
+
+#print(xtable.tmp,scalebox='0.8', floating = options_float, latex.environments='center', table.placement=options_tableplacement, sanitize.text.function=rename.fkt, hline.after = c(-1, 0, nrow(tab3)-1, nrow(tab3)))
+
+@
+
+
+%%%%%%%%%%%%%%%%%
+% MODEL RESULTS %
+%%%%%%%%%%%%%%%%%
+
+<<results='asis', echo = FALSE>>=
+
+	#########################
+	# PREPARE MODEL RESULTS #
+	#########################
+
+	### BRANDS ###
+
+	# Get coefficients
+		.vars=       c('price', 'dist', 'llength', 'novel')
+		.predictions=c(-1,       +1,        +1,      +1)
+		.predictions = .predictions[which(.vars%in%gsub('[+]1', '', xvars))]
+		.vars = .vars[which(.vars%in%gsub('[+]1', '', xvars))]
+		
+		coef = rbindlist(lapply(brand_results[which(brands_check=='ok')], function(x) cbind(country=unique(x$specs$country), category=unique(x$specs$category), market_id=unique(x$specs$market_id), x$sur$coefficients)))
+		coef[, variable:=gsub('[+]1', '', variable)]
+		
+	# Collect marketshares
+		mshares = brand_panel[which(selected==T), list(marketshare=mean(valuesales_sh,na.rm=T)), by = c('category','country','brand','market_id')]
+		
+	# Collect VIF values
+		vifs = rbindlist(lapply(brand_results[which(brands_check=='ok')], function(x) data.frame(x$sur$vif)))
+		
+	# Merge data sets
+		setkey(mshares, category, country, brand)
+		setkey(coef, category, country, brand)
+		setkey(vifs, category, country, brand)
+		
+		bres <- merge(coef, vifs, all.x=T, by=c('category','country', 'brand','variable'))
+		bres <- merge(bres, mshares, all.x=T, by=c('category','country', 'brand', 'market_id'))
+	
+		bres[, elasticity := coef * (1-marketshare)]
+		bres[, elasticity_se := se * (1-marketshare)]
+	
+	# Merge predictions
+	predictions <- data.table(variable=.vars, prediction = .predictions)
+	setkey(predictions, variable)
+	setkey(bres, variable)
+	bres[predictions, expected_sign:=i.prediction]
+	bres[, pval := (1-pnorm(abs(coef/se)))*2] # two-tailed
+
+	pval_twotailed=.05 # test statistic
+	
+	bres[, sign_val := substr(formatC(expected_sign,flag='+-'),1,1)]
+	
+	# use one-tailed tests for directional hypotheses; two-tailed for the remaining ones.
+	
+	bres[which(!is.na(expected_sign)), ':=' (n_correct = pval<=pval_twotailed*2&sign(coef)==sign(expected_sign))]
+	bres[which(is.na(expected_sign)), ':=' (n_pos = ifelse((sign_val)=='N', 1, NA)&pval<=pval_twotailed&sign(coef)==(+1), n_neg = ifelse((sign_val)=='N', 1, NA)&pval<pval_twotailed&sign(coef)==(-1))]
+	
+	### CATEGORIES ###
+
+	# Get coefficients
+		.vars=       c('price', 'dist', 'llength','novel')
+		.predictions=c(-1,          +1,        +1,      +1)
+		predictions <- data.table(variable=.vars, prediction = .predictions)
+	
+		ccoef = rbindlist(lapply(category_results[which(categories_check=='ok')], function(x) cbind(country=unique(x$specs$country), category=unique(x$specs$category), market_id=unique(x$specs$market_id), data.frame(names(x$model$coefficients), summary(x$model)$coefficients))))
+		setnames(ccoef, c('country', 'category','market_id', 'variable', 'coef', 'se', 'tval', 'pval'))
+				
+	# Collect VIF values
+		cvifs = rbindlist(lapply(category_results[which(categories_check=='ok')], function(x) data.frame(country = unique(x$specs$country), category = unique(x$specs$category), market_id = unique(x$specs$market_id), variable = names(x$vifs$withoutcopula), vif=x$vifs$withoutcopula)))
+		
+	# Merge data sets
+		cres <- merge(ccoef, cvifs, all.x=T, by=c('category','country', 'market_id', 'variable'))
+		
+	# Merge predictions
+	setkey(predictions, variable)
+	setkey(cres, variable)
+	cres[predictions, expected_sign:=i.prediction]
+	
+	pval_twotailed=.05 # test statistic
+	
+	cres[, sign_val := substr(formatC(expected_sign,flag='+-'),1,1)]
+	
+	# use one-tailed tests for directional hypotheses; two-tailed for the remaining ones.
+	cres[which(!is.na(expected_sign)), ':=' (n_correct = pval<=pval_twotailed*2&sign(coef)==sign(expected_sign))]
+	cres[which(is.na(expected_sign)), ':=' (n_pos = ifelse((sign_val)=='N', 1, NA)&pval<=pval_twotailed&sign(coef)==(+1), n_neg = ifelse((sign_val)=='N', 1, NA)&pval<pval_twotailed&sign(coef)==(-1))]
+
+	
+	#################################
+	# BRAND ELASTICITIES BY COUNTRY #
+	#################################
+	
+	# by country and category
+	bresX <- bres[!brand=='benchmark' & !grepl('cop[_]|trend|ylag|intercept', variable)]
+	cresX <- cres[which(variable%in%.vars)]
+	cresX[, elasticity:=coef]
+	cresX[, elasticity_se := se]
+	
+	elast <- lapply(list(bresX, cresX), function(obj) {
+		res <- eval(parse(text='obj'))
+	
+		tmp <- lapply(c('country', 'category'), function(type) {
+			tmp=res[, list(
+					welast = sum(elasticity*(1/elasticity_se))/sum(1/elasticity_se),
+					rosenthalznw = sum(elasticity/elasticity_se)/sqrt(.N),
+					signstars = signstars(sum(elasticity/elasticity_se)/sqrt(.N))
+					), by = c('variable', type)]
+			tmptotal=res[, list(
+					welast = sum(elasticity*(1/elasticity_se))/sum(1/elasticity_se),
+					rosenthalznw = sum(elasticity/elasticity_se)/sqrt(.N),
+					signstars = signstars(sum(elasticity/elasticity_se)/sqrt(.N))
+					), by = c('variable')]
+			tmptotal[, type :='zitalicTotal',with=F]
+			setcolorder(tmptotal, colnames(tmp))
+			
+			tmp<-lapply(list(tmp, tmptotal), function(df) {
+				# add order of variables
+				setnames(df, 'variable', 'focalvar')
+				df <- suppressWarnings(melt(df, id.vars=c('focalvar', type)))
+				df=eval(parse(text=paste0('dcast(df, ', type, ' ~ focalvar+variable, value.var = \'value\')')))
+				# change column types back to numeric
+				for (col in colnames(df)[grepl('[_]welast|[_]rosenthal', colnames(df))]) {
+					df[, col := as.numeric(get(col)), with=F]
+					}
+				
+				# match column orders
+				orders <- data.table(colname = colnames(df), order=0)
+				orders[colname=='country', order:=1]
+				for (string in names(model$brandmodel$setup_x)) {
+					orders[grep(string, orders$colname), order:=max(orders$order)+1:(.N)]
+					}
+				setcolorder(df, orders$colname[order(orders$order)])
+				setorderv(df, colnames(df)[2])
+				
+				df
+				})
+				
+			rbindlist(tmp)
+
+			})
+		tmp
+	})
+		
+	# write to Latex	
+		xtable.tmp = xtable(elast[[1]][[1]])
+
+		notes <- '\\item Notes: Elasticities are computed by estimating market share response models with heterogenous parameters in each market (category-country). Elasticities are weighted by their inverse standard error. Ordered by price elasticities.'
+		
+		align = '{c L{2.5cm} R{1.2cm} R{1cm} L{.5cm} R{1.2cm} R{1cm} L{.5cm} R{1.2cm} R{1cm} L{.5cm} R{1.2cm} R{1cm} L{.5cm}}'
+		
+		print.xtable2(xtable.tmp, heading = 'Summary of marketing response elasticities on market share by country', 
+			note = notes,
+			hline.after=c(-1,0, nrow(xtable.tmp)),sanitize.text.function=rename.fkt, scalebox = .9, 
+			align = align)
+		
+		xtable.tmp = xtable(elast[[1]][[2]])
+		align = '{c L{3.5cm} R{1.2cm} R{1cm} L{.5cm} R{1.2cm} R{1cm} L{.5cm} R{1.2cm} R{1cm} L{.5cm} R{1.2cm} R{1cm} L{.5cm}}'
+		
+		print.xtable2(xtable.tmp, heading = 'Summary of marketing response elasticities on market share by category', 
+			note = notes,
+			hline.after=c(-1,0, nrow(xtable.tmp)),sanitize.text.function=rename.fkt, scalebox = .9, 
+			align = align)
+
+
+
+	#################################
+	# CATEGORY ELASTICITIES BY COUNTRY #
+	#################################
+	
+	xtable.tmp = xtable(elast[[2]][[1]])
+
+		notes <- '\\item Notes: Elasticities are computed by estimating aggregate sales response models in each market (category-country). Elasticities are weighted by their inverse standard error. Ordered by price elasticities.'
+		align = '{c L{2.5cm} R{1.2cm} R{1cm} L{.5cm} R{1.2cm} R{1cm} L{.5cm} R{1.2cm} R{1cm} L{.5cm} R{1.2cm} R{1cm} L{.5cm}}'
+		
+		print.xtable2(xtable.tmp, heading = 'Summary of marketing response elasticities on category sales by country', 
+			note = notes,
+			#hline.after=c(-1,0, nrow(xtable.tmp)),
+			sanitize.text.function=rename.fkt, scalebox = .9, 
+			align = align)
+		
+		xtable.tmp = xtable(elast[[2]][[2]])
+		align = '{c L{3.5cm} R{1.2cm} R{1cm} L{.5cm} R{1.2cm} R{1cm} L{.5cm} R{1.2cm} R{1cm} L{.5cm} R{1.2cm} R{1cm} L{.5cm}}'
+		
+		print.xtable2(xtable.tmp, heading = 'Summary of marketing response elasticities on category sales by category', 
+			note = notes,
+			#hline.after=c(-1,0, nrow(xtable.tmp)),
+			sanitize.text.function=rename.fkt, scalebox = .9, 
+			align = align)
+
+			
+			if (0) {
+			
+				tmp = cres[, list(n_mkt = length(unique(market_id)),  
+										   'welast'=sum(coef*(1/se))/sum(1/se), 
+										   sd=sd(coef), min=min(coef),max=max(coef),
+										   'exp sign' = unique(sign_val), 
+										   correct = sum(n_correct), pos=sum(n_pos), neg=sum(n_neg), insign = .N-sum(n_correct,na.rm=T)-sum(n_pos,na.rm=T)-sum(n_neg,na.rm=T),
+										   mvif=mean(vif,na.rm=T),vmin=min(vif,na.rm=T),vmax=max(vif,na.rm=T)#,
+										   #ex_mkt= length(unique(market_id[vif>10])),  ex_b = length(which(vif>10))
+										   ), by=c('variable')]
+}
+
+@
+
+
+	
+
+
+
+%%%%%%%%%%%%%%%%%%
+%%%% APPENDIX %%%%
+%%%%%%%%%%%%%%%%%%
+
+\section{Appendix}
+
+<<results='asis', echo = FALSE>>=
+
+	suppressWarnings({
+		tmp = bres[!brand=='benchmark', list(n_mkt = length(unique(market_id)), n_brand = length(unique(paste0(market_id, brand))), 
+										   'welast'=sum(elasticity*(1/elasticity_se))/sum(1/elasticity_se), melast = mean(elasticity), 
+										   sd=sd(elasticity), min=min(elasticity),max=max(elasticity),
+										   'exp sign' = unique(sign_val), 
+										   correct = sum(n_correct), pos=sum(n_pos), neg=sum(n_neg), insign = .N-sum(n_correct,na.rm=T)-sum(n_pos,na.rm=T)-sum(n_neg,na.rm=T),
+										   mvif=mean(vif,na.rm=T),vmin=min(vif,na.rm=T),vmax=max(vif,na.rm=T)#,
+										   #ex_mkt= length(unique(market_id[vif>10])),  ex_b = length(which(vif>10))
+										   ), by=c('variable')]
+		})
+
+									   
+	tmp[which(is.na(mvif)), ':=' (vmin=NA, vmax=NA)]
+	
+	
+	xtable.tmp = xtable(tmp, caption = paste0('Weighted elasticities (by inverse standard error) and VIF values'))
+
+	align(xtable.tmp)[1]<-'p{.5cm}'
+	align(xtable.tmp)[2]<-'p{1.5cm}'
+	align(xtable.tmp)[3:(ncol(tmp)+1)]<-'p{0.8cm}'
+	
+	print(xtable.tmp,scalebox='0.8', floating = options_float, table.placement=options_tableplacement,latex.environments=c('center'))
+	
+@
+
+%%%%%%%%%%%%%
+% MODEL FIT %
+%%%%%%%%%%%%%
+
+
+%% %R-squared calculated as 1-(SSR/SST) for dependent variables in levels; Harvey's (1980) procedure used for equations in differences, whereby R-squared is computed as \(cor(\Delta \hat y_{it}  + y_{i,t-1}, y_{it})^2\).
+
+<<results='asis', echo = FALSE>>=
+
+fit <- rbindlist(lapply(brand_results[which(brands_check=='ok')], function(x) {
+	cbind(category=unique(x$specs$category), 
+		  country=unique(x$specs$country),
+		  x$sur$R2)
+	}
+	))
+
+tmp=fit[,list(N=.N, meanR2levels=mean(R2levels), meanR2regression = mean(R2)),by=c('UR')] # -> some problem here
+tmp[UR==0, meanR2regression:=NA]
+tmp[, UR := ifelse(UR==1, 'Equations with unit root in dependent variable', 'Equations without unit root in dependent variable')]
+tmp <- rbindlist(list(tmp, data.table(data.frame('Total', sum(tmp$N), sum(tmp$N * tmp$meanR2levels)/sum(tmp$N), sum(tmp$N * tmp$meanR2regression)/sum(tmp$N)))))
+
+print(xtable(tmp),floating = options_float, latex.environments=c('center'), hline.after=c(-1,0,nrow(tmp)-1, nrow(tmp)),table.placement=options_tableplacement,sanitize.text.function=rename.fkt)
+
+@
+
+Note: Marketing mix instruments need to be non-normally distributed for Gaussian Copulas to work.
+
+<<results='asis', echo = FALSE>>=
+########################################
+# TABLE: Normality of Gaussian copulas #
+########################################
+
+if (is.null(brand_results[which(brands_check=='ok')][[1]]$copula_normality)) {
+print('No copulas used in this model')
+} else {
+copulanorm = rbindlist(lapply(brand_results[which(brands_check=='ok')], function(x) cbind(market_id=unique(x$specs$market_id), benchmark=x$benchmark_brand, x$copula_normality)))
+copulanorm = copulanorm[!brand==benchmark]
+
+tmp = copulanorm[which(used==T), list(N = .N, Nnonnormal = length(which(shapiro_pval<.10)), percnonnormal = length(which(shapiro_pval<.10))/.N), by=c('variable')]
+tmp[, variable:=gsub('cop_', '', variable)]
+tot_row = data.table(variable='Total', N=sum(tmp$N), Nnonnormal=sum(tmp$Nnonnormal), percnonnormal=sum(tmp$Nnonnormal*tmp$percnonnormal)/sum(tmp$Nnonnormal))
+tmp <- rbind(data.frame(tmp), data.frame(tot_row))
+
+print(xtable(tmp, caption = 'Assessment of normality of (transformed) marketing mix instruments (Shapiro-Wilk test, significance level 10\\%)'), 
+floating = options_float, latex.environments='center', table.placement=options_tableplacement, hline.after=c(-1,0,nrow(tmp)-1, nrow(tmp)),sanitize.text.function=rename.fkt)
+
+}
+
+
+@
+
+
+%%%%%%%%%%%%%%%%%
+% META ANALYSIS %
+%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsection{Meta analysis}
+
+Weighted Least Squares, with weights equal to the inverse standard error of elasticities.
+
+\resizebox{.9\textwidth}{!}{
+<<results='asis', echo=FALSE>>=
+tmp = bres
+tmp[, ':=' (country=as.factor(as.character(country)), category=as.factor(as.character(category)))]
+levels(tmp$country)<-rename.fkt(levels(tmp$country))
+levels(tmp$category)<-rename.fkt(levels(tmp$category))
+
+meta <- NULL
+for (.var in .vars) {
+	meta[[.var]] <- lm(elasticity ~ -1+ country+category, data= tmp, subset = variable==.var)#, weights = 1/elasticity_se)
+	}
+
+mall = paste0(paste0('\"',.vars,'\"'),'=meta[[',seq(along=.vars),']]')
+
+mtab <- eval(parse(text=paste('mtable(', paste(mall,collapse=','),', factor.style = \'($l)\')')))
+#coef.style=\"horizontal\"
+toLatex(mtab)
+
+
+@
+}
+
+%%%%%%%%%%%%%%%%%%%%%%%%%
+% PLOTTING ELASTICITIES %
+%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsection{Plots of elasticities}
+
+\subsubsection{Histograms (trimmed at 5- and 95-percentile)}
+
+<<echo=FALSE,fig.width=6, fig.height=4, out.width='.89\\linewidth'>>=
+
+tmp = bres
+tmp[, ':=' (country=as.factor(as.character(country)), category=as.factor(as.character(category)))]
+levels(tmp$country)<-rename.fkt(levels(tmp$country))
+levels(tmp$category)<-rename.fkt(levels(tmp$category))
+tmp[, ':=' (quant_min=quantile(coef,.05), quant_max=quantile(coef,.95)),by=c('variable')]
+tmp=tmp[variable%in%.vars]
+tmp=tmp[coef>=quant_min & coef <=quant_max]
+histogram(~coef|variable, data= tmp,nint=20, xlim=c(min(tmp$coef),max(tmp$coef)),par.settings = theEconomist.theme(box = "transparent"), scales = list(x = list(relation = "free")),
+				lattice.options = theEconomist.opts())
+@
+
+\subsubsection{Boxplots (complete distribution)}
+
+<<echo=FALSE,fig.width=6, fig.height=4, out.width='.89\\linewidth'>>=
+
+tmp = bres
+tmp[, ':=' (country=as.factor(as.character(country)), category=as.factor(as.character(category)))]
+levels(tmp$country)<-rename.fkt(levels(tmp$country))
+levels(tmp$category)<-rename.fkt(levels(tmp$category))
+tmp= tmp[variable%in%.vars]
+
+bwplot(~coef|variable, data= tmp,par.settings = theEconomist.theme(box = "transparent"), lattice.options = theEconomist.opts(), scales = list(x = list(relation = "free")))
+@
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% DIAGNOSING EXTREME CASES %
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\subsection{Pending problematic cases}
+
+\subsubsection{Markets/Brands with VIFs > 10}
+
+<<results='asis', echo = FALSE>>=
+
+# VIFs
+	tmp = bres[vif>10]
+	tmp[, max_vif_in_market := max(vif), by = c('market_id')]
+	tmp = tmp[order(max_vif_in_market, brand,vif, decreasing=T), c('market_id', 'category','country','brand','variable','coef','vif'),with=F]
+	
+	#print(xtable(tmp, caption='Extreme VIF values (VIF > 10)'),floating = options_float, table.placement=options_tableplacement,latex.environments=c('center'))
+
+	print(xtable(tmp, caption='Extreme VIF values (VIF > 10)'),table.placement = "H", caption.placement = "bottom", include.rownames = TRUE, include.colnames = TRUE, 
+	size = "small", tabular.environment = 'longtable', floating = FALSE)
+
+@
+
+
+\subsubsection{Markets/Brands with high elasticities for marketing mix instruments (abs(elast) > 4)}
+
+<<results='asis', echo = FALSE>>=
+
+# Extreme coefficients
+	tmp = bres[!brand=='benchmark'&variable%in%xvars&abs(elasticity)>4]
+	tmp[, max_elast_in_market := max(abs(elasticity)), by = c('market_id')]
+	tmp = tmp[order(max_elast_in_market, brand,abs(coef), decreasing=T)][, c('market_id', 'category','country','brand','variable','elasticity','elasticity_se'),with=F]
+
+	print(xtable(tmp, caption='Extreme elasticities (abs(elasticity)>4)'),table.placement = "H", caption.placement = "bottom", include.rownames = TRUE, include.colnames = TRUE,
+	size = "small", tabular.environment = 'longtable', floating = FALSE)
+	# NZ microwave
+@
+
+
+\subsubsection{Markets/Brands with abs(coef) > 4}
+
+<<results='asis', echo = FALSE>>=
+
+# Extreme coefficients
+	tmp = bres[abs(coef)>4]
+	tmp[, max_coef_in_market := max(abs(coef)), by = c('market_id')]
+	tmp = tmp[order(max_coef_in_market, brand,abs(coef), decreasing=T)][, c('market_id', 'category','country','brand','variable','coef','se'),with=F]
+
+	print(xtable(tmp, caption='Extreme coefficients (abs(coef)>4)'),table.placement = "H", caption.placement = "bottom", include.rownames = TRUE, include.colnames = TRUE,
+	size = "small", tabular.environment = 'longtable', floating = FALSE)
+	
+	#,floating = options_float, table.placement=options_tableplacement,latex.environments=c('center'))
+	
+	# -> discuss with Harald
+	# NZ microwave
+@
+
+\end{document}
+
+\subsubsection{Assessing normality of marketing variables for copulas}
+
+<<results='asis', echo = FALSE>>=
+
+	#normality = rbindlist(lapply(brand_results[which(brands_check=='ok')], function(x) 
+	#	rbindlist(lapply(seq(along=x$df), function(q) data.table(x$df[[q]]$x, x$df[[q]]$category, x$df[[q]]$country, x$df[[q]]$brand)))
+	#	
+	#	))
+	
+	
+	
+#	tmp = bres[vif>10]
+#	tmp[, max_vif_in_market := max(vif), by = c('market_id')]
+#	tmp = tmp[order(max_vif_in_market, brand,vif, decreasing=T), c('category','country','brand','variable','coef','vif'),with=F]
+	
+	#print(xtable(tmp, caption='Extreme VIF values (VIF > 10)'),floating = options_float, table.placement=options_tableplacement,latex.environments=c('center'))
+
+#	print(xtable(tmp, caption='Extreme VIF values (VIF > 10)'),table.placement = "H", caption.placement = "bottom", include.rownames = TRUE, include.colnames = TRUE, 
+#	size = "small", tabular.environment = 'longtable', floating = FALSE)
+  
+	# -> discuss with Harald
+@
+
+
+	
+# Error messages
+	#messages <- data.table(market_id=err, error_message=unlist(lapply(brand_results[err], function(x) x[[1]][1])))
+
+@	
+	

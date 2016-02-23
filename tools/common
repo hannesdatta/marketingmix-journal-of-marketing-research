@@ -1,0 +1,5 @@
+SHELL=C:/Windows/System32/cmd.exe
+RBIN64=c:/R/R-3.2.2/bin/x64/
+RBIN32=c:/R/R-3.2.2/bin/i386/
+STATABIN="c:\Program Files (x86)\Stata14\StataSE-64.exe"
+WINWORDBIN="c:\Program Files (x86)\Microsoft Office\Office15\WINWORD.EXE"

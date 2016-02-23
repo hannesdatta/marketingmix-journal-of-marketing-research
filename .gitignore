@@ -1,0 +1,15 @@
+**/rbin/
+**/raw/
+*RData
+*pdf
+**/audit
+**/output
+**/temp
+**/zip
+**/.svn
+*csv
+*xlsx
+*~*
+*log
+**/html*
+**scratch
