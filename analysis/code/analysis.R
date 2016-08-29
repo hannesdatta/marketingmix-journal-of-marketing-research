@@ -33,6 +33,7 @@ load(file='..\\..\\derived\\output\\datasets.RData')
 ### Load additional packages
 	require(parallel)
 	require(fUnitRoots)
+	require(marketingtools)
 	
 ### SETUP 
 	### Setup cluster environment
@@ -44,8 +45,6 @@ load(file='..\\..\\derived\\output\\datasets.RData')
 		max.lag <<- 12
 		min.t <<- 36
 
-	### Unit Root Tests
-		source('..//external//proc_unitroot.R')
 	### Analysis script
 		source('proc_analysis.R')
 		require(marketingtools)
@@ -88,7 +87,7 @@ models <- list(m1)
 	analysis_markets <- unique(markets$market_id)
 	
 	last.item = length(analysis_markets)
-	last.item = 1
+	last.item = 10
 
 # set up cluster
 	cl<-makePSOCKcluster(ncpu)
