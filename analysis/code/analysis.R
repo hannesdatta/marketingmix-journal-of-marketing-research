@@ -23,21 +23,17 @@
 require(data.table)
 load(file='..\\..\\derived\\output\\datasets.RData')
 
-# Stack data in data.table
+### Stack data in data.table
 	brand_panel=rbindlist(lapply(all_data, function(x) rbindlist(x$data_cleaned)))
 	setorder(brand_panel, market_id, category,country,brand,date)
-	
-	category_panel = rbindlist(lapply(all_data, function(x) rbindlist(x$data_category)))
-	setorder(category_panel, market_id, category,country,date)
-	
+
 ### Load additional packages
 	require(parallel)
 	require(fUnitRoots)
 	require(marketingtools)
 	
-### SETUP 
-	### Setup cluster environment
-		ncpu = 16
+### Setup cluster environment
+	ncpu = 16
 	
 ### Initialize all required functions (possibly on the cluster, too)
 
@@ -60,13 +56,7 @@ m1 <- list(brandmodel = list(setup_y=c(unitsales_sh = 'unitsales_sh'),
 							 setup_xendog=c('price', 'dist', 'llength', 'novel'),
 							 setup_xendog_signcutoff = .1,
 							 trend='ur' # choose from: all, ur, none.
-							 ),
-		   catmodel = list(setup_y=c(unitsales = 'unitsales'),
-						   setup_x=c(price="rwpsprice",dist="wpswdist+1",llength="llength",novel="novel+1"),
-						   setup_xendog=c('price', 'dist', 'llength', 'novel'),
-						   setup_xendog_signcutoff = .1,
-						   trend='ur' # choose from: all, ur, none.
-						   ), 
+							 ), 
 		   descr = 'with copula corrections',
 		   fn = '21jan_withcopula')
 
@@ -121,31 +111,6 @@ models <- list(m1)
 		Sys.time()
 		}
 
-# run estimation for category-level sales response models
-	results_category <- NULL
-
-	for (m in seq(along=models)) {
-		# Estimate brand model
-		with(models[[m]]$catmodel, {
-			setup_y <<- setup_y
-			setup_x <<- setup_x
-			setup_xendog <<- setup_xendog
-			setup_xendog_signcutoff <<- setup_xendog_signcutoff
-			trend <<- trend
-			})
-		clusterExport(cl,c('setup_y', 'setup_x', 'setup_xendog', 'setup_xendog_signcutoff', 'trend'))
-		
-		Sys.time()
-		results_category[[m]]<-parLapply(cl, analysis_markets[1:last.item], function(i) {
-				try(analyze_category(i, setup_y=setup_y, 
-										 setup_x=setup_x, 
-									     setup_xendog=setup_xendog, 
-										 setup_xendog_signcutoff=setup_xendog_signcutoff, 
-										 trend = trend),silent=T)
-			})
-		Sys.time()
-		}
-
 	
 # save results
-	save(results_brands, results_category, markets, models, file='..\\output\\results.RData')
+	save(results_brands, markets, models, file='..\\output\\results.RData')
