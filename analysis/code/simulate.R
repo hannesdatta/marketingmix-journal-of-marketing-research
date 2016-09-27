@@ -19,229 +19,182 @@
 
 
 
-### SIMULATION OF SHORT- AND LONG-TERM ELASTICITIES
-
-# LOAD DATA SETS
-require(data.table)
-require(marketingtools)
-load(file='..\\..\\derived\\output\\datasets.RData')
-load(file='..\\..\\analysis\\output\\results.RData')
-
-# Rationale:
-
-# Predict market shares at mean marketing mix across complete period.
-
-out <- results_brands[[1]][[1]]
-
-# Determine shocks (this is of all variables in levels)
-out$sur$coefficients
-
-melted_panel = out$melted_panel
-lagged_ms = melted_panel[variable=='unitsales_sh']
-lagged_ms[, value := makelag(value), by=c('brand')]
-lagged_ms[, variable:='lagunitsales_sh']
-melted_panel <- rbind(melted_panel, lagged_ms)
-
-dt <- data.table(dcast(melted_panel, brand+date~variable, value.var=c('value')))
-dt[, month := as.numeric(as.factor(date))]
-#lagunitsales_sh
-
-##########################################
-# TRANSFORM TO BASE-BRAND REPRESENTATION #
-##########################################
-
-	m_form = as.formula(unitsales_sh ~ llength + novel + price + dist + lagunitsales_sh)
-	m_form_heterog = as.formula(~  llength + novel + price + dist + lagunitsales_sh)
-	m_form_index = as.formula(~ brand + month)
+######################################################
+# SIMULATING MARKTE SHARES FROM MCI ATTRACTION MODEL #
+######################################################
 	
-	dtbb <- attraction_data(formula=m_form, 
-							data = dt, 
-							heterogenous = m_form_heterog, 
-							index = m_form_index, 
-							benchmark=out$benchmark_brand,
-							model = 'MCI')
-
-###########################
-# CONDUCT UNIT ROOT TESTS #
-###########################
-
-	# perform Enders procedure by brand
-	te = split(data.frame(y=dtbb@y, dtbb@X), dtbb@individ)
-
-	trans=lapply(te, function(test_matrix) {
-		#test_matrix = te[[1]]
-		tests=data.frame(t(apply(test_matrix[!colSums(test_matrix)==0 & !grepl('[_]dum|trend', colnames(test_matrix))], 2, adf_enders, maxlag=12,pval=.05,season=NULL)))
-
-		to_be_diffed = rownames(tests)[which(tests$ur==1)]
-		
-		out_matrix = test_matrix
-		for (variable in to_be_diffed) {
-			out_matrix[,variable] = makediff(out_matrix[,variable])
-			}
-		
-		res= list(adf=tests, transformed=out_matrix, original = test_matrix, diffed_series = to_be_diffed)
-		return(res)
-		})
-		
-	newsystem = rbindlist(lapply(trans, function(x) x$transformed))
-
-	X = newsystem[,colnames(dtbb@X),with=F]
-	table(colnames(X)==colnames(dtbb@X))
-	Y = data.frame(newsystem[,'y',with=F])
-	index=data.frame(date=dtbb@period,brand=dtbb@individ)
-
-	
-	# kick out incomplete ('diffed') vars, i.e., their first observation (as it is NA)
-
-	complete = complete.cases(data.frame(X,Y,index))
-
-	X=as.matrix(X[complete,])
-	Y=as.matrix(Y[complete,])
-	index=data.frame(index[complete,])
-
-##########################################
-# ADD COPULAS FOR ENDOGENEITY CORRECTION #
-##########################################
-
-	# to be done.
+	require(MASS)
+	require(lattice)
 	
 
-##################
-# ESTIMATE MODEL #
-##################
-
-	# transformed
-	m<-itersur(X=X, Y=Y, index=index, method='FGLS')
-
-	# non-differences
-	mreg<-itersur(X=dtbb@X, Y=as.matrix(dtbb@y), index=data.frame(date=dtbb@period, brand=dtbb@individ))
-
+	L=500 # Number of simulation draws
+	nperiods = 16 # periods used in simulation
 	
-############
-# SIMULATE #
-############
-
-	# Number of simulation draws
-	L=100
-	nperiods = 36 # periods used in simulation
+	# Retrieve data set that was used to estimate the model
+	res$melted_panel
 	
-	# First do a simulation on the non-differenced ones.
-	# First do it for only one brand
+	# Transform system to base-brand representation
+	dt <- data.table(dcast(res$melted_panel, brand+month~variable, value.var=c('value')))
 	
-	# Step 1: Shock variable (in levels?), log?!; for MCI model, this boils down to adding the log of 1.01 times the estimated coefficient.
+	# Compute means
+	init_means = dt[, lapply(.SD, mean, na.rm=T), .SDcols = setdiff(colnames(dt), c('month', 'brand')), by = c('brand')]
 	
-	# Derive simulation data set (e.g., a data at its mean)
-	simset <- data.table(date=dtbb@period, brand=dtbb@individ, y=dtbb@y, dtbb@X)
-	
-	# take the first period
-	sim_init <- dt[, lapply(.SD, mean, na.rm=T), by=c('brand'), .SDcols=colnames(dt)[!colnames(dt)%in%c('brand', 'date', 'trend', 'month')]]
-	# extrapoluate for nperiods periods
+	# Extrapolate for nperiods periods
 	sim_set = NULL
-	for (p in seq(length.out=nperiods)) {
-		tmp = sim_init
+	for (p in seq(length.out=nperiods+1)) {
+		tmp = init_means
 		tmp[, month:=p]
 		sim_set <- rbind(sim_set, tmp)
 		}
+	
 
-	# put Xs
-	sim1 = sim_set
-	sim2 = sim_set
-	sim2[month==2&brand=='acer', 'price' := get('price')*1.01,with=F]
-	
-	sims <- list(sim1, sim2)
-	
-	simsets <- lapply(sims, function(sim_set) {
-		# transform to base-brand representation
-		dtbb_sim <- attraction_data(formula=m_form, 
-								data = sim_set, 
-								heterogenous = m_form_heterog, 
-								index = m_form_index, 
-								benchmark=out$benchmark_brand,
-								model = 'MCI')
-		tmp=dtbb_sim@X
-		rownames(tmp) <- dtbb_sim@individ
-		return(tmp)
+	# transform to base-brand representation
+	m_form = as.formula(paste0(res$variables$y, ' ~ ', paste0(res$variables$x, collapse = '+'), ' + lagunitsales_sh'))
+	m_form_heterog = as.formula(paste0('~ ', paste0(res$variables$x, collapse = '+'), ' + lagunitsales_sh'))
+	m_form_index = as.formula(~ brand + month)
+
+	dtbb_sim <- attraction_data(formula=m_form, 
+							data = sim_set, 
+							heterogenous = m_form_heterog, 
+							index = m_form_index, 
+							benchmark=res$benchmark_brand,
+							model = 'MCI')
+
+	# Add time trends
+	dat_by_brand = split(data.frame(y=dtbb_sim@y, dtbb_sim@X), dtbb_sim@individ)
+
+	eq_by_brand=lapply(seq(along=dat_by_brand), function(z) {
+		curr_brand = names(dat_by_brand)[z]
+		out_matrix = dat_by_brand[[z]]
+		
+		if(res$adf_sur[brand==curr_brand&variable=='y']$trend == 1) {
+			# add trend
+			cat(paste0('added trend for ', curr_brand, '...\n'))
+			out_matrix <- cbind(out_matrix, trend = seq(from=1, to=nrow(out_matrix)))
+			colnames(out_matrix)[ncol(out_matrix)] <- paste0(curr_brand,'_trend')
+			}
+		
+		return(out_matrix)
 		})
-	benchmark=out$benchmark_brand
-		
-	#if (all(coef(mreg)$variable==colnames(dtbb_sim@X))==F) stop('Problem with simulation dataset')
-	nbrands = length(unique(sims[[1]]$brand))
-	coefs = coef(mreg)$coef
-		
-	# Next steps: 
-	# -> make sure my model can "step" through this period data set, and simulate market shares
-	# -> then, change code to incorporate error in market shares (i.e., simulation times number of replications for lagged values)
-	# -> make sure I also draw an error at each iteration (i.e., correlation of market shares) (this is NOT incorporated yet)
-	# -> make loop through different variables and shock situations
-	# -> set copulas to zero.
-	
-	# -> make sure that my simulations also run in a "differenced" world; and that this is somewhat incorporated in my automatic code
-	
-		
-	# -> it would be cool to package the simulation code (given a specific dataset as prepared by dtbb_sim), and an itersur object, to a function
-	#    which can perform the analyses automatically.	
-	
-	# make code flexible enough to step 
-	
-	for (s in seq(along=simsets)) {
-		# set copulas to zeros!
-		
-		simulated_marketshares <- matrix(double(nbrands*L*nperiods))
-		dim(simulated_marketshares) <- c(nperiods, nbrands, L)
 
-		for (p in seq(length.out=nperiods)) {
+	stacked_eq = rbindlist(eq_by_brand, fill=TRUE)
+		
+	# replace NAs for trends/copula to 0
+		for (trendvar in grep('[_]trend|[_]cop', colnames(stacked_eq), value=T)) {
+			vals = stacked_eq[,trendvar, with=F]
+			stacked_eq[,trendvar := ifelse(is.na(get(trendvar)), 0, get(trendvar)), with=F]
+			}
+		
+	# separate DVs from IVs
+		dset = stacked_eq[,!colnames(stacked_eq)%in%'y',with=F]
+		index=data.frame(date=dtbb_sim@period,brand=dtbb_sim@individ)
+		
+	# draw from variance-covariance matrix (coefficients)
+	res$model@coefficients
+	indexmatch = match(colnames(dset), res$model@coefficients$variable) # matches "new"/reduced set of variables to estimated coefficients
+	coefs = res$model@coefficients[indexmatch,]$coef
+	Sigma = res$model@varcovar[indexmatch, indexmatch]
+	#Sigma = matrix(double(length(coefs)*length(coefs)), ncol=length(coefs)) # set to zero for now
+	
+	eq_brands = names(dat_by_brand)
+	nbrands = length(eq_brands)
+	
+	# draw from correlated intercepts
+	set.seed(1234)
+	intercept_variance = res$model@sigma
+	intercepts <- t(mvrnorm(n=L, mu=rep(0, ncol(res$model@sigma)), Sigma=res$model@sigma))
+	exp_intercepts = exp(intercepts)
+	rownames(intercepts) <- eq_brands
+	
+	# create empty matrix to store simulated market shares
+	simulated_marketshares <- matrix(double((nbrands+1)*L*(nperiods+1)))
+	dim(simulated_marketshares) <- c(nperiods+1, nbrands+1, L)
+	simulated_marketshares[1,,] <- matrix(rep(init_means$unitsales_sh, L), ncol=L, byrow=F)# initialize 0-period marketshares
+	colnames(simulated_marketshares) <- init_means$brand
+
+	for (p in seq(from=2, length.out=nperiods)) {
+		
 		cat('periods ', p,'\n')
 		
-		# draw from variance covariance matrix
-		# compute log diff brand
-		require(MASS)
-		draws=mvrnorm(n=L, mu=coefs, Sigma = mreg@varcovar)
+		dset_p = dset[which(index$date==p),]
+		rownames(dset_p) <- index[which(index$date==p),]$brand
+		dset_p_min1 = dset[which(index$date==p-1),]
 		
-		relative_ms = apply(draws, 1, function(d) {
-			exp(simsets[[s]]%*%cbind(d))
-			})
+		# draw from variance covariance matrix of coefficients
+		draws=mvrnorm(n=L, mu=coefs, Sigma = Sigma)
+		
+		# for each brand (row in dset_p), adjust system to account for UR in dependent and independent variables
+		for (iter in seq(along=rownames(dset_p))) {
+			brandname = rownames(dset_p)[iter]
+			
+			ur_pres = res$adf_sur[ur == 1 & brand == brandname]$variable
+			
+			for (.var in ur_pres) {
+				if (.var=='y') { # variable where UR is DEPENDENT VARIABLE
+					# obtain lagged coefficient
+					lagcoef = data.table(res$model@coefficients)[variable==paste0(brandname, '_lagunitsales_sh')]$coef
+					lagcoef_bench = data.table(res$model@coefficients)[variable==paste0(res$benchmark_brand, '_lagunitsales_sh')]$coef
+					
+					dset_p[iter, paste0(brandname, '_lagunitsales_sh')] <- (1+1/lagcoef) * dset_p[iter, paste0(brandname, '_lagunitsales_sh'),with=F]
+					# both are added, as data for benchmark has already been multiplied by -1
+					dset_p[iter, paste0(res$benchmark_brand, '_lagunitsales_sh')] <- (1+1/lagcoef_bench) * dset_p[iter, paste0(res$benchmark_brand, '_lagunitsales_sh'), with=F]
+				} else {
+					# variable where UR is INDEPENDENT VARIABLE
+					dset_p[iter, .var] <- dset_p[iter, .var, with=F] - dset_p_min1[iter, .var, with=F]  # <- 0 # use value from previous period
+				}
+					
+				}
 
+			}
+		
+		
+		# compute exp(X * beta) (i.e., attraction) for all brands and draws
+		dset_p_mat = as.matrix(dset_p)
+		relative_ms = apply(draws, 1, function(d) {
+			exp(dset_p_mat%*%cbind(d))
+			})
+			
+		# add intercept correlations
+		relative_ms = relative_ms * exp_intercepts
+		
 		ms_sim = apply(relative_ms, 2, function(x) {
 			sumx = sum(c(1,x))
 			c(x/sumx, 1/sumx)
 			})
 			
-		# compute market shares for ALL brands
-		rownames(ms_sim) <- c(rownames(simsets[[s]]), benchmark)
-		ms_sim <- ms_sim[match(sim_set$brand,rownames(ms_sim)),]
-
-		if (p==10) sim_set[brand=='acer']$price <- sim_set[brand=='acer']$price*1.1
-		simulated_marketshares[p,,] <- ms_sim
-		# carry values forward
-		summ_ms <- rowMeans(ms_sim)
-		sim_set$lagunitsales_sh<-summ_ms[]
+		rownames(ms_sim) <- c(rownames(dset_p), res$benchmark_brand)
+		
+		# carry simulated values forward 
+		if (p<nperiods+1) {
+			for (br in init_means$brand) {
+				multpl = ifelse(br==res$benchmark, -1, 1) # negative values here for benchmark brand
+				dset[which(index$date==p+1),paste0(br, '_lagunitsales_sh')] = ifelse(abs(dset[which(index$date==p+1),paste0(br, '_lagunitsales_sh'),with=F])>0, multpl*log(summ_ms[which(names(summ_ms)==br)]), 0)
+				}
+			}
+			
+		simulated_marketshares[p,,] <- ms_sim[match(colnames(simulated_marketshares), rownames(ms_sim)),]
+		
+		 #dset[which(index$date==p),]
+		 #dset[which(index$date==p+1),]
+		 
 		}
-		
-		tmp=data.table(apply(simulated_marketshares, 1, rowMeans))
-		tmp[, brand:=unique(sim_init$brand)]
-		tmp = melt(tmp, id.vars=c('brand'))
-		tmp[, period := as.numeric(variable)]
-	}
 	
-		
-	require(lattice)
-	xyplot(value~period, groups=brand,data=tmp, auto.key=TRUE,type='l')
+	means=melt(apply(simulated_marketshares, 1, rowMeans))
+	qnt05=melt(apply(simulated_marketshares, 1, rowQuantiles, prob=.05))
+	qnt95=melt(apply(simulated_marketshares, 1, rowQuantiles, prob=.95))
+	means$type <- 'mean'
+	qnt05$type <- 'qnt05'
+	qnt95$type <- 'qnt95'
+	
+	dat <- rbind(means,qnt05,qnt95)
+	
+	colnames(dat) <- c('brand', 'period', 'marketshare', 'type')
+	dat$period = dat$period-1
+	
+	dat <- dat[which(dat$type=='mean'),]
+	xyplot(marketshare ~ period | type, groups= brand, data = dat, type='l', auto.key=TRUE)
 	
 
+	# Not taking into account simulated market shares per path L when carrying forward observations
+	# Code up a loop that can simulate multiple times for different shocks in explanatory variables
 	
-	
-	
-	
-	m1=as.matrix(dtbb_sim@X)
-	m2=as.matrix(coef(mreg)$coef)
-	logys = m1%*%m2
-	
-	
-	
-	
-	
-# Next steps:
-# - Discuss inclusion of more lags with Marnik and Harald
-# - Simulate response elasticities; possibly wrap in package
-
-
