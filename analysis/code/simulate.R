@@ -207,5 +207,5 @@
 	# Write pseudo code for Marnik and Harald to verify that what I'm doing is ok
 	# Code up a loop that can simulate multiple times for different shocks in explanatory variables
 	# How to compute changes in shocks from one versus another
-	
+	# Test whether model throws out copula terms correctly (also check whether there are other terms to discard)
 	
