@@ -27,8 +27,8 @@
 	require(lattice)
 	
 
-	L=100 # Number of simulation draws
-	nperiods = 5 # periods used in simulation
+	L=10 # Number of simulation draws
+	nperiods = 16 # periods used in simulation
 	
 	# Retrieve data set that was used to estimate the model
 	res$melted_panel
@@ -94,7 +94,7 @@
 	indexmatch = match(colnames(dset), res$model@coefficients$variable) # matches "new"/reduced set of variables to estimated coefficients
 	coefs = res$model@coefficients[indexmatch,]$coef
 	Sigma = res$model@varcovar[indexmatch, indexmatch]
-	#Sigma = matrix(double(length(coefs)*length(coefs)), ncol=length(coefs)) # set to zero for now
+	Sigma = matrix(double(length(coefs)*length(coefs)), ncol=length(coefs)) # set to zero for now
 	
 	eq_brands = names(dat_by_brand)
 	nbrands = length(eq_brands)
@@ -131,15 +131,16 @@
 				
 				# insert market shares from result matrix (simulated_marketshares) for every brand
 				dset_p[iter, paste0(brandname, '_lagunitsales_sh')] <- log(simulated_marketshares[p-1, match(brandname, colnames(simulated_marketshares)), l])
-				dset_p[iter, paste0(res$benchmark_brand, '_lagunitsales_sh')] <- log(simulated_marketshares[p-1, match(res$benchmark_brand, colnames(simulated_marketshares)), l])
+				dset_p[iter, paste0(res$benchmark_brand, '_lagunitsales_sh')] <- -log(simulated_marketshares[p-1, match(res$benchmark_brand, colnames(simulated_marketshares)), l])
 				
 				dset_p_min1[iter, paste0(brandname, '_lagunitsales_sh')] <- log(simulated_marketshares[max(1,p-2), match(brandname, colnames(simulated_marketshares)), l])
-				dset_p_min1[iter, paste0(res$benchmark_brand, '_lagunitsales_sh')] <- log(simulated_marketshares[max(1,p-2), match(res$benchmark_brand, colnames(simulated_marketshares)), l])
+				dset_p_min1[iter, paste0(res$benchmark_brand, '_lagunitsales_sh')] <- -log(simulated_marketshares[max(1,p-2), match(res$benchmark_brand, colnames(simulated_marketshares)), l])
 				
 				# adjust system to account for UR in dependent and independent variables
 				ur_pres = res$adf_sur[ur == 1 & brand == brandname]$variable
 				
 				for (.var in ur_pres) {
+					cat(paste0('UR: ', .var, '   ', brandname), '\n')
 					if (.var=='y') { # variable where UR is DEPENDENT VARIABLE
 						# obtain lagged coefficient
 						lagcoef = data.table(res$model@coefficients)[variable==paste0(brandname, '_lagunitsales_sh')]$coef
@@ -184,14 +185,10 @@
 			#	dset[which(index$date==p+1),paste0(br, '_lagunitsales_sh')] = ifelse(abs(dset[which(index$date==p+1),paste0(br, '_lagunitsales_sh'),with=F])>0, multpl*log(summ_ms[which(names(summ_ms)==br)]), 0)
 			#	}
 			simulated_marketshares[p,,] <- ms_sim[match(colnames(simulated_marketshares), rownames(ms_sim)),]
-		
-			simulated_marketshares[p,,] <- matrix(rep(rowMeans(ms_sim[match(colnames(simulated_marketshares), rownames(ms_sim)),]), L), ncol=L)
+			#simulated_marketshares[p,,] <- matrix(rep(rowMeans(ms_sim[match(colnames(simulated_marketshares), rownames(ms_sim)),]), L), ncol=L)
 			
 			}
-			
-		
-		 #dset[which(index$date==p),]
-		 #dset[which(index$date==p+1),]
+
 		 cat('\n')
 		
 		}
@@ -212,8 +209,6 @@
 	xyplot(marketshare ~ period | type, groups= brand, data = dat, type='l', auto.key=TRUE)
 	
 
-	# Not taking into account simulated market shares per path L when carrying forward observations
+	# Write pseudo code for Marnik and Harald to verify that what I'm doing is ok
 	# Code up a loop that can simulate multiple times for different shocks in explanatory variables
-	# Write pseudo code for Marnik and Harald (?)
-	
 	# How to compute changes in shocks from one versus another
