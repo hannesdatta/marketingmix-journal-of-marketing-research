@@ -52,7 +52,7 @@ load(file='..\\..\\derived\\output\\datasets.RData')
 
 # Specify models
 m1 <- list(brandmodel = list(setup_y=c(unitsales_sh = 'unitsales_sh'),
-							 setup_x=c(price="rwpsprice"), #,dist="wpswdist+1",llength="llength",novel="novel+1"),
+							 setup_x=c(price="rwpsprice",dist="wpswdist+1",llength="llength",novel="novel+1"),
 							 setup_xendog=c('price'), #, 'dist', 'llength', 'novel'),
 							 setup_xendog_signcutoff = .1,
 							 trend='ur' # choose from: all, ur, none.
@@ -63,10 +63,7 @@ m1 <- list(brandmodel = list(setup_y=c(unitsales_sh = 'unitsales_sh'),
 models <- list(m1)
 
 # to do:
-# - Horvath en Franses: long-term elasticity computation
 # - verify microwave NZ
-# - compute elasticities also for benchmark brand
-
 
 ####################
 ### RUN ANALYSIS ###
@@ -81,7 +78,7 @@ models <- list(m1)
 
 # set up cluster
 	cl<-makePSOCKcluster(ncpu)
-	clusterExport(cl,c('brand_panel', 'category_panel', 'init'))
+	clusterExport(cl,c('brand_panel', 'init'))
 	
 	void<-clusterEvalQ(cl, init())
 	void<-clusterEvalQ(cl, require(data.table))
@@ -111,6 +108,5 @@ models <- list(m1)
 		Sys.time()
 		}
 
-	
 # save results
 	save(results_brands, markets, models, file='..\\output\\results.RData')

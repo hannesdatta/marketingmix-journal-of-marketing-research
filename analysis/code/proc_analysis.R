@@ -252,82 +252,50 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_xendog=NULL, setup_xend
 	m<-itersur(X=as.matrix(Xs),Y=as.matrix(Y),index=index, method = "FGLS-Praise-Winsten")
 
 	res$model <- m
-	
-#	return(res)
-
-	# Do the simulation
-	
-	
-	# Compute means of variables
-	# Let's do this in a one-period show
-	
-	
-	}
-
-	### temp end here...
-	
-	# Next steps: "save" the results
-	# Compute R2...
-	
-	# Compute short- and long-term elasticities
-	
-	sur = list(coefficients=coef(m), bic=m@bic, predicted=m@predicted, resid=m@resid, dates_brands=m@index, X=m@X, y=m@y)
-	
-	
-			colnames(surs[[lags]]$coefficients)[1]<-'orig_var'
-			
-			
-			# Change reporting of coefficient estimates (split up variable names in brand and variable names)
-			surs[[lags]]$coefficients$brand <- unlist(lapply(strsplit(as.character(surs[[lags]]$coefficients$orig_var), '@'), function(x) x[1]))
-			surs[[lags]]$coefficients$variable <- unlist(lapply(strsplit(as.character(surs[[lags]]$coefficients$orig_var), '@'), function(x) x[2]))
-
-
-			
-			
-
-	bics = unlist(lapply(surs, function(x) x$bic))
-	res$all_bics = bics
-	
-	res$sur = surs[[which(bics==min(bics))]]
 
 	# Compute R2s by model
-			pred <- data.table(cbind(dates_brands, 
-									 DVlevels= unlist(lapply(df, function(x) x$DVlevels)),
-									 DVlevelslag=unlist(lapply(df, function(x) x$DVlevelslag)),
-									 DV=unlist(lapply(df, function(x) x$DV)),
-									 predicted=as.matrix(res$sur$predicted),resid=as.matrix(res$sur$resid)))
-			# Has the model been estimated in levels or first differences?
-			adftmp = adf_sur[grepl('dv_',variable)]
-			pred[, UR := adftmp$ur[match(brand, adftmp$brand)]]
 
-			R2=rbindlist(lapply(split(pred, as.character(pred$brand)), function(x) {
+	
+	pred = data.table(DVlevels=dtbb@y, brand=dtbb@individ, date=dtbb@period)
+	pred[, DVlevelslag := c(NA, DVlevels[-.N]), by = c('brand')]
+	setkey(pred, brand, date)
+	
+	pred2 = data.table(cbind(index, DV = as.matrix(Y), predicted = res$model@predicted, resid = res$model@resid))
+	setkey(pred2, brand, date)
+	
+	pred <- merge(pred, pred2, by=c('brand', 'date'), all.x=F, all.y=T)
+	adftmp = adf_sur[variable=='y']
+	pred[, UR := adftmp$ur[match(brand, adftmp$brand)]]
+
+	R2=rbindlist(lapply(split(pred, as.character(pred$brand)), function(x) {
+		
+			if (all(x$UR==0)) { # Model in levels
+				return(
+				#data.frame(brand=unique(x$brand), UR = unique(x$UR), R2 = 1-sum(x$resid^2)/sum((x$DV-mean(x$DV))^2))
+				data.frame(brand=unique(x$brand), UR = unique(x$UR), R2levels = cor(x$predicted, x$DV)^2, R2 = cor(x$predicted, x$DV)^2)
+				)
+				}
+			if (all(x$UR==1)) { # Model in differences
+				#1-sum(x$resid^2)/sum((x$DV-mean(x$DV))^2)
+				dvhat = x$predicted + x$DVlevelslag
+				return(
+				data.frame(brand=unique(x$brand), UR = unique(x$UR), R2levels = cor(dvhat, x$DVlevels)^2, R2 = cor(x$predicted, x$DV)^2)
+				)
+
+				}
 			
-				if (all(x$UR==0)) { # Model in levels
-					return(
-					#data.frame(brand=unique(x$brand), UR = unique(x$UR), R2 = 1-sum(x$resid^2)/sum((x$DV-mean(x$DV))^2))
-					data.frame(brand=unique(x$brand), UR = unique(x$UR), R2levels = cor(x$predicted, x$DV)^2, R2 = cor(x$predicted, x$DV)^2)
-					)
-					}
-				if (all(x$UR==1)) { # Model in differences
-					#1-sum(x$resid^2)/sum((x$DV-mean(x$DV))^2)
-					dvhat = x$predicted + x$DVlevelslag
-					return(
-					data.frame(brand=unique(x$brand), UR = unique(x$UR), R2levels = cor(dvhat, x$DVlevels)^2, R2 = cor(x$predicted, x$DV)^2)
-					)
+			}))
 
-					}
-				
-				}))
+	res$R2 <- R2
+	rm(adftmp)
 
-			res$sur$R2 <- R2
-			rm(adftmp)
-
-		# Compute VIF values
-		vifs = rbindlist(lapply(split(1:nrow(dates_brands), as.character(dates_brands$brand)), function(ind) {
-			vifdf=X[ind,]
+	# Compute VIF values
+		vifs = rbindlist(lapply(split(1:nrow(index), as.character(index$brand)), function(ind) {
+			vifdf=as.matrix(Xs)[ind,]
+		
 			# drop zero columns
 			vifdf = vifdf[,which(!colSums(vifdf)==0)]
-			vify = unlist(DV)[ind]
+			vify = unlist(Y)[ind]
 			
 		   .vifvars = colnames(vifdf)
 		   df.cop = data.frame(as.matrix(cbind(y=vify, vifdf)))
@@ -336,8 +304,8 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_xendog=NULL, setup_xend
 		   colnames(df.cop) <- gsub('@', '.', colnames(df.cop))
 		   .vifvars= colnames(df.cop)[!grepl('cop_',  colnames(df.cop))] # remove copula terms
 		   
-		   m<-eval(parse(text=paste0('lm(y~1+', paste(.vifvars[!.vifvars=='y' & !grepl('intercept', .vifvars)],collapse='+'),', data=df.cop)')))
-		   data.frame(model_brand=as.character(dates_brands[ind[1],]$brand), vars = gsub('.', '@', names(vif(m)), fixed=T), vif=vif(m))
+		   m<-eval(parse(text=paste0('lm(y~1+', paste(.vifvars[!.vifvars=='y' & !grepl('intercept|[_]dum', .vifvars)],collapse='+'),', data=df.cop)')))
+		   data.frame(model_brand=as.character(index[ind[1],]$brand), vars = gsub('.', '@', names(vif(m)), fixed=T), vif=vif(m))
 		 }))
 		 
 		 vifs[, brand := sapply(vars, function(x) strsplit(as.character(x), '@',fixed=T)[[1]][1])]
@@ -345,12 +313,37 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_xendog=NULL, setup_xend
 		 vifs[, vars:=NULL]
 		 setcolorder(vifs, c('model_brand', 'brand', 'variable', 'vif'))
 		 
-		res$sur$vif <- data.table(data.frame(category=unique(res$specs$category), country=unique(res$specs$country), vifs))
+		res$vif <- data.table(data.frame(category=unique(res$specs$category), country=unique(res$specs$country), vifs))
 		rm(vifs)
 
-	res$df = df
-	res$melted_panel <- melted_panel
+	#res$df = df
+	#res$melted_panel <- melted_panel
+	res$model@coefficients$brand <- unlist(lapply(strsplit(as.character(res$model@coefficients$variable), '_'), function(x) x[1]))
+	res$model@coefficients$varname <- unlist(lapply(strsplit(as.character(res$model@coefficients$variable), '_'), function(x) paste(x[-1],collapse='_')))
+
 	return(res)
 	}
+	
+
+
+	### temp end here...
+	
+	# Next steps: "save" the results
+	# Compute R2...
+	
+	# Compute short- and long-term elasticities
+	
+#	sur = list(coefficients=coef(m), bic=m@bic, predicted=m@predicted, resid=m@resid, dates_brands=m@index, X=m@X, y=m@y)
+	
+	
+	#		colnames(surs[[lags]]$coefficients)[1]<-'orig_var'
+			
+			
+			# Change reporting of coefficient estimates (split up variable names in brand and variable names)
+	
+
+	
+
+
 
 
