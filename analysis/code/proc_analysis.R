@@ -308,8 +308,8 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_xendog=NULL, setup_xend
 		   data.frame(model_brand=as.character(index[ind[1],]$brand), vars = gsub('.', '@', names(vif(m)), fixed=T), vif=vif(m))
 		 }))
 		 
-		 vifs[, brand := sapply(vars, function(x) strsplit(as.character(x), '@',fixed=T)[[1]][1])]
-		 vifs[, variable := sapply(vars, function(x) strsplit(as.character(x), '@',fixed=T)[[1]][2])]
+		 vifs[, brand := sapply(vars, function(x) strsplit(as.character(x), '_',fixed=T)[[1]][1])]
+		 vifs[, variable := sapply(vars, function(x) paste(strsplit(as.character(x), '_',fixed=T)[[1]][-1],collapse='_'))]
 		 vifs[, vars:=NULL]
 		 setcolorder(vifs, c('model_brand', 'brand', 'variable', 'vif'))
 		 

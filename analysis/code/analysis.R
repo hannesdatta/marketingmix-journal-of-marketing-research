@@ -53,12 +53,12 @@ load(file='..\\..\\derived\\output\\datasets.RData')
 # Specify models
 m1 <- list(brandmodel = list(setup_y=c(unitsales_sh = 'unitsales_sh'),
 							 setup_x=c(price="rwpsprice",dist="wpswdist+1",llength="llength",novel="novel+1"),
-							 setup_xendog=c('price'), #, 'dist', 'llength', 'novel'),
+							 setup_xendog=c('price', 'dist', 'llength', 'novel'),
 							 setup_xendog_signcutoff = .1,
 							 trend='ur' # choose from: all, ur, none.
 							 ), 
 		   descr = 'with copula corrections',
-		   fn = '21jan_withcopula')
+		   fn = '7oct_withcopula')
 
 models <- list(m1)
 
