@@ -74,7 +74,7 @@ models <- list(m1)
 	analysis_markets <- unique(markets$market_id)
 	
 	last.item = length(analysis_markets)
-	last.item = 10
+#	last.item = 10
 
 # set up cluster
 	cl<-makePSOCKcluster(ncpu)
@@ -110,3 +110,19 @@ models <- list(m1)
 
 # save results
 	save(results_brands, markets, models, file='..\\output\\results.RData')
+
+	
+	
+	out<-analyze_by_market(i, setup_y=setup_y, 
+										 setup_x=c(price="rwpsprice",dist="wpswdist+1",llength="llength", novel="novel+1"), #,novel="novel+1")
+									     setup_xendog=c('price', 'dist', 'llength', 'novel'),
+										 setup_xendog_signcutoff=setup_xendog_signcutoff, 
+										 trend = trend)
+
+
+xyplot(novel~date|brand, data=panel, type = 'l')
+xyplot(llength~date|brand, data=panel, type = 'l')
+xyplot(wpswdist~date|brand, data=panel, type = 'l')
+xyplot(rwpsprice~date|brand, data=panel, type = 'l')
+
+										 
