@@ -112,13 +112,21 @@ models <- list(m1)
 	save(results_brands, markets, models, file='..\\output\\results.RData')
 
 	
+####################
+##### TESTING ######
+####################
+
+	res <- NULL
+	for (i in errm) {
+	print(i)
 	
-	out<-analyze_by_market(i, setup_y=setup_y, 
+	out<-try(analyze_by_market(i, setup_y=setup_y, 
 										 setup_x=c(price="rwpsprice",dist="wpswdist+1",llength="llength", novel="novel+1"), #,novel="novel+1")
 									     setup_xendog=c('price', 'dist', 'llength', 'novel'),
 										 setup_xendog_signcutoff=setup_xendog_signcutoff, 
-										 trend = trend)
-
+										 trend = trend))
+										 res<-c(res, out)
+	}
 
 xyplot(novel~date|brand, data=panel, type = 'l')
 xyplot(llength~date|brand, data=panel, type = 'l')

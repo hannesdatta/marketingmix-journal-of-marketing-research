@@ -19,7 +19,9 @@ require(marketingtools)
                 
                 if (all(is.na(tmp))) return(F)
                 if (length(unique(tmp))<=1) return(F)
-                if (.tmp/length(tmp) > .95) return(F)
+				# at least 6 months of non-zero observations
+				if (length(which(!tmp==min(tmp)))<12) return(F)
+				# if (.tmp/length(tmp) > .95) return(F)
                 return(T)
                 }
 
@@ -158,6 +160,7 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_xendog=NULL, setup_xend
 	dat_by_brand = split(data.frame(y=dtbb@y, dtbb@X), dtbb@individ)
 
 	eq_by_brand=lapply(seq(along=dat_by_brand), function(z) {
+		#print(z)
 		curr_brand = names(dat_by_brand)[z]
 		vars = colnames(dat_by_brand[[z]])[!colSums(dat_by_brand[[z]])==0 & !grepl('[_]dum|trend', colnames(dat_by_brand[[z]]))]
 		adf=data.frame(t(apply(dat_by_brand[[z]][vars], 2, adf_enders, maxlag=12,pval=pval, season=NULL)))
@@ -170,6 +173,9 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_xendog=NULL, setup_xend
 		for (variable in to_be_diffed) {
 			out_matrix[,variable] = makediff(out_matrix[,variable])
 			}
+		
+		# Deactivate trend for benchmark brend (all trends, if present at all, are relative to the benchmark brand)
+		#out_matrix[, 
 		
 		# Activate / deactiviate trends (trend=='all')
 			# add linear trend
@@ -185,16 +191,25 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_xendog=NULL, setup_xend
 		find_var = grep(paste(setup_xendog,collapse='|'), vars, value=T)
 		if (is.null(setup_xendog)) find_var=NULL
 		cop_matrix = out_matrix[find_var]
-		
+
 		if (ncol(cop_matrix)>=1) {
-			cop_matrix = apply(cop_matrix, 2, make_copula)
+			# copulas for benchmark (series has been multiplied by -1 already)
+			cop_matrix_bench = apply(cop_matrix[,grep(paste0(res$benchmark_brand,'[_]'), colnames(cop_matrix), value=T)], 2, function(x) -make_copula(-x))
+			cop_matrix_other = apply(cop_matrix[,-grep(paste0(res$benchmark_brand,'[_]'), colnames(cop_matrix))], 2, function(x) make_copula(x))
+			cop_matrix = cbind(cop_matrix_bench, cop_matrix_other)
 			colnames(cop_matrix) <- paste0(colnames(cop_matrix), '_cop')
+			use_cop = apply(cop_matrix,2,function(x) length(unique(x)))
+			cop_matrix <- cop_matrix[, which(use_cop>2)]
 			}
 		
 		res= list(adf=adf, transformed=cbind(out_matrix, cop_matrix), original = dat_by_brand[[z]], diffed_series = to_be_diffed, brand = curr_brand)
 		return(res)
 		})
-
+#z=4
+#	summary(lm(eq_by_brand[[z]]$original$y ~ 1 + as.matrix(eq_by_brand[[z]]$transformed[,-1])))
+	
+	
+		
 	# summarize ADF results
 		adf_sur <- rbindlist(lapply(eq_by_brand, function(x) data.frame(brand = x$brand, x$adf)))
 		adf_sur[, ':=' (category=unique(res$specs$category), country=unique(res$specs$country))]
@@ -219,14 +234,6 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_xendog=NULL, setup_xend
 		X=as.matrix(X[complete,])
 		Y=as.matrix(Y[complete,])
 		index=data.frame(index[complete,])
-	
-	# rescaling
-	# divide variables by their absolute max
-	#cat('running rescaling\n')
-	#rescale_values = apply(X, 2, function(x) max(abs(x)))
-	#div_matrix <- matrix(rep(rescale_values, nrow(X)), byrow=TRUE, ncol=length(rescale_values))
-	#X=X/div_matrix
-
 
 	# perform UR tests on untransformed series (i.e., before transforming them to MCI-base-brand representation)
 		cat('performing unit root tests for untransformed system\n...')
@@ -248,8 +255,9 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_xendog=NULL, setup_xend
 			
 	cat('running SUR\n')
 
-	m<-itersur(X=as.matrix(X),Y=as.matrix(Y),index=index, method = "FGLS-Praise-Winsten")
-
+	m<-itersur(X=as.matrix(X),Y=as.matrix(Y),index=index, method = "FGLS-Praise-Winsten", maxiter=1000)
+	if (m@iterations==1000) stop('error with iterations')
+	
 	# check for insignificant copula terms
 	ins_coef = data.table(m@coefficients)
 	insign_vars <- ins_coef[grepl('[_]cop', variable)&abs(z)<abs(qnorm(pval/2))]$variable
@@ -257,28 +265,12 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_xendog=NULL, setup_xend
 	Xs = data.table(X)
 	for (var in insign_vars) Xs[, var:=NULL, with=F]
 	
-	m<-itersur(X=as.matrix(Xs),Y=as.matrix(Y),index=index, method = "FGLS-Praise-Winsten")
-
+	m<-itersur(X=as.matrix(Xs),Y=as.matrix(Y),index=index, method = "FGLS-Praise-Winsten", maxiter=1000)
+	if (m@iterations==1000) stop('error with iterations')
+	
 	res$model <- m
 
-	# Rescale coefficients
-#	retr_coefs <- coef(mest)$coef
-	
-#	mvarcovar=mest@varcovar
-
-#	if (rescale==TRUE) {
-#		cat('transforming back coefficients\n')
-#		retr_coefs[seq(length.out=length(rescale_values))] = retr_coefs[seq(length.out=length(rescale_values))] / rescale_values
-#		
-#		for (ch in seq(length.out=length(rescale_values))) {
-#			mvarcovar[ch,] <- mvarcovar[ch,] / rescale_values[ch]
-#			mvarcovar[,ch] <- mvarcovar[,ch] / rescale_values[ch]
-#			}
-#	}
-
 	# Compute R2s by model
-
-	
 	pred = data.table(DVlevels=dtbb@y, brand=dtbb@individ, date=dtbb@period)
 	pred[, DVlevelslag := c(NA, DVlevels[-.N]), by = c('brand')]
 	setkey(pred, brand, date)
