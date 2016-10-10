@@ -182,14 +182,14 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_xendog=NULL, setup_xend
 			if ('trend' %in% colnames(out_matrix)) colnames(out_matrix)[which(colnames(out_matrix)=='trend')] <- paste0(curr_brand, '_trend')
 		
 		# Copula terms
-		cop_matrix = out_matrix[grep(paste(setup_xendog,collapse='|'), vars, value=T)]
+		find_var = grep(paste(setup_xendog,collapse='|'), vars, value=T)
+		if (is.null(setup_xendog)) find_var=NULL
+		cop_matrix = out_matrix[find_var]
 		
-		#	# verify normality
-		#	copula_normality <- copula_melted_panel[, list(shapiro_pval = shapiro.test(used_value_transf)$p), by=c('category', 'country', 'brand', 'variable')]
-		#	res$copula_normality <- copula_normality
-		
-		cop_matrix = apply(cop_matrix, 2, make_copula)
-		colnames(cop_matrix) <- paste0(colnames(cop_matrix), '_cop')
+		if (ncol(cop_matrix)>=1) {
+			cop_matrix = apply(cop_matrix, 2, make_copula)
+			colnames(cop_matrix) <- paste0(colnames(cop_matrix), '_cop')
+			}
 		
 		res= list(adf=adf, transformed=cbind(out_matrix, cop_matrix), original = dat_by_brand[[z]], diffed_series = to_be_diffed, brand = curr_brand)
 		return(res)
@@ -219,6 +219,14 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_xendog=NULL, setup_xend
 		X=as.matrix(X[complete,])
 		Y=as.matrix(Y[complete,])
 		index=data.frame(index[complete,])
+	
+	# rescaling
+	# divide variables by their absolute max
+	#cat('running rescaling\n')
+	#rescale_values = apply(X, 2, function(x) max(abs(x)))
+	#div_matrix <- matrix(rep(rescale_values, nrow(X)), byrow=TRUE, ncol=length(rescale_values))
+	#X=X/div_matrix
+
 
 	# perform UR tests on untransformed series (i.e., before transforming them to MCI-base-brand representation)
 		cat('performing unit root tests for untransformed system\n...')
@@ -252,6 +260,21 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_xendog=NULL, setup_xend
 	m<-itersur(X=as.matrix(Xs),Y=as.matrix(Y),index=index, method = "FGLS-Praise-Winsten")
 
 	res$model <- m
+
+	# Rescale coefficients
+#	retr_coefs <- coef(mest)$coef
+	
+#	mvarcovar=mest@varcovar
+
+#	if (rescale==TRUE) {
+#		cat('transforming back coefficients\n')
+#		retr_coefs[seq(length.out=length(rescale_values))] = retr_coefs[seq(length.out=length(rescale_values))] / rescale_values
+#		
+#		for (ch in seq(length.out=length(rescale_values))) {
+#			mvarcovar[ch,] <- mvarcovar[ch,] / rescale_values[ch]
+#			mvarcovar[,ch] <- mvarcovar[,ch] / rescale_values[ch]
+#			}
+#	}
 
 	# Compute R2s by model
 
