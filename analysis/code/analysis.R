@@ -111,6 +111,21 @@ models <- list(m1)
 # save results
 	save(results_brands, markets, models, file='..\\output\\results.RData')
 
+
+####################
+##### SIMULATION ###
+####################
+
+	source('simulate.R')
+	
+	sims <- NULL
+	for (i in 3:3) {
+	print(i)
+	
+	sims[[i]]<-try(execute_sim(res=results_brands[[1]][[i]]))
+	}
+
+
 	
 ####################
 ##### TESTING ######

@@ -27,24 +27,12 @@
 	require(lattice)
 	
 	
-	res = results_brands[[1]][[1]]
+	#res = results_brands[[1]][[1]]
 	
 
-	L=1000 # Number of simulation draws
-	nperiods = 40 # periods used in simulation
-	
-	# Retrieve data set that was used to estimate the model
-	res$melted_panel
-	
-	# Transform system to base-brand representation
-	dt <- data.table(dcast(res$melted_panel, brand+month~variable, value.var=c('value')))
-	
-	# Compute means
-	init_means = dt[, lapply(.SD, mean, na.rm=T), .SDcols = setdiff(colnames(dt), c('month', 'brand')), by = c('brand')]
-	
 
 	
-	simulate <- function(sim_set) {
+	simulate <- function(sim_set, res) {
 
 	# transform to base-brand representation
 	m_form = as.formula(paste0(res$variables$y, ' ~ ', paste0(res$variables$x, collapse = '+'), ' + lagunitsales_sh'))
@@ -162,6 +150,7 @@
 		dmat_curr = dset_mat[p,,,]
 		dmat_min1 = dset_mat[p-1,,,]
 			
+		brandname_pos = 
 		for (iter in seq(along=dimnames(dset_mat)[[2]])) {
 			brandname = dimnames(dset_mat)[[2]][iter]
 			
@@ -173,14 +162,14 @@
 			dmat_min1[iter,paste0(res$benchmark_brand, '_lagunitsales_sh'),] <- -log(simulated_marketshares[max(1,p-2), match(res$benchmark_brand, colnames(simulated_marketshares)), ])
 			
 			# adjust system to account for UR in dependent and independent variables
-			ur_pres = res$adf_sur[ur == 1 & brand == brandname]$variable
+			ur_pres = res$adf_sur[which(res$adf_sur$ur == 1 & res$adf_sur$brand == brandname)]$variable
 			
 			for (.var in ur_pres) {
 				#cat(paste0('UR: ', .var, '   ', brandname), '\n')
 				if (.var=='y') { # variable where UR is DEPENDENT VARIABLE
 					# obtain lagged coefficient
-					lagcoef = data.table(res$model@coefficients)[variable==paste0(brandname, '_lagunitsales_sh')]$coef
-					lagcoef_bench = data.table(res$model@coefficients)[variable==paste0(res$benchmark_brand, '_lagunitsales_sh')]$coef
+					lagcoef = res$model@coefficients[which(res$model@coefficients$variable==paste0(brandname, '_lagunitsales_sh')),"coef"]
+					lagcoef_bench = res$model@coefficients[which(res$model@coefficients$variable==paste0(res$benchmark_brand, '_lagunitsales_sh')),"coef"]
 					focal_br_share = dmat_curr[iter,paste0(brandname, '_lagunitsales_sh'),]
 					bench_br_share = dmat_curr[iter, paste0(res$benchmark_brand, '_lagunitsales_sh'),]
 					
@@ -245,97 +234,90 @@
 	
 	simulate <- cmpfun(simulate)
 	
-	# Extrapolate for nperiods periods
-	sim_set = NULL
-	for (p in seq(length.out=nperiods+1)) {
-		tmp = init_means
-		tmp[, month:=p]
-		sim_set <- rbind(sim_set, tmp)
-		}
+		
+	execute_sim <- function(res) {
 	
 	
-	# Set up simulation
-	sim_vars <- c('price', 'llength', 'novel', 'dist')
-	sim_brands = unique(sim_set$brand)
+		L=1000 # Number of simulation draws
+		nperiods = 40 # periods used in simulation
+		
+		# Retrieve data set that was used to estimate the model
+		#res$melted_panel
+		
+		# Transform system to base-brand representation
+		dt <- data.table(dcast(res$melted_panel, brand+month~variable, value.var=c('value')))
+		
+		# Compute means
+		init_means = dt[, lapply(.SD, mean, na.rm=T), .SDcols = setdiff(colnames(dt), c('month', 'brand')), by = c('brand')]
 	
-	sims <- NULL
-	
-	tmp <- simulate(sim_set)
-	tmp$sim_var = 'baseline'
-	tmp$sim_brand = 'baseline'
-	
-	sims <- rbind(sims, tmp)
-	
-	for (.var in sim_vars) {
-		for (.brand in sim_brands) {
-			# baseline + shock
-			cat(paste0('simulating for ', .brand, ' and ', .var, '...\n'))
-			sim_dat = sim_set
-			sim_dat[brand==.brand & month == 2, .var := get(.var)*1.20, with=F]
-			tmp = simulate(sim_dat)
-			tmp$sim_var = .var
-			tmp$sim_brand = .brand
-			sims <- rbind(sims, tmp)
+		
+		# Create simulation data set
+		sim_set = NULL
+		for (p in seq(length.out=nperiods+1)) {
+			tmp = init_means
+			tmp[, month:=p]
+			sim_set <- rbind(sim_set, tmp)
 			}
+		
+		# Set up simulation
+		sim_vars <- c('price', 'llength', 'novel', 'dist')
+		sim_brands = unique(sim_set$brand)
+		
+		sims <- NULL
+		
+		tmp <- simulate(sim_set, res)
+		tmp$sim_var = 'baseline'
+		tmp$sim_brand = 'baseline'
+		
+		sims <- rbind(sims, tmp)
+		
+		for (.var in sim_vars) {
+			for (.brand in sim_brands) {
+				# baseline + shock
+				# simulate only if variable has been estimated for a given brand
+				if (!paste0(.brand,'_', .var)%in%res$model@coefficients$variable) next
+				cat(paste0('simulating for ', .brand, ' and ', .var, '...\n'))
+				sim_dat = sim_set
+				sim_dat[brand==.brand & month == 2, .var := get(.var)*1.01, with=F]
+				tmp = simulate(sim_dat, res)
+				tmp$sim_var = .var
+				tmp$sim_brand = .brand
+				sims <- rbind(sims, tmp)
+				}
+			}
+		
+		# Computation of standard errors
+		
+		sims = data.table(sims)
+		
+		saveres <- dcast(sims, brand+period+ sim_var + sim_brand ~ type, value.var='marketshare')
+		
+		return(saveres)
+		
 		}
+	
+	if(0){
+	
 	
 	# Compute IRFs
 	# keep means only
 	
-	sims = data.table(sims)
 	
 	par(mfrow=c(2,4))
 	
 	for (.brand in sim_brands) {
-	p1 = sims[brand==.brand&sim_var=='price'&sim_brand=='apple'&type=='mean'&period>=1]
+	p1 = sims[brand==.brand&sim_var=='dist'&sim_brand==.brand&type=='mean'&period>=1]
 	base = sims[brand==.brand&sim_var=='baseline'&sim_brand=='baseline'&type=='mean'&period>=1]
 	
 	#with(base, plot(x=period, y=marketshare, type='l'))
 	#with(p1, lines(x=period, y=marketshare, type ='l', lty=2))
 	
 	#IRF
-	plot(x=base$period, y=base$marketshare-p1$marketshare, type='l', main = .brand, xlab = 'period', ylab = 'delta market share')
+	plot(x=base$period, y=p1$marketshare-base$marketshare, type='l', main = .brand, xlab = 'period', ylab = 'delta market share')
 	abline(h=0)
 	}
 	
-	
-	# IRFs for each market
-	
-	# Make plots for each market with imuplse response functions
-	
-	with(p1, lines(x=period, y=marketshare, type ='l', lty=2))
-	
-	
-	tmp = dcast(sims, brand + period ~ 
-	
-	res1 <- simulate(sim_set)
-	
-	sim_set[brand=='apple'&month==2, price := price*1.1]
-#	sim_set[brand=='compaq'&month==2, price := price*1.1]
-	
-	res2 <- simulate(sim_set)
-	
-	
-	res1$sim_type = 'sim1'
-	res2$sim_type = 'sim2'
-	
-	res_all <- rbind(res1, res2)
-	
-	tmp = data.table(dcast(res_all, brand + period + sim_type ~ type, value.var = 'marketshare'))
-	
-	xyplot(mean ~ period|brand, groups=sim_type,data = tmp, auto.key=TRUE, type= 'l', subset = period >= 1, scales=list(relation="free"))
-	
-	
-	
-	tmp = data.table(dcast(res_all, brand + period ~ type + sim_type, value.var = 'marketshare'))
-	
-	
-	tmp[brand=='apple']
-	
-	
-	res$model@coefficients
-	
-	# derive 
+	}
 	
 	
 	#################################################
@@ -345,12 +327,10 @@
 	# - per model, automatically iterate through all available variables and produce data set with
 	#   period, market share, confidence intervals # or, alternatively, for ms changes
 	# - understand standard errors of elasticities: need for variance-covariance of parameters, or is sigma (and potential correlations) enough?
-	# - for a larger set of models, compare analytical and empircal elasticities
+	# - for a larger set of models, compare analytical and empirical elasticities
 	
 	# on the model estimation side...
 	# ===============================
-	# - finalize coding of R2 and wrapping up analysis in function
-	# - then estimate for all markets and see whether that's stable
-	# - correct estimation errors with computationally singular matrix (?). weird.
+	# - correct estimation errors for market 33
 	
 	
