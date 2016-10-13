@@ -56,3 +56,5 @@ makelag[(]log	lag log sales	grepl
 attr_ram	Memory (in MB)	gsub
 attr_cpu	Processor speed (in Mhz)	gsub
 attr_hdd	Hard disk size (in GB)	gsub
+nbrand	No brands	grepl
+obs	No observations	grepl
