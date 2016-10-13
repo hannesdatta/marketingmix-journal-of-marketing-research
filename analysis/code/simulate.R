@@ -149,8 +149,7 @@
 		# for each brand (row in dset_p)
 		dmat_curr = dset_mat[p,,,]
 		dmat_min1 = dset_mat[p-1,,,]
-			
-		brandname_pos = 
+		 
 		for (iter in seq(along=dimnames(dset_mat)[[2]])) {
 			brandname = dimnames(dset_mat)[[2]][iter]
 			
@@ -185,7 +184,6 @@
 
 		}
 
-
 		ms_sim = sapply(seq(1:L), function(l) {
 			# compute exp(X * beta) (i.e., attraction) for all brands and draws
 			relative_ms = exp(dmat_curr[,,l] %*% draws[l,])
@@ -204,29 +202,13 @@
 		# carry simulated values forward 
 		if (p<=nperiods+1) {
 			simulated_marketshares[p,,] <- ms_sim[match(colnames(simulated_marketshares), rownames(ms_sim)),]
+			simulated_marketshares[p,,] = ifelse(simulated_marketshares[p,,]<1E-6, 1E-6, simulated_marketshares[p,,])
 			}
+		summary(c(simulated_marketshares[p,,]))
 
-		# cat('\n')
-		
 		}
 	
-	means=melt(apply(simulated_marketshares, 1, rowMeans))
-	qnt05=melt(apply(simulated_marketshares, 1, rowQuantiles, prob=.05))
-	qnt95=melt(apply(simulated_marketshares, 1, rowQuantiles, prob=.95))
-	means$type <- 'mean'
-	qnt05$type <- 'qnt05'
-	qnt95$type <- 'qnt95'
-	
-	dat <- rbind(means,qnt05,qnt95)
-	
-	colnames(dat) <- c('brand', 'period', 'marketshare', 'type')
-	dat$period = dat$period-1
-	
-	
-	#dat <- dat[which(dat$type=='mean'),]
-	#xyplot(marketshare ~ period | type, groups= brand, data = dat, type='l', auto.key=TRUE)
-	
-	return(dat)
+	return(simulated_marketshares)
 	
 	}
 	
@@ -237,18 +219,20 @@
 		
 	execute_sim <- function(res) {
 	
-	
-		L=1000 # Number of simulation draws
-		nperiods = 40 # periods used in simulation
+		
+		L<<-1000 # Number of simulation draws
+		nperiods <<- 36 # periods used in simulation
 		
 		# Retrieve data set that was used to estimate the model
+		if ('try-error' %in% class(res)) return(NULL)
+		if (!is.null(res$error)) return(NULL)
 		#res$melted_panel
 		
 		# Transform system to base-brand representation
 		dt <- data.table(dcast(res$melted_panel, brand+month~variable, value.var=c('value')))
 		
 		# Compute means
-		init_means = dt[, lapply(.SD, mean, na.rm=T), .SDcols = setdiff(colnames(dt), c('month', 'brand')), by = c('brand')]
+		init_means <<- dt[, lapply(.SD, mean, na.rm=T), .SDcols = setdiff(colnames(dt), c('month', 'brand')), by = c('brand')]
 	
 		
 		# Create simulation data set
@@ -263,36 +247,51 @@
 		sim_vars <- c('price', 'llength', 'novel', 'dist')
 		sim_brands = unique(sim_set$brand)
 		
+		
+		baseline <- simulate(sim_set, res)
+		
 		sims <- NULL
-		
-		tmp <- simulate(sim_set, res)
-		tmp$sim_var = 'baseline'
-		tmp$sim_brand = 'baseline'
-		
-		sims <- rbind(sims, tmp)
-		
+		#sims <- rbind(sims, tmp)
+		cntr <- 1
 		for (.var in sim_vars) {
 			for (.brand in sim_brands) {
 				# baseline + shock
 				# simulate only if variable has been estimated for a given brand
 				if (!paste0(.brand,'_', .var)%in%res$model@coefficients$variable) next
 				cat(paste0('simulating for ', .brand, ' and ', .var, '...\n'))
-				sim_dat = sim_set
+				sim_dat = data.table(sim_set)
 				sim_dat[brand==.brand & month == 2, .var := get(.var)*1.01, with=F]
 				tmp = simulate(sim_dat, res)
-				tmp$sim_var = .var
-				tmp$sim_brand = .brand
-				sims <- rbind(sims, tmp)
+				#sims <- rbind(sims, tmp)
+				sims[[cntr]] <- list(data=tmp, perc_change = (tmp-baseline)/baseline, spec = list(sim_var=.var, sim_brand = .brand))
+				cntr <- cntr+1
 				}
 			}
 		
-		# Computation of standard errors
+		# Compute IRFs
+		predictions=rbindlist(lapply(sims, function(x) {
+			tmp = melt(t(apply(x$perc_change, 1, function(y) apply(y, 1, mean))))
+			colnames(tmp)[3] <- 'elast_mean'
+			tmp2 = melt(t(apply(x$perc_change, 1, function(y) apply(y, 1, sd))))
+			tmp$elast_sd <- tmp2$value
+			rm(tmp2)
+			tmp3 = melt(t(apply(x$data, 1, rowMeans)))
+			tmp$ms <- tmp3$value
+			rm(tmp3)
+			tmp4 = melt(t(apply(baseline, 1, rowMeans)))
+			tmp$base_ms <- tmp4$value
+			rm(tmp4)
+			tmp$sim_var = as.factor(x$spec$sim_var)
+			tmp$sim_brand = as.factor(x$spec$sim_brand)
+			colnames(tmp)[1:2] <- c('period', 'brand')
+			return(tmp)
+			}))
 		
-		sims = data.table(sims)
+		predictions$category <- as.factor(unique(res$specs$category))
+		predictions$country <- as.factor(unique(res$specs$country))
+		predictions$market_id <- as.factor(unique(res$specs$market_id))
 		
-		saveres <- dcast(sims, brand+period+ sim_var + sim_brand ~ type, value.var='marketshare')
-		
-		return(saveres)
+		return(predictions)
 		
 		}
 	
@@ -324,8 +323,6 @@
 	#################### NEXT STEPS #################
 	#################################################
 	
-	# - per model, automatically iterate through all available variables and produce data set with
-	#   period, market share, confidence intervals # or, alternatively, for ms changes
 	# - understand standard errors of elasticities: need for variance-covariance of parameters, or is sigma (and potential correlations) enough?
 	# - for a larger set of models, compare analytical and empirical elasticities
 	
