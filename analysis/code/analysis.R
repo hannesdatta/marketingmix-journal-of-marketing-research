@@ -33,7 +33,7 @@ load(file='..\\..\\derived\\output\\datasets.RData')
 	require(marketingtools)
 	
 ### Setup cluster environment
-	ncpu = 16
+	ncpu = 10
 	
 ### Initialize all required functions (possibly on the cluster, too)
 
@@ -115,7 +115,9 @@ models <- list(m1)
 ####################
 ##### SIMULATION ###
 ####################
-
+	load(file='..\\output\\results.RData')
+	
+	# one-node simulations
 	source('simulate.R')
 	
 	sims <- NULL
@@ -125,6 +127,21 @@ models <- list(m1)
 	sims[[i]]<-try(execute_sim(res=results_brands[[1]][[i]]))
 	}
 
+		
+	# multi-node simulations
+	source('simulate.R')
+	void<-clusterEvalQ(cl, source("simulate.R"))
+	clusterExport(cl, 'results_brands')
+	
+	focal_markets = 1:nrow(markets)
+	#markets[country=='new zealand']$market_id
+	
+	sim_res <- parLapplyLB(cl, analysis_markets[focal_markets], function(i) {
+				resobj <<- results_brands[[1]][[i]]
+				try(execute_sim(resobj),silent=T)
+				})
+
+	save(sim_res, markets, file='..\\output\\simulation.RData')
 
 	
 ####################
