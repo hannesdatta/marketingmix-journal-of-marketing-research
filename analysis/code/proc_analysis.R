@@ -205,9 +205,7 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_xendog=NULL, setup_xend
 		res= list(adf=adf, transformed=cbind(out_matrix, cop_matrix), original = dat_by_brand[[z]], diffed_series = to_be_diffed, brand = curr_brand)
 		return(res)
 		})
-#z=4
-#	summary(lm(eq_by_brand[[z]]$original$y ~ 1 + as.matrix(eq_by_brand[[z]]$transformed[,-1])))
-	
+
 	
 		
 	# summarize ADF results
