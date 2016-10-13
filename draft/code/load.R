@@ -26,44 +26,48 @@
 	load(file = '..\\..\\derived\\output\\datasets.RData')
 	load(file = '..\\..\\derived\\temp\\attributes.RData')
 	load(file = '..\\..\\analysis\\output\\results.RData')
+	load(file = '..\\..\\analysis\\output\\simulation.RData')
 
 	#all_results_cop <- all_results
 	#load(file = '..\\..\\analysis\\output\\resultsNOCOP.RData')
 
 # Load externals	
 	source('..\\external\\proc_rename.R')
-
+	source('../../analysis/code/proc_analysis.R')
+	source('../../analysis/code/simulate.R')
+	
 # Load packages
 	require(data.table)
 	require(xtable)
+	require(marketingtools)
 
 # Prepare panel data
 	brand_panel=rbindlist(lapply(all_data, function(x) rbindlist(x$data_cleaned)))
 	setorder(brand_panel, market_id, category,country,brand,date)
 	
-	category_panel = rbindlist(lapply(all_data, function(x) rbindlist(x$data_category)))
-	setorder(category_panel, market_id, category,country,date)
-
-
-# Check models for completeness / crashes
-checks_brands <- NULL
-for (i in seq(along=results_brands)) {
-	check = unlist(lapply(results_brands[[i]], function(x) {
-	if(class(x)=='try-error') return('error')
-	if(class(x)=='list' & length(x$error)>0) return('small_N')
-	return('ok')
-	}))
-	checks_brands[[i]]<-check
-	}
+	# kick out tumbledriers and miniovens
+	brand_panel <- brand_panel[!category%in%c('minioven', 'tumbledryers')]
 	
 
-	checks_category <- NULL
-for (i in seq(along=results_category)) {
-	check = unlist(lapply(results_category[[i]], function(x) {
-	if(class(x)=='try-error') return('error')
-	if(class(x)=='list' & length(x$error)>0) return('small_N')
-	return('ok')
-	}))
-	checks_category[[i]]<-check
-	}
+# Check models for completeness / crashes
+	checks_brands <- NULL
+	for (i in seq(along=results_brands)) {
+		check = unlist(lapply(results_brands[[i]], function(x) {
+		if(class(x)=='try-error') return('error')
+		if(class(x)=='list' & length(x$error)>0) return('small_N')
+		return('ok')
+		}))
+		checks_brands[[i]]<-check
+		}
+		
+
+	
+# Check models for completeness / crashes
+	checks_simulation <- NULL
+		check = unlist(lapply(sim_res, function(x) {
+		if(class(x)[1]=='try-error') return('error')
+		if(class(x)[1]%in%c('data.table', 'data.frame') & length(x$error)>0) return('small_N')
+		return('ok')
+		}))
+		checks_simulation<-check
 	
