@@ -36,6 +36,8 @@
 # Stack data in data.table
 	paneldata_brands=fread('..\\..\\derived\\output\\datasets.csv')
 	paneldata_brands[which(selected==T), trend:=1:.N, by=c('category', 'country', 'brand')]
+	paneldata_brands[, ':=' (date = as.Date(date))]
+	
 	
 # Define output directories
 	fpaths <- c('../audit/markets_brands_by_cat/', # Plots sorted by category	
