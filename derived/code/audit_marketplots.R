@@ -17,7 +17,7 @@
 	require(lattice)
 	require(latticeExtra)
 	
-	load(file='..\\..\\derived\\output\\datasets.RData')
+	#load(file='..\\..\\derived\\output\\datasets.RData')
 
 # Load externals
 	source('../external/proc_rename.R')
@@ -34,16 +34,9 @@
 #######################################################
 
 # Stack data in data.table
-	paneldata_brands=rbindlist(lapply(all_data, function(x) rbindlist(x$data_cleaned)))
-	paneldata_brands<-paneldata_brands[order(category,country,brand,date)]
-	
+	paneldata_brands=fread('..\\..\\derived\\output\\datasets.csv')
 	paneldata_brands[which(selected==T), trend:=1:.N, by=c('category', 'country', 'brand')]
 	
-# Category-level data
-	paneldata_category=rbindlist(lapply(all_data, function(x) rbindlist(x$data_category)))
-	setorder(paneldata_category, market_id,date)
-	paneldata_category[, brand := 'category sales']
-
 # Define output directories
 	fpaths <- c('../audit/markets_brands_by_cat/', # Plots sorted by category	
 			   '../audit/markets_brands_by_country/', # Plots sorted by country
@@ -97,15 +90,15 @@ for (i in unique(paneldata_brands$market_id))	{
 			}
 	
 	# Make category-level plots
-		df=suppressWarnings(melt(paneldata_category[market_id==i],id.vars=c('market_id', 'country','category', 'brand','date')))
-		df$variable <- factor(df$variable, levels = .vars)
-		if (nrow(df)>0) { 
-			plotfkt(paste0(fpaths[3], marketname, '.png'),df)
-			} else {
-			sink(paste0(fpaths[3], marketname_rev, '.txt'))
-			cat('Data not available for this market\n')
-			sink()
-			}		
+	#	df=suppressWarnings(melt(paneldata_category[market_id==i],id.vars=c('market_id', 'country','category', 'brand','date')))
+	#	df$variable <- factor(df$variable, levels = .vars)
+	#	if (nrow(df)>0) { 
+	#		plotfkt(paste0(fpaths[3], marketname, '.png'),df)
+	#		} else {
+	#		sink(paste0(fpaths[3], marketname_rev, '.txt'))
+	#		cat('Data not available for this market\n')
+	#		sink()
+	#		}		
 	}
 
 
