@@ -21,10 +21,10 @@
 
 ### LOAD DATA SETS
 require(data.table)
-#load(file='..\\..\\derived\\output\\datasets.RData')
 
 ### Stack data in data.table
 	brand_panel=fread('..\\..\\derived\\output\\datasets.csv')
+	brand_panel[, ':=' (date = as.Date(date))]
 
 ### Load additional packages
 	require(parallel)
