@@ -191,31 +191,42 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_xendog=NULL, setup_xend
 		find_var = grep(paste(setup_xendog,collapse='|'), vars, value=T)
 		if (is.null(setup_xendog)) find_var=NULL
 		cop_matrix = out_matrix[find_var]
-
+		
+		nonnormal = NULL
+		
 		if (ncol(cop_matrix)>=1) {
 			# copulas for benchmark (series has been multiplied by -1 already)
+			
+			# test for normality
+			nonnormal = apply(cop_matrix, 2, function(x) shapiro.test(x)$p)<=pval
+		
 			cop_matrix_bench = apply(cop_matrix[,grep(paste0(res$benchmark_brand,'[_]'), colnames(cop_matrix), value=T)], 2, function(x) -make_copula(-x))
 			cop_matrix_other = apply(cop_matrix[,-grep(paste0(res$benchmark_brand,'[_]'), colnames(cop_matrix))], 2, function(x) make_copula(x))
 			cop_matrix = cbind(cop_matrix_bench, cop_matrix_other)
 			colnames(cop_matrix) <- paste0(colnames(cop_matrix), '_cop')
 			use_cop = apply(cop_matrix,2,function(x) length(unique(x)))
-			cop_matrix <- cop_matrix[, which(use_cop>2)]
+			
+			# include copula terms only if there are more than 2 unique values, and if the original variable is non-normally distributed using Shapiro wilk tests at pval
+			cop_matrix <- cop_matrix[, which(use_cop>2 &  nonnormal[match(colnames(cbind(cop_matrix_bench, cop_matrix_other)), names(nonnormal))])]
 			}
 		
-		res= list(adf=adf, transformed=cbind(out_matrix, cop_matrix), original = dat_by_brand[[z]], diffed_series = to_be_diffed, brand = curr_brand)
+		res= list(adf=adf, transformed=cbind(out_matrix, cop_matrix), original = dat_by_brand[[z]], diffed_series = to_be_diffed, brand = curr_brand, nonnormal = nonnormal)
 		return(res)
 		})
 
-	
-		
+
 	# summarize ADF results
 		adf_sur <- rbindlist(lapply(eq_by_brand, function(x) data.frame(brand = x$brand, x$adf)))
 		adf_sur[, ':=' (category=unique(res$specs$category), country=unique(res$specs$country))]
 		res$adf_sur <- adf_sur
 
+		normality <- rbindlist(lapply(eq_by_brand, function(x) data.frame(brand = x$brand, var_name=  names(x$nonnormal), non_normal = x$nonnormal)))
+		normality[, ':=' (category=unique(res$specs$category), country=unique(res$specs$country))]
+		res$normality <- normality
+
 	# collect transformed equations
 		stacked_eq = rbindlist(lapply(eq_by_brand, function(x) x$transformed), fill=TRUE)
-		
+
 	# replace NAs for trends/copula to 0
 		for (trendvar in grep('[_]trend|[_]cop', colnames(stacked_eq), value=T)) {
 			vals = stacked_eq[,trendvar, with=F]
@@ -252,8 +263,8 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_xendog=NULL, setup_xend
 	# two runs to kick out insignificant copula's
 			
 	cat('running SUR\n')
-
 	m<-itersur(X=as.matrix(X),Y=as.matrix(Y),index=index, method = "FGLS-Praise-Winsten", maxiter=1000)
+	
 	if (m@iterations==1000) stop('error with iterations')
 	
 	# check for insignificant copula terms
@@ -336,27 +347,3 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_xendog=NULL, setup_xend
 
 	return(res)
 	}
-	
-
-
-	### temp end here...
-	
-	# Next steps: "save" the results
-	# Compute R2...
-	
-	# Compute short- and long-term elasticities
-	
-#	sur = list(coefficients=coef(m), bic=m@bic, predicted=m@predicted, resid=m@resid, dates_brands=m@index, X=m@X, y=m@y)
-	
-	
-	#		colnames(surs[[lags]]$coefficients)[1]<-'orig_var'
-			
-			
-			# Change reporting of coefficient estimates (split up variable names in brand and variable names)
-	
-
-	
-
-
-
-
