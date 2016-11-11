@@ -21,11 +21,10 @@
 
 ### LOAD DATA SETS
 require(data.table)
-load(file='..\\..\\derived\\output\\datasets.RData')
+#load(file='..\\..\\derived\\output\\datasets.RData')
 
 ### Stack data in data.table
-	brand_panel=rbindlist(lapply(all_data, function(x) rbindlist(x$data_cleaned)))
-	setorder(brand_panel, market_id, category,country,brand,date)
+	brand_panel=fread('..\\..\\derived\\output\\datasets.csv')
 
 ### Load additional packages
 	require(parallel)

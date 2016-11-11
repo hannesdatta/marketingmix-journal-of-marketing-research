@@ -30,7 +30,7 @@ for (i in 1:length(all_data)) {
 		##########################################
 		
 			# Create a brand-level measure of past sales in periods -2,-1,0 for re-weighing of the 'unweighted' metrics
-			
+	
 			t_lags = c(-2,-1, 0)
 			t_lag_names = paste0('lag_date', gsub('[-]', 'min', as.character(t_lags)))
 		
@@ -133,4 +133,20 @@ for (i in 1:length(all_data)) {
 # Load GDP per capita, and put into data sets
 	load('..\\temp\\gdppercap.RData')
 
-save(all_data, gdppercap, file =  '..\\output\\datasets.RData')
+# Remove categories
+	all_data <- all_data[which(!names(all_data)%in%c('minioven', 'tumbledryers'))]
+	
+# Prepare CSV file with data
+	brand_panel=rbindlist(lapply(all_data, function(x) rbindlist(x$data_cleaned)))
+	setorder(brand_panel, market_id, category,country,brand,date)
+
+	write.csv(brand_panel, file = '..\\output\\datasets.csv', row.names=F)
+	
+	#paneldata_brands=rbindlist(lapply(all_data, function(x) rbindlist(x$data_cleaned)))
+	#paneldata_brands<-paneldata_brands[order(category,country,brand,date)]
+	#paneldata_brands[which(selected==T), trend:=1:.N, by=c('category', 'country', 'brand')]
+
+# Save complete data as .RData
+	save(all_data, gdppercap, file =  '..\\output\\datasets.RData')
+
+	
