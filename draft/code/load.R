@@ -23,7 +23,7 @@
 #################################
 
 # Load data sets and results
-	load(file = '..\\..\\derived\\output\\datasets.RData')
+	#load(file = '..\\..\\derived\\output\\datasets.RData')
 	load(file = '..\\..\\derived\\temp\\attributes.RData')
 	load(file = '..\\..\\analysis\\output\\results.RData')
 	load(file = '..\\..\\analysis\\output\\simulation.RData')
@@ -42,12 +42,8 @@
 	require(marketingtools)
 
 # Prepare panel data
-	brand_panel=rbindlist(lapply(all_data, function(x) rbindlist(x$data_cleaned)))
-	setorder(brand_panel, market_id, category,country,brand,date)
-	
-	# kick out tumbledriers and miniovens
-	brand_panel <- brand_panel[!category%in%c('minioven', 'tumbledryers')]
-	
+	brand_panel=fread('..\\..\\derived\\output\\datasets.csv')
+	brand_panel[, ':=' (date = as.Date(date))]
 
 # Check models for completeness / crashes
 	checks_brands <- NULL
