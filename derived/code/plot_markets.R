@@ -16,7 +16,7 @@
 	require(data.table)
 	require(xtable)
 	
-	load(file='..\\..\\derived\\output\\datasets.RData')
+	load(file='..\\output\\datasets.RData')
 
 # Stack data in data.table
 	paneldata=rbindlist(lapply(all_data, function(x) rbindlist(x$data_cleaned)))

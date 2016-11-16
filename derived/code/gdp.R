@@ -28,7 +28,7 @@ require(RODBC)
 
 
 # Get content of all zip files
-	file_path = '..\\..\\..\\Data\\gdp\\'
+	file_path = '..\\..\\..\\..\\Data\\gdp\\'
 
 	dat <- fread(paste0(file_path, 'Popular indicators_Data.csv'))
 	setnames(dat, "﻿Series Name", 'seriesname')

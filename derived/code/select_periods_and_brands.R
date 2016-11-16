@@ -73,6 +73,7 @@ require(data.table)
 ####################
 # Brand selection  #
 ####################
+
 	dat[, year := year(date)]
 	tmp_brands <- dat[which(selected_t==T), list(brand_sales = sum(t_sales_units), time_periods = length(unique(date))), by=c('category','country','brand','year')]
 	tmp_brands[, marketshare :=  brand_sales / sum(brand_sales), by=c('category','country','year')]
@@ -82,7 +83,7 @@ require(data.table)
 	
 
 	# selection criteria: top 5 brands for three consecutive years (at least 36 months)
-	top_n = 5
+	top_n = 100000
 	top_min_marketshare = .01 # alternatively, .05 --> discuss with Marnik
 	consec_years = 3
 	
@@ -99,6 +100,12 @@ require(data.table)
 	setorderv(tmp_brands, c('category', 'country','brand'))
 	
 	tmp=tmp_brands[, list(marketshare=sum(brand_sales[which(selected_brand==T)])/sum(brand_sales), n_brands=length(unique(brand[which(selected_brand==T)]))), by=c('category','country')]
+	setorder(tmp, marketshare)
+	tmp
+	
+	#test=tmp_brands[category=='tv_gen1_crtv'&country=='JAPAN']
+	#setorder(test,year,brand)
+	
 	
 	# How many of the brands which are selected are still in the top 7 at the end of the sample
 	{
@@ -119,7 +126,6 @@ require(data.table)
 	#cat(paste0('...in %: ', nrow(tmp_brands[selected==T & rank_recent %in% 1:topb])/nrow(tmp_brands[selected==T]),'\n'))
 	}
 
-
 	brand_selection <- tmp_brands[, list(selected_brand = any(selected_brand)), by=c('category','country','brand')]
 	#setnames(brand_selection,'brand','brand_orig')
 	brand_selection[which(selected_brand==F), brand_rename:='ALLOTHERS']
@@ -131,7 +137,7 @@ require(data.table)
 	setkey(time_selection,category,country,date)
 	
 	save(brand_selection, time_selection, file='..//temp//select_periods_and_brands.RData')
-	
+
 
 #######################
 # Plot market cutoffs #

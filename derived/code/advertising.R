@@ -26,7 +26,7 @@ require(RODBC)
 require(data.table)
 
 # ADVERTISING DATA FOR CHINA
-	file_path = '..\\..\\..\\Data\\advertising\\China\\'
+	file_path = '..\\..\\..\\..\\Data\\advertising\\China\\'
 
 	file_list <- list.files(file_path, recursive=T,include.dirs=T,pattern='.xls')
 	adv_data <- NULL

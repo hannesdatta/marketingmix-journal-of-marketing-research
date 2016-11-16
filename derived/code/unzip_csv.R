@@ -42,7 +42,7 @@ read_file <- function(fn, source_comment) {
 		# Unzip and read file
 			unzip(paste0(file_path,fn),exdir='../temp')
 			dat<-fread(paste0('../temp/',csvname),stringsAsFactors=T, na.strings=c('NA', 'N.A.', 'UNKNOWN'))
-
+			Sys.sleep(.8)
 		# Remove temporary file
 			unlink(paste0('../temp/',csvname))
 		
@@ -103,7 +103,7 @@ read_file <- function(fn, source_comment) {
 
 # Read 2015 data
 		# Get content of all zip files
-		file_path = '..\\..\\..\\Data\\gfk2015\\'
+		file_path = '..\\..\\..\\..\\Data\\gfk2015\\'
 		file_list <- list.files(file_path, recursive=T,include.dirs=T,pattern='.ZIP',ignore.case = T)
 
 		# Take out item-based smartphone files (i.e., take product-based files instead); based on email conversation
@@ -124,7 +124,7 @@ read_file <- function(fn, source_comment) {
 
 # Read 2012 data
 		# Get content of all zip files
-		file_path = '..\\..\\..\\Data\\gfk2012\\'
+		file_path = '..\\..\\..\\..\\Data\\gfk2012\\'
 		file_list <- list.files(file_path, recursive=T,include.dirs=T,pattern='.ZIP',ignore.case = T)
 
 		# order by size for performance issues

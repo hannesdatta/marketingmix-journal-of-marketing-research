@@ -28,7 +28,7 @@ require(RODBC)
 
 
 # Get content of all zip files
-file_path = '..\\..\\..\\Data\\datastream\\'
+file_path = '..\\..\\..\\..\\Data\\datastream\\'
 file_list <- list.files(file_path, full.names=T,pattern='XLS')
 
 indicators <- NULL
