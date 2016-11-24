@@ -61,9 +61,6 @@ m1 <- list(brandmodel = list(setup_y=c(unitsales_sh = 'unitsales_sh'),
 
 models <- list(m1)
 
-# to do:
-# - verify microwave NZ
-
 ####################
 ### RUN ANALYSIS ###
 ####################
@@ -142,7 +139,7 @@ models <- list(m1)
 
 	save(sim_res, markets, file='..\\output\\simulation.RData')
 
-	
+
 ####################
 ##### TESTING ######
 ####################
@@ -163,5 +160,4 @@ xyplot(novel~date|brand, data=panel, type = 'l')
 xyplot(llength~date|brand, data=panel, type = 'l')
 xyplot(wpswdist~date|brand, data=panel, type = 'l')
 xyplot(rwpsprice~date|brand, data=panel, type = 'l')
-
-										 
+							 
