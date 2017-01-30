@@ -82,9 +82,9 @@ require(data.table)
 	tmp_brands[, sales_rank:=1:(.N),by=c('category', 'country', 'year')]
 	
 
-	# selection criteria: top 5 brands for three consecutive years (at least 36 months)
-	top_n = 100000
-	top_min_marketshare = .01 # alternatively, .05 --> discuss with Marnik
+	# selection criteria: all brands for three consecutive years (at least 36 months), with at least 1% market share in three consec. years
+	top_n = 1E6
+	top_min_marketshare = .01 
 	consec_years = 3
 	
 	tmp_brands[, top_n_TRUE := sales_rank%in%(1:top_n) & marketshare >= top_min_marketshare, by=c('category', 'country', 'year')]

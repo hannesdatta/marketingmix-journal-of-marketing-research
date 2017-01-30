@@ -2,7 +2,7 @@
 # by Hannes Datta
 # requires GNU Make
 
-include ../../tools/common
+include C:/make_research
 
 TEMP_DIR = ../temp
 OUTPUT_DIR = ../output

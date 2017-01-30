@@ -212,17 +212,18 @@ for (i in 1:length(datlist_final)) {
 	# Definition: Number of SKUs introduced within the last three months, expressed as percentage of unique SKUs sold in the current period
 
 		tmp_novelty = datlist_final[[i]][, list(first_date = min(date), last_date = max(date)),by = c('category','country','brand','model')]
-		novelty_lag = 3
 		skus_by_date <- merge(skus_by_date, tmp_novelty ,by=c('category', 'country','brand','model'),all.x=T)
 
 		uniq_date <- skus_by_date[, list(N=.N),by='date']
 		uniq_date[, N:=NULL]
-		uniq_date[, date_lag := sapply(date, function(x) {m<-as.POSIXlt(x); m$mon=m$mon-novelty_lag; return(as.character(as.Date(m)))})]
-		uniq_date[, date_lag := as.Date(date_lag)]
+		uniq_date[, date_lag3 := sapply(date, function(x) {m<-as.POSIXlt(x); m$mon=m$mon-3; return(as.character(as.Date(m)))})]
+		uniq_date[, date_lag3 := as.Date(date_lag3)]
+		uniq_date[, date_lag1 := sapply(date, function(x) {m<-as.POSIXlt(x); m$mon=m$mon-1; return(as.character(as.Date(m)))})]
+		uniq_date[, date_lag1 := as.Date(date_lag1)]
 		setkey(skus_by_date, date)
 		setkey(uniq_date, date)
 		
-		skus_by_date[uniq_date, date_lag := i.date_lag]
+		skus_by_date[uniq_date, ':=' (date_lag3 = i.date_lag3, date_lag1 = i.date_lag1)]
 		rm(uniq_date)
 	
 	

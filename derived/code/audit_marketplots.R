@@ -68,7 +68,7 @@
 # Execute plotting per MARKET #
 ###############################
 
-.vars=c('llength', 'novel', 'wpswdist', 'wpsunique',
+.vars=c('llength', 'wpsnovel', 'wpswdist', 'wpsunique',
 		'valuesales_sh', 'valuesales', 'unitsales', 'rwpsprice')
 
 for (i in unique(paneldata_brands$market_id))	{

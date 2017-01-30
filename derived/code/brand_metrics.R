@@ -80,7 +80,8 @@ for (i in 1:length(skus_by_date_list)) {
 											 wswdist = weigh_by_w(t_wdist,t_sales_units),
 											 wpswdist = weigh_by_w(t_wdist,t_wsales_units),
 											 
-											 novel= as.numeric(length(which(first_date>date_lag & first_date <= date)))
+											 wsnovel= as.numeric(length(which(first_date>date_lag1 & first_date <= date))),
+											 wpsnovel= as.numeric(length(which(first_date>date_lag3 & first_date <= date)))
 											 
 										     ), by=c('category', 'country', 'date', 'brand')][order(category, country,brand,date)]
 	
