@@ -54,9 +54,9 @@ for (i in 1:length(all_data)) {
 		
 		setkey(dt, 'category', 'country','brand', 'date')
 		
-		sales_lag_names = paste0('lag_sales', gsub('[-]', 'min', as.character(t_lags)))
+		sales_lag_names = paste0('l_usales', gsub('[-]', 'min', as.character(t_lags)))
 		for (t_lag in seq(along=t_lags)) {
-			eval(parse(text=paste0('dt[,  sales_lag_names[t_lag] := unitsales[match(', t_lag_names[t_lag],', date)],by=c(\'category\', \'country\',\'brand\'),with=F]')))
+			eval(parse(text=paste0('dt[, sales_lag_names[t_lag] := usales[match(', t_lag_names[t_lag],', date)],by=c(\'category\', \'country\',\'brand\'),with=F]')))
 			}
 			
 		eval(parse(text=paste0('dt[, t_wsales_units := rowSums(data.table(',paste(sales_lag_names,collapse=','),'), na.rm=T)]')))
@@ -84,43 +84,44 @@ for (i in 1:length(all_data)) {
 				c(rep(NA,lags),x)[1:length(x)]
 				}
 
-			dt[, ':=' (lunitsales = makelag(unitsales),
-					   lvaluesales = makelag(valuesales),
-					   lvaluesales_usd = makelag(valuesales_usd)
+			dt[, ':=' (lusales = makelag(usales),
+					   lvsales = makelag(vsales),
+					   lvsalesd = makelag(vsalesd)
 						), by = c('brand')]
 			
 			
 			
 			dt_aggr = dt[which(selected==T), list(
 								
-								unitsales=sum(unitsales, na.rm=T),
-								valuesales = sum(valuesales, na.rm=T), 
-								valuesales_usd = sum(valuesales_usd, na.rm=T),
+								usales=sum(usales, na.rm=T),
+								vsales = sum(vsales, na.rm=T), 
+								vsalesd = sum(vsalesd, na.rm=T),
 								
-								lunitsales=sum(lunitsales, na.rm=T),
-								lvaluesales = sum(lvaluesales, na.rm=T), 
-								lvaluesales_usd = sum(lvaluesales_usd, na.rm=T),
+								lusales=sum(lusales, na.rm=T),
+								lvsales = sum(lvsales, na.rm=T), 
+								lvsalesd = sum(lvsalesd, na.rm=T),
 																
-								llength = sum(llength, na.rm=T),
+								llen = sum(llen, na.rm=T),
 								
-								rwsprice=weigh_by_w(rvaluesales/unitsales, unitsales, na.rm=T),
-								rwpsprice=weigh_by_w(rvaluesales/unitsales, t_wsales_units, na.rm=T),
+								rwspr=weigh_by_w(rvsales/usales, usales, na.rm=T),
+								rwpspr=weigh_by_w(rvsales/usales, t_wsales_units, na.rm=T),
 								 
-								wsunique = weigh_by_w(wsunique,unitsales, na.rm=T),
-								wpsunique = weigh_by_w(wsunique,t_wsales_units, na.rm=T),
+								wsun = weigh_by_w(wsun,usales, na.rm=T),
+								wpsun = weigh_by_w(wsun,t_wsales_units, na.rm=T),
 								 
-								wsuniquenoweight = weigh_by_w(wsuniquenoweight,unitsales, na.rm=T),
-								wpsuniquenoweight = weigh_by_w(wsuniquenoweight,t_wsales_units, na.rm=T),
+								wsunnw = weigh_by_w(wsunnw,usales, na.rm=T),
+								wpsunnw = weigh_by_w(wsunnw,t_wsales_units, na.rm=T),
 								 
-								wsnumdist = weigh_by_w(wsnumdist,unitsales, na.rm=T),
-								wpsnumdist = weigh_by_w(wsnumdist,t_wsales_units, na.rm=T),
+								#wsnumdist = weigh_by_w(wsnumdist,unitsales, na.rm=T),
+								#wpsnumdist = weigh_by_w(wsnumdist,t_wsales_units, na.rm=T),
 								 
-								wswdist = weigh_by_w(wswdist,unitsales, na.rm=T),
-								wpswdist = weigh_by_w(wswdist,t_wsales_units, na.rm=T),
+								wswdst = weigh_by_w(wswdst,usales, na.rm=T),
+								wpswdst = weigh_by_w(wswdst,t_wsales_units, na.rm=T),
 								
-								novel= sum(novel, na.rm=T),
+								wsnov= sum(wsnov, na.rm=T),
+								wpsnov= sum(wpsnov, na.rm=T),
 								
-								n_brands = length(which(!is.na(unitsales)))
+								n_brands = length(which(!is.na(usales)))
 								 
 								 ), by=c('category', 'country', 'market_id', 'date')][order(category, country,date)]
 
@@ -140,12 +141,8 @@ for (i in 1:length(all_data)) {
 	brand_panel=rbindlist(lapply(all_data, function(x) rbindlist(x$data_cleaned)))
 	setorder(brand_panel, market_id, category,country,brand,date)
 
-	write.csv(brand_panel, file = '..\\output\\datasets.csv', row.names=F)
+	fwrite(brand_panel, file = '..\\output\\datasets.csv', row.names=F)
 	
-	#paneldata_brands=rbindlist(lapply(all_data, function(x) rbindlist(x$data_cleaned)))
-	#paneldata_brands<-paneldata_brands[order(category,country,brand,date)]
-	#paneldata_brands[which(selected==T), trend:=1:.N, by=c('category', 'country', 'brand')]
-
 # Save complete data as .RData
 	save(all_data, gdppercap, file =  '..\\output\\datasets.RData')
 

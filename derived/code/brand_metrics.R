@@ -60,28 +60,32 @@ for (i in 1:length(skus_by_date_list)) {
 	
 	setkey(skus_by_date, category, country, brand, date)
 	 
-	merged_attr_sales = skus_by_date[, list(llength = length(unique(sku_id)), 
-											 unitsales=sum(t_sales_units),
-											 valuesales = sum(t_value_sales), 
-											 valuesales_usd = sum(t_value_sales_usd),
+	merged_attr_sales = skus_by_date[, list( usales=sum(t_sales_units),
+											 vsales = sum(t_value_sales), 
+											 vsalesd = sum(t_value_sales_usd),
+											
+											 llen = length(unique(sku_id)), 
+																						
+											 wspr=weigh_by_w(t_value_sales/t_sales_units, t_sales_units),
+											 wpspr=weigh_by_w(t_value_sales/t_sales_units, t_wsales_units),
 											 
-											 wsprice=weigh_by_w(t_value_sales/t_sales_units, t_sales_units),
-											 wpsprice=weigh_by_w(t_value_sales/t_sales_units, t_wsales_units),
+											 wsprd=weigh_by_w(t_value_sales_usd/t_sales_units, t_sales_units),
+											 wpsprd=weigh_by_w(t_value_sales_usd/t_sales_units, t_wsales_units),
 											 
-											 wsunique = weigh_by_w(w_sku_unique*100,t_sales_units),
-											 wpsunique = weigh_by_w(w_sku_unique*100,t_wsales_units),
+											 wsun = weigh_by_w(w_sku_unique*100,t_sales_units),
+											 wpsun = weigh_by_w(w_sku_unique*100,t_wsales_units),
 											 
-											 wsuniquenoweight = weigh_by_w(nw_sku_unique*100,t_sales_units),
-											 wpsuniquenoweight = weigh_by_w(nw_sku_unique*100,t_wsales_units),
+											 wsunnw = weigh_by_w(nw_sku_unique*100,t_sales_units),
+											 wpsunnw = weigh_by_w(nw_sku_unique*100,t_wsales_units),
 											 
-										     wsnumdist = weigh_by_w(t_numdist,t_sales_units),
-											 wpsnumdist = weigh_by_w(t_numdist,t_wsales_units),
+										     #wsnumdist = weigh_by_w(t_numdist,t_sales_units),
+											 #wpsnumdist = weigh_by_w(t_numdist,t_wsales_units),
 											 
-											 wswdist = weigh_by_w(t_wdist,t_sales_units),
-											 wpswdist = weigh_by_w(t_wdist,t_wsales_units),
+											 wswdst = weigh_by_w(t_wdist,t_sales_units),
+											 wpswdst = weigh_by_w(t_wdist,t_wsales_units),
 											 
-											 wsnovel= as.numeric(length(which(first_date>date_lag1 & first_date <= date))),
-											 wpsnovel= as.numeric(length(which(first_date>date_lag3 & first_date <= date)))
+											 wsnov= as.numeric(length(which(first_date>date_lag1 & first_date <= date))),
+											 wpsnov= as.numeric(length(which(first_date>date_lag3 & first_date <= date)))
 											 
 										     ), by=c('category', 'country', 'date', 'brand')][order(category, country,brand,date)]
 	
@@ -128,10 +132,10 @@ for (i in 1:length(skus_by_date_list)) {
 	
 		# define colums to interpolate (maximum fill currently set to two observations
 		all_cols=unique(unlist(lapply(selected_attr_sales, colnames)))
-		interp_cols = all_cols[!all_cols%in%c('category', 'country','brand', 'date', 'selected_t')]#grepl(c('llength', 'valuesales', 'unitsales', 'valuesales_usd', 'wprice', 'wunique', 'wnumdist', 'wwdist', 'novel','cpi')
+		interp_cols = all_cols[!all_cols%in%c('category', 'country','brand', 'date', 'selected_t')]
 		
 		# colums to be set to NA if they are smaller or equal than 0
-		reset_zero = grep('price', all_cols,value=T)
+		reset_zero = grep('spr', all_cols,value=T)
 		rm(all_cols)
 		
 		selected_attr_sales <- lapply(selected_attr_sales, function(dframe) {
@@ -142,7 +146,7 @@ for (i in 1:length(skus_by_date_list)) {
 				eval(parse(text=paste0('dframe[which(', .var,'<=0), ', .var, ':=NA]')))
 				}
 			# set sales columns to NA if they are below 0.
-			for (.var in c('valuesales', 'unitsales', 'valuesales_usd')) {
+			for (.var in c('usales', 'vsales', 'vsalesd')) {
 				eval(parse(text=paste0('dframe[, ', .var, ' := ifelse(', .var, '<0, NA, ', .var,')]')))
 				}
 				
@@ -158,8 +162,8 @@ for (i in 1:length(skus_by_date_list)) {
 			dframe_interp[, interpolated:= !unequal==0]
 			
 			# add market share metrics
-			dframe_interp[,':=' (unitsales_sh = as.numeric(unitsales/sum(unitsales,na.rm=T)),
-								 valuesales_sh = as.numeric(valuesales/sum(valuesales,na.rm=T))), by=c('country', 'date')]
+			dframe_interp[,':=' (usalessh = as.numeric(usales/sum(usales,na.rm=T)),
+								 vsalessh = as.numeric(vsales/sum(vsales,na.rm=T))), by=c('country', 'date')]
 	
 			return(dframe_interp)
 		})
@@ -192,7 +196,7 @@ for (i in 1:length(all_data)) {
 			paneldata = all_data[[i]]$data[[j]]
 		
 		# Correct monetary variables with a country's CPI
-			paneldata[, ':=' (rvaluesales = valuesales/cpi, rwsprice = wsprice/cpi, rwpsprice = wpsprice/cpi)]
+			paneldata[, ':=' (rvsales = vsales/cpi, rwspr = wspr/cpi, rwpspr = wpspr/cpi)]
 		
 		# Investigate which part of the data set is complete and can be used for model estimation
 			tmp <- split(paneldata, as.character(paneldata$brand))
@@ -201,9 +205,8 @@ for (i in 1:length(all_data)) {
 				keyvars = c('country','brand','date','category')
 				all_cols=colnames(paneldata)
 				.availabilitycheck1 = setdiff(all_cols,c(keyvars, 'cpi', 'interpolated', 'selected_t'))
-				#c('unitsales','valuesales','valuesales_usd', 'unitsales_sh', 'valuesales_sh', 'llength','rwprice', 'wunique', 'wnumdist', 'wwdist', 'novel')
-				.availabilitycheck2 = NULL #c('c_llength','c_rwprice','c_wunique','c_wdist','c_novel')
-							 
+				.availabilitycheck2 = NULL 
+				
 				# determine max consecutive observations
 				.zoo = zoo(dframe)
 				.excl <- NULL
@@ -242,8 +245,8 @@ for (i in 1:length(all_data)) {
 			cnt_market = cnt_market + 1
 			
 			# check whether there are at least 36 observations per brand; otherwise, set selected_t_brand
-			min_t = .zoo[which(!is.na(unitsales) & selected_t_brand==T & ifelse(is.na(selected_t_cat),F,selected_t_cat)==T), list(n_periods = .N), by=c('category','country', 'brand')]
-			.zoo[which(!is.na(unitsales) & selected_t_brand==T & ifelse(is.na(selected_t_cat),F,selected_t_cat)==T), selected:=T, by=c('category', 'country', 'brand')]
+			min_t = .zoo[which(!is.na(usales) & selected_t_brand==T & ifelse(is.na(selected_t_cat),F,selected_t_cat)==T), list(n_periods = .N), by=c('category','country', 'brand')]
+			.zoo[which(!is.na(usales) & selected_t_brand==T & ifelse(is.na(selected_t_cat),F,selected_t_cat)==T), selected:=T, by=c('category', 'country', 'brand')]
 			.zoo[is.na(selected), selected:=F, by=c('category', 'country', 'brand')]
 			setkey(min_t, category, country, brand)
 			setkey(.zoo, category, country, brand)
