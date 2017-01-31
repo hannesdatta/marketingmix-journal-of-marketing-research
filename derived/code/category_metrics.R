@@ -118,8 +118,8 @@ for (i in 1:length(all_data)) {
 								wswdst = weigh_by_w(wswdst,usales, na.rm=T),
 								wpswdst = weigh_by_w(wswdst,t_wsales_units, na.rm=T),
 								
-								wsnov= sum(wsnov, na.rm=T),
-								wpsnov= sum(wpsnov, na.rm=T),
+								nov1= sum(nov1, na.rm=T),
+								nov3= sum(nov3, na.rm=T),
 								
 								n_brands = length(which(!is.na(usales)))
 								 
