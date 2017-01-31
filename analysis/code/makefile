@@ -2,7 +2,7 @@
 # by Hannes Datta
 # requires GNU Make
 
-include ../../tools/common
+include C:/make_research
 
 TEMP_DIR = ../temp
 OUTPUT_DIR = ../output
@@ -10,9 +10,14 @@ OUTPUT_DIR = ../output
 
 ###### BUILD COMMANDS ######
 
-.PHONY : run
+import: $(TEMP_DIR)/preclean.dta
 
 ###### DATA ANALYSIS ######
+
+# Perform matching
+$(TEMP_DIR)/preclean.dta: import.do $(TEMP_DIR)/preclean.csv
+	$(STATABIN) /e do import.do
+
 
 # analyze data
 run : analysis.R proc_analysis.R proc_sur.R
