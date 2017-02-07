@@ -30,6 +30,7 @@ require(data.table)
 	brand_panel[, usalessh := usales/sum(usales,na.rm=T), by=c('category', 'country', 'date')]
 	brand_panel[, month_no := as.numeric(as.factor(date))]
 
+	brand_panel[brand=='allothers', brand := paste0('allothers', .GRP), by = c('category', 'country')]
 	
 # Compute instrumental variables
 	setup_x_iv=c("wpsprd", "wpswdst", "llen", "nov3", "wpsun")
