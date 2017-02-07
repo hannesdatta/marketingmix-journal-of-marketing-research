@@ -26,6 +26,11 @@ require(data.table)
 	brand_panel=fread('../external/datasets.csv')
 	brand_panel[, ':=' (date = as.Date(date))]
 
+	brand_panel <- brand_panel[selected==T]
+	brand_panel[, usalessh := usales/sum(usales,na.rm=T), by=c('category', 'country', 'date')]
+	brand_panel[, month_no := as.numeric(as.factor(date))]
+
+	
 # Compute instrumental variables
 	setup_x_iv=c("wpsprd", "wpswdst", "llen", "nov3", "wpsun")
 	
@@ -57,95 +62,90 @@ require(data.table)
 	# So for four mmix, we have a total of 20 instruments. The model is thus overidentified. Plus we have enough observations to estimate this.
 	
 	# create instruments
-	calc_ivs <- function(x, same_key, different_key) {		
-		cat(paste0('Calculating instruments for ', x,', with same ', same_key, ' and different ', different_key, '...\n'))
+	calc_ivs <- function(x, same_key, different_key, exclude_brands = F) {		
+		cat(paste0('Calculating instruments for ', x,', with same ', same_key, ' and different ', different_key, ', exclude = ', as.character(exclude_brands), '...\n'))
 		# step-wise approach: calculate sum across everything by classification variable
-		a=brand_panel[, list(all_n = length(which(!is.na(get(x)))), tot_sum = sum(get(x), na.rm=T)), by=c('date', same_key, different_key)]
-		setkeyv(a, c('date', same_key, different_key))
 		
-		# subtract value from own brand, if present in a specific classification
-		b=brand_panel[, list(own_n = length(which(!is.na(get(x)))), own_sum = sum(get(x),na.rm=T)), by = c('date', same_key, different_key, 'brand')]
-		setkeyv(b, c('date', same_key, different_key, 'brand'))
-		# -> b contains, for each brand and product class it belongs to, its own value of marketing mix
+		same_list = unique(unlist(c(brand_panel[,same_key,with=F])))
+		different_list = unique(unlist(c(brand_panel[,different_key,with=F])))
 		
-		# calculate brand-specific means
-		tmp=b[a]
-		tmp[, xmean := (tot_sum - own_sum)/(all_n-own_n)]
-		# -> tmp contains for each brand in each product class the value of cat mean minus their own mean
+		out=lapply(same_list, function(same_as) rbindlist(lapply(different_list, function(different_from) {
+			#cat('new\n')
+			#print(same_as)
+			#print(different_from)
+			# filter on same (e.g., same country)
+			a=brand_panel[get(same_key) == same_as]
+			
+			# tag all brands that are present in the focal different key
+			if (exclude_brands == T) a[, tag := any(get(different_key)==different_from), by = c('brand')]
+			if (exclude_brands == F) a[, tag:=0]
+			
+			# kick out focal different key
+			a=a[!get(different_key)==different_from]
+			
+			# kick out brands that were tagged
+			a=a[tag==0]
+			
+			if(nrow(a)==0) return(NULL)
+			
+			# calculate mean
+			tmp = a[, list(all_n = length(which(!is.na(get(x)))), tot_sum = sum(get(x), na.rm=T)), by=c('date', same_key, different_key)]
+			tmp[, xmean := (tot_sum)/(all_n)]
 		
+			tmp2 = eval(parse(text=paste0('dcast(tmp, date ~ ', different_key, ', value.var=\'xmean\')')))
+			tmp2[, (same_key) := same_as]
+			tmp2[, (different_key) := different_from]
+			tmp2[, variable_name := x]
+			
+			tmp2}), fill=T))
+			
+		out = rbindlist(out, fill=T)
 		
-		tmp2 = eval(parse(text=paste0('melt.data.table(dcast.data.table(tmp, date + ', same_key , ' + brand ~ ', different_key, ', value.var = c(\'xmean\')), id.vars=c(\'date\', \'', same_key, '\', \'brand\'))')))
+		setcolorder(out, c('date', same_key, different_key, 'variable_name', different_list))
 		
-		# -> this also means that all columns with NAs should be filled from (a), the mean without subtracting anything
-		setkeyv(tmp2, c('date', same_key, 'variable'))
-		setkeyv(a, c('date', same_key, different_key))
+		out2 = melt(out, id.vars=c('date',same_key,different_key, 'variable_name'))
+		out2[, iv_label := paste0('iv_', variable, '_', variable_name)]
+		#out2[, variable_name:=NULL]
+		#out2[, variable := NULL]
 		
-		tmp2[a, value_mean := i.tot_sum/i.all_n]
-		tmp2[is.na(value), value := value_mean]
-		tmp2[, variable_name := paste0('iv_', variable, '_', x)]
-		res = tmp2[, c('date', same_key, 'brand', 'variable_name', 'value'),with=F]
-		#dcast.data.table(tmp2, date + country + brand ~ variable_name, value.var = c('value'))
-		rm(a,b,tmp, tmp2)
-		return(res)
+		return(out2)
 		}
 
 	# (1) same mmix, same country, but DIFFERENT category type
-	ivs1 <- lapply(setup_x_iv, calc_ivs, same_key = 'country', different_key = 'cat_class')
+	ivs1 <- rbindlist(lapply(setup_x_iv, calc_ivs, same_key = 'country', different_key = 'cat_class', exclude_brands = T))
+	ivs1b = dcast.data.table(ivs1, date + country + cat_class ~ iv_label, value.var = c('value'))[order(country, cat_class,date)]
+		
 	# (2) same mmix, same category, but DIFFERENT country class
-	ivs2 <- lapply(setup_x_iv, calc_ivs, same_key = 'category', different_key = 'country_class')
-	
+	ivs2 <- rbindlist(lapply(setup_x_iv, calc_ivs, same_key = 'category', different_key = 'country_class', exclude_brands = T))
+	ivs2b = dcast.data.table(ivs2, date + category + country_class ~ iv_label, value.var = c('value'))[order(category, country_class,date)]
 
-	ivs1b = dcast.data.table(rbindlist(ivs1), date + country + brand ~ variable_name, value.var = c('value'))
-	ivs2b = dcast.data.table(rbindlist(ivs2), date + category + brand ~ variable_name, value.var = c('value'))
-	
 	# merge to panel
-	brand_panel <- merge(brand_panel, ivs1b, by = c('date', 'country', 'brand'), all.x=T)
-	brand_panel <- merge(brand_panel, ivs2b, by = c('date', 'category', 'brand'), all.x=T)
+	brand_panel <- merge(brand_panel, ivs1b, by = c('date', 'country', 'cat_class'), all.x=T)
+	brand_panel <- merge(brand_panel, ivs2b, by = c('date', 'category', 'country_class'), all.x=T)
 	
 	setorder(brand_panel, category, country, brand, date)
 	
-	# set own values of IVs in a category / country to NAs
-	for (var in grep('iv[_]', colnames(brand_panel), value=T)) {
-		cat(paste(var, '...\n'))
-		brand_panel[, to_be_replaced :=  grepl(paste0('[_]', unique(cat_class), '[_]|[_]', unique(country_class), '[_]'), var), by = c('category', 'country', 'brand')]
-		brand_panel[which(to_be_replaced), (var) := NA]
-		brand_panel[, to_be_replaced :=  NULL]
-		}
+	# DIAGNOSTICS
+	tmp=dcast(ivs1[, list(obs=length(unique(date[!is.na(value)]))), by = c('country', 'cat_class', 'variable')], country+cat_class~variable,value.var='obs')
+	obs=brand_panel[, list(all_obs=length(unique(date[!is.na(usales)]))), by = c('country', 'cat_class')]
+	setkey(tmp, country, cat_class)
+	setkey(obs, country, cat_class)
+	iv1_check=obs[tmp]
+	setorder(iv1_check, cat_class, country)
 	
+	tmp=dcast(ivs2[, list(obs=length(unique(date[!is.na(value)]))), by = c('country_class', 'category', 'variable')], category+country_class~variable,value.var='obs')
+	obs=brand_panel[, list(all_obs=length(unique(date[!is.na(usales)]))), by = c('country_class', 'category')]
+	setkey(tmp, country_class, category)
+	setkey(obs, country_class, category)
+	iv2_check=obs[tmp]
 	
+	sink('../audit/iv_computation.txt')
+	cat('CHECK: NUMBER OF OBSERVATIONS PER CATEGORY/COUNTRY (CLASSES) FOR EACH INSTRUMENT\n\n')
+	print(iv1_check)
+	cat('\n\n\n')
+	print(iv2_check)
+	sink()
 	
-	# Prediction procedure: do not apply UR tests in the first stage? On what system to run ivreg2?
-	
-	# - how to deal with local currencies? --> predict price using us-equivalent currencies
-
-	
-	# For the IV regression, I just include variables from other cat_classes.
-	# Issues to deal with: 
-		
-	# - how to deal with unit roots in first-stage IV decisions
-	#   o option 1: - do not take care of URs, predict level variable, and then diff the predictions in second stage if necessary
-	
-	#	o option 2: - check URs in predictor variables and outcome variable
-	#			    - predict diff or level.
-	# 				- when using it in second stage, apply appropriate transformations (e.g., logs)
-	
-	# - how to deal with standard errors if we do this in two stages?
-	
-	# Q's & to do's
-	# ======
-	
-	# - I also need to use all other "exogenous" variables that are part of the model, so... a trend, but nothing else
-	# - to what extent do I need to estimate the system at once, i.e., first stage AND second stage?
-	
-	
-	panel <- brand_panel[selected==T]
-	panel[, usalessh := usales/sum(usales,na.rm=T), by=c('category', 'country', 'date')]
-	panel[, month_no := as.numeric(as.factor(date))]
-	
-	#panel=panel[market_id==1]
-	# calculate %-differences in IV variables
-	#tmp=panel[, lapply(.SD, sd, na.rm=T), by = c('category','country','date'), .SDcols= grep('iv[_]', colnames(panel), value=T)]
-	
-	
-	fwrite(panel, '../temp/preclean.csv')
+	# Save file
+	fwrite(brand_panel, '../temp/preclean.csv')
 	
