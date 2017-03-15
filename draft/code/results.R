@@ -65,7 +65,7 @@ for (r in 1) {# seq(along=results)) {
 	}
 
 	}
-	
+
 
 ##################################################
 ##################################################
@@ -146,14 +146,42 @@ for (r in 1) {# seq(along=results)) {
 	elast[, cum_elast24 := sum(elast_mean[period>=2&period<=24+1], na.rm=T), by = c('sim_var', 'market_id', 'brand')]
 	elast[, cum_elast36 := sum(elast_mean[period>=2&period<=36+1], na.rm=T), by = c('sim_var', 'market_id', 'brand')]
 	
-	export <- elast[, list(st=mean(100*elast_mean[period==2]), lt12 = mean(cum_elast12*100), lt24 = mean(cum_elast24*100), lt36 = mean(cum_elast36*100), 
+	export <- elast[, list(st=mean(100*elast_mean[period==2]), cum12 = mean(cum_elast12*100), cum24 = mean(cum_elast24*100), cum36 = mean(cum_elast36*100), 
 								   perm12=mean(100*elast_mean[period==12+1]), perm24=mean(100*elast_mean[period==24+1]), perm36=mean(100*elast_mean[period==36+1])), by=c('market_id', 'category', 'country', 'brand', 'sim_var')]
 	
 	setkey(export, market_id, brand, sim_var)
 	export[ms_means, ':=' (st_empirical = i.empirical_st, st_z = i.z)]
 	
-	
 	write.table(export, file = '../output/elasticities.csv', row.names=F, sep=';')
+	
+	
+	# Provide some summaries here
+	export[, correct_sign := 1]
+	export[sim_var == 'price', correct_sign := -1]
+	
+	# parameter significance
+	export[, list(expected_sign = ifelse(unique(correct_sign)==1, "+", "-"),n=.N, n_correct = length(which((st_empirical*correct_sign>0 & abs(st_z) >= 1.69)))/.N,
+				  n_ns = length(which(abs(st_z) < 1.69))/.N,
+				  n_wrong = length(which((st_empirical*correct_sign<=0 & abs(st_z) >= 1.69)))/.N), by = c('sim_var')]
+				  
+				  
+	export[, lapply(.SD, median), by = c('sim_var'), .SDcols = c('st', 'cum12', 'cum24', 'cum36', 'perm12', 'perm24', 'perm36')]
+	
+	tmp = export[, lapply(.SD, median), by = c('sim_var', 'country'), .SDcols = c('st', 'cum12', 'cum24', 'cum36', 'perm12', 'perm24', 'perm36')]
+	setorder(tmp, sim_var, country)
+	
+	tmp = export[, lapply(.SD, median), by = c('sim_var', 'category'), .SDcols = c('st', 'cum12', 'cum24', 'cum36', 'perm12', 'perm24', 'perm36')]
+	setorder(tmp, sim_var, category)
+	
+	
+	
+	tmp[sim_var=='price']
+	
+	by(tmp[,-c(1:2), with=F], tmp$sim_var, function(x) apply(x, 2, median))
+	
+	
+	dcast(tmp[sim_var=='price'], country ~ sim_var)
+	
 	
 
 	# Plot elasticities by market

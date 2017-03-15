@@ -45,10 +45,7 @@ set matsize 1000
 
 *****
 import delimited ../temp/tmp_ivs.csv
-tset period
 
-ivreg2 y acer_llen acer_nov3 acer_lagunitsales_sh allothers1_llen allothers1_nov3 allothers1_lagunitsales_sh ///
-		(d.acer_rwpspr = instriv_cam_rwpsprd instriv_cam_wpswdst instriv_ph_rwpsprd instriv_ph_wpswdst instriv_tvdvd_rwpsprd instriv_tvdvd_wpswdst instriv_wte_rwpsprd instriv_wte_wpswdst instriv_linc_rwpsprd instriv_linc_wpswdst), sfirst 
 
 
 
@@ -58,14 +55,41 @@ ivreg2 y acer_llen acer_nov3 acer_lagunitsales_sh allothers1_llen allothers1_nov
 ************************
 ***** DESCRIPTIVES *****
 ************************
+	ivreg2 y acer_llen acer_nov3 acer_lagunitsales_sh allothers1_llen allothers1_nov3 allothers1_lagunitsales_sh ///
+		   (acer_rwpspr acer_wpswdst allothers1_rwpspr allothers1_wpswdst = instr*), sfirst
 
-use ../temp/preclean, replace
+matrix A = e(first)
+
+* add sargan test stats
+// get original row names of matrix (and row count)
+local rownames : rowfullnames A
+local c : word count `rownames'
+
+// get original column names of matrix and substitute out _cons
+local names : colfullnames A
+local newnames : subinstr local names "_cons" "cons", word
+
+// rename columns of matrix
+matrix colnames A = `newnames'
+
+// convert to dataset
+clear
+svmat A, names(col)
+
+// add matrix row names to dataset
+gen rownames = ""
+forvalues i = 1/`c' {
+    replace rownames = "`:word `i' of `rownames''" in `i'
+}
+
+* add predicted values
 
 
 
+tset period
 
-
-
+	ivreg2 y acer_llen acer_nov3 acer_lagunitsales_sh allothers1_llen allothers1_nov3 allothers1_lagunitsales_sh ///
+		   (acer_rwpspr acer_wpswdst allothers1_rwpspr allothers1_wpswdst = d.instriv_cam_rwpsprd d.instriv_cam_wpswdst d.instriv_ph_rwpsprd d.instriv_ph_wpswdst d.instriv_tvdvd_rwpsprd d.instriv_tvdvd_wpswdst d.instriv_wte_rwpsprd d.instriv_wte_wpswdst d.instriv_linc_rwpsprd d.instriv_linc_wpswdst), sfirst
 
 
 

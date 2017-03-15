@@ -10,15 +10,14 @@ OUTPUT_DIR = ../output
 
 ###### BUILD COMMANDS ######
 
-import: $(TEMP_DIR)/preclean.dta
+import: $(TEMP_DIR)/preclean.csv
 
 ###### DATA ANALYSIS ######
 
-# Perform matching
-$(TEMP_DIR)/preclean.dta: import.do $(TEMP_DIR)/preclean.csv
-	$(STATABIN) /e do import.do
+# Compute instruments
+$(TEMP_DIR)/preclean.csv: compute_ivs.R
+	"$(RBIN64)Rterm.exe" --vanilla --args "" < "compute_ivs.R"
 
-
-# analyze data
-run : analysis.R proc_analysis.R proc_sur.R
-	"$(RBIN64)Rterm.exe" --vanilla --args "" < "analysis.R"
+# xxxxx
+#$(TEMP_DIR)/preclean.dta: import.do $(TEMP_DIR)/preclean.csv
+#	$(STATABIN) /e do import.do
