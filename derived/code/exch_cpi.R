@@ -111,5 +111,8 @@ raw_indicators<-rbindlist(indicators)
 
 	indicators[, countrycode:=NULL]
 
+	# normalize CPIs (1 = value on 2004-01-01)
+	indicators[type=='cpi', value := value/value[date=='2004-01-01'], by = c('country')]
+		
 # save
 	save(indicators, file='..\\temp\\exch_cpi.RData')
