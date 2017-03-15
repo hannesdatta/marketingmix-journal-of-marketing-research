@@ -33,7 +33,7 @@ require(data.table)
 	brand_panel[brand=='allothers', brand := paste0('allothers', .GRP), by = c('category', 'country')]
 	
 # Compute instrumental variables
-	setup_x_iv=c("wpsprd", "wpswdst", "llen", "nov3", "wpsun")
+	setup_x_iv=c("rwpsprd", "wpswdst", "llen", "nov3", "wpsun")
 	
 	# (1) same marketing instrument, but from other PRODUCT CLASSES in the same country (but not from the same brand)
 	
@@ -139,14 +139,14 @@ require(data.table)
 	setkey(tmp, country_class, category)
 	setkey(obs, country_class, category)
 	iv2_check=obs[tmp]
-	
+
 	sink('../audit/iv_computation.txt')
 	cat('CHECK: NUMBER OF OBSERVATIONS PER CATEGORY/COUNTRY (CLASSES) FOR EACH INSTRUMENT\n\n')
 	print(iv1_check)
 	cat('\n\n\n')
 	print(iv2_check)
 	sink()
-	
+
 	# Save file
 	fwrite(brand_panel, '../temp/preclean.csv')
 	
