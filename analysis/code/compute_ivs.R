@@ -62,6 +62,11 @@ require(data.table)
 	# Per marketing instrument, we have 4 instruments from non-focal product classes, and 1 instrument from non-focal country classes (= 5 instruments).
 	# So for four mmix, we have a total of 20 instruments. The model is thus overidentified. Plus we have enough observations to estimate this.
 	
+	# normalize instruments (dividing by grand mean in a country/category)
+	for (.var in setup_x_iv) {
+		brand_panel[, paste0('mc', .var) := get(.var)/mean(get(.var), na.rm=T), by = c('category', 'country')]
+		}
+	
 	# create instruments
 	calc_ivs <- function(x, same_key, different_key, exclude_brands = F) {		
 		cat(paste0('Calculating instruments for ', x,', with same ', same_key, ' and different ', different_key, ', exclude = ', as.character(exclude_brands), '...\n'))
@@ -113,11 +118,13 @@ require(data.table)
 		}
 
 	# (1) same mmix, same country, but DIFFERENT category type
-	ivs1 <- rbindlist(lapply(setup_x_iv, calc_ivs, same_key = 'country', different_key = 'cat_class', exclude_brands = T))
+	mcsetup_x_iv = paste0('mc', setup_x_iv)
+	
+	ivs1 <- rbindlist(lapply(mcsetup_x_iv, calc_ivs, same_key = 'country', different_key = 'cat_class', exclude_brands = T))
 	ivs1b = dcast.data.table(ivs1, date + country + cat_class ~ iv_label, value.var = c('value'))[order(country, cat_class,date)]
 		
 	# (2) same mmix, same category, but DIFFERENT country class
-	ivs2 <- rbindlist(lapply(setup_x_iv, calc_ivs, same_key = 'category', different_key = 'country_class', exclude_brands = T))
+	ivs2 <- rbindlist(lapply(mcsetup_x_iv, calc_ivs, same_key = 'category', different_key = 'country_class', exclude_brands = T))
 	ivs2b = dcast.data.table(ivs2, date + category + country_class ~ iv_label, value.var = c('value'))[order(category, country_class,date)]
 
 	# merge to panel
