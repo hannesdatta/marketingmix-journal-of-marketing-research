@@ -196,7 +196,7 @@ for (i in 1:length(all_data)) {
 			paneldata = all_data[[i]]$data[[j]]
 		
 		# Correct monetary variables with a country's CPI
-			paneldata[, ':=' (rvsales = vsales/cpi, rwspr = wspr/cpi, rwpspr = wpspr/cpi)]
+			paneldata[, ':=' (rvsales = vsales/cpi, rwspr = wspr/cpi, rwpspr = wpspr/cpi, rwsprd = wsprd/cpi, rwpsprd = wpsprd/cpi)]
 		
 		# Investigate which part of the data set is complete and can be used for model estimation
 			tmp <- split(paneldata, as.character(paneldata$brand))
