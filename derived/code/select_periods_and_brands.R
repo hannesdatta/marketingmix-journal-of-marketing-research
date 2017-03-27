@@ -71,61 +71,59 @@
 ####################
 
 	dat[, year := year(date)]
-	tmp_brands <- dat[which(selected_t==T), list(brand_sales = sum(t_sales_units), time_periods = length(unique(date))), by=c('category','country','brand','year')]
-	tmp_brands[, marketshare :=  brand_sales / sum(brand_sales), by=c('category','country','year')]
 	
-	setorderv(tmp_brands, c('category', 'country','year', 'brand_sales'),order=-1)
-	tmp_brands[, sales_rank:=1:(.N),by=c('category', 'country', 'year')]
-	
-
-	# selection criteria: all brands for three consecutive years (at least 5*12 months), with at least 1% market share in three consec. years
+	# selection criteria: all brands with at least X% market share in X consec. years (at X*12 months)
 	top_n = 1E6
 	top_min_marketshare = .01 
 	consec_years = 5
 	
-	tmp_brands[, top_n_TRUE := sales_rank%in%(1:top_n) & marketshare >= top_min_marketshare, by=c('category', 'country', 'year')]
-	
-	tmp_brands[, consec_obs_TRUE := as.numeric(0)]
-	setorder(tmp_brands, category, country, brand, year)
-	tmp_brands[which(top_n_TRUE==T), consec_obs_TRUE := c(diff(year),1), by=c('category','country','brand')]
-		# checks whether there are at least three consecutive years with a top position in the data
-	
-	tmp_brands[, selected_brand := sum(consec_obs_TRUE)>=consec_years & sum(time_periods[consec_obs_TRUE==1])>=consec_years*12,by=c('category','country','brand')]
-	tmp_brands[is.na(selected_brand), selected_brand:=F]
-	
-	setorderv(tmp_brands, c('category', 'country','brand'))
-	
-	tmp=tmp_brands[, list(marketshare=sum(brand_sales[which(selected_brand==T)])/sum(brand_sales), n_brands=length(unique(brand[which(selected_brand==T)]))), by=c('category','country')]
-	setorder(tmp, marketshare)
-	tmp
-	
-	#test=tmp_brands[category=='tv_gen1_crtv'&country=='JAPAN']
-	#setorder(test,year,brand)
-	
-	
-	# How many of the brands which are selected are still in the top 7 at the end of the sample
-	{
-	cat(paste0('\nSelection rule: All brands which are in the top ', top_n,' for at least ', consec_years, ' consecutive years\n====================================================================================\n\n'))
-	cat(paste0('Number of markets: ', nrow(tmp),'\n'))
-	cat(paste0('Number of selected markets: ', nrow(tmp[n_brands>0]),'\n'))
-	#cat(paste0('Number of brands in total: ', ,'\n'))
-	cat(paste0('Number of selected brands: ', sum(tmp[n_brands>0]$n_brands),'\n'))
-	cat('\n')
-	cat(paste0('Market share coverage in selection (1 = 100%):\n'))
-	print(summary(tmp[n_brands>0]$marketshare))
-	cat(paste0('Distribution of number of selected brands across all categories:'))
-	print(table(tmp[n_brands>0]$n_brands))
-	cat(paste0('Summary of number of selected brands across all categories:'))
-	print(summary(tmp[n_brands>0]$n_brands))
-	
-	#cat(paste0('\nNumber (percentage) of brands still in top 7 in the last two years of the data set: ', nrow(tmp_brands[selected==T & rank_recent %in% 1:7]),'\n'))
-	#cat(paste0('...in %: ', nrow(tmp_brands[selected==T & rank_recent %in% 1:topb])/nrow(tmp_brands[selected==T]),'\n'))
-	}
+	for (brand_id in c('brand', 'brand_rename')) {
+		print(brand_id)
+		# first run: apply selection rule on all individual brands
+		# second run: re-apply selection rule, treating minor brands (as determined in step 1) as a composite "allothers" brand
+		
+		# select observations and time periods with observations
+		tmp_brands <- dat[which(selected_t==T), list(brand_sales = sum(t_sales_units), time_periods = length(unique(date))), by=c('category','country',brand_id,'year')]
+		tmp_brands[, marketshare :=  brand_sales / sum(brand_sales), by=c('category','country','year')]
+		setorderv(tmp_brands, c('category', 'country','year', 'brand_sales'),order=-1)
+		tmp_brands[, sales_rank:=1:(.N),by=c('category', 'country', 'year')]
+		
+		# determine rank of a brand
+		tmp_brands[, top_n_TRUE := sales_rank <= top_n & marketshare >= top_min_marketshare, by=c('category', 'country', 'year')]
 
-	brand_selection <- tmp_brands[, list(selected_brand = any(selected_brand)), by=c('category','country','brand')]
-	#setnames(brand_selection,'brand','brand_orig')
-	brand_selection[which(selected_brand==F), brand_rename:='ALLOTHERS']
-	brand_selection[which(!selected_brand==F), brand_rename:=brand]
+		# checks whether there are at least X consecutive years with a top position in the data
+		tmp_brands[, consec_obs_TRUE := as.numeric(0)]
+		setorderv(tmp_brands, c('category', 'country', brand_id, 'year'))
+		tmp_brands[which(top_n_TRUE==T), consec_obs_TRUE := c(diff(year),1), by=c('category','country',brand_id)]
+
+		# select brands that fulfill all required conditions
+		tmp_brands[, selected_brand := sum(consec_obs_TRUE)>=consec_years & sum(time_periods[consec_obs_TRUE==1])>=consec_years*12,by=c('category','country',brand_id)]
+		tmp_brands[is.na(selected_brand), selected_brand:=F]
+		setorderv(tmp_brands, c('category', 'country',brand_id))
+		
+		if (brand_id == 'brand') {
+			# rename "non-selected brands" as composite "allothers"
+			tmp_brands[which(selected_brand==F), brand_rename:='ALLOTHERS']
+			tmp_brands[which(selected_brand==T), brand_rename:=brand]
+			setkey(tmp_brands, category, country, brand)
+			# merge recoded name with dat
+			setkey(dat, category, country, brand)
+			tmp_brands_select = tmp_brands
+			dat[tmp_brands, brand_rename := i.brand_rename]
+			}
+		
+		if (brand_id == 'brand_rename') {
+			others = tmp_brands[brand_rename == 'ALLOTHERS']
+			}
+		}
+	
+	setkey(tmp_brands_select, category, country, brand_rename, year)
+	setkey(others, category, country, brand_rename, year)
+	
+	tmp_brands_select[others, selected_brand := i.selected_brand]
+	
+	# determine final brand selection
+	brand_selection <- tmp_brands_select[, list(selected_brand = any(selected_brand)), by=c('category','country','brand', 'brand_rename')]
 	setkey(brand_selection,category,country,brand)
 	
 	# I have to put in the time periods of modeling, too!
@@ -134,10 +132,58 @@
 	
 	save(brand_selection, time_selection, file='..//temp//select_periods_and_brands.RData')
 
+	##########
+	# report #
+	##########
+	
+	tmp=tmp_brands_select[, list(marketshare_tot=sum(brand_sales[which(selected_brand==T)])/sum(brand_sales),
+								 marketshare_brands=sum(brand_sales[which(selected_brand==T & !brand_rename == 'ALLOTHERS')])/sum(brand_sales),
+							     n_brands=length(unique(brand_rename[which(selected_brand==T & !brand_rename == 'ALLOTHERS')])),
+								 n_brands_compos=length(unique(brand[which(selected_brand==T & brand_rename == 'ALLOTHERS')])),
+								 n_brands_exclud=length(unique(brand[which(selected_brand==F)]))
+								 ), by=c('category','country')]
+	setorder(tmp, marketshare)
+	tmp
+	
+	
+	# How many of the brands which are selected are still in the top 7 at the end of the sample
+	{
+	cat(paste0('\nSelection rule: All brands which are in the top ', top_n,' for at least ', consec_years, ' consecutive years\n====================================================================================\n\n'))
+	cat(paste0('Number of markets: ', nrow(tmp),'\n'))
+	cat(paste0('Number of selected markets: ', nrow(tmp[marketshare_tot>0]),'\n'))
+	
+	#cat(paste0('Number of brands in total: ', ,'\n'))
+	cat(paste0('Number of selected individual brands: ', sum(tmp[marketshare_tot>0]$n_brands),'\n'))
+	cat(paste0('Number of selected composite brands: ', nrow(tmp[marketshare_tot>0 & n_brands_compos>0]),'\n'))
+	cat(paste0('Number of excluded composite brands: ', nrow(tmp[marketshare_tot>0 & n_brands_compos==0]),'\n'))
+	cat('\n')
+	
+	cat(paste0('Market share coverage for individual brands (1 = 100%):\n'))
+	print(summary(tmp[marketshare_tot>0]$marketshare_brands))
+	cat('\n')
+	
+	cat(paste0('Market share coverage for all included brands, including the composite brand (1 = 100%):\n'))
+	print(summary(tmp[marketshare_tot>0]$marketshare_tot))
+	
+	cat(paste0('Distribution of number of selected brands across all categories (excluding composite brand):'))
+	print(table(tmp[marketshare_tot>0]$n_brands))
+	cat('\n')
+	
+	cat(paste0('Summary of number of selected brands across all categories:'))
+	print(summary(tmp[marketshare_tot>0]$n_brands))
+	cat('\n')
+	
+	cat('Excluded markets:\n')
+	for (i in 1:nrow(tmp[marketshare_tot==0])) {
+		with(tmp[marketshare_tot==0][i,], cat(paste0(category, ' - ', country, '\n')))
+		}
+	}
 
-#######################
-# Plot market cutoffs #
-#######################
+
+
+#############################################################################################
+# Plot market cutoffs (i.e., which periods are selected, compared to overall category sales #
+#############################################################################################
 	
 if(0){	
 	# overview
