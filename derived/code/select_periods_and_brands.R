@@ -14,24 +14,20 @@
 # (b) which brands will be included in this study
 
 # Rules: 
-# (a) We select the first (last) month in which category sales are higher than 5% of the maximum sales in any given month.
-# (b) We select all brands that are in the top five for three consecutive years (36 months).
-#     All remaining brands are modeled as a composite "other" brand.
+# (a) We select the first (last) month in which category sales are higher than x% of the maximum sales in any given month.
+# (b) We select all brands that are in the top x (1, 2, 3, 4, 5...) for x consecutive years (in months).
+#     All remaining brands are modeled as a composite "allothers" brand.
 
-
-#For each of these categories, the top three
-#brands are considered, provided they obtain an average
-#share of at least 5% over the sampling period.
-
-#-->
-#For each of these categories, the top five
-#brands are considered, provided they obtain an average
-#share of at least 5% in three consecutive years.
+# "For each of these categories, the top X brands are considered, provided they obtain an average
+# share of at least x% in x consecutive years."
 
 
 
-load('..\\temp\\uniqueness_and_lagsales.RData')
-require(data.table)
+# Load data
+	load('..\\temp\\uniqueness_and_lagsales.RData')
+
+# Load packages
+	require(data.table)
 	
 # Apply category names
 	for (i in 1:length(skus_by_date_list)) {
