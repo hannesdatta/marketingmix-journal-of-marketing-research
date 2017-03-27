@@ -246,13 +246,21 @@ for (i in 1:length(all_data)) {
 			cnt_market = cnt_market + 1
 			
 			# check whether there are at least 36 observations per brand; otherwise, set selected_t_brand
+			# note hannes: this seems odd; given that we already pre-selected on these brands. let's deactivate it for the moment.
+			
+			.zoo[which(!is.na(usales) & selected_t_brand==T & ifelse(is.na(selected_t_cat),F,selected_t_cat)==T), selected:=T, by=c('category', 'country', 'brand')]
+			.zoo[is.na(selected), selected:=F, by=c('category', 'country', 'brand')]
+			
+			if(0){
 			min_t = .zoo[which(!is.na(usales) & selected_t_brand==T & ifelse(is.na(selected_t_cat),F,selected_t_cat)==T), list(n_periods = .N), by=c('category','country', 'brand')]
 			.zoo[which(!is.na(usales) & selected_t_brand==T & ifelse(is.na(selected_t_cat),F,selected_t_cat)==T), selected:=T, by=c('category', 'country', 'brand')]
 			.zoo[is.na(selected), selected:=F, by=c('category', 'country', 'brand')]
 			setkey(min_t, category, country, brand)
 			setkey(.zoo, category, country, brand)
 			.zoo[min_t, min_t := i.n_periods]
-			.zoo[which(min_t<36), selected:=F]
+			.zoo[which(min_t<5*12), selected:=F]
+			}
+			
 			}
 		all_data[[i]]$data_cleaned[[j]] <- .zoo
 		}
