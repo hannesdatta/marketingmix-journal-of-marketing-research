@@ -245,7 +245,7 @@ for (i in 1:length(all_data)) {
 			cnt_brand = cnt_brand+length(unique(.zoo$brand))
 			cnt_market = cnt_market + 1
 			
-			.zoo[which(!is.na(usales) & selected_t_brand==T & ifelse(is.na(selected_t_cat),F,selected_t_cat)==T), selected:=T, by=c('category', 'country', 'brand')]
+			.zoo[which(!is.na(usales) & selected_t_brand==T & !selected_t_cat %in% c(NA, F)), selected:=T, by=c('category', 'country', 'brand')]
 			.zoo[is.na(selected), selected:=F, by=c('category', 'country', 'brand')]
 			
 			}
