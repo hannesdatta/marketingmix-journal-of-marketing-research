@@ -145,11 +145,12 @@ for (i in 1:length(skus_by_date_list)) {
 			for (.var in reset_zero) {
 				eval(parse(text=paste0('dframe[which(', .var,'<=0), ', .var, ':=NA]')))
 				}
+			
 			# set sales columns to NA if they are below 0.
-			for (.var in c('usales', 'vsales', 'vsalesd')) {
+			for (.var in c('usales', 'vsales', 'vsalesd', 'wswdst', 'wpswdst')) {
 				eval(parse(text=paste0('dframe[, ', .var, ' := ifelse(', .var, '<0, NA, ', .var,')]')))
 				}
-				
+											
 			# interpolate variables
 			dframe_interp<-cbind(dframe[, c('date', 'category','selected_t'),with=F], 
 								 dframe[, lapply(.SD, nafill),by=c('country','brand'),.SDcols=interp_cols])

@@ -56,9 +56,6 @@ for (i in 1:length(datlist_final)) {
 											 t_wdist = sum(sales_units*weighted_distribution)/sum(sales_units)), 
 											 by=c('category', 'country', 'brand', 'model', 'date')]
 	
-	# if weighted distribution is less than 0, set it to NA.
-	skus_by_date[t_wdist<0, t_wdist:=NA]
-	
 	# If a product is not sold, kick it out from this list
 	skus_by_date <- skus_by_date[!t_sales_units==0]
 	

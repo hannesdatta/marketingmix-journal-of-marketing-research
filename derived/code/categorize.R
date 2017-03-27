@@ -336,5 +336,4 @@ for (i in 1:length(datlist_final)) {
 				
 	}
 
-
 save(datlist_final, file='..\\temp\\categorized.RData')
