@@ -49,6 +49,7 @@ require(RStata)
 	
 		### Set STATA 14 Path
 		options("RStata.StataPath"="\"C:\\Program Files (x86)\\Stata14\\StataSE-64\"")
+		options("RStata.StataPath"="\"C:\\Program Files (x86)\\Stata14\\Stata14\\StataSE-64\"")
 		options("RStata.StataVersion"=14)
 
 	### Analysis script
@@ -68,7 +69,7 @@ try(detach(m1), silent=T)
 # Specify models
 m1 <- list(setup_y=c(usalessh = 'usalessh'),
 		   setup_x=c(price = 'rwpspr', dist = 'wpswdst', llen = 'llen', nov = 'nov3'),
-		   setup_endogenous=c(price = 'iv[_].*rwpsprd', dist = 'iv[_].*wpswdst', llen = 'iv[_].*llen', nov = 'iv[_].*nov3'),
+		   setup_endogenous=c(price = 'iv[_].*mcrwpsprd', dist = 'iv[_].*mcwpswdst', llen = 'iv[_].*mcllen', nov = 'iv[_].*mcnov3'),
 		   trend='ur', # choose from: all, ur, none.
 		   pval = .05,
 		   max.lag = 12, 
@@ -101,7 +102,7 @@ attach(m1)
 	analysis_markets <- unique(markets$market_id)
 	
 	last.item = length(analysis_markets)
-#	last.item = 10
+	last.item = 10
 
 # deactivate the rest
 	# not on cluster
