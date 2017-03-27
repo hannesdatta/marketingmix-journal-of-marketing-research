@@ -20,16 +20,13 @@
 # Purpose: Assess required non-normality of marketing mix instruments for the application of Gaussian Copula correction terms
 
 
-### LOAD DATA SETS
-require(data.table)
-
 ### Load packages
+	require(data.table)
+	require(bit64)
 	require(parallel)
-	require(fUnitRoots)
-	require(marketingtools)
 	
 ### Setup cluster environment
-	ncpu = 10
+	ncpu = 4 #10
 
 # Initialize cluster
 	init <- function() {
@@ -55,10 +52,9 @@ require(data.table)
 	void<-clusterEvalQ(cl, require(data.table))
 		
 # Retrieve variables for testing
-	dt=melt(brand_panel[selected_t_brand==T, !colnames(brand_panel)%in%c('selected_t_brand', 'selected_t_cat', 'selected'),with=F], id.vars=c('country', 'brand', 'date', 'category', 'market_id'))
-	
-	# retain only necessary variables
-	dt=dt[variable%in%c('rwpspr', 'wpswdst', 'llen', 'nov3', 'wpsun')]
+	keys = c('category', 'country', 'brand', 'market_id', 'date')
+	testvars = c('rwpspr', 'wpswdst', 'llen', 'nov3', 'wpsun')
+	dt=melt(brand_panel[, colnames(brand_panel)%in%c(keys,testvars),with=F], id.vars=keys)
 	
 	# apply (log) transformations
 	dt[variable=='rwpspr', lvalue:=log(value)]
@@ -101,8 +97,6 @@ require(data.table)
 	dt[ur_log==1, transfvalue_log := makediff(lvalue), by=c('market_id', 'category', 'country', 'brand', 'variable')]
 	dt[ur_log==0, transfvalue_log := lvalue, by=c('market_id', 'category', 'country', 'brand', 'variable')]
 	
-	dt <- dt[!is.na(transfvalue)]
-	
 # Conduct Shapiro-Wilk tests on levels and differenced series
 	# non-logs
 	dt[!is.na(transfvalue_nonlog), shapiro_p_diff_nonlog := shapiro.test(transfvalue_nonlog)$p, by=c('market_id', 'category', 'country', 'brand', 'variable')]
@@ -112,33 +106,24 @@ require(data.table)
 	dt[!is.na(transfvalue_log), shapiro_p_diff_log := shapiro.test(transfvalue_log)$p, by=c('market_id', 'category', 'country', 'brand', 'variable')]
 	dt[!is.na(value), shapiro_p_lev_log := shapiro.test(lvalue)$p, by=c('market_id', 'category', 'country', 'brand', 'variable')]
 
-# Summarize results
-	summ <- dt[, lapply(.SD, function(x) unique(x[!is.na(x)])), by = c('market_id', 'category', 'country', 'brand', 'variable'), .SDcols=c('ur_nonlog', 'ur_log', grep('shapiro_p', colnames(dt), value=T))]
-	setnames(summ, 'variable', 'regressor')
-	summ <- melt(summ, id.vars=c('market_id','category','country','brand','regressor','ur_nonlog', 'ur_log'))
+# Summarize test outcomes
+	tmp <- dt[, lapply(.SD, function(x) unique(x[!is.na(x)])), by = c('market_id', 'category', 'country', 'brand', 'variable'), .SDcols=c('ur_nonlog', 'ur_log', grep('shapiro_p', colnames(dt), value=T))]
+	setnames(tmp, 'variable', 'regressor')
+	summ <- melt(tmp, id.vars=c('market_id','category','country','brand','regressor','ur_nonlog', 'ur_log'))
+	rm(tmp)
 	
 # Summarize test outcomes
-	# non-logs
-	summ[grepl('_nonlog', variable), list(length(which(value<.1))/.N), by = c('ur_nonlog', 'variable')]
-	
-	
-# Number of true (= non-normal) test outcomes
-	table(summ$shapiro_p_lev<.10)
-	table(summ$shapiro_p_diff<.10)
-	table(summ2$shapiro_p<.10)
+	for (i in c('_nonlog', '_log')) {
+		cat(paste0('\n\n\nSummary statistics on non-normality for ', i, '-variables:
+		=======================================================================\n\n'))
+		
+		cat('\n(1) across all variables:\n')
+		print(summ[grepl(i, variable), list(N_brands=.N, perc_nonnormal=length(which(value<.1))/.N), by='variable'])
+		
+		cat('\n(2) across all variables by unit root test outcome:\n')
+		print(summ[grepl(i, variable), list(N_brands=.N, perc_nonnormal=length(which(value<.1))/.N), by=c(paste0('ur', i), 'variable')])
 
-# Share of non-normally distributed variables
-	length(which(summ$shapiro_p_lev<.10))/length(summ$shapiro_p_lev)
-	length(which(summ$shapiro_p_diff<.10))/length(summ$shapiro_p_diff)
-
-# Test outcomes by variable and unit root outcome
-	resdt = summ[, list(length(which(shapiro_p_diff<.10))/.N),  by = c('ur', 'variable')]
-	dcast(resdt, variable ~  ur)
-
-	resdt = summ[, list(length(which(shapiro_p_lev<.10))/.N),  by = c('ur', 'variable')]
-	dcast(resdt, variable ~  ur)
-	
-# How many brands
-	nrow(dt[, list(.N), by = c('brand', 'market_id' )])
-
-	
+		cat('\n(3) across all variables by variable:\n')
+		print(summ[grepl(i, variable), list(N_brands=.N, perc_nonnormal=length(which(value<.1))/.N), by=c('regressor', 'variable')])
+		}
+		
