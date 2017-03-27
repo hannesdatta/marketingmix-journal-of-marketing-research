@@ -142,9 +142,8 @@
 								 n_brands_compos=length(unique(brand[which(selected_brand==T & brand_rename == 'ALLOTHERS')])),
 								 n_brands_exclud=length(unique(brand[which(selected_brand==F)]))
 								 ), by=c('category','country')]
-	setorder(tmp, marketshare)
+	setorder(tmp, marketshare_tot)
 	tmp
-	
 	
 	# How many of the brands which are selected are still in the top 7 at the end of the sample
 	{
