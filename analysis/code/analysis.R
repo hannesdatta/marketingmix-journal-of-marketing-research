@@ -28,7 +28,6 @@ require(RStata)
 	brand_panel=fread('../temp/preclean.csv')
 	brand_panel[, ':=' (date = as.Date(date))]
 
-
 ### Load additional packages
 	require(parallel)
 	#require(fUnitRoots)

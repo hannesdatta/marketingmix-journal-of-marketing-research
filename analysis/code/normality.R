@@ -45,9 +45,9 @@ require(data.table)
 	init()
 	
 ### Import data
-	brand_panel=fread('..\\..\\derived\\output\\datasets.csv')
+	brand_panel=fread('..\\temp\\preclean.csv')
 	brand_panel[, ':=' (date = as.Date(date))]
-
+	
 # Start cluster
 	cl<-makePSOCKcluster(ncpu)
 	clusterExport(cl,c('brand_panel', 'init'))

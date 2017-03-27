@@ -15,8 +15,8 @@ import: $(TEMP_DIR)/preclean.csv
 ###### DATA ANALYSIS ######
 
 # Compute instruments
-$(TEMP_DIR)/preclean.csv: compute_ivs.R ../external/datasets.csv
-	"$(RBIN64)Rterm.exe" --vanilla --args "" < "compute_ivs.R"
+$(TEMP_DIR)/preclean.csv: preclean.R ../external/datasets.csv
+	"$(RBIN64)Rterm.exe" --vanilla --args "" < "preclean.R"
 
 # xxxxx
 #$(TEMP_DIR)/preclean.dta: import.do $(TEMP_DIR)/preclean.csv

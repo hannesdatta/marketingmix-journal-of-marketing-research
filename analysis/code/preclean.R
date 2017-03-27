@@ -17,17 +17,18 @@
 # | |_______________| ||___|| 
 # |___________________|_____|
 
-
+# Purpose: Preclean data
 
 ### LOAD DATA SETS
 require(data.table)
 
 ### Stack data in data.table
-	brand_panel=fread('../external/datasets.csv')
+	brand_panel=fread('../../derived/output/datasets.csv')
 	brand_panel[, ':=' (date = as.Date(date))]
-
 	brand_panel <- brand_panel[selected==T]
+	
 	brand_panel[, usalessh := usales/sum(usales,na.rm=T), by=c('category', 'country', 'date')]
+	brand_panel[, vsalessh := vsales/sum(vsales,na.rm=T), by=c('category', 'country', 'date')]
 	brand_panel[, month_no := as.numeric(as.factor(date))]
 
 	brand_panel[brand=='allothers', brand := paste0('allothers', .GRP), by = c('category', 'country')]
