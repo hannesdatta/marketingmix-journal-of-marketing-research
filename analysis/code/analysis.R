@@ -22,7 +22,7 @@
 ### LOAD DATA SETS
 require(data.table)
 require(bit64)
-require(RStata)
+#require(RStata)
 
 ### Stack data in data.table
 	brand_panel=fread('../temp/preclean.csv')
@@ -34,7 +34,7 @@ require(RStata)
 	#require(marketingtools)
 	
 	# load marketing tools
-	sapply(list.files('d:\\DATTA\\Dropbox\\Tilburg\\Projects\\marketingtools\\R\\', full.names=T), source)
+	#sapply(list.files('d:\\DATTA\\Dropbox\\Tilburg\\Projects\\marketingtools\\R\\', full.names=T), source)
 	
 
 ### Setup cluster environment
@@ -47,29 +47,37 @@ require(RStata)
 		min.t <<- 36
 	
 		### Set STATA 14 Path
-		options("RStata.StataPath"="\"C:\\Program Files (x86)\\Stata14\\StataSE-64\"")
-		options("RStata.StataPath"="\"C:\\Program Files (x86)\\Stata14\\Stata14\\StataSE-64\"")
-		options("RStata.StataVersion"=14)
+		#options("RStata.StataPath"="\"C:\\Program Files (x86)\\Stata14\\StataSE-64\"")
+		#options("RStata.StataPath"="\"C:\\Program Files (x86)\\Stata14\\Stata14\\StataSE-64\"")
+		#options("RStata.StataVersion"=14)
 
 	### Analysis script
 		source('proc_analysis.R')
-		#require(marketingtools)
-		sapply(list.files('d:\\DATTA\\Dropbox\\Tilburg\\Projects\\marketingtools\\R\\', full.names=T), source)
+		require(marketingtools)
+		#sapply(list.files('d:\\DATTA\\Dropbox\\Tilburg\\Projects\\marketingtools\\R\\', full.names=T), source)
 	
 	}
 	
-	#init()
+	init()
 
-brand_panel[, wpswdst := wpswdst+1]
-brand_panel[, nov3 := nov3+1]
+#brand_panel[, wpswdst := wpswdst+1]
+#brand_panel[, nov3 := nov3+1]
 
-try(detach(m1), silent=T)
+# Model: MCI or MNL
+# Everything in differences
+
+#brand_panel[, ':=' (wpswdst = wpswdst+1, nov3 = nov3 + 1)]
+
+brand_panel[, nov3div := (nov3/llen)*100]
+brand_panel[, quarter := quarter(date)]
 
 # Specify models
+try(detach(m1), silent=T)
 m1 <- list(setup_y=c(usalessh = 'usalessh'),
-		   setup_x=c(price = 'rwpspr', dist = 'wpswdst', llen = 'llen', nov = 'nov3'),
-		   setup_endogenous=c(price = 'iv[_].*mcrwpsprd', dist = 'iv[_].*mcwpswdst', llen = 'iv[_].*mcllen', nov = 'iv[_].*mcnov3'),
-		   trend='ur', # choose from: all, ur, none.
+		   setup_x=c(price = 'rwpspr', dist = 'wpswdst', llen = 'llen', nov = 'nov3div', uniq='wpsun'),
+		   setup_endogenous = c('rwpspr', 'wpswdst','llen','nov3div','wpsun'),
+		   #setup_endogenous=c(price = 'iv[_].*mcrwpsprd', dist = 'iv[_].*mcwpswdst', llen = 'iv[_].*mcllen', nov = 'iv[_].*mcnov3'),
+		   trend='none', # choose from: all, ur, none.
 		   pval = .05,
 		   max.lag = 12, 
 		   min.t = 36,
@@ -98,10 +106,11 @@ attach(m1)
 		
 # define markets for analysis
 	markets <- brand_panel[, list(.N), by=c('market_id','country', 'category')]
+	setorder(markets,market_id)
 	analysis_markets <- unique(markets$market_id)
 	
 	last.item = length(analysis_markets)
-	last.item = 10
+#last.item = 10
 
 # deactivate the rest
 	# not on cluster
@@ -111,10 +120,109 @@ attach(m1)
 	for (m in analysis_markets[1:last.item]) {
 		assign_model(m1)
 			
-		results_brands[[m]] <- try(analyze_by_market(m, setup_y = setup_y, setup_x = setup_x, setup_endogenous = setup_endogenous, trend = 'ur', pval = .05, max.lag = 12, 	min.t = 36), silent=T)
+		results_brands[[m]] <- try(analyze_by_market(m, setup_y = setup_y, setup_x = setup_x, setup_endogenous = setup_endogenous, trend = 'none', pval = .05, max.lag = 12, 	min.t = 36), silent=T)
 
 	}
+	
+	# calculate elasticities and significance!!!
+	
+	######################
+	# Cluster			 #
+	######################
+	
+# set up cluster
 
+	cl<-makePSOCKcluster(ncpu)
+	clusterExport(cl,c('brand_panel', 'init'))
+	
+	void<-clusterEvalQ(cl, init())
+	void<-clusterEvalQ(cl, require(data.table))
+	
+	#void<-clusterEvalQ(cl, require(RStata))
+	
+	#clusterEvalQ( cl, options("RStata.StataVersion"=14))
+	#clusterEvalQ( cl, options("RStata.StataPath"="\"C:\\Program Files (x86)\\Stata14\\StataSE-64\""))
+	
+	# cannot parallelize RStata
+	
+# run estimation for brand-level attraction models
+	results_brands <- NULL
+	assign_model(m1)
+	
+	clusterExport(cl,names(m1))
+	
+		
+	Sys.time()
+	results_brands <- parLapplyLB(cl, analysis_markets[1:last.item], function(i) {
+			try(analyze_by_market(i, setup_y = setup_y, setup_x = setup_x, setup_endogenous = setup_endogenous, trend = 'ur', pval = pval, max.lag = max.lag, min.t = min.t),silent=T)
+			})
+	Sys.time()
+	
+
+
+# save results
+	save(results_brands, markets, file='..\\output\\results_withcopula.RData')
+	save(results_brands, markets, file='..\\output\\results_withoutcopula.RData')
+	
+	save(results_brands, markets, file='..\\output\\results_withoutcopula_levels.RData')
+	
+	#load(file='..\\output\\results_withoutcopula_levels.RData')
+	
+	save(results_brands, markets, file='..\\output\\results_withoutcopula_levels_nolagms.RData')
+	
+
+save(results_brands, markets, file='..\\output\\results_withcopula_nopraiswinsten.RData')
+	
+	
+	
+	
+# summarize elasticities
+	checks <- unlist(lapply(results_brands, class))
+	table(checks)
+	
+	elast <- rbindlist(lapply(results_brands[!checks=='try-error'], function(x) x$elast))
+
+	zval=1.69
+	elast[!is.na(coef), list(median_elast = median(elast), 
+												  w_elast = sum(elast/elast_se)/sum(1/elast_se), 
+												  N_brands= .N, 
+												  perc_positive = length(which(z>=(zval)))/.N, 
+												  perc_null = length(which(abs(z)<zval))/.N, 
+												  perc_negative = length(which(z<=(-zval)))/.N), by=c('variable')]
+		
+	copulas <- rbindlist(lapply(results_brands[!checks=='try-error'], function(x) x$model@coefficients))
+	copulas <- copulas[grepl('cop_', varname)]
+	
+	copulas[!is.na(coef), list(median = median(coef), 
+											  weighted = sum(coef/se)/sum(1/se), 
+											  N_brands= .N, 
+											  perc_positive = length(which(z>=(zval)))/.N, 
+											  perc_null = length(which(abs(z)<zval))/.N, 
+											  perc_negative = length(which(z<=(-zval)))/.N), by=c('varname')]
+
+	season <- rbindlist(lapply(results_brands[!checks=='try-error'], function(x) x$model@coefficients))
+	season <- season[grepl('quarter[0-9]_', variable)]
+	
+	season[!is.na(coef), list(median = median(coef), 
+											  weighted = sum(coef/se)/sum(1/se), 
+											  N_brands= .N, 
+											  perc_positive = length(which(z>=(zval)))/.N, 
+											  perc_null = length(which(abs(z)<zval))/.N, 
+											  perc_negative = length(which(z<=(-zval)))/.N), by=c('brand')]
+												  
+		# 1 model needs two minutes
+		
+	
+	
+	
+	
+	
+	
+	res=analyze_by_market(1, setup_y = setup_y, setup_x = setup_x, setup_endogenous = setup_endogenous, trend = 'none', pval = .05, max.lag = 12, 	min.t = 36)
+	
+	
+	
+	
 	
 	#summarize output from ivreg2
 	
@@ -160,36 +268,3 @@ attach(m1)
 	
 	
 	APchi2p
-if(0) {
-# set up cluster
-	cl<-makePSOCKcluster(ncpu)
-	clusterExport(cl,c('brand_panel', 'init'))
-	
-	void<-clusterEvalQ(cl, init())
-	void<-clusterEvalQ(cl, require(data.table))
-	void<-clusterEvalQ(cl, require(RStata))
-	
-	clusterEvalQ( cl, options("RStata.StataVersion"=14))
-	clusterEvalQ( cl, options("RStata.StataPath"="\"C:\\Program Files (x86)\\Stata14\\StataSE-64\""))
-	
-	# cannot parallelize RStata
-	
-# run estimation for brand-level attraction models
-	results_brands <- NULL
-	assign_model(m1)
-	
-	clusterExport(cl,names(m1))
-	
-		
-	Sys.time()
-	res <- parLapplyLB(cl, analysis_markets[1:last.item], function(i) {
-			try(analyze_by_market(i, setup_y = setup_y, setup_x = setup_x, setup_endogenous = setup_endogenous, trend = 'ur', pval = pval, max.lag = max.lag, min.t = min.t),silent=T)
-			})
-	Sys.time()
-	
-	}
-
-# save results
-	save(results_brands, markets, models, file='..\\output\\results.RData')
-
-	}

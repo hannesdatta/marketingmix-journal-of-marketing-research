@@ -21,7 +21,7 @@ require(car)
                 
                 
                 if (length(unique(tmp))<=1) return(F)
-				# at least 6 months of non-zero observations
+				# at least X months of non-zero observations
 				if (length(which(!tmp==min(tmp)))<12) return(F)
 				# if (.tmp/length(tmp) > .95) return(F)
                 return(T)
@@ -66,11 +66,11 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 	# missing data within a brand cannot be handled with this procedure.
 
 	# instruments
-	setup_instruments = grep(paste0(setup_endogenous,collapse='|'), x = colnames(panel), value = T)
+	#setup_instruments = grep(paste0(setup_endogenous,collapse='|'), x = colnames(panel), value = T)
 
-	id_vars= c('country','category','market_id', 'brand','date')
+	id_vars= c('country','category','market_id', 'brand','date', 'quarter')
 		
-	suppressWarnings(melted_panel <- melt(panel[,colnames(panel)%in%c(setup_y, setup_x, setup_instruments, id_vars),with=F], id.vars=id_vars))
+	suppressWarnings(melted_panel <- melt(panel[,colnames(panel)%in%c(setup_y, setup_x, id_vars),with=F], id.vars=id_vars))
 	# I surpress warnings here, which would show that variable types are not the same (coercing it to a fine grained measure which is good enough).
 	
 	#########################################
@@ -83,9 +83,18 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 	# kick out non-selected series and remove column
 	melted_panel <- melted_panel[ts_selected==T][, ts_selected:=NULL]
 	
+	if (length(setup_endogenous)>0) {
+	# add copula terms
+	cop_terms = melted_panel[variable%in%setup_endogenous]
+	cop_terms[, value := make_copula(value), by = c('country','category','brand','variable')]
+	cop_terms[, variable := paste0('cop_', variable)]
+	
+	melted_panel <- rbind(melted_panel, cop_terms)
+	}
+	
 	# store included variables for reporting
 	incl_vars = as.character(unique(melted_panel$variable))
-	res$variables = list(y=setup_y[setup_y%in%incl_vars], x=setup_x[setup_x%in%incl_vars], endog = setup_endogenous, instruments = setup_instruments[setup_instruments%in%incl_vars])
+	res$variables = list(y=setup_y[setup_y%in%incl_vars], x=incl_vars[incl_vars %in% c(setup_x, paste0('cop_', setup_x))], endog = setup_endogenous)
 	rm(incl_vars)
 	
 	################################################################################
@@ -126,10 +135,15 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 	res$melted_panel<-melted_panel
 	
 	# transform system to base-brand representation
-	dt <- data.table(dcast(melted_panel, brand+month~variable, value.var=c('value')))
+	dt <- data.table(dcast(melted_panel, brand+month+quarter~variable, value.var=c('value')))
 	
 	m_form = as.formula(paste0(res$variables$y, ' ~ ', paste0(res$variables$x, collapse = '+'), ' + lagunitsales_sh'))
 	m_form_heterog = as.formula(paste0('~ ', paste0(res$variables$x, collapse = '+'), ' + lagunitsales_sh'))
+	
+	# no lag marketshares
+	#m_form = as.formula(paste0(res$variables$y, ' ~ ', paste0(res$variables$x, collapse = '+'), ''))
+	#m_form_heterog = as.formula(paste0('~ ', paste0(res$variables$x, collapse = '+'), ''))
+	
 	m_form_index = as.formula(~ brand + month)
 	
 	dtbb <- suppressWarnings(attraction_data(formula=m_form, 
@@ -137,7 +151,7 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 							heterogenous = m_form_heterog, 
 							index = m_form_index, 
 							benchmark=res$benchmark_brand,
-							model = 'MCI'))
+							model = 'MNL'))
 
 	###########################
 	# Conduct Unit Root Tests #
@@ -161,6 +175,7 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 		return(list(adf=adf,data=X))
 		}
 
+		if(0){
 	# prepare instruments
 		# retrieve
 		tmp = dcast(melted_panel[variable%in%setup_instruments], month~variable, value.var=c('value'), fun.aggregate=function(x) x[1])
@@ -181,6 +196,8 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 			invisible(readline(prompt="Press [enter] to continue"))
 			}
 		}
+		}
+		
 		
 	eq_by_brand=lapply(seq(along=dat_by_brand), function(z) {
 		# perform Enders procedure by brand
@@ -191,13 +208,17 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 		adf=data.frame(t(apply(dat_by_brand[[z]][vars], 2, adf_enders, maxlag=12,pval=pval, season=NULL)))
 		adf$variable = rownames(adf)
 		rownames(adf) <- NULL
-		
+
 		out_matrix = dat_by_brand[[z]]
-		to_be_diffed = adf$variable[which(adf$ur==1)]
+		
+		# 		to_be_diffed = adf$variable[which(adf$ur==1)]
+		# difference the complete series: 
+		to_be_diffed = adf$variable
 		
 		for (variable in to_be_diffed) {
 			out_matrix[,variable] = makediff(out_matrix[,variable])
 			}
+		#what's our choice here?
 		
 		# Activate / deactiviate trends (trend=='all')
 			# add linear trend
@@ -212,6 +233,7 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 				vars <- c(vars, paste0(curr_brand, '_trend'))
 				}
 		
+		if(0){
 		# perform ivreg2
 		# step 1: define IVs
 			# match IVs
@@ -274,7 +296,11 @@ matrix li A
 		# 
 		stata_data_out = melt(stata_data, id.vars='rownames')
 		stata_data_out = rbind(stata_data_out, cbind(rownames = 'pvalue', variable='sargan', value=sargan_p))
+		}
 		
+		#######################
+		# Copula terms        #
+		#######################
 		
 		if(0) {
 		# Copula terms
@@ -302,7 +328,7 @@ matrix li A
 		}
 		#res= list(adf=adf, transformed=cbind(out_matrix, cop_matrix), original = dat_by_brand[[z]], diffed_series = to_be_diffed, brand = curr_brand, nonnormal = nonnormal)
 		
-		res= list(adf=adf, transformed=cbind(out_matrix), original = dat_by_brand[[z]], diffed_series = to_be_diffed, brand = curr_brand, ivreg2 = stata_data_out)
+		res= list(adf=adf, transformed=cbind(out_matrix), original = dat_by_brand[[z]], diffed_series = to_be_diffed, brand = curr_brand)#, ivreg2 = stata_data_out)
 		return(res)
 		})
 
@@ -313,9 +339,9 @@ matrix li A
 		res$adf_sur <- adf_sur
 
 	# summarize ivreg2 results
-		ivreg2 <- rbindlist(lapply(eq_by_brand, function(x) data.frame(brand = x$brand, x$ivreg2)))
+	#	ivreg2 <- rbindlist(lapply(eq_by_brand, function(x) data.frame(brand = x$brand, x$ivreg2)))
 		#
-		res$ivreg2 <- ivreg2
+	#	res$ivreg2 <- ivreg2
 
 		#ivreg2[rownames%in%c('SWFp')|variable%in%'sargan']
 		
@@ -329,6 +355,8 @@ matrix li A
 	# collect transformed equations
 		stacked_eq = rbindlist(lapply(eq_by_brand, function(x) x$transformed), fill=TRUE)
 
+		stacked_eq[, period:=NULL]
+		
 	# replace NAs for trends/copula to 0
 		for (trendvar in grep('[_]trend|[_]cop', colnames(stacked_eq), value=T)) {
 			vals = stacked_eq[,trendvar, with=F]
@@ -346,6 +374,47 @@ matrix li A
 		Y=as.matrix(Y[complete,])
 		index=data.frame(index[complete,])
 
+	#####################	
+	# quarterly dummies #
+	#####################
+	
+	# create dummy dataset
+	dummatrix = data.table(index)
+	setnames(dummatrix, c('period', 'individ'))
+	dummatrix[, order:=1:.N]
+	quarters = dt[, list(N=.N), by = c('month','quarter')][, N:=NULL]
+	setkey(dummatrix, period)
+	setkey(quarters, month)
+	dummatrix[quarters, quarter := i.quarter]
+	setorder(dummatrix, order)
+	
+	# merge years and quarters to dummy matrix
+	#dummatrix[, index:=1:nrow(dummatrix)] # keep order
+	#yearperiods = dtf[, list(.N), by=c('week', 'year', 'quarter')][, N:=NULL]
+	#setnames(yearperiods, 'week', 'period')
+	#dummatrix <- merge(dummatrix, yearperiods, by=c('period'))
+	#dummatrix <- dummatrix[order(index)] # put in initial order
+	#dummatrix[, index:=NULL]
+	
+	for (br in unique(dummatrix$individ)) {
+		# do not create dummy variable for benchmark brand
+	#	if (br==benchbrand) next
+		
+	#	# create quarterly dummies
+	#	if (quarterlyDummies==T) {
+			for (qu in 2:4) {
+				# mean-centering for effect coding
+				dummatrix[individ==br, paste0('quarter', qu,'_', br) := ifelse(quarter==qu, 1, 0)]#-sum(quarter==qu)/.N]
+				dummatrix[!individ==br, paste0('quarter', qu,'_', br) := 0]
+				}
+			}
+			
+	dummatrix[, ':=' (quarter=NULL, period=NULL, individ=NULL, order=NULL)]
+
+	X=as.matrix(data.frame(X,dummatrix))
+		
+		
+		
 	if(0){
 	# perform UR tests on untransformed series (i.e., before transforming them to MCI-base-brand representation)
 	cat('performing unit root tests for untransformed system\n...')
@@ -365,28 +434,34 @@ matrix li A
 	#################
 
 	# two runs to kick out insignificant copula's
-	if(0){		
+	#if(0){		
 	cat('running SUR\n')
 	m<-itersur(X=as.matrix(X),Y=as.matrix(Y),index=index, method = "FGLS-Praise-Winsten", maxiter=1000)
+	#m<-itersur(X=as.matrix(X),Y=as.matrix(Y),index=index, method = "FGLS", maxiter=1000)
 	
 	if (m@iterations==1000) stop('error with iterations')
 	
 	
-	
+	#if(0){
 	
 	
 	# check for insignificant copula terms
 	ins_coef = data.table(m@coefficients)
-	insign_vars <- ins_coef[grepl('[_]cop', variable)&abs(z)<abs(qnorm(pval/2))]$variable
+	pval_cop=.1
+	insign_vars <- ins_coef[grepl('[_]cop', variable)&abs(z)<abs(qnorm(pval_cop/2))]$variable
 	
 	Xs = data.table(X)
 	for (var in insign_vars) Xs[, var:=NULL, with=F]
 	
 	m<-itersur(X=as.matrix(Xs),Y=as.matrix(Y),index=index, method = "FGLS-Praise-Winsten", maxiter=1000)
 	if (m@iterations==1000) stop('error with iterations')
+	#}
 	
 	res$model <- m
-
+	
+	
+	
+	if(0){
 	# Compute R2s by model
 	pred = data.table(DVlevels=dtbb@y, brand=dtbb@individ, date=dtbb@period)
 	pred[, DVlevelslag := c(NA, DVlevels[-.N]), by = c('brand')]
@@ -447,16 +522,54 @@ matrix li A
 		 
 		res$vif <- data.table(data.frame(category=unique(res$specs$category), country=unique(res$specs$country), vifs))
 		rm(vifs)
+	}
 	
 	#res$df = df
 	#res$melted_panel <- melted_panel
 	res$model@coefficients$brand <- unlist(lapply(strsplit(as.character(res$model@coefficients$variable), '_'), function(x) x[1]))
 	res$model@coefficients$varname <- unlist(lapply(strsplit(as.character(res$model@coefficients$variable), '_'), function(x) paste(x[-1],collapse='_')))
-	}
 	
-	res$stata_output <- stata_output
+	
+	########################
+	# EXTRACT ELASTICITIES #
+	########################
+
+	# calculate means of explanatory variables
+	means <- melted_panel[variable%in%setup_x, list(mean_var = mean(value)), by = c('country','category','market_id','brand', 'variable')]
+	msaverage <- melted_panel[variable%in%setup_y, list(mean_ms = mean(value)),c('country','category','market_id','brand')]
+		# note: does not add up to 1.
+	coefs = data.table(res$model@coefficients)[varname%in%setup_x]
+	setnames(coefs, 'variable', 'var_orig')
+	setnames(coefs, 'varname', 'variable')
+	
+	elasticities <- merge(means, coefs, by=c('variable', 'brand'), all.x=T, all.y=F)
+	elasticities <- merge(elasticities, msaverage, by=c('brand', 'category','country', 'market_id'))
+	
+		
+	#if (attr_spec=="MNL") {
+			elasticities[, elast := coef * (1-mean_ms) * mean_var]
+			elasticities[, elast_se := se * (1-mean_ms) * mean_var]
+	#		}
+			
+	#	if (attr_spec=="MCI") {
+	#		elasticities[, elast := coef * (1-mean_ms)]
+	#		elasticities[, elast_se := se * (1-mean_ms)]
+	#		}
+			
+		# summary
+	selast <- elasticities[!is.na(coef), list(median_elast = median(elast), 
+												  w_elast = sum(elast/elast_se)/sum(1/elast_se), 
+												  N_brands= .N, 
+												  perc_positive = length(which(z>=(1.96)))/.N, 
+												  perc_null = length(which(abs(z)<1.96))/.N, 
+												  perc_negative = length(which(z<=(-1.96)))/.N), by=c('variable')]
+		
+	res$elast <- elasticities
+	
+	#res$stata_output <- stata_output
 	return(res)
 	}
-
+	
+	
 	
 	

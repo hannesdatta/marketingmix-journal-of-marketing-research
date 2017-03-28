@@ -77,8 +77,16 @@
 	# five years, and among those that account for cumulative market share jointly 90%.
 	# then select...
 	
-	min_cumms = .9
+	
+	# "There is a massive set of brands. Within we take all brands with at least five consecutive years, and we rank them from highest to lowest, and take
+	# those that take 95% of the full market". We take
+	
+	# Brands with five years, avergae share of x%.
+	
+	min_cumms = .95
 	consec_years = 5
+	
+	# with average share of at least x%. @hannes, make sure we don't use zeros for brands which are not yet in the market
 	
 	brand_id = 'brand'
 
@@ -146,7 +154,7 @@
 	
 	# How many of the brands which are selected are still in the top 7 at the end of the sample
 	{
-	cat(paste0('\nSelection rule: All brands which are in the top ', top_n,' for at least ', consec_years, ' consecutive years\n====================================================================================\n\n'))
+	cat(paste0('\nSelection rule: All brands which are in the top X for at least ', consec_years, ' consecutive years\n====================================================================================\n\n'))
 	cat(paste0('Number of markets: ', nrow(tmp),'\n'))
 	cat(paste0('Number of selected markets (category-country combinations): ', nrow(tmp[marketshare_tot>0]),'\n'))
 	
