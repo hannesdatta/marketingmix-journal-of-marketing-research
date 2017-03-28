@@ -49,7 +49,7 @@
 	# select observations
 	tmp_sales[, first:=cumsum(cumsum(indic_above_threshold))==1,by=c('category','country')]
 	tmp_sales[, last:=rev(cumsum(cumsum(rev(indic_above_threshold)))==1),by=c('category','country')]
-	tmp_sales[, selected_t:=cumsum(first+last)==1|last==1,by=c('category','country')]
+	tmp_sales[, selected_t_cat:=cumsum(first+last)==1|last==1,by=c('category','country')]
 	
 	setkey(tmp_sales,category,country,date)
 	
@@ -57,7 +57,7 @@
 	dat<-rbindlist(lapply(skus_by_date_list, function(x) x[,grep('category|country|brand|model|date|^t_.*|unique|[_]date', colnames(skus_by_date_list[[2]]),value=T),with=F]))
 	setkey(dat, category,country,date)
 	
-	dat[tmp_sales, selected_t:=i.selected_t]
+	dat[tmp_sales, selected_t_cat:=i.selected_t_cat]
 	
 #############
 # Auditing  #
@@ -83,7 +83,7 @@
 		# second run: re-apply selection rule, treating minor brands (as determined in step 1) as a composite "allothers" brand
 		
 		# select observations and time periods with observations
-		tmp_brands <- dat[which(selected_t==T), list(brand_sales = sum(t_sales_units), time_periods = length(unique(date))), by=c('category','country',brand_id,'year')]
+		tmp_brands <- dat[which(selected_t_cat==T), list(brand_sales = sum(t_sales_units), time_periods = length(unique(date))), by=c('category','country',brand_id,'year')]
 		tmp_brands[, marketshare :=  brand_sales / sum(brand_sales), by=c('category','country','year')]
 		setorderv(tmp_brands, c('category', 'country','year', 'brand_sales'),order=-1)
 		tmp_brands[, sales_rank:=1:(.N),by=c('category', 'country', 'year')]
@@ -127,7 +127,7 @@
 	setkey(brand_selection,category,country,brand)
 	
 	# I have to put in the time periods of modeling, too!
-	time_selection = tmp_sales[, c('category','country','date','selected_t'),with=F]
+	time_selection = tmp_sales[, c('category','country','date','selected_t_cat'),with=F]
 	setkey(time_selection,category,country,date)
 	
 	save(brand_selection, time_selection, file='..//temp//select_periods_and_brands.RData')

@@ -11,7 +11,7 @@
 # Goals: 
 # - Create assortment variables at the brand level
 # - Determine beginning and end of observation periods per brand
-# - Aggregate small brands to a common "other" brand
+# - Aggregate small brands to a common "allothers" brand
 
 
 require(data.table)
@@ -86,7 +86,7 @@ for (i in 1:length(skus_by_date_list)) {
 											 
 											 nov1= as.numeric(length(which(first_date>date_lag1 & first_date <= date))),
 											 nov3= as.numeric(length(which(first_date>date_lag3 & first_date <= date)))
-											 ), by=c('category', 'country', 'date', 'brand')][order(category, country,brand,date)]
+											 ), by=c('category', 'country', 'date', 'brand', 'selected_brand')][order(category, country,brand,date)]
 	
 		# novelty variables must be set to missing for the first three months.
 		merged_attr_sales[, N:=1:.N, by=c('category', 'country','brand')]
@@ -96,7 +96,7 @@ for (i in 1:length(skus_by_date_list)) {
 		
 	# Add indicators for category-sales observations
 	setkey(merged_attr_sales, category, country, date)
-	merged_attr_sales[time_selection, selected_t := i.selected_t]
+	merged_attr_sales[time_selection, selected_t_cat := i.selected_t_cat]
 	
 	# Merge CPIs
 		cpi=indicators[type=='cpi']
@@ -116,6 +116,8 @@ for (i in 1:length(skus_by_date_list)) {
 									res=merge(empty_df, dframe, by=c('category', 'country', 'brand', 'date'),all.x=T)
 									setkey(res, 'date', 'country')
 									
+									res[, selected_brand := unique(selected_brand[!is.na(selected_brand)]), by = c('brand')]
+									
 									# add cpi's
 									res[cpi, cpi:=i.value]
 									# order
@@ -132,17 +134,13 @@ for (i in 1:length(skus_by_date_list)) {
 	
 		# define colums to interpolate (maximum fill currently set to two observations
 		all_cols=unique(unlist(lapply(selected_attr_sales, colnames)))
-		interp_cols = all_cols[!all_cols%in%c('category', 'country','brand', 'date', 'selected_t')]
-		
-		# colums to be set to NA if they are smaller or equal than 0
-		reset_zero = grep('spr', all_cols,value=T)
-		rm(all_cols)
+		interp_cols = all_cols[!all_cols%in%c('category', 'country','brand', 'date', 'selected_t_cat', 'selected_brand')]
 		
 		selected_attr_sales <- lapply(selected_attr_sales, function(dframe) {
 			setorder(dframe, country,brand,date)
 			
 			# set some columns to NA before interpolating
-			for (.var in reset_zero) {
+			for (.var in grep('spr', all_cols,value=T)) {
 				eval(parse(text=paste0('dframe[which(', .var,'<=0), ', .var, ':=NA]')))
 				}
 			
@@ -152,7 +150,7 @@ for (i in 1:length(skus_by_date_list)) {
 				}
 											
 			# interpolate variables
-			dframe_interp<-cbind(dframe[, c('date', 'category','selected_t'),with=F], 
+			dframe_interp<-cbind(dframe[, c('date', 'category','selected_t_cat', 'selected_brand'),with=F], 
 								 dframe[, lapply(.SD, nafill),by=c('country','brand'),.SDcols=interp_cols])
 			
 			dframe_noninterp <- dframe[,colnames(dframe_interp),with=F]
@@ -169,6 +167,8 @@ for (i in 1:length(skus_by_date_list)) {
 			return(dframe_interp)
 		})
 	
+	rm(all_cols)
+		
 	# store data 
 	all_data[[i]]<-list(data=selected_attr_sales, skus = attribs[[i]])
 	
@@ -205,7 +205,7 @@ for (i in 1:length(all_data)) {
 			tmp <- lapply(tmp, function(dframe) {
 				keyvars = c('country','brand','date','category')
 				all_cols=colnames(paneldata)
-				.availabilitycheck1 = setdiff(all_cols,c(keyvars, 'cpi', 'interpolated', 'selected_t'))
+				.availabilitycheck1 = setdiff(all_cols,c(keyvars, 'cpi', 'interpolated', 'selected_t_cat', 'selected_brand'))
 				.availabilitycheck2 = NULL 
 				
 				# determine max consecutive observations
@@ -225,14 +225,14 @@ for (i in 1:length(all_data)) {
 					}
 
 				.zoo = dframe
-				suppressWarnings(.zoo[, selected:=!1:.N %in% as.numeric(attr(.out, 'na.action'))])
-				.zoo <- .zoo[, c(keyvars, .availabilitycheck1, .availabilitycheck2, 'selected', 'selected_t'),with=F]
+				
+				# tag longest consecutive stretch
+				suppressWarnings(.zoo[, selected_t_brand:=!1:.N %in% as.numeric(attr(.out, 'na.action'))])
+				.zoo <- .zoo[, c(keyvars, .availabilitycheck1, .availabilitycheck2, 'selected_t_brand', 'selected_t_cat', 'selected_brand'),with=F]
 				return(.zoo)
 				})
 			
 		.zoo <- rbindlist(tmp)
-		setnames(.zoo, 'selected', 'selected_t_brand')
-		setnames(.zoo, 'selected_t', 'selected_t_cat')
 		
 		# clean category/country/brand names
 		if (nrow(.zoo)>0){
@@ -245,7 +245,7 @@ for (i in 1:length(all_data)) {
 			cnt_brand = cnt_brand+length(unique(.zoo$brand))
 			cnt_market = cnt_market + 1
 			
-			.zoo[which(!is.na(usales) & selected_t_brand==T & !selected_t_cat %in% c(NA, F)), selected:=T, by=c('category', 'country', 'brand')]
+			.zoo[which(!is.na(usales) & selected_t_brand==T & selected_brand == T & !selected_t_cat %in% c(NA, F)), selected:=T, by=c('category', 'country', 'brand')]
 			.zoo[is.na(selected), selected:=F, by=c('category', 'country', 'brand')]
 			
 			}
