@@ -18,13 +18,17 @@ require(data.table)
 	load('..//temp//brand_metrics.RData') 
 
 for (i in 1:length(all_data)) {
-
+	print(i)
 	all_data[[i]]$data_category <- NULL
 	
 	for (j in 1:length(all_data[[i]]$data_cleaned)) {
-	
+		cat(paste0(i,' - ', j, '...\n'))
 		dt <- all_data[[i]]$data_cleaned[[j]]
-	
+		
+		if (nrow(dt)==0) {
+			all_data[[i]]$data_category[[j]] <- NULL
+			next
+			}
 		##########################################
 		## CREATE LAG SALES MEASURE FOR WEIGHING #
 		##########################################
@@ -43,7 +47,7 @@ for (i in 1:length(all_data)) {
 				}, x=tmpdates$date)
 		
 			for (t_lag in seq(along=t_lags)) {
-				tmpdates[, t_lag_names[t_lag] := c(as.Date(lags[,t_lag])),with=F]
+				tmpdates[, t_lag_names[t_lag] := c(as.Date(lags[,t_lag]))]
 				}
 		
 			# Merge this to skus_by_date
@@ -56,14 +60,14 @@ for (i in 1:length(all_data)) {
 		
 		sales_lag_names = paste0('l_usales', gsub('[-]', 'min', as.character(t_lags)))
 		for (t_lag in seq(along=t_lags)) {
-			eval(parse(text=paste0('dt[, sales_lag_names[t_lag] := usales[match(', t_lag_names[t_lag],', date)],by=c(\'category\', \'country\',\'brand\'),with=F]')))
+			eval(parse(text=paste0('dt[, sales_lag_names[t_lag] := usales[match(', t_lag_names[t_lag],', date)],by=c(\'category\', \'country\',\'brand\')]')))
 			}
 			
 		eval(parse(text=paste0('dt[, t_wsales_units := rowSums(data.table(',paste(sales_lag_names,collapse=','),'), na.rm=T)]')))
 		dt[, t_wsales_units:=t_wsales_units/length(t_lags)]
 		
 		# remove unnecessary columns
-		dt[, c(t_lag_names, sales_lag_names) := NULL, with=F]
+		dt[, c(t_lag_names, sales_lag_names) := NULL]
 		rm(tmpdates)
 	
 		# assert that there are only 1 sku per unique key
