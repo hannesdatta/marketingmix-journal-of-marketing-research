@@ -26,7 +26,7 @@
 	require(parallel)
 	
 ### Setup cluster environment
-	ncpu = 4 #10
+	ncpu = 10
 
 # Initialize cluster
 	init <- function() {
@@ -106,6 +106,9 @@
 	dt[!is.na(transfvalue_log), shapiro_p_diff_log := shapiro.test(transfvalue_log)$p, by=c('market_id', 'category', 'country', 'brand', 'variable')]
 	dt[!is.na(value), shapiro_p_lev_log := shapiro.test(lvalue)$p, by=c('market_id', 'category', 'country', 'brand', 'variable')]
 
+# Stop cluster
+	stopCluster(cl)
+	
 # Summarize test outcomes
 	tmp <- dt[, lapply(.SD, function(x) unique(x[!is.na(x)])), by = c('market_id', 'category', 'country', 'brand', 'variable'), .SDcols=c('ur_nonlog', 'ur_log', grep('shapiro_p', colnames(dt), value=T))]
 	setnames(tmp, 'variable', 'regressor')
@@ -126,4 +129,3 @@
 		cat('\n(3) across all variables by variable:\n')
 		print(summ[grepl(i, variable), list(N_brands=.N, perc_nonnormal=length(which(value<.1))/.N), by=c('regressor', 'variable')])
 		}
-		
