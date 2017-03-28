@@ -175,30 +175,7 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 		return(list(adf=adf,data=X))
 		}
 
-		if(0){
-	# prepare instruments
-		# retrieve
-		tmp = dcast(melted_panel[variable%in%setup_instruments], month~variable, value.var=c('value'), fun.aggregate=function(x) x[1])
-		# replace missings in time series by means
-		tmp = apply(tmp, 2, function(x) ifelse(is.na(x), mean(x,na.rm=T), x))
-		# remove missing columns
-		tmp <- tmp[,!apply(tmp,2, function(x) all(is.na(x)))]
-		ivs = data.frame(cbind(month=tmp[,1], log(tmp[,-1])))
-		# apply UR tests and difference, if necessary
-		ivs = data.frame(month=tmp[,1], column_enders(ivs[,-1])$data)
-		rm(tmp)		
-		# conduct UR tests
-		
-		# plot
-		if(0){
-		for (z in 2:ncol(ivs)) {
-			plot(ivs[,z], type='l', main = colnames(ivs)[z]) # --> check for seasonality?!
-			invisible(readline(prompt="Press [enter] to continue"))
-			}
-		}
-		}
-		
-		
+
 	eq_by_brand=lapply(seq(along=dat_by_brand), function(z) {
 		# perform Enders procedure by brand
 		# on all variables (i.e., DVs (ratio of marketshares), and explanatory variables (log X, and log(y focal), log(y benchmark)), but not the trend and not the copula terms)
@@ -209,17 +186,64 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 		adf$variable = rownames(adf)
 		rownames(adf) <- NULL
 
+#		1) conduct UR op y; 
+#		   o if trend --> add trend variable
+#		   o if UR present --> take difference in y
+#		2) conduct UR op x:
+#		   o if UR presnet and UR present in Y --> difference of both  (difference of the copulas)
+#		   o if UR present and y does not have UR --> difference X, but take level copulas
+
+
 		out_matrix = dat_by_brand[[z]]
 		
+		takediff='flexible'
+		
+		if (takediff=='flexible') {
+			ydiff = data.table(adf)[variable=='y']$ur
+			ytrend = data.table(adf)[variable=='y']$trend
+			
+			if (ytrend==1) out_matrix <- cbind(out_matrix, trend = seq(from=1, to=nrow(out_matrix)))
+			
+			if ('trend' %in% colnames(out_matrix)) {
+				colnames(out_matrix)[which(colnames(out_matrix)=='trend')] <- paste0(curr_brand, '_trend')
+				vars <- c(vars, paste0(curr_brand, '_trend'))
+			}
+				
+				
+			to_be_diffed = NULL
+			
+			if (ydiff==1) {
+				# what about xs?
+				ur_xs = data.table(adf)[!variable == 'y' & ur==1 & !grepl('cop_', variable)]$variable
+				ur_xs_cop = sub ('[_]', '_cop_', ur_xs)
+				ur_xs_cop = ur_xs_cop[ur_xs_cop%in%adf$variable]
+				
+				to_be_diffed = c('y', ur_xs, ur_xs_cop)
+				
+				} else {
+				ur_xs = data.table(adf)[!variable == 'y' & ur==1 & !grepl('cop_', variable)]$variable
+				to_be_diffed = c('y', ur_xs)
+				
+				}
+			
+			}
+			
+		
+		if (takediff == 'alwaysdiff') {
+		print('do not execute')
 		# 		to_be_diffed = adf$variable[which(adf$ur==1)]
 		# difference the complete series: 
 		to_be_diffed = adf$variable
+		}
 		
 		for (variable in to_be_diffed) {
+			print(variable)
 			out_matrix[,variable] = makediff(out_matrix[,variable])
 			}
+			
+			
 		#what's our choice here?
-		
+		if(0){
 		# Activate / deactiviate trends (trend=='all')
 			# add linear trend
 			if (!trend=='none') out_matrix <- cbind(out_matrix, trend = seq(from=1, to=nrow(out_matrix)))
@@ -232,6 +256,7 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 				colnames(out_matrix)[which(colnames(out_matrix)=='trend')] <- paste0(curr_brand, '_trend')
 				vars <- c(vars, paste0(curr_brand, '_trend'))
 				}
+		}
 		
 		if(0){
 		# perform ivreg2
