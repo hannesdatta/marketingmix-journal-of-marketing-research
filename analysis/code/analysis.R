@@ -22,7 +22,6 @@
 ### LOAD DATA SETS
 require(data.table)
 require(bit64)
-#require(RStata)
 
 ### Stack data in data.table
 	brand_panel=fread('../temp/preclean.csv')
@@ -30,13 +29,7 @@ require(bit64)
 
 ### Load additional packages
 	require(parallel)
-	#require(fUnitRoots)
-	#require(marketingtools)
 	
-	# load marketing tools
-	#sapply(list.files('d:\\DATTA\\Dropbox\\Tilburg\\Projects\\marketingtools\\R\\', full.names=T), source)
-	
-
 ### Setup cluster environment
 	ncpu = 10
 	
@@ -46,30 +39,19 @@ require(bit64)
 		max.lag <<- 12
 		min.t <<- 36
 	
-		### Set STATA 14 Path
-		#options("RStata.StataPath"="\"C:\\Program Files (x86)\\Stata14\\StataSE-64\"")
-		#options("RStata.StataPath"="\"C:\\Program Files (x86)\\Stata14\\Stata14\\StataSE-64\"")
-		#options("RStata.StataVersion"=14)
-
-	### Analysis script
+  	    ### Analysis script
 		source('proc_analysis.R')
 		require(marketingtools)
-		#sapply(list.files('d:\\DATTA\\Dropbox\\Tilburg\\Projects\\marketingtools\\R\\', full.names=T), source)
-	
-	}
+		}
 	
 	init()
 
-#brand_panel[, wpswdst := wpswdst+1]
-#brand_panel[, nov3 := nov3+1]
 
 # Model: MCI or MNL
 # Everything in differences
 
 #brand_panel[, ':=' (wpswdst = wpswdst+1, nov3 = nov3 + 1)]
 
-brand_panel[, nov3div := (nov3/llen)*100]
-brand_panel[, quarter := quarter(date)]
 
 # Specify models
 try(detach(m1), silent=T)
@@ -173,7 +155,9 @@ attach(m1)
 
 save(results_brands, markets, file='..\\output\\results_withcopula_nopraiswinsten.RData')
 	
+save(results_brands, markets, file='..\\output\\results_28marchharaldmarnikfinal.RData')
 	
+		
 	
 	
 # summarize elasticities
