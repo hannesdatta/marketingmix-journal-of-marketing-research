@@ -196,7 +196,7 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 
 		out_matrix = dat_by_brand[[z]]
 		
-		takediff='flexible'
+		takediff='alwaysdiff'
 		
 		if (takediff=='flexible') {
 			ydiff = data.table(adf)[variable=='y']$ur
@@ -256,71 +256,6 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 				colnames(out_matrix)[which(colnames(out_matrix)=='trend')] <- paste0(curr_brand, '_trend')
 				vars <- c(vars, paste0(curr_brand, '_trend'))
 				}
-		}
-		
-		if(0){
-		# perform ivreg2
-		# step 1: define IVs
-			# match IVs
-			ivs_iv <- as.matrix(ivs[match(out_matrix$period, ivs$month),])[,-1]
-			# lag
-			ivs_iv <- as.matrix(ivs[match(out_matrix$period, ivs$month-1),])[,-1]
-			# still decide whether instruments need to be diffed as well, depending on UR outcome
-			
-		# step 2: define exogenous variables
-			ivs_exog <- out_matrix[,setdiff(grep(paste0(res$variables$x[names(res$variables$x)%in%names(res$variables$endog)], collapse='|'), vars, value=T, invert=T),'y')]
-			ivs_endog <- out_matrix[,grep(paste0(res$variables$x[names(res$variables$x)%in%names(res$variables$endog)], collapse='|'), vars, value=T, invert=F)]
-			
-			stat_export = out_matrix[,c('period', vars)]
-			stat_export = cbind(stat_export, ivs_iv)
-			colnames(stat_export) <- gsub('[.]','', colnames(stat_export))
-		
-		# step 3: conduct ivreg2
-		output_src <- paste0("* add sargan test stats
-// get original row names of matrix (and row count)
-local rownames : rowfullnames A
-local c : word count `rownames\'
-
-// get original column names of matrix and substitute out _cons
-local names : colfullnames A
-local newnames : subinstr local names \"_cons\" \"cons\", word
-
-// rename columns of matrix
-matrix colnames A = `newnames\'
-
-// convert to dataset
-clear
-svmat A, names(col)
-
-// add matrix row names to dataset
-gen rownames = \"\"
-forvalues i = 1/`c\' {
-    replace rownames = \"`:word `i\' of `rownames\'\'\" in `i\'
-}
-
-* add predicted values
-")
-
-		stata_src <- paste0('
-set more off
-ivreg2 y ', paste(colnames(ivs_exog), collapse=' '), ' (', paste(colnames(ivs_endog), collapse=' '), ' = iv_*), sfirst
-		
-matrix A = e(first)
-matrix li A
-', output_src)
-	
-		
-		stata_output=capture.output(stata_data<-stata(stata_src, data.in=stat_export, data.out=TRUE))
-		
-		# print output to console
-		#{for (i in 1:length(stata_output)) cat(paste0(stata_output[i],'\n'))}
-		
-		# save outcome of Sargan test
-		sargan_p = as.numeric(rev(strsplit(stata_output[which(grepl('Sargan statistic.*', stata_output))+1], ' ')[[1]])[1])
-		
-		# 
-		stata_data_out = melt(stata_data, id.vars='rownames')
-		stata_data_out = rbind(stata_data_out, cbind(rownames = 'pvalue', variable='sargan', value=sargan_p))
 		}
 		
 		#######################
@@ -413,23 +348,10 @@ matrix li A
 	dummatrix[quarters, quarter := i.quarter]
 	setorder(dummatrix, order)
 	
-	# merge years and quarters to dummy matrix
-	#dummatrix[, index:=1:nrow(dummatrix)] # keep order
-	#yearperiods = dtf[, list(.N), by=c('week', 'year', 'quarter')][, N:=NULL]
-	#setnames(yearperiods, 'week', 'period')
-	#dummatrix <- merge(dummatrix, yearperiods, by=c('period'))
-	#dummatrix <- dummatrix[order(index)] # put in initial order
-	#dummatrix[, index:=NULL]
-	
-	for (br in unique(dummatrix$individ)) {
-		# do not create dummy variable for benchmark brand
-	#	if (br==benchbrand) next
-		
 	#	# create quarterly dummies
-	#	if (quarterlyDummies==T) {
+	for (br in unique(dummatrix$individ)) {
 			for (qu in 2:4) {
-				# mean-centering for effect coding
-				dummatrix[individ==br, paste0('quarter', qu,'_', br) := ifelse(quarter==qu, 1, 0)]#-sum(quarter==qu)/.N]
+				dummatrix[individ==br, paste0('quarter', qu,'_', br) := ifelse(quarter==qu, 1, 0)]
 				dummatrix[!individ==br, paste0('quarter', qu,'_', br) := 0]
 				}
 			}
@@ -458,16 +380,43 @@ matrix li A
 	# Estimate SURs #
 	#################
 
-	# two runs to kick out insignificant copula's
-	#if(0){		
-	cat('running SUR\n')
-	m<-itersur(X=as.matrix(X),Y=as.matrix(Y),index=index, method = "FGLS-Praise-Winsten", maxiter=1000)
-	#m<-itersur(X=as.matrix(X),Y=as.matrix(Y),index=index, method = "FGLS", maxiter=1000)
+	# RUN 1
+		
+	cat('running SUR (run 1)\n')
 	
+	rescale = FALSE
+	
+	
+	# rescale X
+	if (rescale==T) {
+		rescale_values = apply(X, 2, function(x) max(abs(x)))
+		div_matrix <- matrix(rep(rescale_values, nrow(X)), byrow=TRUE, ncol=length(rescale_values))
+		X=X/div_matrix
+		}
+		
+	m<-itersur(X=as.matrix(X),Y=as.matrix(Y),index=index, method = "FGLS-Praise-Winsten", maxiter=1000)
 	if (m@iterations==1000) stop('error with iterations')
 	
+	#m@coefficients
+		
+	# backscale
+	if (rescale == T) {
+		#m@coefficients
+		retr_coefs <- coef(m)$coef
+		mvarcovar=m@varcovar
+
+		retr_coefs[seq(length.out=length(rescale_values))] = retr_coefs[seq(length.out=length(rescale_values))] / rescale_values
+		
+		for (ch in seq(length.out=length(rescale_values))) {
+			mvarcovar[ch,] <- mvarcovar[ch,] / rescale_values[ch]
+			mvarcovar[,ch] <- mvarcovar[,ch] / rescale_values[ch]
+			}
+		m@coefficients[,2:3] <- cbind(retr_coefs, sqrt(diag(mvarcovar)))
+		m@varcovar <- mvarcovar
 	
-	#if(0){
+		}
+		
+	#m@coefficients
 	
 	
 	# check for insignificant copula terms
@@ -477,10 +426,36 @@ matrix li A
 	
 	Xs = data.table(X)
 	for (var in insign_vars) Xs[, var:=NULL, with=F]
+	Xs = data.frame(Xs)
+	
+	# rescale X
+	if (rescale==T) {
+		rescale_values = apply(Xs, 2, function(x) max(abs(x)))
+		div_matrix <- matrix(rep(rescale_values, nrow(X)), byrow=TRUE, ncol=length(rescale_values))
+		Xs=Xs/div_matrix
+		}
 	
 	m<-itersur(X=as.matrix(Xs),Y=as.matrix(Y),index=index, method = "FGLS-Praise-Winsten", maxiter=1000)
 	if (m@iterations==1000) stop('error with iterations')
-	#}
+	
+	# backscale
+	if (rescale == T) {
+		#m@coefficients
+		retr_coefs <- coef(m)$coef
+		mvarcovar=m@varcovar
+
+		retr_coefs[seq(length.out=length(rescale_values))] = retr_coefs[seq(length.out=length(rescale_values))] / rescale_values
+		
+		for (ch in seq(length.out=length(rescale_values))) {
+			mvarcovar[ch,] <- mvarcovar[ch,] / rescale_values[ch]
+			mvarcovar[,ch] <- mvarcovar[,ch] / rescale_values[ch]
+			}
+		m@coefficients[,2:3] <- cbind(retr_coefs, sqrt(diag(mvarcovar)))
+		m@varcovar <- mvarcovar
+	
+		}
+	
+	
 	
 	res$model <- m
 	
