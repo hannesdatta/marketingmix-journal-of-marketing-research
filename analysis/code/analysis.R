@@ -31,7 +31,7 @@ require(bit64)
 	require(parallel)
 	
 ### Setup cluster environment
-	ncpu = 10
+	ncpu = 4#10
 	
 ### Initialize all required functions (possibly on the cluster, too)
 
@@ -92,7 +92,7 @@ attach(m1)
 	analysis_markets <- unique(markets$market_id)
 	
 	last.item = length(analysis_markets)
-#last.item = 10
+last.item = 10
 
 # deactivate the rest
 	# not on cluster
@@ -116,9 +116,9 @@ attach(m1)
 
 	cl<-makePSOCKcluster(ncpu)
 	clusterExport(cl,c('brand_panel', 'init'))
+	void<-clusterEvalQ(cl, require(data.table))
 	
 	void<-clusterEvalQ(cl, init())
-	void<-clusterEvalQ(cl, require(data.table))
 		
 # run estimation for brand-level attraction models
 	results_brands <- NULL

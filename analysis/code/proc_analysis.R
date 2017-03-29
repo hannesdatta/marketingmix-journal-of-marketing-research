@@ -384,7 +384,7 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 		
 	cat('running SUR (run 1)\n')
 	
-	rescale = FALSE
+	rescale = TRUE
 	
 	
 	# rescale X
@@ -397,46 +397,18 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 	m<-itersur(X=as.matrix(X),Y=as.matrix(Y),index=index, method = "FGLS-Praise-Winsten", maxiter=1000)
 	if (m@iterations==1000) stop('error with iterations')
 	
-	#m@coefficients
-		
-	# backscale
-	if (rescale == T) {
-		#m@coefficients
-		retr_coefs <- coef(m)$coef
-		mvarcovar=m@varcovar
-
-		retr_coefs[seq(length.out=length(rescale_values))] = retr_coefs[seq(length.out=length(rescale_values))] / rescale_values
-		
-		for (ch in seq(length.out=length(rescale_values))) {
-			mvarcovar[ch,] <- mvarcovar[ch,] / rescale_values[ch]
-			mvarcovar[,ch] <- mvarcovar[,ch] / rescale_values[ch]
-			}
-		m@coefficients[,2:3] <- cbind(retr_coefs, sqrt(diag(mvarcovar)))
-		m@varcovar <- mvarcovar
-	
-		}
-		
-	#m@coefficients
-	
+	m@coefficients
 	
 	# check for insignificant copula terms
-	ins_coef = data.table(m@coefficients)
 	pval_cop=.1
-	insign_vars <- ins_coef[grepl('[_]cop', variable)&abs(z)<abs(qnorm(pval_cop/2))]$variable
+	insign_vars <- with(m@coefficients, which(grepl('[_]cop', variable)&abs(z)<abs(qnorm(pval_cop/2))))
+	keep_vars = setdiff(1:nrow(m@coefficients), insign_vars)
+	#keep_vars = 1:nrow(m@coefficients)
 	
-	Xs = data.table(X)
-	for (var in insign_vars) Xs[, var:=NULL, with=F]
-	Xs = data.frame(Xs)
-	
-	# rescale X
-	if (rescale==T) {
-		rescale_values = apply(Xs, 2, function(x) max(abs(x)))
-		div_matrix <- matrix(rep(rescale_values, nrow(X)), byrow=TRUE, ncol=length(rescale_values))
-		Xs=Xs/div_matrix
-		}
-	
-	m<-itersur(X=as.matrix(Xs),Y=as.matrix(Y),index=index, method = "FGLS-Praise-Winsten", maxiter=1000)
+	m<-itersur(X=X[, keep_vars],Y=as.matrix(Y),index=index, method = "FGLS-Praise-Winsten", maxiter=1000)
 	if (m@iterations==1000) stop('error with iterations')
+	
+	m@coefficients
 	
 	# backscale
 	if (rescale == T) {
@@ -444,21 +416,21 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 		retr_coefs <- coef(m)$coef
 		mvarcovar=m@varcovar
 
-		retr_coefs[seq(length.out=length(rescale_values))] = retr_coefs[seq(length.out=length(rescale_values))] / rescale_values
+		rescale_after = rescale_values[keep_vars]
+		retr_coefs[seq(length.out=length(rescale_after))] = retr_coefs[seq(length.out=length(rescale_after))] / rescale_after
 		
-		for (ch in seq(length.out=length(rescale_values))) {
-			mvarcovar[ch,] <- mvarcovar[ch,] / rescale_values[ch]
-			mvarcovar[,ch] <- mvarcovar[,ch] / rescale_values[ch]
+		for (ch in seq(length.out=length(rescale_after))) {
+			mvarcovar[ch,] <- mvarcovar[ch,] / rescale_after[ch]
+			mvarcovar[,ch] <- mvarcovar[,ch] / rescale_after[ch]
 			}
+		
 		m@coefficients[,2:3] <- cbind(retr_coefs, sqrt(diag(mvarcovar)))
 		m@varcovar <- mvarcovar
 	
 		}
 	
-	
-	
+
 	res$model <- m
-	
 	
 	
 	if(0){
