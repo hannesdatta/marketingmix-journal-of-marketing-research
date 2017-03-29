@@ -46,9 +46,9 @@ require(bit64)
 	
 	init()
 
-
-# Model: MCI or MNL
-# Everything in differences
+# To do
+# - MCI vs MNL
+# - add switches to proc_analysis
 
 #brand_panel[, ':=' (wpswdst = wpswdst+1, nov3 = nov3 + 1)]
 
@@ -119,14 +119,7 @@ attach(m1)
 	
 	void<-clusterEvalQ(cl, init())
 	void<-clusterEvalQ(cl, require(data.table))
-	
-	#void<-clusterEvalQ(cl, require(RStata))
-	
-	#clusterEvalQ( cl, options("RStata.StataVersion"=14))
-	#clusterEvalQ( cl, options("RStata.StataPath"="\"C:\\Program Files (x86)\\Stata14\\StataSE-64\""))
-	
-	# cannot parallelize RStata
-	
+		
 # run estimation for brand-level attraction models
 	results_brands <- NULL
 	assign_model(m1)
@@ -141,29 +134,15 @@ attach(m1)
 	Sys.time()
 	
 
+#####################
+# summarize results #
+#####################
 
-# save results
-	save(results_brands, markets, file='..\\output\\results_withcopula.RData')
-	save(results_brands, markets, file='..\\output\\results_withoutcopula.RData')
-	
-	save(results_brands, markets, file='..\\output\\results_withoutcopula_levels.RData')
-	
-	#load(file='..\\output\\results_withoutcopula_levels.RData')
-	
-	save(results_brands, markets, file='..\\output\\results_withoutcopula_levels_nolagms.RData')
-	
-
-save(results_brands, markets, file='..\\output\\results_withcopula_nopraiswinsten.RData')
-	
-save(results_brands, markets, file='..\\output\\results_28marchharaldmarnikfinal.RData')
-	
-		
-	
-	
-# summarize elasticities
+	# model crashes
 	checks <- unlist(lapply(results_brands, class))
 	table(checks)
 	
+	# elasticities
 	elast <- rbindlist(lapply(results_brands[!checks=='try-error'], function(x) x$elast))
 
 	zval=1.69
@@ -174,6 +153,7 @@ save(results_brands, markets, file='..\\output\\results_28marchharaldmarnikfinal
 												  perc_null = length(which(abs(z)<zval))/.N, 
 												  perc_negative = length(which(z<=(-zval)))/.N), by=c('variable')]
 		
+	# copulas
 	copulas <- rbindlist(lapply(results_brands[!checks=='try-error'], function(x) x$model@coefficients))
 	copulas <- copulas[grepl('cop_', varname)]
 	
@@ -183,7 +163,7 @@ save(results_brands, markets, file='..\\output\\results_28marchharaldmarnikfinal
 											  perc_positive = length(which(z>=(zval)))/.N, 
 											  perc_null = length(which(abs(z)<zval))/.N, 
 											  perc_negative = length(which(z<=(-zval)))/.N), by=c('varname')]
-
+	# seasonality
 	season <- rbindlist(lapply(results_brands[!checks=='try-error'], function(x) x$model@coefficients))
 	season <- season[grepl('quarter[0-9]_', variable)]
 	
@@ -194,61 +174,4 @@ save(results_brands, markets, file='..\\output\\results_28marchharaldmarnikfinal
 											  perc_null = length(which(abs(z)<zval))/.N, 
 											  perc_negative = length(which(z<=(-zval)))/.N), by=c('brand')]
 												  
-		# 1 model needs two minutes
-		
 	
-	
-	
-	
-	
-	
-	res=analyze_by_market(1, setup_y = setup_y, setup_x = setup_x, setup_endogenous = setup_endogenous, trend = 'none', pval = .05, max.lag = 12, 	min.t = 36)
-	
-	
-	
-	
-	
-	#summarize output from ivreg2
-	
-	ivreg2=rbindlist(lapply(results_brands[unlist(lapply(results_brands,class))=='list'], function(x) data.frame(category = unique(x$specs$category), country = unique(x$specs$country), market_id = unique(x$specs$market_id), x$ivreg2)))
-	ivreg2[, value:=as.numeric(value)]
-	ivreg2[, variable := as.character(variable)]
-	
-#	ivreg2[variable=='sargan', list(N=.N, Ninsig = length(which(value>.1)), perc = length(which(value>.1))/.N)]
-	
-	
-#	summary(ivreg2[rownames=='SWFp']$value)
-	
-	ivreg2 <- ivreg2[!variable=='sargan']
-	
-	
-	ivreg2[, variable_name := sapply(variable, function(x) {strsplit(x, '[_]')[[1]][2]})]
-	
-
-	
-	ivreg2[rownames=='SWFp', list(N=.N, Nsig = length(which(value<=.1)), perc = length(which(value<=.1))/.N), by = c('variable_name')]
-	
-	ivreg2[rownames=='APchi2p', list(N=.N, Nsig = length(which(value<=.1)), perc = length(which(value<=.1))/.N)]
-	ivreg2[rownames=='APFp', list(N=.N, Nsig = length(which(value<=.1)), perc = length(which(value<=.1))/.N)]
-	
-	
-	
-	# diagnose differences in categories and countries
-	vars = c('rwpsprd', 'wpswdst', 'llen','nov3')
-	tmp=melt(brand_panel[, lapply(.SD, mean, na.rm=T), by = c('category','country','cat_class','country_class'), .SDcols = vars], id.vars=c('category','country','cat_class','country_class'))
-	#wpspr - normalize CPI?!
-	#var=vars[1]
-	
-	
-	print(dcast(tmp[variable==var], country_class + country ~ cat_class + category, value.var='value'))
-	
-	for (var in vars) {
-		cat(paste0('Variable: ', var, '...\n\n'))
-		print(dcast(tmp[variable==var], country_class + country ~ cat_class + category, value.var='value'))
-		cat('\n\n\n\n')
-		}
-	
-	# something wrong with the price in india and new zealand?
-	
-	
-	APchi2p
