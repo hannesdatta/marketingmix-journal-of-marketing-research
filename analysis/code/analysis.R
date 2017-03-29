@@ -56,8 +56,8 @@ require(bit64)
 # Specify models
 try(detach(m1), silent=T)
 m1 <- list(setup_y=c(usalessh = 'usalessh'),
-		   setup_x=c(price = 'rwpspr', dist = 'wpswdst', llen = 'llen', nov = 'nov3div', uniq='wpsun'),
-		   setup_endogenous = c('rwpspr', 'wpswdst','llen','nov3div','wpsun'),
+		   setup_x=c(price = 'rwpspr', dist = 'wpswdst', llen = 'llen', nov = 'nov3sh', uniq='wpsun'),
+		   setup_endogenous = c('rwpspr', 'wpswdst','llen','nov3sh','wpsun'),
 		   #setup_endogenous=c(price = 'iv[_].*mcrwpsprd', dist = 'iv[_].*mcwpswdst', llen = 'iv[_].*mcllen', nov = 'iv[_].*mcnov3'),
 		   trend='none', # choose from: all, ur, none.
 		   pval = .05,
@@ -174,4 +174,20 @@ attach(m1)
 											  perc_null = length(which(abs(z)<zval))/.N, 
 											  perc_negative = length(which(z<=(-zval)))/.N), by=c('brand')]
 												  
+	
+	# plot histograms of elasticities
+	for (vars in c('llen', 'rwpspr', 'wpsun'))
+	
+	
+	hist(elast[variable=='llen']$elast, breaks=100, col='grey')
+	hist(elast[variable=='rwpspr']$elast, breaks=100, col='grey') # -15
+	hist(elast[variable=='wpsun']$elast, breaks=100, col='grey')
+	hist(elast[variable=='wpswdst']$elast, breaks=100, col='grey')
+	hist(elast[variable=='nov3sh']$elast, breaks=100, col='grey')
+	
+	elast[variable=='llen' & elast > 6]
+	# check data / model outputs for top and bottom 10; plus 5+
+	elast[variable=='rwpspr' & elast > 6]
+	
+	# same cases? e.g. no. of observations
 	
