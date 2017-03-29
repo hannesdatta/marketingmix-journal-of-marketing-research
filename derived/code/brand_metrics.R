@@ -84,8 +84,8 @@ for (i in 1:length(skus_by_date_list)) {
 											 wswdst = weigh_by_w(t_wdist,t_sales_units),
 											 wpswdst = weigh_by_w(t_wdist,t_wsales_units),
 											 
-											 nov1= as.numeric(length(which(first_date>date_lag1 & first_date <= date))),
-											 nov3= as.numeric(length(which(first_date>date_lag3 & first_date <= date)))
+											 nov1= length(unique(sku_id[which(first_date>date_lag1 & first_date <= date)])),
+											 nov3= length(unique(sku_id[which(first_date>date_lag3 & first_date <= date)]))
 											 ), by=c('category', 'country', 'date', 'brand', 'selected_brand')][order(category, country,brand,date)]
 	
 		# novelty variables must be set to missing for the first three months.
