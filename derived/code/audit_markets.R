@@ -16,8 +16,6 @@
 	require(data.table)
 	require(lattice)
 	require(latticeExtra)
-	
-	#load(file='..\\..\\derived\\output\\datasets.RData')
 
 # Load externals
 	source('../external/proc_rename.R')
@@ -29,12 +27,14 @@
 				 reference = "#e8e8e8", lwd=2,
 				 bg = "transparent", fg = "black")
 
+
 #######################################################
 # FIGURE: Plotting variables for all markets by brand #
 #######################################################
 
 # Stack data in data.table
 	paneldata_brands=fread('..\\..\\derived\\output\\datasets.csv')
+
 	paneldata_brands[which(selected==T), trend:=1:.N, by=c('category', 'country', 'brand')]
 	paneldata_brands[, ':=' (date = as.Date(date))]
 	
@@ -67,7 +67,8 @@
 ###############################
 # Execute plotting per MARKET #
 ###############################
-paneldata_brands[, nov3sh:=nov3/llen]
+	
+	paneldata_brands[, nov3sh:=(nov3/llen)*100]
 	paneldata_brands[, usalessh := usales/sum(usales,na.rm=T), by=c('category', 'country', 'date')]
 	paneldata_brands[, vsalessh := vsales/sum(vsales,na.rm=T), by=c('category', 'country', 'date')]
 

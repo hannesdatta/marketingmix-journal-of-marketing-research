@@ -126,7 +126,7 @@
 	time_selection = tmp_sales[, c('category','country','date','selected_t_cat'),with=F]
 	setkey(time_selection,category,country,date)
 	
-	save(brand_selection, time_selection, file='..//temp//select_periods_and_brands.RData')
+	save(brand_selection, time_selection, file='..//temp//select.RData')
 
 	##########
 	# report #

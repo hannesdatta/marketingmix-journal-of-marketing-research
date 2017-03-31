@@ -16,12 +16,12 @@ OUTPUT_DIR = ../output
 build: $(OUTPUT_DIR)/datasets.RData
 
 # audit
-auditplots: audit_markets
-audit: audit_attrib audit_catsales_by audit_markets
+audit: audit_attrib audit_rawplot audit_markets
 
-# building parts
+# building parts of the project
 unzip: $(TEMP_DIR)/unzipped.RData
 categorize: $(TEMP_DIR)/categorized.RData
+
 
 ###### DATA PREPARATION ######
 
@@ -49,27 +49,28 @@ $(TEMP_DIR)/categorized.RData : categorize.R $(TEMP_DIR)/unzipped.RData
 $(TEMP_DIR)/attributes.RData : set_attributes.R $(TEMP_DIR)/categorized.RData
 	"$(RBIN64)Rterm.exe" --vanilla --args "" < "set_attributes.R"
 
-# --> audit: create category sales plots
-audit_attrib: audit_attributes_txt.R $(TEMP_DIR)/attributes.RData
-	"$(RBIN64)Rterm.exe" --vanilla --args "" < "audit_attributes_txt.R"
-
-# --> audit: create category sales plots
-audit_catsales_by: audit_categorysales_by.R $(TEMP_DIR)/categorized.RData $(TEMP_DIR)/attributes.RData
-	"$(RBIN64)Rterm.exe" --vanilla --args "" < "audit_categorysales_by.R"
-
 # calculate uniqueness metrics and lagged sales measure for re-weighing SKUs
 $(TEMP_DIR)/uniqueness_and_lagsales.RData : uniqueness_and_lagsales.R proc_functions.R $(TEMP_DIR)/categorized.RData $(TEMP_DIR)/attributes.RData
 	"$(RBIN64)Rterm.exe" --vanilla --args "" < "uniqueness_and_lagsales.R"
 
 # select periods in which category sales are meaningful; select brands vs. grouped "other" brands
-$(TEMP_DIR)/select_periods_and_brands.RData : select_periods_and_brands.R $(TEMP_DIR)/uniqueness_and_lagsales.RData
-	"$(RBIN64)Rterm.exe" --vanilla --args "" < "select_periods_and_brands.R"
+$(TEMP_DIR)/select.RData : select.R $(TEMP_DIR)/uniqueness_and_lagsales.RData
+	"$(RBIN64)Rterm.exe" --vanilla --args "" < "select.R"
 
 # prepare brand-level data set (e.g., remove/interpolate missings)
-$(OUTPUT_DIR)/datasets.RData: brand_metrics.R $(TEMP_DIR)/exch_cpi.RData $(TEMP_DIR)/select_periods_and_brands.RData $(TEMP_DIR)/uniqueness_and_lagsales.RData $(TEMP_DIR)/attributes.RData $(TEMP_DIR)/gdppercap.RData
+$(OUTPUT_DIR)/datasets.RData: brand_metrics.R $(TEMP_DIR)/exch_cpi.RData $(TEMP_DIR)/select.RData $(TEMP_DIR)/uniqueness_and_lagsales.RData $(TEMP_DIR)/attributes.RData $(TEMP_DIR)/gdppercap.RData
 	"$(RBIN64)Rterm.exe" --vanilla --args "" < "brand_metrics.R"
 
 
+	
+# --> audit: create category sales plots
+audit_attrib: audit_attributes.R $(TEMP_DIR)/attributes.RData
+	"$(RBIN64)Rterm.exe" --vanilla --args "" < "audit_attributes.R"
+
+# --> audit: create category sales plots
+audit_rawplot: audit_rawplot.R $(TEMP_DIR)/categorized.RData $(TEMP_DIR)/attributes.RData
+	"$(RBIN64)Rterm.exe" --vanilla --args "" < "audit_rawplot.R"
+
 # --> audit: create plots of all markets
-audit_markets: audit_marketplots.R $(OUTPUT_DIR)/datasets.RData
-	"$(RBIN64)Rterm.exe" --vanilla --args "" < "audit_marketplots.R"
+audit_markets: audit_markets.R $(OUTPUT_DIR)/datasets.RData
+	"$(RBIN64)Rterm.exe" --vanilla --args "" < "audit_markets.R"
