@@ -16,6 +16,7 @@ OUTPUT_DIR = ../output
 build: $(OUTPUT_DIR)/datasets.RData
 
 # audit
+auditplots: audit_markets
 audit: audit_attrib audit_catsales_by audit_markets
 
 # building parts
