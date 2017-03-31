@@ -153,6 +153,17 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 							benchmark=res$benchmark_brand,
 							model = 'MNL'))
 
+	
+	# if there are only two brands, remove lagged market share of base brand
+	#if (length(unique(dtbb@input$index$brand))==2) {
+	#	X = dtbb@X
+	#	delcol = which(colnames(X)==paste0(dtbb@benchmark, '_lagunitsales_sh'))
+	#	X <- X[, -delcol]
+	#	dtbb@X <- X
+	#	rm(X)
+	#	}
+
+	
 	###########################
 	# Conduct Unit Root Tests #
 	###########################

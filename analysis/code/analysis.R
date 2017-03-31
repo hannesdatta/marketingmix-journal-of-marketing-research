@@ -87,12 +87,17 @@ attach(m1)
 		}
 		
 # define markets for analysis
-	markets <- brand_panel[, list(.N), by=c('market_id','country', 'category')]
+	markets <- brand_panel[, list(n_brands = length(unique(brand)),
+	                              n_obs = .N), by=c('market_id','country', 'category')]
+
+	# for now, exclude markets with only two brands
+	markets <- markets[n_brands>2]
+	
 	setorder(markets,market_id)
 	analysis_markets <- unique(markets$market_id)
 	
 	last.item = length(analysis_markets)
-last.item = 10
+	last.item = 10
 
 # deactivate the rest
 	# not on cluster
@@ -118,9 +123,9 @@ last.item = 10
 	clusterExport(cl,c('brand_panel', 'init'))
 	void<-clusterEvalQ(cl, require(data.table))
 	
-	void<-clusterEvalQ(cl, init())
-		
 # run estimation for brand-level attraction models
+	void<-clusterEvalQ(cl, init())
+	last.item = length(analysis_markets)
 	results_brands <- NULL
 	assign_model(m1)
 	
@@ -134,13 +139,35 @@ last.item = 10
 	Sys.time()
 	
 
+	
+	Sys.time()
+	results_err <- parLapplyLB(cl, err_markets, function(i) {
+			try(analyze_by_market(i, setup_y = setup_y, setup_x = setup_x, setup_endogenous = setup_endogenous, trend = 'ur', pval = pval, max.lag = max.lag, min.t = min.t),silent=T)
+			})
+	Sys.time()
+	
+	  18  24  25  26  28  29  30  31  33  35  40  41  78 109 110 129 130 131 132 135 137 139
+
+	
 #####################
 # summarize results #
 #####################
 
+	# To do:
+	
+	# MNL/MCI 
+	# Verify extreme-elasticity markets
+	# check elasticities for brands that come in when I select 4 years
+	
+	
+	
 	# model crashes
 	checks <- unlist(lapply(results_brands, class))
 	table(checks)
+	
+	
+	err_markets = which(checks=='try-error')
+	
 	
 	# elasticities
 	elast <- rbindlist(lapply(results_brands[!checks=='try-error'], function(x) x$elast))
@@ -178,14 +205,26 @@ last.item = 10
 	# plot histograms of elasticities
 	for (vars in c('llen', 'rwpspr', 'wpsun'))
 	
+	fn = '../output/elast2.png'
 	
-	hist(elast[variable=='llen']$elast, breaks=100, col='grey')
-	hist(elast[variable=='rwpspr']$elast, breaks=100, col='grey') # -15
-	hist(elast[variable=='wpsun']$elast, breaks=100, col='grey')
-	hist(elast[variable=='wpswdst']$elast, breaks=100, col='grey')
-	hist(elast[variable=='nov3sh']$elast, breaks=100, col='grey')
+	png(fn, res=400, units='in', height=8, width=8)
 	
-	elast[variable=='llen' & elast > 6]
+	par(mfrow=c(3,2))
+	hist(elast[variable=='llen']$elast, breaks=100, col='grey', main = 'llen', xlab = 'elasticity')
+	hist(elast[variable=='rwpspr']$elast, breaks=100, col='grey', main = 'price', xlab = 'elasticity') # -15
+	hist(elast[variable=='wpsun']$elast, breaks=100, col='grey', main = 'unique', xlab = 'elasticity')
+	hist(elast[variable=='wpswdst']$elast, breaks=100, col='grey', main = 'dist', xlab = 'elasticity')
+	hist(elast[variable=='nov3sh']$elast, breaks=100, col='grey', main = 'noveltyshare', xlab = 'elasticity')
+	
+	dev.off()
+	
+	elast[variable=='llen' & abs(elast) > 6]
+	
+	elast[variable=='rwpspr' & abs(elast) > 6]
+	
+	elast[variable=='llen' & abs(elast) > 6]
+	
+	elast[variable=='llen' & abs(elast) > 6]
 	# check data / model outputs for top and bottom 10; plus 5+
 	elast[variable=='rwpspr' & elast > 6]
 	
