@@ -67,9 +67,12 @@
 ###############################
 # Execute plotting per MARKET #
 ###############################
+paneldata_brands[, nov3sh:=nov3/llen]
+	paneldata_brands[, usalessh := usales/sum(usales,na.rm=T), by=c('category', 'country', 'date')]
+	paneldata_brands[, vsalessh := vsales/sum(vsales,na.rm=T), by=c('category', 'country', 'date')]
 
-.vars=c('llength', 'wpsnovel', 'wpswdist', 'wpsunique',
-		'valuesales_sh', 'valuesales', 'unitsales', 'rwpsprice')
+.vars=c('llen', 'nov3sh', 'wpswdst', 'wpsun',
+		'nov3', 'usalessh', 'usales', 'rwpspr')
 
 for (i in unique(paneldata_brands$market_id))	{
 	cat(paste0('Plotting for market ', i,'\n'))
