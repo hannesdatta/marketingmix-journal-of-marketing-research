@@ -253,11 +253,15 @@ for (i in 1:length(all_data)) {
 		}
 	}	
 
-# Save data sets as RDATA
-	save(all_data, file =  '..\\temp\\brand_metrics.RData')
+# Load GDP per capita, and put into data sets
+	load('..\\temp\\gdppercap.RData')
+	
+# Prepare CSV file with data
+	brand_panel=rbindlist(lapply(all_data, function(x) rbindlist(x$data_cleaned)))
+	setorder(brand_panel, market_id, category,country,brand,date)
 
-# Save as CSV
-#	paneldata=rbindlist(lapply(all_data, function(x) rbindlist(x$data_cleaned)))
-#	paneldata<-paneldata[order(category,country,brand,date)]
-#	write.table(paneldata, '..\\output\\datasets.csv',sep='\t', row.names=F)
+	fwrite(brand_panel, file = '..\\output\\datasets.csv', row.names=F)
+	
+# Save complete data as .RData
+	save(all_data, gdppercap, file =  '..\\output\\datasets.RData')
 

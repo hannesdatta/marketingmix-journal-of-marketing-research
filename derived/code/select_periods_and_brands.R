@@ -89,10 +89,12 @@
 	
 	brand_id = 'brand'
 	time_id = 'month'
+	exclude_categories = c('minioven', 'tumbledryers')
 	
 	# aggregate brand sales for selected time periods (determined on a category-level earlier)
 	tmp_brands <- dat[which(selected_t_cat==T), list(brand_sales = sum(t_sales_units), time_periods = length(unique(date))), by=c('category','country',brand_id,time_id)]
-
+	if (length(exclude_categories)>0) tmp_brands = tmp_brands[!category%in%exclude_categories]
+	
 	tmp_brands[!category == 'tablets', consec_min := 4*12]
 	tmp_brands[category == 'tablets', consec_min := 3*12]
 	
@@ -141,6 +143,8 @@
 	tmp
 	
 	# How many of the brands which are selected are still in the top 7 at the end of the sample
+	sink('../output/brand_selection.txt')
+	
 	{
 	cat(paste0('\nBrand selection rule\n====================================================================================\n\n'))
 	cat(paste0('Number of markets: ', nrow(tmp),'\n'))
@@ -175,10 +179,13 @@
 	for (i in 1:nrow(tmp[marketshare_tot==0])) {
 		with(tmp[marketshare_tot==0][i,], cat(paste0(category, ' - ', country, '\n')))
 		}
+
+	setorder(tmp, marketshare_brands)
+	print(data.frame(tmp[marketshare_tot>0]))
+
 	}
 
-setorder(tmp, marketshare_brands)
-tmp[marketshare_tot>0]
+	sink()
 
 #############################################################################################
 # Plot market cutoffs (i.e., which periods are selected, compared to overall category sales #

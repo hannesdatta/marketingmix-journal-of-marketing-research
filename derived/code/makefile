@@ -66,12 +66,9 @@ $(TEMP_DIR)/select_periods_and_brands.RData : select_periods_and_brands.R $(TEMP
 	"$(RBIN64)Rterm.exe" --vanilla --args "" < "select_periods_and_brands.R"
 
 # prepare brand-level data set (e.g., remove/interpolate missings)
-$(TEMP_DIR)/brand_metrics.RData : brand_metrics.R $(TEMP_DIR)/exch_cpi.RData $(TEMP_DIR)/select_periods_and_brands.RData $(TEMP_DIR)/uniqueness_and_lagsales.RData $(TEMP_DIR)/attributes.RData
+$(OUTPUT_DIR)/datasets.RData: brand_metrics.R $(TEMP_DIR)/exch_cpi.RData $(TEMP_DIR)/select_periods_and_brands.RData $(TEMP_DIR)/uniqueness_and_lagsales.RData $(TEMP_DIR)/attributes.RData $(TEMP_DIR)/gdppercap.RData
 	"$(RBIN64)Rterm.exe" --vanilla --args "" < "brand_metrics.R"
 
-# prepare category-level data, package all data sets in one .RData file
-$(OUTPUT_DIR)/datasets.RData : category_metrics.R $(TEMP_DIR)/brand_metrics.RData $(TEMP_DIR)/gdppercap.RData
-	"$(RBIN64)Rterm.exe" --vanilla --args "" < "category_metrics.R"
 
 # --> audit: create plots of all markets
 audit_markets: audit_marketplots.R $(OUTPUT_DIR)/datasets.RData
