@@ -74,7 +74,7 @@
 	
 	
 	min_share = .01
-	consec_years = 5
+	consec_years = 4
 	
 	# selection criteria: all brands with at least X% market share in X consec. years (at X*12 months)
 	# with average share of at least x%. @hannes, make sure we don't use zeros for brands which are not yet in the market
