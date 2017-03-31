@@ -165,6 +165,7 @@ attach(m1)
 	checks <- unlist(lapply(results_brands, class))
 	table(checks)
 	
+	data.frame(market_id=analysis_markets[1:last.item][which(checks=='try-error')],msg=as.character(results_brands[which(checks=='try-error')]))
 	
 	err_markets = which(checks=='try-error')
 	
