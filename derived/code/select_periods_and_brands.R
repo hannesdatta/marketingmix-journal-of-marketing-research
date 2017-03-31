@@ -69,52 +69,51 @@
 ####################
 # Brand selection  #
 ####################
-
+	
 	dat[, year := year(date)]
+	
+	months = dat[, list(.N), by = c('date')]
+	setorder(months, date)
+	months[, month := as.numeric(as.factor(as.character(date)))]
+	setkey(months, date)
+	setkey(dat, date)
+	dat[months, month := i.month]
 	
 	
 	min_share = .01
-	consec_years = 4
+	consec_time = 4*12
 	
 	# selection criteria: all brands with at least X% market share in X consec. years (at X*12 months)
 	# with average share of at least x%. @hannes, make sure we don't use zeros for brands which are not yet in the market
 	
 	brand_id = 'brand'
-
+	time_id = 'month'
+	
 	# aggregate brand sales for selected time periods (determined on a category-level earlier)
-	tmp_brands <- dat[which(selected_t_cat==T), list(brand_sales = sum(t_sales_units), time_periods = length(unique(date))), by=c('category','country',brand_id,'year')]
+	tmp_brands <- dat[which(selected_t_cat==T), list(brand_sales = sum(t_sales_units), time_periods = length(unique(date))), by=c('category','country',brand_id,time_id)]
 
 	# establish consecutive number of years
-	setorderv(tmp_brands, c('category', 'country','year', 'brand_sales'),order=-1)
-	tmp_brands[, consec_obs_TRUE := as.numeric(0)]
-	setorderv(tmp_brands, c('category', 'country', brand_id, 'year'))
-	tmp_brands[, consec_obs_TRUE := c(diff(year),1), by=c('category','country',brand_id)]
-	tmp_brands[, consec_fulfilled := sum(consec_obs_TRUE)>=consec_years & sum(time_periods[consec_obs_TRUE==1])>=consec_years*12,by=c('category','country',brand_id)]
-	tmp_brands[is.na(consec_fulfilled), consec_fulfilled:=F]
-	setorderv(tmp_brands, c('category', 'country',brand_id))
+	setorderv(tmp_brands, c('category', 'country',time_id, 'brand_sales'),order=-1)
+	tmp_brands[, obs_difference := as.numeric(0)]
+	setorderv(tmp_brands, c('category', 'country', brand_id, time_id))
+	tmp_brands[, obs_difference := c(diff(get(time_id)),1), by=c('category','country',brand_id)]
+	tmp_brands[, cumsum_obsdiff := cumsum(obs_difference-1), by=c('category','country',brand_id)]
+	tmp_brands[, obs := sum(time_periods[obs_difference==1 | !obs_difference==1&.I==.N]), by=c('category','country',brand_id, 'cumsum_obsdiff')]
+	
+	tmp_brands_select = tmp_brands[, list(brand_sales=sum(brand_sales), consec_fulfilled = any(obs >= consec_time)),by=c('category','country',brand_id)]
+	tmp_brands_select[is.na(consec_fulfilled), consec_fulfilled:=F]
+	setorderv(tmp_brands_select, c('category', 'country',brand_id))
 
 	# calculate market shares by brand
-	brand_ms = tmp_brands[, list(brand_sales = sum(brand_sales)), by=c('category','country', brand_id)]
-	brand_ms[, marketshare := brand_sales / sum(brand_sales), by=c('category','country')]
-	brand_ms[, ms_fulfilled := marketshare >= min_share]
+	tmp_brands_select[, marketshare := brand_sales / sum(brand_sales), by=c('category','country')]
+	tmp_brands_select[, ms_fulfilled := marketshare >= min_share]
 	
-	setkey(brand_ms, category, country, brand)
-	setkey(tmp_brands, category, country, brand)
-	
-	tmp_brands[brand_ms, ms_fulfilled := i.ms_fulfilled]
-	tmp_brands[, selected_brand := consec_fulfilled == T & any(ms_fulfilled==T), by = c('category','country','brand')]
+	tmp_brands_select[, selected_brand := consec_fulfilled == T & ms_fulfilled==T, by = c('category','country','brand')]
 	
 	# rename "non-selected brands" as composite "allothers"
-	tmp_brands[which(selected_brand==F & consec_fulfilled==T), brand_rename:='ALLOTHERS']
-	tmp_brands[which(selected_brand==T), brand_rename:=brand]
-	setkey(tmp_brands, category, country, brand)
-	# merge recoded name with dat
-	setkey(dat, category, country, brand)
-	tmp_brands_select = tmp_brands
-
-	# determine final brand selection
-	brand_selection <- tmp_brands_select[, list(selected_brand = any(selected_brand)), by=c('category','country','brand', 'brand_rename')]
-	setkey(brand_selection,category,country,brand)
+	tmp_brands_select[which(selected_brand==F), brand_rename:='ALLOTHERS']
+	tmp_brands_select[which(selected_brand==T), brand_rename:=brand]
+	setkey(tmp_brands_select, category, country, brand)
 	
 	time_selection = tmp_sales[, c('category','country','date','selected_t_cat'),with=F]
 	setkey(time_selection,category,country,date)
@@ -137,7 +136,7 @@
 	
 	# How many of the brands which are selected are still in the top 7 at the end of the sample
 	{
-	cat(paste0('\nSelection rule: All brands which are in the top X for at least ', consec_years, ' consecutive years\n====================================================================================\n\n'))
+	cat(paste0('\nSelection rule: All brands which are in the top X for at least ', consec_time, ' consecutive years\n====================================================================================\n\n'))
 	cat(paste0('Number of markets: ', nrow(tmp),'\n'))
 	cat(paste0('Number of selected markets (category-country combinations): ', nrow(tmp[marketshare_tot>0]),'\n'))
 	
