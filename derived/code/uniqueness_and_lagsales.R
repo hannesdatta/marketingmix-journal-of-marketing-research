@@ -54,7 +54,7 @@ for (i in 1:length(datlist_final)) {
 											 t_value_sales_usd = sum(sales_units*as.numeric(price_usd)),
 											 t_numdist = sum(sales_units*numeric_distribution)/sum(sales_units),
 											 t_wdist = sum(sales_units*weighted_distribution)/sum(sales_units)), 
-											 by=c('category', 'country', 'brand', 'model', 'date')]
+											 by=c('category', 'country', 'market_id', 'brand', 'model', 'date')]
 	
 	# If a product is not sold, kick it out from this list
 	skus_by_date <- skus_by_date[!t_sales_units==0]

@@ -181,6 +181,7 @@
 		}
 
 	setorder(tmp, marketshare_brands)
+	cat('\nAll included markets:\n')
 	print(data.frame(tmp[marketshare_tot>0]))
 
 	}

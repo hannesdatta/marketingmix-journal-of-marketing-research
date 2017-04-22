@@ -86,7 +86,7 @@ for (i in 1:length(skus_by_date_list)) {
 											 
 											 nov1= length(unique(sku_id[which(first_date>date_lag1 & first_date <= date)])),
 											 nov3= length(unique(sku_id[which(first_date>date_lag3 & first_date <= date)]))
-											 ), by=c('category', 'country', 'date', 'brand', 'selected_brand')][order(category, country,brand,date)]
+											 ), by=c('category', 'country', 'market_id', 'date', 'brand', 'selected_brand')][order(category, country,brand,date)]
 	
 		# novelty variables must be set to missing for the first three months.
 		merged_attr_sales[, N:=1:.N, by=c('category', 'country','brand')]
@@ -110,10 +110,11 @@ for (i in 1:length(skus_by_date_list)) {
 									empty_df=data.table(date=rep(all_dates,each=length(unique(dframe$brand))), 
 														  category=as.character(dframe$category)[1],
 														  country=unique(dframe$country)[1],
+														  market_id=unique(dframe$market_id)[1],
 														  brand=rep(unique(dframe$brand), length(all_dates))
 														  )
 									
-									res=merge(empty_df, dframe, by=c('category', 'country', 'brand', 'date'),all.x=T)
+									res=merge(empty_df, dframe, by=c('category', 'country', 'market_id', 'brand', 'date'),all.x=T)
 									setkey(res, 'date', 'country')
 									
 									res[, selected_brand := unique(selected_brand[!is.na(selected_brand)]), by = c('brand')]
@@ -134,7 +135,7 @@ for (i in 1:length(skus_by_date_list)) {
 	
 		# define colums to interpolate (maximum fill currently set to two observations
 		all_cols=unique(unlist(lapply(selected_attr_sales, colnames)))
-		interp_cols = all_cols[!all_cols%in%c('category', 'country','brand', 'date', 'selected_t_cat', 'selected_brand')]
+		interp_cols = all_cols[!all_cols%in%c('category', 'country', 'market_id', 'brand', 'date', 'selected_t_cat', 'selected_brand')]
 		
 		selected_attr_sales <- lapply(selected_attr_sales, function(dframe) {
 			setorder(dframe, country,brand,date)
@@ -151,7 +152,7 @@ for (i in 1:length(skus_by_date_list)) {
 											
 			# interpolate variables
 			dframe_interp<-cbind(dframe[, c('date', 'category','selected_t_cat', 'selected_brand'),with=F], 
-								 dframe[, lapply(.SD, nafill),by=c('country','brand'),.SDcols=interp_cols])
+								 dframe[, lapply(.SD, nafill),by=c('country','market_id', 'brand'),.SDcols=interp_cols])
 			
 			dframe_noninterp <- dframe[,colnames(dframe_interp),with=F]
 			
@@ -239,11 +240,11 @@ for (i in 1:length(all_data)) {
 			.zoo[, category:=as.character(gsub('[-]|[/]','', category))]
 			.zoo[, brand:=as.character(gsub(' |[-]|[/]|[(]|[)]|[.]|[&]','', brand))]
 			.zoo[, ':=' (category=tolower(category),country=tolower(country),brand=tolower(brand))]
-			.zoo[, brand_id:=cnt_brand+.GRP, by = c('brand')]
-			.zoo[, market_id:=cnt_market+1, by = c('brand')]
+			#.zoo[, brand_id:=cnt_brand+.GRP, by = c('brand')]
+			#.zoo[, market_id:=cnt_market+1, by = c('brand')]
 			
-			cnt_brand = cnt_brand+length(unique(.zoo$brand))
-			cnt_market = cnt_market + 1
+			#cnt_brand = cnt_brand+length(unique(.zoo$brand))
+			#cnt_market = cnt_market + 1
 			
 			.zoo[which(!is.na(usales) & selected_t_brand==T & selected_brand == T & !selected_t_cat %in% c(NA, F)), selected:=T, by=c('category', 'country', 'brand')]
 			.zoo[is.na(selected), selected:=F, by=c('category', 'country', 'brand')]

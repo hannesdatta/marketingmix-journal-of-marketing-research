@@ -336,4 +336,13 @@ for (i in 1:length(datlist_final)) {
 				
 	}
 
+# Add market IDs	
+cntr = 0 
+for (i in 1:length(datlist_final)) {
+	for (c in unique(datlist_final[[i]]$country)) {
+		cntr = cntr+1
+		datlist_final[[i]][country==c, market_id := cntr]
+		}
+	}
+	
 save(datlist_final, file='..\\temp\\categorized.RData')
