@@ -40,7 +40,7 @@ require(Matrix)
 
 
 # Analysis by country and category
-analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend = 'all', pval = .05, max.lag = 12, min.t = 36) { # runs the analysis
+analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend = 'all', pval = .05, max.lag = 12, min.t = 36, estmethod = "FGLS-Praise-Winsten", benchmarkb = NULL) { # runs the analysis
 	
 		cat('data preparation\n...')
 		
@@ -111,6 +111,8 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 		setorderv(tmp, c('obs', 'nvars'), order=-1L)
 		
 		res$benchmark_brand = tmp[match(max(tmp$obs), obs)]$brand
+		
+		if (!is.null(benchmarkb)) res$benchmark_brand = benchmarkb
 		
 		rm(tmp, tmp1, tmp2)
 		
@@ -209,6 +211,7 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 			out_matrix = dat_by_brand[[z]]
 			
 			takediff= 'alwaysdiff'
+			#takediff= 'flexible'
 			
 			if (takediff=='flexible') {
 				ydiff = data.table(adf)[variable=='y']$ur
@@ -342,10 +345,11 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 			X=X/div_matrix
 			}
 			
-		m<-itersur(X=as.matrix(X),Y=as.matrix(Y),index=index, method = "FGLS-Praise-Winsten", maxiter=1000)
+		m<-itersur(X=as.matrix(X),Y=as.matrix(Y),index=index, method = estmethod, maxiter=1000)
 		if (m@iterations==1000) stop('error with iterations')
 	
-	m@coefficients
+	#m@coefficients
+	
 	
 	# check for insignificant copula terms
 	pval_cop=.1
@@ -353,7 +357,7 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 	keep_vars = setdiff(1:nrow(m@coefficients), insign_vars)
 	#keep_vars = 1:nrow(m@coefficients)
 	
-	m<-itersur(X=X[, keep_vars],Y=as.matrix(Y),index=index, method = "FGLS-Praise-Winsten", maxiter=1000)
+	m<-itersur(X=X[, keep_vars],Y=as.matrix(Y),index=index, method = estmethod, maxiter=1000)
 	if (m@iterations==1000) stop('error with iterations')
 	
 	m@coefficients
