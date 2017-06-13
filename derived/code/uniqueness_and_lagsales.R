@@ -59,7 +59,7 @@ for (i in 1:length(datlist_final)) {
 	# If a product is not sold, kick it out from this list
 	skus_by_date <- skus_by_date[!t_sales_units==0]
 	
-	skus_by_date <- merge(skus_by_date, attribs[[i]], by=c('country','brand','model'),all.x=T,all.y=F)[order(country, date, brand, model)]
+	skus_by_date <- merge(skus_by_date, attribs[[i]], by=c('country','market_id', 'brand','model'),all.x=T,all.y=F)[order(country, date, brand, model)]
 		
 	##############################################################################################
 	# Create weighted past sales metric for every SKU (used for weighing the promotion metrics)  #
