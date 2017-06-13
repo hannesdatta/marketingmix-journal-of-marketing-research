@@ -31,7 +31,7 @@ require(RODBC)
 	file_path = '..\\..\\..\\..\\Data\\gdp\\'
 
 	dat <- fread(paste0(file_path, 'Popular indicators_Data.csv'))
-	setnames(dat, "﻿Series Name", 'seriesname')
+	setnames(dat, "Series Name", 'seriesname')
 	tmp <- melt(dat, id.vars = c('seriesname', 'Series Code', 'Country Name', 'Country Code'))
 	tmp[, year := as.numeric(substr(variable, 1,4))]
 	setnames(tmp, 'Series Code', 'seriescode')
