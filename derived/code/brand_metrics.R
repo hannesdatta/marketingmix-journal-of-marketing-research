@@ -23,7 +23,7 @@ require(data.table)
 # -> brand_selection: selection of brands
 
 # -> time_selection: selection of category-date observations that will be used (e.g., due to "late" take-off of category)
-	load('..//temp//select_periods_and_brands.RData') 
+	load('..//temp//select.RData') 
 
 # -> indicators (economic indicators)
 	load('..//temp//exch_cpi.RData')
