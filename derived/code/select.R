@@ -96,7 +96,7 @@
 	if (length(exclude_categories)>0) tmp_brands = tmp_brands[!category%in%exclude_categories]
 	
 	tmp_brands[!category == 'tablets', consec_min := 4*12]
-	tmp_brands[category == 'tablets', consec_min := 3*12]
+	tmp_brands[category == 'tablets', consec_min := 4*12]
 	
 	# establish consecutive number of years
 	setorderv(tmp_brands, c('category', 'country',time_id, 'brand_sales'),order=-1)
