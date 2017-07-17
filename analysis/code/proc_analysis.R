@@ -40,11 +40,14 @@ require(Matrix)
 
 
 # Analysis by country and category
-analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend = 'all', pval = .05, max.lag = 12, min.t = 36, estmethod = "FGLS-Praise-Winsten", benchmarkb = NULL) { # runs the analysis
+analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend = 'all', pval = .05, max.lag = 12, min.t = 36, estmethod = "FGLS-Praise-Winsten", benchmarkb = NULL, use_quarters = TRUE, maxiter=1000) { # runs the analysis
 	
 		cat('data preparation\n...')
 		
 		panel <<- brand_panel[market_id==i]
+		
+		#panel[, list(.N), by = c('brand')]
+		
 		
 		# Create empty result sets, to which elements will be added, depending on the analysis steps below
 		res = NULL
@@ -54,7 +57,7 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 			return(res)
 			}
 		
-		res$specs = data.frame(category=unique(panel$category),country=unique(panel$country), brand_id = unique(panel$brand_id),brand=unique(panel$brand), market_id=as.numeric(unique(panel$market_id[1])),stringsAsFactors=F)
+		res$specs = data.frame(category=unique(panel$category),country=unique(panel$country), brand=unique(panel$brand), market_id=as.numeric(unique(panel$market_id[1])),stringsAsFactors=F)
 			
 		eval(parse(text=paste0('panel[!is.na(',setup_y,'), trend:=1:.N, by=c(\'category\', \'country\', \'brand\')]')))
 		
@@ -158,14 +161,15 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 
 		
 		# if there are only two brands, remove lagged market share of base brand
-		#if (length(unique(dtbb@input$index$brand))==2) {
-		#	X = dtbb@X
-		#	delcol = which(colnames(X)==paste0(dtbb@benchmark, '_lagunitsales_sh'))
-		#	X <- X[, -delcol]
-		#	dtbb@X <- X
-		#	rm(X)
-		#	}
-
+		if (length(unique(dtbb@input$index$brand))==2) {
+			X = dtbb@X
+			delcol = which(colnames(X)==paste0(dtbb@benchmark, '_lagunitsales_sh'))
+			X <- X[, -delcol]
+			dtbb@X <- X
+			rm(X)
+			}
+		
+				
 		###########################
 		# Conduct Unit Root Tests #
 		###########################
@@ -193,7 +197,19 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 			# perform Enders procedure by brand
 			# on all variables (i.e., DVs (ratio of marketshares), and explanatory variables (log X, and log(y focal), log(y benchmark)), but not the trend and not the copula terms)
 			curr_brand = names(dat_by_brand)[z]
+			#print(curr_brand)
 			vars = setdiff(colnames(dat_by_brand[[z]])[!colSums(dat_by_brand[[z]])==0 & !grepl('[_]dum|trend', colnames(dat_by_brand[[z]]))],'period')
+			
+			# verify whether, for any given brand combination, the minimum N constraint for number of observations (12 months, non-zero) is given.
+			delvars = vars[sapply(vars, function(xx) use_ts(ifelse(grepl(dtbb@benchmark, xx), -1, 1) * unlist(dat_by_brand[[z]][, xx])))==F]
+			
+			# kick those variables out
+			for (kickout in delvars) {
+				dat_by_brand[[z]] = dat_by_brand[[z]][, -which(colnames(dat_by_brand[[z]])==kickout)]
+				}
+			vars = setdiff(vars,delvars)
+			
+			
 			adf=data.frame(t(apply(dat_by_brand[[z]][vars], 2, adf_enders, maxlag=12,pval=pval, season=NULL)))
 			adf$variable = rownames(adf)
 			rownames(adf) <- NULL
@@ -253,7 +269,10 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 				out_matrix[,variable] = makediff(out_matrix[,variable])
 				}
 			
-			res= list(adf=adf, transformed=cbind(out_matrix), original = dat_by_brand[[z]], diffed_series = to_be_diffed, brand = curr_brand)#, ivreg2 = stata_data_out)
+			# kick out rows with missings
+			complete_obs = complete.cases(out_matrix)
+			
+			res= list(adf=adf, transformed=cbind(out_matrix), complete_obs = complete_obs, original = dat_by_brand[[z]], diffed_series = to_be_diffed, brand = curr_brand)#, ivreg2 = stata_data_out)
 			return(res)
 			})
 
@@ -265,13 +284,13 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 	
 		# collect transformed equations
 			stacked_eq = rbindlist(lapply(eq_by_brand, function(x) x$transformed), fill=TRUE)
-
 			stacked_eq[, period:=NULL]
+			complete_eqs = unlist(lapply(eq_by_brand, function(x) x$complete_obs))
 			
-		# replace NAs for trends/copula to 0
-			for (trendvar in grep('[_]trend|[_]cop', colnames(stacked_eq), value=T)) {
-				vals = stacked_eq[,trendvar, with=F]
-				stacked_eq[, (trendvar) := ifelse(is.na(get(trendvar)), 0, get(trendvar))]
+		# replace NAs for trends/copula/and any other "missing" value (i.e., values that may have been kicked out due to the use_ts constraint) to 0; note that "real" missing values are kicked out by complete_obs
+			for (resetvar in colnames(stacked_eq)) {
+				vals = stacked_eq[,resetvar, with=F]
+				stacked_eq[, (resetvar) := ifelse(is.na(get(resetvar)), 0, get(resetvar))]
 				}
 			
 		# separate DVs from IVs
@@ -279,38 +298,38 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 			Y = data.frame(stacked_eq[,'y',with=F])
 			index=data.frame(date=dtbb@period,brand=dtbb@individ)
 
-		# kick out incomplete ('diffed') vars, i.e., their first observation (as it is NA)
-			complete = complete.cases(data.frame(X,Y,index))
-			X=as.matrix(X[complete,])
-			Y=as.matrix(Y[complete,])
-			index=data.frame(index[complete,])
+		# kick out incomplete ('diffed') vars, i.e., their first observation (as it is NA) BY BRAND
+			X=as.matrix(X[complete_eqs,])
+			Y=as.matrix(Y[complete_eqs,])
+			index=data.frame(index[complete_eqs,])
 
 		#####################	
 		# quarterly dummies #
 		#####################
 		
-		# create dummy dataset
-		dummatrix = data.table(index)
-		setnames(dummatrix, c('period', 'individ'))
-		dummatrix[, order:=1:.N]
-		quarters = dt[, list(N=.N), by = c('month','quarter')][, N:=NULL]
-		setkey(dummatrix, period)
-		setkey(quarters, month)
-		dummatrix[quarters, quarter := i.quarter]
-		setorder(dummatrix, order)
-		
-		# create quarterly dummies
-		for (br in unique(dummatrix$individ)) {
-				for (qu in 2:4) {
-					dummatrix[individ==br, paste0('quarter', qu,'_', br) := ifelse(quarter==qu, 1, 0)]
-					dummatrix[!individ==br, paste0('quarter', qu,'_', br) := 0]
-					}
-				}
-				
-		dummatrix[, ':=' (quarter=NULL, period=NULL, individ=NULL, order=NULL)]
-
-		X=as.matrix(data.frame(X,dummatrix))
+		if (use_quarters==T) {
+			# create dummy dataset
+			dummatrix = data.table(index)
+			setnames(dummatrix, c('period', 'individ'))
+			dummatrix[, order:=1:.N]
+			quarters = dt[, list(N=.N), by = c('month','quarter')][, N:=NULL]
+			setkey(dummatrix, period)
+			setkey(quarters, month)
+			dummatrix[quarters, quarter := i.quarter]
+			setorder(dummatrix, order)
 			
+			# create quarterly dummies
+			for (br in unique(dummatrix$individ)) {
+					for (qu in 2:4) {
+						dummatrix[individ==br, paste0('quarter', qu,'_', br) := ifelse(quarter==qu, 1, 0)]
+						dummatrix[!individ==br, paste0('quarter', qu,'_', br) := 0]
+						}
+					}
+					
+			dummatrix[, ':=' (quarter=NULL, period=NULL, individ=NULL, order=NULL)]
+
+			X=as.matrix(data.frame(X,dummatrix))
+		}
 			
 			
 		if(0){
@@ -330,13 +349,8 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 		#################
 		# Estimate SURs #
 		#################
-
-		# RUN 1
-			
-		cat('running SUR (run 1)\n')
-		
+	
 		rescale = TRUE
-		
 		
 		# rescale X
 		if (rescale==T) {
@@ -344,23 +358,43 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 			div_matrix <- matrix(rep(rescale_values, nrow(X)), byrow=TRUE, ncol=length(rescale_values))
 			X=X/div_matrix
 			}
+		
+		# Step 1: Determine significance of copula terms by endogenous regressor
+		copula_sign = lapply(setup_endogenous, function(regr) {
+			exclude <- grep('.*[_]cop[_]', colnames(X), value=T)
+			include <- grep(paste0('.*[_]cop[_]', regr), colnames(X), value=T)
+			final_exclude <- setdiff(exclude,include)
+			print(regr)
+			m_interim<-itersur(X=as.matrix(X[,!colnames(X)%in%final_exclude]),Y=as.matrix(Y),index=index, method = estmethod, maxiter=maxiter)
+			if (m_interim@iterations==maxiter) stop('error with iterations')
+			res = data.table(m_interim@coefficients)
+			res[, copula_check := regr]
+			return(res)
+			})
+		
+		copula_sign <- rbindlist(copula_sign)
+		
+		if (nrow(copula_sign)>0) {
+			pval_cop=.1
+			exclude <- copula_sign[grepl('.*[_]cop[_]', variable)][abs(z)<abs(qnorm(pval_cop/2))]
+			keep_vars <- which(!colnames(X)%in%exclude$variable)
+			} else {
+			keep_vars = seq(along=colnames(X))
+			}
 			
-		m<-itersur(X=as.matrix(X),Y=as.matrix(Y),index=index, method = estmethod, maxiter=1000)
-		if (m@iterations==1000) stop('error with iterations')
+		# Run final model
+		cat('running SUR for selected variables\n')
+		
+		m<-itersur(X=as.matrix(X[,keep_vars]),Y=as.matrix(Y),index=index, method = estmethod, maxiter=maxiter)
+		if (m@iterations==maxiter) stop('error with iterations')
+	
+	# try stuff to get model to work
+	#summary(lm(Y~-1+X))
+	
+	#m<-itersur(X=as.matrix(X[,keep_vars]),Y=as.matrix(Y),index=index, method = 'FGLS', maxiter=maxiter)
+	
 	
 	#m@coefficients
-	
-	
-	# check for insignificant copula terms
-	pval_cop=.1
-	insign_vars <- with(m@coefficients, which(grepl('[_]cop', variable)&abs(z)<abs(qnorm(pval_cop/2))))
-	keep_vars = setdiff(1:nrow(m@coefficients), insign_vars)
-	#keep_vars = 1:nrow(m@coefficients)
-	
-	m<-itersur(X=X[, keep_vars],Y=as.matrix(Y),index=index, method = estmethod, maxiter=1000)
-	if (m@iterations==1000) stop('error with iterations')
-	
-	m@coefficients
 	
 	# backscale
 	if (rescale == T) {
@@ -381,7 +415,6 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 	
 		}
 	
-
 	res$model <- m
 	
 	
@@ -422,7 +455,7 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 
 	# Compute VIF values
 		vifs = rbindlist(lapply(split(1:nrow(index), as.character(index$brand)), function(ind) {
-			vifdf=as.matrix(Xs)[ind,]
+			vifdf=as.matrix(X)[ind,]
 		
 			# drop zero columns
 			vifdf = vifdf[,which(!colSums(vifdf)==0)]

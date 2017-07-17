@@ -31,7 +31,7 @@ require(bit64)
 	require(parallel)
 	
 ### Setup cluster environment
-	ncpu = 4#10
+	ncpu = 10
 	
 ### Initialize all required functions (possibly on the cluster, too)
 
@@ -50,21 +50,24 @@ require(bit64)
 # - MCI vs MNL
 # - add switches to proc_analysis
 
-#brand_panel[, ':=' (wpswdst = wpswdst+1, nov3 = nov3 + 1)]
 
 
 # Specify models
 try(detach(m1), silent=T)
 m1 <- list(setup_y=c(usalessh = 'usalessh'),
 		   setup_x=c(price = 'rwpspr', dist = 'wpswdst', llen = 'llen', nov = 'nov3sh', uniq='wpsun'),
+		   #setup_endogenous = NULL,
 		   setup_endogenous = c('rwpspr', 'wpswdst','llen','nov3sh','wpsun'),
-		   #setup_endogenous=c(price = 'iv[_].*mcrwpsprd', dist = 'iv[_].*mcwpswdst', llen = 'iv[_].*mcllen', nov = 'iv[_].*mcnov3'),
 		   trend='none', # choose from: all, ur, none.
 		   pval = .05,
 		   max.lag = 12, 
 		   min.t = 36,
 		   descr = 'endog_model',
-		   fn = 'endog_model')
+		   fn = 'endog_model',
+		   benchmarkb = NULL,
+		   estmethod = "FGLS-Praise-Winsten",
+		   use_quarters = T,
+		   maxiter = 300)
 attach(m1)
 
 #models <- list(m1)
@@ -88,10 +91,11 @@ attach(m1)
 		
 # define markets for analysis
 	markets <- brand_panel[, list(n_brands = length(unique(brand)),
-	                              n_obs = .N), by=c('market_id','country', 'category')]
+	                              n_obs = .N,
+								  n_dates = length(unique(date))), by=c('market_id','country', 'category')]
 
 	# for now, exclude markets with only two brands
-	markets <- markets[n_brands>2]
+	#markets <- markets[n_brands>2]
 	
 	setorder(markets,market_id)
 	analysis_markets <- unique(markets$market_id)
@@ -107,7 +111,7 @@ attach(m1)
 	for (m in analysis_markets[1:last.item]) {
 		assign_model(m1)
 			
-		results_brands[[m]] <- try(analyze_by_market(m, setup_y = setup_y, setup_x = setup_x, setup_endogenous = setup_endogenous, trend = 'none', pval = .05, max.lag = 12, 	min.t = 36), silent=T)
+		results_brands[[m]] <- try(analyze_by_market(m, setup_y = setup_y, setup_x = setup_x, setup_endogenous = setup_endogenous, trend = 'none', pval = .05, max.lag = 12, min.t = 36, maxiter=300), silent=T)
 
 	}
 	
@@ -134,41 +138,139 @@ attach(m1)
 		
 	Sys.time()
 	results_brands <- parLapplyLB(cl, analysis_markets[1:last.item], function(i) {
-			try(analyze_by_market(i, setup_y = setup_y, setup_x = setup_x, setup_endogenous = setup_endogenous, trend = 'ur', pval = pval, max.lag = max.lag, min.t = min.t),silent=T)
+			try(analyze_by_market(i, setup_y = setup_y, setup_x = setup_x, setup_endogenous = setup_endogenous, trend = 'ur', pval = pval, max.lag = max.lag, min.t = min.t, maxiter = 300, use_quarters=T),silent=T)
 			})
 	Sys.time()
 	
 
-	
-	Sys.time()
-	results_err <- parLapplyLB(cl, err_markets, function(i) {
-			try(analyze_by_market(i, setup_y = setup_y, setup_x = setup_x, setup_endogenous = setup_endogenous, trend = 'ur', pval = pval, max.lag = max.lag, min.t = min.t),silent=T)
-			})
-	Sys.time()
-	
-	  18  24  25  26  28  29  30  31  33  35  40  41  78 109 110 129 130 131 132 135 137 139
+# Save results
+save(results_brands, analysis_markets, m1, file = c('../temp/stashed_results.RData'))
 
+	# model crashes
+	checks <- unlist(lapply(results_brands, class))
+	table(checks)
 	
+	err_markets = data.frame(market_id=analysis_markets[1:last.item][which(checks=='try-error')],msg=as.character(results_brands[which(checks=='try-error')]))
+
+	merge(err_markets,markets,by=c('market_id'),all.x=T, all.y=F)
+	
+
+
+	#errs <- err_markets$market_id
+	
+	# plot markets that crash
+	
+	
+	
+	try(detach(m1), silent=T)
+	
+	err_ms<-err_markets$market_id
+	errs<-NULL
+	for (m in seq(along=err_ms)) {
+		assign_model(m1)
+		cat('////////////////////////////////////////////\nMODEL ', m, '.....\n////////////////////////////////////////////\n\n\n\n\n\n')
+		errs[[m]] <- try(analyze_by_market(err_ms[m], setup_y = setup_y, setup_x = setup_x, setup_endogenous = NULL, trend = 'none', pval = .05, max.lag = 12, min.t = 36, maxiter=300, use_quarters=T,
+							  estmethod='FGLS-Praise-Winsten'), silent=T)
+
+	}
+	
+	checks <- unlist(lapply(errs, class))
+	table(checks)
+	
+	source('d:\\DATTA\\Dropbox\\Tilburg\\Projects\\marketingtools\\R\\itersur.R')
+
 #####################
 # summarize results #
 #####################
 
 	# To do:
 	
+	# Check non-converging cases
 	# MNL/MCI 
 	# Verify extreme-elasticity markets
 	# check elasticities for brands that come in when I select 4 years
+err_markets <- c(33,  38,  40,  83, 115, 134, 137, 141, 143, 145)
+
+	brand_panel[market_id%in%err_markets, list(dates=length(unique(date)), brands = length(unique(brand))), by=c('country', 'category', 'market_id')]
 	
+out=analyze_by_market(i, setup_y = setup_y, setup_x = setup_x, setup_endogenous = setup_endogenous, trend = 'ur', pval = pval, max.lag = max.lag, min.t = min.t)
+out=analyze_by_market(i, setup_y = setup_y, 
+						 setup_x = setup_x, 
+						 setup_endogenous = c("rwpspr", "wpswdst", "llen", "nov3sh", "wpsun"), 
+						 trend = 'ur', pval = pval, max.lag = max.lag, min.t = min.t)
+
+
+i=134
+
+brand_panel[market_id==134, usalessh2 := runif(.N), by = c('date')]
+brand_panel[market_id==134, usalessh2 := usalessh2/sum(usalessh2,na.rm=T), by = c('date')]
+
+
+brand_panel <- brand_panel[market_id==134&date<'2008-01-01']
+
+out=analyze_by_market(i, setup_y = 'usalessh', 
+						 setup_x = c("wpswdst", "llen", "nov3sh", "wpsun"), 
+						 setup_endogenous = NULL, #c("rwpspr","wpswdst", "llen", "nov3sh", "wpsun"), 
+						 trend = 'ur', pval = pval, max.lag = max.lag, min.t = min.t,
+						 estmethod = "FGLS", use_quarters=FALSE)
+						 
+						 #, benchmarkb = "celestial")
+			"llen", 		-Praise-Winsten	 
+				
+"rwpspr", 
+# all the rest runs well if I take out the Copula terms
+
+data.frame(market_id=analysis_markets[1:last.item][which(checks=='try-error')],msg=as.character(results_brands[which(checks=='try-error')]))
+brand_panel[market_id%in%err_markets, list(obs=length(unique(date))), by = c('market_id', 'country', 'category')]
+
+						 
+brand_panel[market_id==i, list(.N), by = c('brand')]
+
+
+panel <<- brand_panel[market_id==i]
+panel[, cop := makediff(make_copula(wpswdst)), by = c('brand')]
+panel[, diff := makediff(rwpspr), by = c('brand')]
+panel[, diff2 := makediff(llen), by = c('brand')]
+
+	xyplot(llen~date|brand, data=brand_panel[market_id==i],type='l')
 	
-	
+xyplot(rwpspr~date|brand, data=panel,type='l')
+
+xyplot(diff~date|brand, data=panel,type='l')
+
+xyplot(wpswdst~date|brand, data=panel,type='l')
+xyplot(nov3sh~date|brand, data=panel,type='l')
+xyplot(wpsun~date|brand, data=panel,type='l')
+
+
+xyplot(usalessh~date|brand, data=panel,type='l')
+
+xyplot(cop~date|brand, data=panel,type='l')
+
+tmp=dcast(panel, date~brand, value.var	= c('cop'))
+abs(cor(as.matrix(tmp[,-c(1)]), use='pairwise'))
+
+
+, ''
+tmp=dcast(panel, date~brand, value.var	= c('diff'))
+tmp=cbind(tmp, dcast(panel, date~brand, value.var	= c('diff2')))
+
+tmp$date<-NULL
+
+abs(cor(as.matrix(tmp), use='pairwise'))
+
+
+					 
 	# model crashes
 	checks <- unlist(lapply(results_brands, class))
 	table(checks)
 	
-	data.frame(market_id=analysis_markets[1:last.item][which(checks=='try-error')],msg=as.character(results_brands[which(checks=='try-error')]))
+	err_markets = data.frame(market_id=analysis_markets[1:last.item][which(checks=='try-error')],msg=as.character(results_brands[which(checks=='try-error')]))
 	
-	err_markets = which(checks=='try-error')
+	err_markets = err_markets$market_id
 	
+	
+	test=brand_panel[market_id%in%err_markets,list(.N), by = c('market_id', 'country', 'category', 'brand')]
 	
 	# elasticities
 	elast <- rbindlist(lapply(results_brands[!checks=='try-error'], function(x) x$elast))

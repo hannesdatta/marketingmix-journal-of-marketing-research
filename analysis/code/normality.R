@@ -26,7 +26,7 @@
 	require(parallel)
 	
 ### Setup cluster environment
-	ncpu = 10
+	ncpu = 4
 
 # Initialize cluster
 	init <- function() {
