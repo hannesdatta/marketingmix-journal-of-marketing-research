@@ -48,9 +48,6 @@ require(bit64)
 
 # To do
 # - MCI vs MNL
-# - add switches to proc_analysis
-
-
 
 # Specify models
 try(detach(m1), silent=T)
@@ -94,9 +91,6 @@ attach(m1)
 	                              n_obs = .N,
 								  n_dates = length(unique(date))), by=c('market_id','country', 'category')]
 
-	# for now, exclude markets with only two brands
-	#markets <- markets[n_brands>2]
-	
 	setorder(markets,market_id)
 	analysis_markets <- unique(markets$market_id)
 	
@@ -138,7 +132,7 @@ attach(m1)
 		
 	Sys.time()
 	results_brands <- parLapplyLB(cl, analysis_markets[1:last.item], function(i) {
-			try(analyze_by_market(i, setup_y = setup_y, setup_x = setup_x, setup_endogenous = setup_endogenous, trend = 'ur', pval = pval, max.lag = max.lag, min.t = min.t, maxiter = 300, use_quarters=T),silent=T)
+			try(analyze_by_market(i, setup_y = setup_y, setup_x = setup_x, setup_endogenous = setup_endogenous, trend = 'none', pval = pval, max.lag = max.lag, min.t = min.t, maxiter = 300, use_quarters=T),silent=T)
 			})
 	Sys.time()
 	
@@ -146,10 +140,14 @@ attach(m1)
 # Save results
 save(results_brands, analysis_markets, m1, file = c('../temp/stashed_results.RData'))
 
+
+load(file = c('../temp/stashed_results.RData'))
+
 	# model crashes
 	checks <- unlist(lapply(results_brands, class))
 	table(checks)
-	
+		last.item = length(analysis_markets)
+
 	err_markets = data.frame(market_id=analysis_markets[1:last.item][which(checks=='try-error')],msg=as.character(results_brands[which(checks=='try-error')]))
 
 	merge(err_markets,markets,by=c('market_id'),all.x=T, all.y=F)
@@ -167,11 +165,14 @@ save(results_brands, analysis_markets, m1, file = c('../temp/stashed_results.RDa
 	err_ms<-err_markets$market_id
 	errs<-NULL
 	for (m in seq(along=err_ms)) {
+		errs[[m]]<-list()
+		}
+		
+	for (m in seq(along=err_ms)) {
 		assign_model(m1)
 		cat('////////////////////////////////////////////\nMODEL ', m, '.....\n////////////////////////////////////////////\n\n\n\n\n\n')
-		errs[[m]] <- try(analyze_by_market(err_ms[m], setup_y = setup_y, setup_x = setup_x, setup_endogenous = NULL, trend = 'none', pval = .05, max.lag = 12, min.t = 36, maxiter=300, use_quarters=T,
-							  estmethod='FGLS-Praise-Winsten'), silent=T)
-
+		errs[[m]] <- try(analyze_by_market(err_ms[m], setup_y = setup_y, setup_x = setup_x, setup_endogenous = setup_endogenous, trend = 'none', maxiter=300, use_quarters=T, estmethod='FGLS-Praise-Winsten'), silent=T)
+		assign_model(m1, del=T)
 	}
 	
 	checks <- unlist(lapply(errs, class))
@@ -179,6 +180,23 @@ save(results_brands, analysis_markets, m1, file = c('../temp/stashed_results.RDa
 	
 	source('d:\\DATTA\\Dropbox\\Tilburg\\Projects\\marketingtools\\R\\itersur.R')
 
+	
+	analyze_by_market(97, setup_y = setup_y, setup_x = setup_x, setup_endogenous = NULL, trend = 'none', maxiter=300, use_quarters=F, estmethod='FGLS-Praise-Winsten')
+	
+	
+	
+	analyze_by_market(138, setup_y = setup_y, setup_x = setup_x, setup_endogenous = NULL, trend = 'none', maxiter=300, use_quarters=F, estmethod='FGLS-Praise-Winsten')
+	
+	iters<-fread('iter_out.csv')
+	
+	for (cols in setdiff(colnames(iters), c('iteration','delta'))) {
+		fn=paste0('../temp/iter_', cols, '.png')
+		png(fn, res=400, units='in', height=8, width=8)
+		iters[, varplot := get(cols)]
+		print(xyplot(varplot~iteration, main = cols, ylab = cols, xlab = 'iteration', type ='l', data = iters))
+		dev.off()
+		}
+	
 #####################
 # summarize results #
 #####################
