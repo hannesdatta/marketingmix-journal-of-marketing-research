@@ -214,7 +214,6 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 			adf$variable = rownames(adf)
 			rownames(adf) <- NULL
 
-			dat_by_brand[[z]][vars][,1]
 			
 	#		1) conduct UR op y; 
 	#		   o if trend --> add trend variable
@@ -276,7 +275,6 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 			return(res)
 			})
 
-
 		# summarize ADF results
 			adf_sur <- rbindlist(lapply(eq_by_brand, function(x) data.frame(brand = x$brand, x$adf)))
 			adf_sur[, ':=' (category=unique(res$specs$category), country=unique(res$specs$country))]
@@ -292,12 +290,17 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 				vals = stacked_eq[,resetvar, with=F]
 				stacked_eq[, (resetvar) := ifelse(is.na(get(resetvar)), 0, get(resetvar))]
 				}
-			
+		
 		# separate DVs from IVs
 			X = stacked_eq[,!colnames(stacked_eq)%in%'y',with=F]
 			Y = data.frame(stacked_eq[,'y',with=F])
 			index=data.frame(date=dtbb@period,brand=dtbb@individ)
 
+		# remove all-zero columns from X (e.g., where a brand variable is removed earlier ("NA"), and contains zeros for all other brands).
+			delvars = colnames(X)[which(colSums(X)==0)]
+			keepv = setdiff(colnames(X), delvars)
+			X = X[, keepv, with=F]
+	
 		# kick out incomplete ('diffed') vars, i.e., their first observation (as it is NA) BY BRAND
 			X=as.matrix(X[complete_eqs,])
 			Y=as.matrix(Y[complete_eqs,])
@@ -365,22 +368,48 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 			include <- grep(paste0('.*[_]cop[_]', regr), colnames(X), value=T)
 			final_exclude <- setdiff(exclude,include)
 			print(regr)
+			
+			#x_interim = as.matrix(X[,!colnames(X)%in%final_exclude])
+			#y_interim = as.matrix(Y)
+			#beta_ols = solve(crossprod(x_interim), crossprod(x_interim, y_interim))
+	
 			m_interim<-itersur(X=as.matrix(X[,!colnames(X)%in%final_exclude]),Y=as.matrix(Y),index=index, method = estmethod, maxiter=maxiter)
 			if (m_interim@iterations==maxiter) stop('error with iterations')
 			res = data.table(m_interim@coefficients)
 			res[, copula_check := regr]
 			return(res)
 			})
-		
 		copula_sign <- rbindlist(copula_sign)
+		
+		# Step 1b: Determine significance of copula terms by brand
+		if(0){brands = c(dtbb@benchmark, names(dat_by_brand))
+		
+		copula_sign = lapply(brands, function(regr) {
+			exclude <- grep('.*[_]cop[_]', colnames(X), value=T)
+			include <- grep(paste0(regr, '[_]cop[_]'), colnames(X), value=T)
+			final_exclude <- setdiff(exclude,include)
+			print(regr)
+			
+			#x_interim = as.matrix(X[,!colnames(X)%in%final_exclude])
+			#y_interim = as.matrix(Y)
+			#beta_ols = solve(crossprod(x_interim), crossprod(x_interim, y_interim))
+	
+			m_interim<-itersur(X=as.matrix(X[,!colnames(X)%in%final_exclude]),Y=as.matrix(Y),index=index, method = estmethod, maxiter=maxiter)
+			if (m_interim@iterations==maxiter) stop('error with iterations')
+			res = data.table(m_interim@coefficients)
+			res[, copula_check := regr]
+			return(res)
+			})
+		copula_sign <- rbindlist(copula_sign)
+					
+		}
+		keep_vars = seq(along=colnames(X))
 		
 		if (nrow(copula_sign)>0) {
 			pval_cop=.1
 			exclude <- copula_sign[grepl('.*[_]cop[_]', variable)][abs(z)<abs(qnorm(pval_cop/2))]
 			keep_vars <- which(!colnames(X)%in%exclude$variable)
-			} else {
-			keep_vars = seq(along=colnames(X))
-			}
+			} 
 			
 		# Run final model
 		cat('running SUR for selected variables\n')
@@ -393,7 +422,8 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 	
 	#m<-itersur(X=as.matrix(X[,keep_vars]),Y=as.matrix(Y),index=index, method = 'FGLS', maxiter=maxiter)
 	
-	
+	#m<-itersur(X=as.matrix(X[,keep_vars]),Y=as.matrix(Y),index=index, method = estmethod, maxiter=maxiter, to.file=T)
+		
 	#m@coefficients
 	
 	# backscale
