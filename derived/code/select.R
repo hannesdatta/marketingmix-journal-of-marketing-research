@@ -95,7 +95,7 @@
 	tmp_brands <- dat[which(selected_t_cat==T), list(brand_sales = sum(t_sales_units), time_periods = length(unique(date))), by=c('category','country',brand_id,time_id)]
 	if (length(exclude_categories)>0) tmp_brands = tmp_brands[!category%in%exclude_categories]
 	
-	tmp_brands[!category == 'tablets', consec_min := 4*12]
+	tmp_brands[!category == 'tablets', consec_min := 5*12]
 	tmp_brands[category == 'tablets', consec_min := 4*12]
 	
 	# establish consecutive number of years
@@ -122,6 +122,10 @@
 	setkey(tmp_brands_select, category, country, brand)
 	
 	brand_selection <-  tmp_brands_select[, list(selected_brand = any(selected_brand)), by=c('category','country','brand', 'brand_rename')]
+	
+	# kick out markets with only 1 brand
+	brand_selection[, n_brands := length(unique(brand_rename)), by = c('category','country')]
+	
 	
 	time_selection = tmp_sales[, c('category','country','date','selected_t_cat'),with=F]
 	setkey(time_selection,category,country,date)
