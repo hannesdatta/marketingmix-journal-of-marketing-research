@@ -63,7 +63,7 @@ m1 <- list(setup_y=c(usalessh = 'usalessh'),
 		   fn = 'endog_model',
 		   benchmarkb = NULL,
 		   estmethod = "FGLS-Praise-Winsten",
-		   use_quarters = T,
+		   use_quarters = F,
 		   maxiter = 300)
 attach(m1)
 
@@ -129,64 +129,78 @@ attach(m1)
 	
 	clusterExport(cl,names(m1))
 	
-		
-	Sys.time()
-	results_brands <- parLapplyLB(cl, analysis_markets[1:last.item], function(i) {
-			try(analyze_by_market(i, setup_y = setup_y, setup_x = setup_x, setup_endogenous = setup_endogenous, trend = 'none', pval = pval, max.lag = max.lag, min.t = min.t, maxiter = 300, use_quarters=T),silent=T)
-			})
+	
+	# without quarter (preferred/main)	
 	Sys.time()
 	
+	results_brands <- parLapplyLB(cl, analysis_markets[1:last.item], function(i) {
+	    if(i==27) {maxit=30000} else {maxit=400}
+			try(analyze_by_market(i, setup_y = setup_y, setup_x = setup_x, setup_endogenous = setup_endogenous, trend = 'none', pval = pval, max.lag = max.lag, min.t = min.t, maxiter = maxit, use_quarters=F),silent=T)
+			})
+	results_brands[[124]]=analyze_by_market(138, setup_y = setup_y, setup_x = c(price = 'rwpspr', dist = 'wpswdst', nov = 'nov3sh', uniq='wpsun'), setup_endogenous = c(price = 'rwpspr', dist = 'wpswdst', nov = 'nov3sh', uniq='wpsun'), trend = 'none', maxiter=300, use_quarters=F, estmethod='FGLS-Praise-Winsten')
+	
+	Sys.time()
+	
+	save(results_brands, analysis_markets, m1, file = c('../temp/results_noquarter.RData'))
+	
+	# with quarter	
+	
+	Sys.time()
+	results_brands_with_quarter <- parLapplyLB(cl, analysis_markets[1:last.item], function(i) {
+	  if(i==27) {maxit=30000} else {maxit=400}
+	  try(analyze_by_market(i, setup_y = setup_y, setup_x = setup_x, setup_endogenous = setup_endogenous, trend = 'none', pval = pval, max.lag = max.lag, min.t = min.t, maxiter = maxit, use_quarters=T),silent=T)
+	})
+	Sys.time()
+	
+  save(results_brands, analysis_markets, m1, file = c('../temp/results_withquarter.RData'))
 
-# Save results
-save(results_brands, analysis_markets, m1, file = c('../temp/stashed_results.RData'))
 
-
-load(file = c('../temp/stashed_results.RData'))
+#####################################
+# COMPARISON QUARTER VS NOT QUARTER #
+#####################################
+  
+  load(file = c('../temp/results_noquarter.RData'))
 
 	# model crashes
 	checks <- unlist(lapply(results_brands, class))
 	table(checks)
-		last.item = length(analysis_markets)
+	last.item = length(analysis_markets)
 
 	err_markets = data.frame(market_id=analysis_markets[1:last.item][which(checks=='try-error')],msg=as.character(results_brands[which(checks=='try-error')]))
-
 	merge(err_markets,markets,by=c('market_id'),all.x=T, all.y=F)
 	
-
-
-	#errs <- err_markets$market_id
-	
-	# plot markets that crash
+	# elasticities
+	elast_noq <- rbindlist(lapply(results_brands[!checks=='try-error'], function(x) x$elast))
 	
 	
-	
-	try(detach(m1), silent=T)
-	
-	err_ms<-err_markets$market_id
-	errs<-NULL
-	for (m in seq(along=err_ms)) {
-		errs[[m]]<-list()
-		}
-		
-	for (m in seq(along=err_ms)) {
-		assign_model(m1)
-		cat('////////////////////////////////////////////\nMODEL ', m, '.....\n////////////////////////////////////////////\n\n\n\n\n\n')
-		errs[[m]] <- try(analyze_by_market(err_ms[m], setup_y = setup_y, setup_x = setup_x, setup_endogenous = setup_endogenous, trend = 'none', maxiter=300, use_quarters=T, estmethod='FGLS-Praise-Winsten'), silent=T)
-		assign_model(m1, del=T)
-	}
-	
-	checks <- unlist(lapply(errs, class))
+	load(file = c('../temp/results_withquarter.RData'))
+	# model crashes
+	checks <- unlist(lapply(results_brands, class))
 	table(checks)
+	last.item = length(analysis_markets)
 	
-	source('d:\\DATTA\\Dropbox\\Tilburg\\Projects\\marketingtools\\R\\itersur.R')
+	# elasticities
+	elast_q <- rbindlist(lapply(results_brands[!checks=='try-error'], function(x) x$elast))
+	
+	# compare elasticities
+	elast_q[, source:='quarter']
+	elast_noq[, source:='noquarter']
+	
+	melast = rbind(elast_q, elast_noq)
+	
+	tmp=dcast(melast[variable%in%setup_x&!grepl('cop', var_orig)], brand+market_id+variable~source, value.var='coef')
+	tmp=data.table(tmp)
+	
+	tmp[, (cor(noquarter,quarter,use='pairwise.complete')), by = c('variable')]
+	
+
+######################
+# ITERATION ANALYSIS #
+######################
 
 	
-	analyze_by_market(97, setup_y = setup_y, setup_x = setup_x, setup_endogenous = NULL, trend = 'none', maxiter=300, use_quarters=F, estmethod='FGLS-Praise-Winsten')
-	
-	
-	
-	analyze_by_market(138, setup_y = setup_y, setup_x = setup_x, setup_endogenous = NULL, trend = 'none', maxiter=300, use_quarters=F, estmethod='FGLS-Praise-Winsten')
-	
+
+if(0){
 	iters<-fread('iter_out.csv')
 	
 	for (cols in setdiff(colnames(iters), c('iteration','delta'))) {
@@ -196,6 +210,7 @@ load(file = c('../temp/stashed_results.RData'))
 		print(xyplot(varplot~iteration, main = cols, ylab = cols, xlab = 'iteration', type ='l', data = iters))
 		dev.off()
 		}
+}
 	
 #####################
 # summarize results #
@@ -207,88 +222,14 @@ load(file = c('../temp/stashed_results.RData'))
 	# MNL/MCI 
 	# Verify extreme-elasticity markets
 	# check elasticities for brands that come in when I select 4 years
-err_markets <- c(33,  38,  40,  83, 115, 134, 137, 141, 143, 145)
 
-	brand_panel[market_id%in%err_markets, list(dates=length(unique(date)), brands = length(unique(brand))), by=c('country', 'category', 'market_id')]
+
 	
-out=analyze_by_market(i, setup_y = setup_y, setup_x = setup_x, setup_endogenous = setup_endogenous, trend = 'ur', pval = pval, max.lag = max.lag, min.t = min.t)
-out=analyze_by_market(i, setup_y = setup_y, 
-						 setup_x = setup_x, 
-						 setup_endogenous = c("rwpspr", "wpswdst", "llen", "nov3sh", "wpsun"), 
-						 trend = 'ur', pval = pval, max.lag = max.lag, min.t = min.t)
-
-
-i=134
-
-brand_panel[market_id==134, usalessh2 := runif(.N), by = c('date')]
-brand_panel[market_id==134, usalessh2 := usalessh2/sum(usalessh2,na.rm=T), by = c('date')]
-
-
-brand_panel <- brand_panel[market_id==134&date<'2008-01-01']
-
-out=analyze_by_market(i, setup_y = 'usalessh', 
-						 setup_x = c("wpswdst", "llen", "nov3sh", "wpsun"), 
-						 setup_endogenous = NULL, #c("rwpspr","wpswdst", "llen", "nov3sh", "wpsun"), 
-						 trend = 'ur', pval = pval, max.lag = max.lag, min.t = min.t,
-						 estmethod = "FGLS", use_quarters=FALSE)
-						 
-						 #, benchmarkb = "celestial")
-			"llen", 		-Praise-Winsten	 
-				
-"rwpspr", 
-# all the rest runs well if I take out the Copula terms
-
-data.frame(market_id=analysis_markets[1:last.item][which(checks=='try-error')],msg=as.character(results_brands[which(checks=='try-error')]))
-brand_panel[market_id%in%err_markets, list(obs=length(unique(date))), by = c('market_id', 'country', 'category')]
-
-						 
-brand_panel[market_id==i, list(.N), by = c('brand')]
-
-
-panel <<- brand_panel[market_id==i]
-panel[, cop := makediff(make_copula(wpswdst)), by = c('brand')]
-panel[, diff := makediff(rwpspr), by = c('brand')]
-panel[, diff2 := makediff(llen), by = c('brand')]
-
-	xyplot(llen~date|brand, data=brand_panel[market_id==i],type='l')
+	load(file = c('../temp/results_noquarter.RData'))
 	
-xyplot(rwpspr~date|brand, data=panel,type='l')
-
-xyplot(diff~date|brand, data=panel,type='l')
-
-xyplot(wpswdst~date|brand, data=panel,type='l')
-xyplot(nov3sh~date|brand, data=panel,type='l')
-xyplot(wpsun~date|brand, data=panel,type='l')
-
-
-xyplot(usalessh~date|brand, data=panel,type='l')
-
-xyplot(cop~date|brand, data=panel,type='l')
-
-tmp=dcast(panel, date~brand, value.var	= c('cop'))
-abs(cor(as.matrix(tmp[,-c(1)]), use='pairwise'))
-
-
-, ''
-tmp=dcast(panel, date~brand, value.var	= c('diff'))
-tmp=cbind(tmp, dcast(panel, date~brand, value.var	= c('diff2')))
-
-tmp$date<-NULL
-
-abs(cor(as.matrix(tmp), use='pairwise'))
-
-
-					 
-	# model crashes
 	checks <- unlist(lapply(results_brands, class))
 	table(checks)
 	
-	err_markets = data.frame(market_id=analysis_markets[1:last.item][which(checks=='try-error')],msg=as.character(results_brands[which(checks=='try-error')]))
-	
-	err_markets = err_markets$market_id
-	
-	
-	test=brand_panel[market_id%in%err_markets,list(.N), by = c('market_id', 'country', 'category', 'brand')]
 	
 	# elasticities
 	elast <- rbindlist(lapply(results_brands[!checks=='try-error'], function(x) x$elast))
@@ -343,11 +284,8 @@ abs(cor(as.matrix(tmp), use='pairwise'))
 	
 	elast[variable=='rwpspr' & abs(elast) > 6]
 	
-	elast[variable=='llen' & abs(elast) > 6]
-	
+
 	elast[variable=='llen' & abs(elast) > 6]
 	# check data / model outputs for top and bottom 10; plus 5+
 	elast[variable=='rwpspr' & elast > 6]
-	
-	# same cases? e.g. no. of observations
-	
+
