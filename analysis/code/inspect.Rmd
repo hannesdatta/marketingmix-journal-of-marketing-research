@@ -1,0 +1,180 @@
+---
+title: "Preliminary insights - GfK"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+require(data.table)
+require(stargazer)
+library(knitr)
+require(xtable)
+require(texreg)
+
+# Load results
+  load(file = c('../temp/results_noquarter.RData'))
+
+# identify model crashes
+	checks <- unlist(lapply(results_brands, class))
+	table(checks)
+	last.item = length(analysis_markets)
+
+# load data
+	brand_panel=fread('../temp/preclean.csv')
+	brand_panel[, ':=' (date = as.Date(date))]
+	
+	# elasticities
+	elast <- rbindlist(lapply(results_brands[!checks=='try-error'], function(x) x$elast))
+
+	# merge some more variables to it
+	vars = c('cat_class', 'country_class')
+	tmp = brand_panel[, c('market_id', vars), with=F]
+	setkey(tmp, market_id)
+	tmp = unique(tmp)
+	
+	elast = merge(elast, tmp, all.x=T, all.y=F, by = c('market_id'))
+	
+	
+new <- c('tablets', 'phones_smart')
+
+wb_lowermidx = c('india','indonesia', 'vietnam', 'philippines')
+wb_uppermidx = c('china', 'malaysia','thailand')
+
+
+elast[, new:=category%in%new]
+elast[, wb_lowermid:=country%in%wb_lowermidx]
+elast[, wb_uppermid:=country%in%wb_uppermidx]
+
+elast[, low := wb_lowermid+wb_uppermid]
+
+	
+```
+
+## Data overview
+```{r overview, echo=FALSE}
+
+cat('Number of markets: ', length(unique(elast$market_id)), '\n')
+cat('Number of brands (sum of unique brands per market): ', nrow(elast[, .N, by = c('market_id', 'brand')]))
+cat('Number of unique brands: ', nrow(elast[, .N, by = c('brand')]))
+```
+
+```{r overview2, echo=FALSE, results='asis'}
+
+tmp = elast[, list(Nbrands = length(unique(brand))), by = c('market_id', 'category','country')]
+
+tab = dcast(tmp, category~country, value.var=c('Nbrands'))
+print(xtable(tab, caption = 'Overview of included categories and countries (with number of brands indicated for each market)'), scalebox='0.6',caption.placement='top')
+
+
+```
+
+## Summary of elasticities
+
+Significance tested at p<.1 (z >= 1.69).
+
+```{r cars, echo = FALSE, width = 600}
+
+	zval=1.69
+	tmp=elast[!is.na(coef), list(median_elast = median(elast), 
+												  w_elast = sum(elast/elast_se)/sum(1/elast_se), 
+												  N_brands= .N, 
+												  perc_positive = length(which(z>=(zval)))/.N, 
+												  perc_null = length(which(abs(z)<zval))/.N, 
+												  perc_negative = length(which(z<=(-zval)))/.N), by=c('variable')]
+	kable(tmp, caption = 'Elasticities by variable')
+	
+
+	# copulas
+	copulas <- rbindlist(lapply(results_brands[!checks=='try-error'], function(x) x$model@coefficients))
+	copulas <- copulas[grepl('cop_', varname)]
+	
+	tmp=copulas[!is.na(coef), list(median = median(coef), 
+											  weighted = sum(coef/se)/sum(1/se), 
+											  N_brands= .N, 
+											  perc_positive = length(which(z>=(zval)))/.N, 
+											  perc_null = length(which(abs(z)<zval))/.N, 
+											  perc_negative = length(which(z<=(-zval)))/.N), by=c('varname')]
+
+	kable(tmp, caption = 'Copula terms by variable (used for getting an understanding about significance)')
+
+
+```
+
+## Plots for elasticities by variable
+
+```{r pressure, echo=FALSE}
+	
+	par(mfrow=c(3,2))
+
+	hist(elast[variable=='llen']$elast, breaks=100, col='grey', main = 'llen', xlab = 'elasticity')
+	hist(elast[variable=='rwpspr']$elast, breaks=100, col='grey', main = 'price', xlab = 'elasticity') # -15
+	hist(elast[variable=='wpsun']$elast, breaks=100, col='grey', main = 'unique', xlab = 'elasticity')
+	hist(elast[variable=='wpswdst']$elast, breaks=100, col='grey', main = 'dist', xlab = 'elasticity')
+	hist(elast[variable=='nov3sh']$elast, breaks=100, col='grey', main = 'noveltyshare', xlab = 'elasticity')
+
+	
+```
+## Summary of elasticities by country class (IMF vs. World Bank)
+
+2 definitions:
+
+(a) International Monetary Fund (IMF)
+    
+* Emerging/developing economies (7, "linc")
+    + China, India, Indonesia, Malaysia, Philippines, Thailand, Vietnam
+* Advanced economies (7, "hinc")
+    + Australia, Hong Kong, Japan, New Zealand, Singapore, South Korea, Taiwan
+    
+(b) World Bank
+
+* Low income (0)
+* Lower-middle income (4, "mb_lowermid")
+    + India, Indoensia, Philippines, Vietnam
+* Upper-middle income (3, "mb_uppermid")
+    + China, Malaysia, Thailand
+* High-income (7)
+    + Australia, Hong Kong, Japan, New Zealand, Singapore, South Korea, Taiwan
+
+\pagebreak
+
+```{r byclass, echo=FALSE}
+tmp=elast[!is.na(coef), list(median_elast = median(elast), 
+												  w_elast = sum(elast/elast_se)/sum(1/elast_se), 
+												  N_brands= .N, 
+												  perc_positive = length(which(z>=(zval)))/.N, 
+												  perc_null = length(which(abs(z)<zval))/.N, 
+												  perc_negative = length(which(z<=(-zval)))/.N), by=c('variable', 'country_class')]
+kable(dcast(tmp, variable ~ country_class, value.var=c('w_elast')), caption = "Summary of elasticities by country classification")
+```
+
+```{r byclass2, echo=FALSE, results = 'asis'}
+
+out = NULL
+for (var in unique(elast$variable)) {
+  #IMF
+  m1<-lm(elast~1+country_class, subset = variable == var, data = elast, weights = 1/elast_se)
+  # world bank
+  m2<-lm(elast~1+wb_lowermid+wb_uppermid, subset = variable == var, data = elast, weights = 1/elast_se)
+
+  out[[var]] <- list(m1=m1,m2=m2)
+}
+
+texreg(lapply(out, function(x) x$m1), custom.model.names=unique(elast$variable),caption="Classification (A): IMF (dummy for low income)", caption.above=T)
+texreg(lapply(out, function(x) x$m2), custom.model.names=unique(elast$variable),caption="Classification (B): World bank", caption.above=T)
+
+```
+
+## Plots for elasticities (IMF definition: low versus high income)
+
+```{r plostelast, echo=FALSE}
+library(ggplot2)
+
+#Plot.
+for (var in unique(elast$variable)) {
+  print(ggplot(elast[variable==var & !is.na(elast)], aes(x = elast, fill = country_class)) + geom_density(alpha = 0.5) + ggtitle(paste0("Density for ", var)))
+}
+
+
+```

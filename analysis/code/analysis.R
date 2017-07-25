@@ -172,6 +172,10 @@ attach(m1)
 	# elasticities
 	elast_noq <- rbindlist(lapply(results_brands[!checks=='try-error'], function(x) x$elast))
 	
+
+	fwrite(elast_noq, file = '../output/elasticities.csv', row.names=F)
+	
+	
 	
 	load(file = c('../temp/results_withquarter.RData'))
 	# model crashes
