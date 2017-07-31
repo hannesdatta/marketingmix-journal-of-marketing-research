@@ -80,7 +80,7 @@ require(bit64)
 		   attraction_model = "MNL",
 		   takediff = 'alwaysdiff',
 		   use_quarters = F,
-		   plusx = c('nov3sh'),
+		   plusx = NULL, #c('nov3sh', 'wpswdst'),
 		   maxiter = 300)
 
 #m1$plusx=c('nov3sh', 'wpswdst')
@@ -139,8 +139,7 @@ assign_model(m1)
 	
 # run estimation for brand-level attraction models
 	void<-clusterEvalQ(cl, init())
-	last.item = 10 #length(analysis_markets)
-	results_brands <- NULL
+	last.item = length(analysis_markets)
 	assign_model(m1)
 	
 	clusterExport(cl,names(m1))
@@ -169,7 +168,6 @@ assign_model(m1)
 	m1$plusx=c('nov3sh', 'wpswdst')
 	m1$attraction_model='MCI'
 	clusterExport(cl,names(m1))
-	
 	
 	results_MCI <- parLapplyLB(cl, analysis_markets[1:last.item], function(i) {
 	  if(i==27) {maxit=30000} else {maxit=400}
