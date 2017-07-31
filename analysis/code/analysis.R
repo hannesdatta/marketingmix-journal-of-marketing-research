@@ -63,6 +63,8 @@ m1 <- list(setup_y=c(usalessh = 'usalessh'),
 		   fn = 'endog_model',
 		   benchmarkb = NULL,
 		   estmethod = "FGLS-Praise-Winsten",
+		   attraction_model = "MNL",
+		   takediff = 'alwaysdiff'
 		   use_quarters = F,
 		   maxiter = 300)
 attach(m1)
