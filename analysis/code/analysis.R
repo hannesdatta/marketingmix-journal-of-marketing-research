@@ -44,14 +44,28 @@ require(bit64)
 		require(marketingtools)
 		}
 	
+	
+	assign_model <- function(m, del=F) {
+	  if (del==F) {
+	    for (l in seq(along=m)) {
+	      var = m[[l]]
+	      eval(parse(text=paste0(names(m)[l], ' <<- var')))
+	    }
+	  }
+	  if (del==T) {
+	    for (l in seq(along=m)) suppressWarnings(eval(parse(text=paste0('rm(', names(m)[l],')'))))
+	  }
+	}
+	
 	init()
 
-# To do
-# - MCI vs MNL
+	
+# Specify model
+  try(detach(m1), silent=T)
+	try(assign_model(m1,del=T), silent=T)
+	
 
-# Specify models
-try(detach(m1), silent=T)
-m1 <- list(setup_y=c(usalessh = 'usalessh'),
+	m1 <- list(setup_y=c(usalessh = 'usalessh'),
 		   setup_x=c(price = 'rwpspr', dist = 'wpswdst', llen = 'llen', nov = 'nov3sh', uniq='wpsun'),
 		   #setup_endogenous = NULL,
 		   setup_endogenous = c('rwpspr', 'wpswdst','llen','nov3sh','wpsun'),
@@ -69,13 +83,12 @@ m1 <- list(setup_y=c(usalessh = 'usalessh'),
 		   plusx = c('nov3sh'),
 		   maxiter = 300)
 
-m1$plusx=c('nov3sh')
-m1$attraction_model='MCI'
+#m1$plusx=c('nov3sh', 'wpswdst')
+#m1$attraction_model='MCI'
 
 #models <- list(m1)
-attach(m1)
 
-#assign_model(m1)
+assign_model(m1)
 #assign_model(m1,del=T)
 
 ####################
@@ -83,18 +96,6 @@ attach(m1)
 ####################
 
 
-	assign_model <- function(m, del=F) {
-		if (del==F) {
-			for (l in seq(along=m)) {
-				var = m[[l]]
-				eval(parse(text=paste0(names(m)[l], ' <<- var')))
-				}
-			}
-		if (del==T) {
-			for (l in seq(along=m)) suppressWarnings(eval(parse(text=paste0('rm(', names(m)[l],')'))))
-			}
-		}
-		
 # define markets for analysis
 	markets <- brand_panel[, list(n_brands = length(unique(brand)),
 	                              n_obs = .N,
@@ -109,19 +110,20 @@ attach(m1)
 # deactivate the rest
 	# not on cluster
 	results_brands <- NULL
-	try(detach(m1), silent=T)
-	
+
 	for (m in analysis_markets[1:last.item]) {
 		assign_model(m1)
 			
 		results_brands[[m]] <- try(analyze_by_market(m, setup_y = setup_y, setup_x = setup_x, 
 		                                             setup_endogenous = setup_endogenous, 
-		                                             trend = 'none', pval = .05, max.lag = 12, 
-		                                             min.t = 36, maxiter=300, attraction_model = 'MNL'), silent=T)
+		                                             trend = trend, pval = pval, max.lag = max.lag, 
+		                                             min.t = min.t, maxiter=maxiter, attraction_model = attraction_model, 
+		                                             plusx=plusx, use_quarters=use_quarters), silent=T)
 		
 		assign_model(m1, del = TRUE)
 		
 	}
+	assign_model(m1, del = TRUE)
 	
 	# calculate elasticities and significance!!!
 	
@@ -137,38 +139,49 @@ attach(m1)
 	
 # run estimation for brand-level attraction models
 	void<-clusterEvalQ(cl, init())
-	last.item = length(analysis_markets)
+	last.item = 10 #length(analysis_markets)
 	results_brands <- NULL
 	assign_model(m1)
 	
 	clusterExport(cl,names(m1))
 	
 	
-	# without quarter (preferred/main)	
+	# MNL without quarter (preferred/main)	
 	Sys.time()
 	
-	results_brands <- parLapplyLB(cl, analysis_markets[1:last.item], function(i) {
+	results_MNL <- parLapplyLB(cl, analysis_markets[1:last.item], function(i) {
 	    if(i==27) {maxit=30000} else {maxit=400}
-			try(analyze_by_market(i, setup_y = setup_y, setup_x = setup_x, setup_endogenous = setup_endogenous, trend = 'none', pval = pval, max.lag = max.lag, min.t = min.t, maxiter = maxit, use_quarters=F),silent=T)
+			try(analyze_by_market(i, setup_y = setup_y, setup_x = setup_x, setup_endogenous = setup_endogenous, trend = 'none', pval = pval, max.lag = max.lag, min.t = min.t, maxiter = maxit, use_quarters=F, plusx=plusx, attraction_model=attraction_model),silent=T)
 			})
-	results_brands[[124]]=analyze_by_market(138, setup_y = setup_y, setup_x = c(price = 'rwpspr', dist = 'wpswdst', nov = 'nov3sh', uniq='wpsun'), setup_endogenous = c(price = 'rwpspr', dist = 'wpswdst', nov = 'nov3sh', uniq='wpsun'), trend = 'none', maxiter=300, use_quarters=F, estmethod='FGLS-Praise-Winsten')
+	results_MNL[[124]]=analyze_by_market(138, setup_y = setup_y, setup_x = c(price = 'rwpspr', dist = 'wpswdst', nov = 'nov3sh', uniq='wpsun'), setup_endogenous = c(price = 'rwpspr', dist = 'wpswdst', nov = 'nov3sh', uniq='wpsun'), trend = 'none', maxiter=300, use_quarters=F, estmethod='FGLS-Praise-Winsten')
 	
 	Sys.time()
 	
-	save(results_brands, analysis_markets, m1, file = c('../temp/results_noquarter.RData'))
-	
-	# with quarter	
-	
+	# MNL with quarter	
 	Sys.time()
-	results_brands_with_quarter <- parLapplyLB(cl, analysis_markets[1:last.item], function(i) {
+	results_MNL_wquarter <- parLapplyLB(cl, analysis_markets[1:last.item], function(i) {
 	  if(i==27) {maxit=30000} else {maxit=400}
-	  try(analyze_by_market(i, setup_y = setup_y, setup_x = setup_x, setup_endogenous = setup_endogenous, trend = 'none', pval = pval, max.lag = max.lag, min.t = min.t, maxiter = maxit, use_quarters=T),silent=T)
+	  try(analyze_by_market(i, setup_y = setup_y, setup_x = setup_x, setup_endogenous = setup_endogenous, trend = trend, pval = pval, max.lag = max.lag, min.t = min.t, maxiter = maxit, use_quarters=T, plusx=plusx, attraction_model=attraction_model),silent=T)
 	})
 	Sys.time()
 	
-  save(results_brands, analysis_markets, m1, file = c('../temp/results_withquarter.RData'))
+	# MCI without quarter
+	m1$plusx=c('nov3sh', 'wpswdst')
+	m1$attraction_model='MCI'
+	clusterExport(cl,names(m1))
+	
+	
+	results_MCI <- parLapplyLB(cl, analysis_markets[1:last.item], function(i) {
+	  if(i==27) {maxit=30000} else {maxit=400}
+	  try(analyze_by_market(i, setup_y = setup_y, setup_x = setup_x, setup_endogenous = setup_endogenous, trend = trend, pval = pval, max.lag = max.lag, min.t = min.t, maxiter = maxit, use_quarters=F, plusx=plusx, attraction_model=attraction_model),silent=T)
+	})
+	results_MCI[[124]]=analyze_by_market(138, setup_y = setup_y, setup_x = c(price = 'rwpspr', dist = 'wpswdst', nov = 'nov3sh', uniq='wpsun'), setup_endogenous = c(price = 'rwpspr', dist = 'wpswdst', nov = 'nov3sh', uniq='wpsun'), trend = 'none', maxiter=300, use_quarters=F, estmethod='FGLS-Praise-Winsten')
+	
+  save(results_MNL, results_MCI, results_MNL_wquarter, analysis_markets, m1, file = c('../temp/results_20170731.RData'))
+#
 
-
+  
+  
 #####################################
 # COMPARISON QUARTER VS NOT QUARTER #
 #####################################

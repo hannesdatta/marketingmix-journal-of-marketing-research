@@ -194,7 +194,7 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 
     # execute procedures by brand
 		eq_by_brand=lapply(seq(along=dat_by_brand), function(z) {
-			
+		  	
 		  ####################
 		  # Enders procedure #
 		  ####################
@@ -204,6 +204,7 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 		  # but not the trend and not the copula terms)
 		  
 			curr_brand = names(dat_by_brand)[z]
+			#print(curr_brand)
 			
 			vars = setdiff(colnames(dat_by_brand[[z]])[!colSums(dat_by_brand[[z]])==0 & !grepl('[_]dum|trend', colnames(dat_by_brand[[z]]))],'period')
 			
@@ -221,13 +222,6 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 			adf$variable = rownames(adf)
 			rownames(adf) <- NULL
 			
-			
-			for (j in vars) {
-			  print(j)
-			  adf_enders(unlist(dat_by_brand[[z]][,j]), maxlag=12, pval=.05, season=NULL)
-			   
-			}
-
 			##########################
 			# differencing procedure #
 			##########################
