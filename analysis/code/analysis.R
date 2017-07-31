@@ -64,12 +64,19 @@ m1 <- list(setup_y=c(usalessh = 'usalessh'),
 		   benchmarkb = NULL,
 		   estmethod = "FGLS-Praise-Winsten",
 		   attraction_model = "MNL",
-		   takediff = 'alwaysdiff'
+		   takediff = 'alwaysdiff',
 		   use_quarters = F,
+		   plusx = c('nov3sh'),
 		   maxiter = 300)
-attach(m1)
+
+m1$plusx=c('nov3sh')
+m1$attraction_model='MCI'
 
 #models <- list(m1)
+attach(m1)
+
+#assign_model(m1)
+#assign_model(m1,del=T)
 
 ####################
 ### RUN ANALYSIS ###
@@ -84,7 +91,7 @@ attach(m1)
 				}
 			}
 		if (del==T) {
-			for (l in seq(along=m)) eval(parse(text=paste0('rm(', names(m)[l],')')))
+			for (l in seq(along=m)) suppressWarnings(eval(parse(text=paste0('rm(', names(m)[l],')'))))
 			}
 		}
 		
@@ -97,7 +104,7 @@ attach(m1)
 	analysis_markets <- unique(markets$market_id)
 	
 	last.item = length(analysis_markets)
-	last.item = 10
+	last.item = 2
 
 # deactivate the rest
 	# not on cluster
@@ -107,8 +114,13 @@ attach(m1)
 	for (m in analysis_markets[1:last.item]) {
 		assign_model(m1)
 			
-		results_brands[[m]] <- try(analyze_by_market(m, setup_y = setup_y, setup_x = setup_x, setup_endogenous = setup_endogenous, trend = 'none', pval = .05, max.lag = 12, min.t = 36, maxiter=300), silent=T)
-
+		results_brands[[m]] <- try(analyze_by_market(m, setup_y = setup_y, setup_x = setup_x, 
+		                                             setup_endogenous = setup_endogenous, 
+		                                             trend = 'none', pval = .05, max.lag = 12, 
+		                                             min.t = 36, maxiter=300, attraction_model = 'MNL'), silent=T)
+		
+		assign_model(m1, del = TRUE)
+		
 	}
 	
 	# calculate elasticities and significance!!!

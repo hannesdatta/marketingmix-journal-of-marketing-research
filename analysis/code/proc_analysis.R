@@ -31,11 +31,15 @@ require(Matrix)
 # Main analysis function (to be run seperately for each market_id i)
 analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend = 'none', pval = .05, max.lag = 12, min.t = 36, 
                               estmethod = "FGLS-Praise-Winsten", benchmarkb = NULL, use_quarters = TRUE, maxiter=1000,
-                              attraction_model = "MNL", takediff = 'alwaysdiff') {
+                              attraction_model = "MNL", takediff = 'alwaysdiff', plusx = NULL) {
 	
 		cat('data preparation\n...')
 		
 		panel <<- brand_panel[market_id==i]
+		
+		for (var in plusx) {
+		  panel[, (var):=get(var)+1]
+		}
 		
 		# Create empty object holding the results of the model estimation process (elements will be added throughout the code)
 		res = NULL
@@ -82,6 +86,9 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 		  res$cop_nonnormal = cop_terms[, list(shap_pval = shapiro.test(value)$p), by = c('category', 'country', 'brand', 'variable')]
 		
 		  cop_terms[, value := make_copula(value), by = c('country','category','brand','variable')]
+		  
+		  if (attraction_model=='MCI') cop_terms[, value := exp(value)]
+		  
 		  cop_terms[, variable := paste0('cop_', variable)]
 		
 		  # attach copula terms to data
@@ -213,6 +220,13 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 			adf=data.frame(t(apply(dat_by_brand[[z]][vars], 2, adf_enders, maxlag=12,pval=pval, season=NULL)))
 			adf$variable = rownames(adf)
 			rownames(adf) <- NULL
+			
+			
+			for (j in vars) {
+			  print(j)
+			  adf_enders(unlist(dat_by_brand[[z]][,j]), maxlag=12, pval=.05, season=NULL)
+			   
+			}
 
 			##########################
 			# differencing procedure #
