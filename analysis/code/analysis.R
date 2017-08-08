@@ -27,6 +27,19 @@ require(bit64)
 	brand_panel=fread('../temp/preclean.csv')
 	brand_panel[, ':=' (date = as.Date(date))]
 
+## How many brands are active in multiple countries
+	tmp = brand_panel[, list(N=.N), by = c('brand', 'country')]
+	tmp[, Ncountries := .N, by = c('brand')]
+	tmp[, N:=NULL]
+	tmp[, present := T]
+	tmp = dcast(tmp, brand + Ncountries ~ country, value.var='present')
+	
+	tmp[, Ncountries:=-Ncountries]
+	setorder(tmp, Ncountries, brand)
+	tmp[, Ncountries:=-Ncountries]
+	write.table(tmp, 'clipboard', row.names=F)
+	
+	
 ### Load additional packages
 	require(parallel)
 	
