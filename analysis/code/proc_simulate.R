@@ -27,10 +27,9 @@
 	require(lattice)
 	
 	
-	#res = results_brands[[1]][[1]]
+	res = results_brands[[1]]
 	
-
-
+	# to do: integrate MNL vs MCI?
 	
 	simulate <- function(sim_set, res) {
 
@@ -39,41 +38,59 @@
 	m_form_heterog = as.formula(paste0('~ ', paste0(res$variables$x, collapse = '+'), ' + lagunitsales_sh'))
 	m_form_index = as.formula(~ brand + month)
 
-	dtbb_sim <- attraction_data(formula=m_form, 
+	# recall: MCI takes logs, MNL does not
+	dtbb_sim <- suppressWarnings(attraction_data(formula=m_form, 
 							data = sim_set, 
 							heterogenous = m_form_heterog, 
 							index = m_form_index, 
 							benchmark=res$benchmark_brand,
-							model = 'MCI')
+							model = res$attraction_model))
 
-	# Add time trends
+	# if there are only two brands, remove lagged market share of base brand for identification purposes
+	if (length(unique(dtbb_sim@input$index$brand))==2) {
+	  X = dtbb@X
+	  delcol = which(colnames(X)==paste0(dtbb_sim@benchmark, '_lagunitsales_sh'))
+	  X <- X[, -delcol]
+	  dtbb_sim@X <- X
+	  rm(X)
+	}
+	
+	# Add time trends, if necessary
 	dat_by_brand = split(data.frame(y=dtbb_sim@y, dtbb_sim@X), dtbb_sim@individ)
 
 	eq_by_brand=lapply(seq(along=dat_by_brand), function(z) {
 		curr_brand = names(dat_by_brand)[z]
 		out_matrix = dat_by_brand[[z]]
 		
-		if(res$adf_sur[brand==curr_brand&variable=='y']$trend == 1) {
+		if(res$adf_sur[brand==curr_brand&variable=='y']$trend_included == TRUE) {
 			# add trend
-		#	cat(paste0('added trend for ', curr_brand, '...\n'))
-			out_matrix <- cbind(out_matrix, trend = seq(from=1, to=nrow(out_matrix)))
-			colnames(out_matrix)[ncol(out_matrix)] <- paste0(curr_brand,'_trend')
+		  if (res$attraction_model=='MNL') out_matrix <- cbind(out_matrix, trend = seq(from=1, to=nrow(out_matrix)))
+		  if (res$attraction_model=='MCI') out_matrix <- cbind(out_matrix, trend = log(seq(from=1, to=nrow(out_matrix))))
+		 	colnames(out_matrix)[ncol(out_matrix)] <- paste0(curr_brand,'_trend')
 			}
 		
 		return(out_matrix)
 		})
 
 	stacked_eq = rbindlist(eq_by_brand, fill=TRUE)
-		
-	# replace NAs for trends/copula to 0
-		for (trendvar in grep('[_]trend|[_]cop', colnames(stacked_eq), value=T)) {
-			vals = stacked_eq[,trendvar, with=F]
-			stacked_eq[,trendvar := ifelse(is.na(get(trendvar)), 0, get(trendvar)), with=F]
-			}
-		
+
+	# replace NAs for trends/copula/and any other "missing" value 
+	# (i.e., values that may have been kicked out due to the use_ts constraint) to 0; 
+	# note that "real" missing values are kicked out by complete_obs
+	
+	for (resetvar in colnames(stacked_eq)) {
+	  vals = stacked_eq[,resetvar, with=F]
+	  stacked_eq[, (resetvar) := ifelse(is.na(get(resetvar)), 0, get(resetvar))]
+	}
+
 	# separate DVs from IVs
 		dset = stacked_eq[,!colnames(stacked_eq)%in%'y',with=F]
 		index=data.frame(date=dtbb_sim@period,brand=dtbb_sim@individ)
+		
+	# remove all-zero columns from X (e.g., where a brand variable is removed earlier ("NA"), and contains zeros for all other brands).
+		delvars = colnames(dset)[which(colSums(dset)==0)]
+		keepv = setdiff(colnames(dset)[colnames(dset)%in%res$model@coefficients$variable], delvars)
+		dset = dset[, keepv, with=F]
 		
 	# draw from variance-covariance matrix (coefficients)
 	res$model@coefficients
@@ -81,9 +98,9 @@
 	coefs = res$model@coefficients[indexmatch,]$coef
 	Sigma = res$model@varcovar[indexmatch, indexmatch]
 	Sigma = matrix(double(length(coefs)*length(coefs)), ncol=length(coefs)) # set to zero for now
-	
+
 	rho_hat = res$model@rho_hat
-	#rho_hat <- rep(0, length(rho_hat))
+	#rho_hat <- rep(0, length(rho_hat)) # we have made th decision to compute auto-correlated intercepts
 	
 	eq_brands = names(dat_by_brand)
 	nbrands = length(eq_brands)
@@ -94,17 +111,19 @@
 	
 	dim(nu) <- c(L, nperiods, ncol(res$model@sigma))
 	
-	
 	#intercepts <- mvrnorm(n=L*nperiods, mu=rep(0, ncol(res$model@sigma)), Sigma=res$model@sigma)
-	
 	#exp_intercepts = exp(intercepts)
+	
 	dimnames(nu)[[1]] <- 1:L
 	dimnames(nu)[[2]] <- 1:nperiods
 	dimnames(nu)[[3]] <- index[which(index$date==1),]$brand
 	
 	# compute intercepts
 	intercepts = double(L*nperiods*length(eq_brands))
+	addmat = double(L*nperiods*length(eq_brands)) # matrix to add constants to equations (for purpose of adding lagged logged ratio of market shares for dynamic simulations)
+	
 	dim(intercepts) <- dim(nu)
+	dim(addmat) <- dim(nu)
 	
 	for (p in 1:nperiods) {
 		if (p==1) {
@@ -114,7 +133,7 @@
 			}
 		}
 	
-	# try out to draw only once per simulation, i.e., not per period
+	# try out to draw only once per simulation, i.e., not per period; @Hannes; should be deprecated, not sure why this is in here
 	
 	#for (p in 1:nperiods) {
 	#	if (p==1) {
@@ -124,7 +143,7 @@
 	#		}
 	#	}
 		
-	exp_intercepts = exp(intercepts)
+	# exp_intercepts = exp(intercepts) # I'll do that later if really needed
 	
 	# create empty matrix to store simulated market shares
 	simulated_marketshares <- matrix(double((nbrands+1)*L*(nperiods+1)))
@@ -134,6 +153,7 @@
 
 	dset_mat = rep(as.matrix(dset),L)
 	dim(dset_mat) <- c(length(unique(index$date)), nbrands, ncol(dset), L)
+
 	# dimensionality: PERIODS x BRANDS x COLUMNS x REPLICATIONS
 	dimnames(dset_mat)[[2]] <- index[which(index$date==1),]$brand
 	dimnames(dset_mat)[[1]] <- unique(index$date)
@@ -145,52 +165,54 @@
 		#cat('periods ', p,'\n')
 
 		# draw from variance-covariance matrix of coefficients
-		#
-		# for each brand (row in dset_p)
+		
+	  # loop for each brand (row in dset_p)
 		dmat_curr = dset_mat[p,,,]
 		dmat_min1 = dset_mat[p-1,,,]
-		 
+		
 		for (iter in seq(along=dimnames(dset_mat)[[2]])) {
 			brandname = dimnames(dset_mat)[[2]][iter]
 			
-			# insert market shares from result matrix (simulated_marketshares) for every brand
-			dmat_curr[iter,paste0(brandname, '_lagunitsales_sh'),] <- log(simulated_marketshares[p-1, match(brandname, colnames(simulated_marketshares)), ])
-			dmat_curr[iter,paste0(res$benchmark_brand, '_lagunitsales_sh'),] <- -log(simulated_marketshares[p-1, match(res$benchmark_brand, colnames(simulated_marketshares)), ])
+			# insert market shares from previous periods, as stored in the result matrix (called 'simulated_marketshares'), for every brand
+			if (res$attraction_model=='MCI') transf_fkt <- function(x) log(x)
+			if (res$attraction_model=='MNL') transf_fkt <- function(x) x
 			
-			dmat_min1[iter,paste0(brandname, '_lagunitsales_sh'),] <- log(simulated_marketshares[max(1,p-2), match(brandname, colnames(simulated_marketshares)), ])
-			dmat_min1[iter,paste0(res$benchmark_brand, '_lagunitsales_sh'),] <- -log(simulated_marketshares[max(1,p-2), match(res$benchmark_brand, colnames(simulated_marketshares)), ])
+			dmat_curr[iter,paste0(brandname, '_lagunitsales_sh'),] <- transf_fkt(simulated_marketshares[p-1, match(brandname, colnames(simulated_marketshares)), ])
+			dmat_curr[iter,paste0(res$benchmark_brand, '_lagunitsales_sh'),] <- -transf_fkt(simulated_marketshares[p-1, match(res$benchmark_brand, colnames(simulated_marketshares)), ])
 			
-			# adjust system to account for UR in dependent and independent variables
-			ur_pres = res$adf_sur[which(res$adf_sur$ur == 1 & res$adf_sur$brand == brandname)]$variable
+			dmat_min1[iter,paste0(brandname, '_lagunitsales_sh'),] <- transf_fkt(simulated_marketshares[max(1,p-2), match(brandname, colnames(simulated_marketshares)), ])
+			dmat_min1[iter,paste0(res$benchmark_brand, '_lagunitsales_sh'),] <- -transf_fkt(simulated_marketshares[max(1,p-2), match(res$benchmark_brand, colnames(simulated_marketshares)), ])
 			
-			for (.var in ur_pres) {
+			# adjust system to account for differenced dependent and independent variables
+			diffed_vars = res$adf_sur[which(diffed == TRUE &brand == brandname)]$variable
+			diffed_vars = diffed_vars[diffed_vars%in%res$model@coefficients$variable]
+			
+			for (.var in diffed_vars) {
 				#cat(paste0('UR: ', .var, '   ', brandname), '\n')
-				if (.var=='y') { # variable where UR is DEPENDENT VARIABLE
-					# obtain lagged coefficient
-					lagcoef = res$model@coefficients[which(res$model@coefficients$variable==paste0(brandname, '_lagunitsales_sh')),"coef"]
-					lagcoef_bench = res$model@coefficients[which(res$model@coefficients$variable==paste0(res$benchmark_brand, '_lagunitsales_sh')),"coef"]
-					focal_br_share = dmat_curr[iter,paste0(brandname, '_lagunitsales_sh'),]
-					bench_br_share = dmat_curr[iter, paste0(res$benchmark_brand, '_lagunitsales_sh'),]
-					
-					# both terms are added, as data for benchmark has already been multiplied by -1
-					dmat_curr[iter, paste0(brandname, '_lagunitsales_sh'), ] <- (1+1/lagcoef) * focal_br_share
-					dmat_curr[iter, paste0(res$benchmark_brand, '_lagunitsales_sh'), ] <- (1+1/lagcoef_bench) * bench_br_share
 				
+			  if (.var=='y') { # variable where DEPENDENT VARIABLE HAS BEEN DIFFERENCED for estimation
+					focal_br_share_lag = simulated_marketshares[p-1, match(brandname, colnames(simulated_marketshares)), ]
+					bench_br_share_lag = simulated_marketshares[p-1, match(res$benchmark_brand, colnames(simulated_marketshares)), ]
+					
+					log_lag_ratio = log(focal_br_share_lag/bench_br_share_lag)
+					 
+					addmat[,p-1, iter] <- log_lag_ratio
+					
 				} else {
-					# variable where UR is INDEPENDENT VARIABLE
+					# variable where any of the INDEPENDENT VARIABLES has been differenced for estimation
 					dmat_curr[iter, .var,] <- dmat_curr[iter, .var, ] - dmat_min1[iter, .var, ]  # <- 0 # use value from previous period
 				}
 			}
 
 		}
 
+		
 		ms_sim = sapply(seq(1:L), function(l) {
-			# compute exp(X * beta) (i.e., attraction) for all brands and draws
-			relative_ms = exp(dmat_curr[,,l] %*% draws[l,])
-			
-			# add intercept correlations
-			relative_ms = relative_ms * exp_intercepts[l,p-1,]
-			
+			# go from log attraction to attraction
+		  
+		  log_relative_ms = dmat_curr[,,l] %*% draws[l,] + intercepts[l,p-1,] + addmat[l,p-1,]
+		  relative_ms = exp(log_relative_ms) 
+		  
 			# compute market shares
 			sumx = sum(c(1,relative_ms))
 			ms_sim = c(relative_ms/sumx, 1/sumx)
@@ -244,7 +266,7 @@
 			}
 		
 		# Set up simulation
-		sim_vars <- c('price', 'llength', 'novel', 'dist')
+		sim_vars <- c('rwpspr', 'wpswdst', 'llen', 'nov3sh', 'wpsun')
 		sim_brands = unique(sim_set$brand)
 		
 		

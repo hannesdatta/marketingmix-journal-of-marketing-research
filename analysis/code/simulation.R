@@ -2,7 +2,7 @@
 ####################
 ##### SIMULATION ###
 ####################
-	load(file='..\\output\\results.RData')
+	load(file='..\\temp\\results_20170731.RData')
 	
 	# one-node simulations
 	source('proc_simulate.R')
@@ -11,7 +11,7 @@
 	for (i in 3:3) {
 	print(i)
 	
-	sims[[i]]<-try(execute_sim(res=results_brands[[1]][[i]]))
+	sims[[i]]<-try(execute_sim(res=results_brands[[i]]))
 	}
 
 		
