@@ -48,6 +48,11 @@ require(data.table)
 	brand_panel[country %in% c('australia', 'hong kong', 'japan', 'new zealand', 'singapore', 'south korea', 'taiwan'), country_class := 'hinc']
 	brand_panel[is.na(country_class), country_class := 'linc']
 	
+	# add %-indicator to separate data in moving windows
+	brand_panel[, N:=.GRP, by = c('market_id', 'date')]
+	brand_panel[, share_obs:=(N-min(N)+1) / (max(N)-min(N)+1), by = c('market_id')]
+	brand_panel[, N:=NULL]
+	
 	# Save file
 	fwrite(brand_panel, '../temp/preclean.csv')
 	
