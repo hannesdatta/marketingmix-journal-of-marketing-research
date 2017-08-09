@@ -261,7 +261,10 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 			  ydiff = data.table(adf)[variable=='y']$ur
 				ytrend = data.table(adf)[variable=='y']$trend
 				
-				if (ytrend==1) out_matrix <- cbind(out_matrix, trend = seq(from=1, to=nrow(out_matrix)))
+				if (ytrend==1) {
+				  if (attraction_model=='MNL') out_matrix <- cbind(out_matrix, trend = seq(from=1, to=nrow(out_matrix)))
+				  if (attraction_model=='MCI') out_matrix <- cbind(out_matrix, trend = log(seq(from=1, to=nrow(out_matrix))))
+				}
 				 
 				if ('trend' %in% colnames(out_matrix)) {
 					colnames(out_matrix)[which(colnames(out_matrix)=='trend')] <- paste0(curr_brand, '_trend')
