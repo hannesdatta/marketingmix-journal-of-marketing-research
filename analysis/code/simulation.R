@@ -5,7 +5,7 @@
 	load(file='..\\output\\results.RData')
 	
 	# one-node simulations
-	source('simulate.R')
+	source('proc_simulate.R')
 	
 	sims <- NULL
 	for (i in 3:3) {
@@ -16,8 +16,8 @@
 
 		
 	# multi-node simulations
-	source('simulate.R')
-	void<-clusterEvalQ(cl, source("simulate.R"))
+	source('proc_simulate.R')
+	void<-clusterEvalQ(cl, source("proc_simulate.R"))
 	clusterExport(cl, 'results_brands')
 	
 	focal_markets = 1:nrow(markets)
