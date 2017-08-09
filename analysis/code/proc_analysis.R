@@ -222,6 +222,12 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 			adf$variable = rownames(adf)
 			rownames(adf) <- NULL
 			
+			
+			adf = rbind(data.table(variable=delvars), data.table(adf), fill=T)
+			adf[, included:=T]
+			adf[variable%in%delvars, included:=F]
+			adf=data.frame(adf)
+			
 			##########################
 			# differencing procedure #
 			##########################
@@ -240,26 +246,29 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 
 			out_matrix = dat_by_brand[[z]]
 
+			adf = data.frame(data.table(adf)[variable=='y', trend_included:=F])
+			
 			if (takediff=='flexible') {
 			  #		1) UR test outcome on Y; 
 			  #		   o if trend --> add trend variable
 			  #		   o if UR present --> take differences in Y
 			  
 			  #		2) UR test outcome for Xs:
-			  #		   o if UR present and UR present in Y --> take difference of both Y and X (and the differences of the copula terms)
-			  #		   o if UR present and Y does not have UR --> difference X, but take level copulas (as error term is still in levels)
+			  #		   o if UR present in X and UR present in Y --> take difference of both Y and X (and the differences of the copula terms)
+			  #		   o if UR present in X, but not in Y --> difference X, but take level copulas (as error term is still in levels)
 			  
 			  
 			  ydiff = data.table(adf)[variable=='y']$ur
 				ytrend = data.table(adf)[variable=='y']$trend
 				
 				if (ytrend==1) out_matrix <- cbind(out_matrix, trend = seq(from=1, to=nrow(out_matrix)))
-				
+				 
 				if ('trend' %in% colnames(out_matrix)) {
 					colnames(out_matrix)[which(colnames(out_matrix)=='trend')] <- paste0(curr_brand, '_trend')
 					vars <- c(vars, paste0(curr_brand, '_trend'))
+					adf = data.frame(data.table(adf)[variable=='y', trend_included:=T])
 				}
-					
+				
 					
 				to_be_diffed = NULL
 				
@@ -288,6 +297,11 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 			  # nothing
 		  }
 		
+			# save which series are diffed, and which not
+			adf = data.table(adf)[,diffed:=F]
+			adf[, brand := curr_brand]
+			adf = data.frame(adf[variable%in%to_be_diffed, diffed := T])
+			
 			# execute differencing
 			for (variable in to_be_diffed) {
 				out_matrix[,variable] = makediff(out_matrix[,variable])
@@ -300,15 +314,14 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 			          transformed=cbind(out_matrix), 
 			          complete_obs = complete_obs, 
 			          original = dat_by_brand[[z]], 
-			          diffed_series = to_be_diffed, 
 			          brand = curr_brand)
 		
 			return(res)
 			})
 
 		# collect ADF test results
-			adf_sur <- rbindlist(lapply(eq_by_brand, function(x) data.frame(brand = x$brand, x$adf)))
-			adf_sur[, ':=' (category=unique(res$specs$category), country=unique(res$specs$country))]
+			adf_sur <- rbindlist(lapply(eq_by_brand, function(x) x$adf))
+			adf_sur[, ':=' (market_id = unique(res$specs$market_id), category=unique(res$specs$category), country=unique(res$specs$country))]
 			res$adf_sur <- adf_sur
 	
 		# collect transformed equations
@@ -368,22 +381,6 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 			X=as.matrix(data.frame(X,dummatrix))
 			rm(dummatrix, quarters)
 		}
-			
-		# optional: perform UR tests on *untransformed* series (i.e., before transforming them to the base-brand attraction model); legacy code
-		
-		if(0){
-		cat('performing unit root tests for untransformed system\n...')
-			tmp=melted_panel[!grepl('trend|_cop|dv_', variable)] # not on trend and copula terms...
-			tmp=split(tmp, paste0(tmp$category, tmp$country, tmp$brand, tmp$variable,'_'))
-
-			adf_untransformed <- rbindlist(lapply(tmp, function(x) {
-				res = adf_enders(x$value, maxlag=12, pval = pval, season=NULL)
-				data.frame(category=unique(x$category), country=unique(x$country), brand=unique(x$brand), variable=unique(x$variable), rbind(res))
-				}))
-
-			res$adf_untransformed <- adf_untransformed
-		}
-		
 			
 		#################
 		# Estimate SURs #
@@ -544,9 +541,10 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 			elasticities[, elast := coef * (1-mean_ms)]
 			elasticities[, elast_se := se * (1-mean_ms)]
 			}
-			
+		
 	# add elasticities to model output
 	res$elast <- elasticities
+	res$attraction_model <- attraction_model
 	
 	return(res)
 	}
