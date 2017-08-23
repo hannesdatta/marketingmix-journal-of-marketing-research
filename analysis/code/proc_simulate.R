@@ -27,9 +27,8 @@
 	require(lattice)
 	
 	
-	res = results_brands[[1]]
+	#res = results_brands[[1]]
 	
-	# to do: integrate MNL vs MCI?
 	
 	simulate <- function(sim_set, res) {
 
@@ -93,11 +92,17 @@
 		dset = dset[, keepv, with=F]
 		
 	# draw from variance-covariance matrix (coefficients)
-	res$model@coefficients
+	#res$model@coefficients
+		
 	indexmatch = match(colnames(dset), res$model@coefficients$variable) # matches "new"/reduced set of variables to estimated coefficients
 	coefs = res$model@coefficients[indexmatch,]$coef
+	
+	# reset copulas to zero
+	if(length(which(grepl('cop[_]', colnames(dset))))>0) coefs[which(grepl('cop[_]', colnames(dset)))]<-0
+	
 	Sigma = res$model@varcovar[indexmatch, indexmatch]
 	Sigma = matrix(double(length(coefs)*length(coefs)), ncol=length(coefs)) # set to zero for now
+
 
 	rho_hat = res$model@rho_hat
 	#rho_hat <- rep(0, length(rho_hat)) # we have made th decision to compute auto-correlated intercepts
@@ -133,15 +138,16 @@
 			}
 		}
 	
-	# try out to draw only once per simulation, i.e., not per period; @Hannes; should be deprecated, not sure why this is in here
+	# try out to draw only once per simulation, i.e., not per period; 
+	# should probably deprecated, but will it in for now should it be required for testing
 	
 	#for (p in 1:nperiods) {
-	#	if (p==1) {
-	#		intercepts[,p,] <- nu[,1,]
-	#		} else {
-	#		intercepts[,p,] <- nu[,1,]
-	#		}
-	#	}
+#		if (p==1) {
+#			intercepts[,p,] <- nu[,1,]
+#			} else {
+#			intercepts[,p,] <- nu[,1,]
+#			}
+#		}
 		
 	# exp_intercepts = exp(intercepts) # I'll do that later if really needed
 	
@@ -239,11 +245,16 @@
 	simulate <- cmpfun(simulate)
 	
 		
-	execute_sim <- function(res) {
+	
+	
+	
+	execute_sim <- function(res, sim_vars = c('rwpspr', 'wpswdst', 'llen', 'nov3sh', 'wpsun'), nperiods=36, L = 1000, shock_period=1, shock_perc = 1.01) {
 	
 		
-		L<<-1000 # Number of simulation draws
-		nperiods <<- 36 # periods used in simulation
+		# L = number of simulation draws
+	  # nperiods = number of periods to simulate
+	  # shock_period = period in which to shock
+	  # shock_perc = shock percentage (e.g. 1.01 for 1%)
 		
 		# Retrieve data set that was used to estimate the model
 		if ('try-error' %in% class(res)) return(NULL)
@@ -256,7 +267,9 @@
 		# Compute means
 		init_means <<- dt[, lapply(.SD, mean, na.rm=T), .SDcols = setdiff(colnames(dt), c('month', 'brand')), by = c('brand')]
 	
-		
+		# set copula terms to zero
+	#	init_means[, (grep('cop[_]', colnames(init_means))):=0]
+		  
 		# Create simulation data set
 		sim_set = NULL
 		for (p in seq(length.out=nperiods+1)) {
@@ -266,14 +279,13 @@
 			}
 		
 		# Set up simulation
-		sim_vars <- c('rwpspr', 'wpswdst', 'llen', 'nov3sh', 'wpsun')
 		sim_brands = unique(sim_set$brand)
 		
 		
 		baseline <- simulate(sim_set, res)
 		
 		sims <- NULL
-		#sims <- rbind(sims, tmp)
+		
 		cntr <- 1
 		for (.var in sim_vars) {
 			for (.brand in sim_brands) {
@@ -282,7 +294,7 @@
 				if (!paste0(.brand,'_', .var)%in%res$model@coefficients$variable) next
 				cat(paste0('simulating for ', .brand, ' and ', .var, '...\n'))
 				sim_dat = data.table(sim_set)
-				sim_dat[brand==.brand & month == 2, .var := get(.var)*1.01, with=F]
+				sim_dat[brand==.brand & month == shock_period+1, (.var) := get(.var)*shock_perc]
 				tmp = simulate(sim_dat, res)
 				#sims <- rbind(sims, tmp)
 				sims[[cntr]] <- list(data=tmp, perc_change = (tmp-baseline)/baseline, spec = list(sim_var=.var, sim_brand = .brand))
@@ -312,44 +324,32 @@
 		predictions$category <- as.factor(unique(res$specs$category))
 		predictions$country <- as.factor(unique(res$specs$country))
 		predictions$market_id <- as.factor(unique(res$specs$market_id))
-		
+		predictions[, period:=period-1]
 		return(predictions)
 		
 		}
 	
-	if(0){
 	
-	
-	# Compute IRFs
-	# keep means only
-	
-	
-	par(mfrow=c(2,4))
-	
-	for (.brand in sim_brands) {
-	p1 = sims[brand==.brand&sim_var=='dist'&sim_brand==.brand&type=='mean'&period>=1]
-	base = sims[brand==.brand&sim_var=='baseline'&sim_brand=='baseline'&type=='mean'&period>=1]
-	
-	#with(base, plot(x=period, y=marketshare, type='l'))
-	#with(p1, lines(x=period, y=marketshare, type ='l', lty=2))
-	
-	#IRF
-	plot(x=base$period, y=p1$marketshare-base$marketshare, type='l', main = .brand, xlab = 'period', ylab = 'delta market share')
-	abline(h=0)
+	plot_irf <- function(simobj) {
+	  
+	  # only own-brand elasticities
+	  for (.brand in unique(simobj$brand)) {
+	    
+	    vars = unique(simobj[brand==.brand&sim_brand==.brand]$sim_var)
+	    par(mfrow=c(2,length(vars)))
+	    
+	      for (.var in vars) {
+	        tmp = simobj[brand==.brand&sim_brand==.brand&period>=1&sim_var==.var]
+	        
+	        # market shares
+	        with(tmp, plot(x=period, y=ms, type='l', main = paste('shares ', .brand, '-', .var), xlab = 'period', ylab = 'market share'))
+	        with(tmp, lines(x=period, y=base_ms, type='l', lty=2))
+	        
+	        # IRF
+	        with(tmp, plot(x=period, y=ms-base_ms, type='l', main = paste('IRF ', .brand, '-', .var), xlab = 'period', ylab = 'delta market share'))
+	        abline(h=0)
+	        
+	      }
+	    
+	  }
 	}
-	
-	}
-	
-	
-	#################################################
-	#################### NEXT STEPS #################
-	#################################################
-	
-	# - understand standard errors of elasticities: need for variance-covariance of parameters, or is sigma (and potential correlations) enough?
-	# - for a larger set of models, compare analytical and empirical elasticities
-	
-	# on the model estimation side...
-	# ===============================
-	# - correct estimation errors for market 33
-	
-	
