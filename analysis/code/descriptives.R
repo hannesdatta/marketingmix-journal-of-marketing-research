@@ -66,11 +66,11 @@ presence = lapply(split(dt, dt$category), function (x) {
   step1[, Ncountries:=rowSums(step1[,-1, with=F])]
   setcolorder(step1, c('brand', 'Ncountries', unique(x$country)[order(unique(x$country))]))
   step2 = merge(mbrands, step1, by = c('brand'), all.x=T)
-  return(clean_zeros(step2))
+  return(set_zeros(step2))
 })
 
 
-for (i in 1:length(out)) {
+for (i in 1:length(presence)) {
   write.xlsx(presence[[i]][!brand=='EMPTY'], file = '../output/descr_presence.xlsx', showNA=FALSE, sheetName = names(presence)[i], row.names=FALSE, append = ifelse(i==1, F, T))
   
 }
@@ -85,7 +85,7 @@ share = lapply(split(dt, dt$category), function (x) {
 })
 
 
-for (i in 1:length(out)) {
+for (i in 1:length(share)) {
   write.xlsx(share[[i]][!brand=='EMPTY'], file = '../output/descr_marketshare.xlsx', showNA=FALSE, sheetName = names(share)[i], row.names=FALSE, append = ifelse(i==1, F, T))
   
 }
@@ -100,3 +100,62 @@ tmp = dcast(tmp, brand ~ category, value.var='N')
 
 write.xlsx(tmp, file = '../output/descr_countries.xlsx', showNA=FALSE, sheetName = 'Ncountries_by_category', row.names=FALSE, append = F)
 
+
+######## get the results
+
+# Load results
+#load(file = c('../temp/results_20170822.RData')) # still gotta fix the mistaskes here!!! e.g market 55.
+load(file = c('../temp/results_20170731.RData'))
+
+
+# identify model crashes
+results_brands <- results_MNL
+
+checks <- unlist(lapply(results_brands, class))
+table(checks)
+last.item = length(analysis_markets)
+
+# load data
+brand_panel=fread('../temp/preclean.csv')
+brand_panel[, ':=' (date = as.Date(date))]
+
+# elasticities
+elast <- rbindlist(lapply(results_brands[!checks=='try-error'], function(x) x$elast))
+
+# sbbe + lag ms
+sbbe <- rbindlist(lapply(results_brands[!checks=='try-error'], function(x) cbind(x$model@coefficients, market_id =  unique(x$specs$market_id))))
+sbbe <- sbbe[grepl('[_]dum|lag', variable)]
+sbbe = sbbe[, c('market_id', 'brand', 'coef', 'variable'),with=F]
+sbbe[, variable:=ifelse(grepl('[_]dum', variable), '_intercept', '_lagms')]
+
+setnames(sbbe, 'coef', 'value')
+
+elast_tmp = elast[, c('brand', 'market_id', 'variable', 'mean_var', 'elast')]
+setnames(elast_tmp, 'variable', 'var')
+elast_melted=melt(elast_tmp, id.vars= c('brand', 'market_id', 'var'))
+elast_melted[, variable := paste0(var,'_', ifelse(variable=='mean_var', 'level', 'elast'))]
+elast_melted[, var:=NULL]
+elast_melted=elast_melted[, colnames(sbbe), with=F]
+
+dt = rbind(sbbe, elast_melted)
+markets = brand_panel[, list(N=.N), by = c('market_id', 'category', 'country')][, N:=NULL]
+dt = merge(markets, dt, all=T, by = c('market_id'))
+
+
+
+for (i in unique(dt$country)) {
+  for (j in unique(dt$category)) {
+    dt=rbind(dt, cbind(brand='EMPTY', country = i, category=j), fill=T)
+  }
+}
+
+varoutput = lapply(split(dt, dt$category), function (x) {
+  step1 = dcast(data.table(x), brand + variable ~ country, value.var='value')
+  setnames(step1, 'variable', 'metric')
+  return((step1))
+})
+
+for (i in 1:length(varoutput)) {
+  write.xlsx(varoutput[[i]][!brand=='EMPTY'], file = '../output/descr_coefelast.xlsx', showNA=FALSE, sheetName = names(share)[i], row.names=FALSE, append = ifelse(i==1, F, T))
+  
+}
