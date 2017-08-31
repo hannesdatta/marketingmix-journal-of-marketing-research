@@ -48,6 +48,17 @@ for (i in unique(dt$country)) {
 }
 dt[, present:=1]
 
+# load "unselected" brands
+load('../../derived/temp/select.RData')
+
+brand_selection[, country:=as.character(tolower(country))]
+brand_selection[, brand:=as.character(tolower(brand))]
+brand_selection[, category:=as.character(tolower(category))]
+
+nonselected = brand_selection[selected_brand==F & brand%in%unique(dt$brand)][, c('category', 'country', 'brand'),with=F][, present:=.5]
+
+dt = rbind(dt, nonselected, fill = T)
+
 #	https://stackoverflow.com/questions/7235657/fastest-way-to-replace-nas-in-a-large-data-table
 set_zeros <- function(DT) {
   # either of the following for loops
@@ -63,7 +74,7 @@ library(xlsx)
 
 presence = lapply(split(dt, dt$category), function (x) {
   step1 = dcast(x, brand ~ country, value.var='present', fill = 0)
-  step1[, Ncountries:=rowSums(step1[,-1, with=F])]
+  step1[, Ncountries:=rowSums(step1[,-1, with=F]==1)]
   setcolorder(step1, c('brand', 'Ncountries', unique(x$country)[order(unique(x$country))]))
   step2 = merge(mbrands, step1, by = c('brand'), all.x=T)
   return(set_zeros(step2))
