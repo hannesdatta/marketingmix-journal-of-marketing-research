@@ -136,15 +136,25 @@ elast <- rbindlist(lapply(results_brands[!checks=='try-error'], function(x) x$el
 # sbbe + lag ms
 sbbe <- rbindlist(lapply(results_brands[!checks=='try-error'], function(x) cbind(x$model@coefficients, market_id =  unique(x$specs$market_id))))
 sbbe <- sbbe[grepl('[_]dum|lag', variable)]
-sbbe = sbbe[, c('market_id', 'brand', 'coef', 'variable'),with=F]
+sbbe = sbbe[, c('market_id', 'brand', 'coef', 'z','variable'),with=F]
 sbbe[, variable:=ifelse(grepl('[_]dum', variable), '_intercept', '_lagms')]
 
 setnames(sbbe, 'coef', 'value')
 
-elast_tmp = elast[, c('brand', 'market_id', 'variable', 'mean_var', 'elast')]
+elast[, z:=elast/elast_se]
+
+elast_tmp = elast[, c('brand', 'market_id', 'variable', 'mean_var', 'elast', 'z')]
 setnames(elast_tmp, 'variable', 'var')
 elast_melted=melt(elast_tmp, id.vars= c('brand', 'market_id', 'var'))
-elast_melted[, variable := paste0(var,'_', ifelse(variable=='mean_var', 'level', 'elast'))]
+elast_melted = merge(elast_melted[!variable=='z'], elast_melted[variable=='z', c('brand', 'market_id', 'var', 'value'),with=F], by = c('brand', 'market_id', 'var'))
+setnames(elast_melted, 'value.x', 'value')
+setnames(elast_melted, 'value.y', 'z')
+elast_melted[variable=='mean_var', z:=NA]
+
+
+elast_melted[variable=='mean_var', variable := 'level']
+elast_melted[, variable:=paste0(var, '_', variable)]
+
 elast_melted[, var:=NULL]
 elast_melted=elast_melted[, colnames(sbbe), with=F]
 
@@ -163,10 +173,47 @@ for (i in unique(dt$country)) {
 varoutput = lapply(split(dt, dt$category), function (x) {
   step1 = dcast(data.table(x), brand + variable ~ country, value.var='value')
   setnames(step1, 'variable', 'metric')
-  return((step1))
+  step1 = step1[!brand=='EMPTY']
+  
+  x[, sig:=ifelse(abs(z)>1.69,1,0)]
+  
+  sig = dcast(data.table(x), brand + variable ~ country, value.var='sig')
+  setnames(sig, 'variable', 'metric')
+  sig = sig[!brand=='EMPTY']
+  
+  return(list(coefs = step1, sig = sig))
 })
 
+
+sheet  <- createSheet(wb, sheetName="CellBlock")
+cb <- CellBlock(sheet, 7, 3, 1000, 60)
+CB.setColData(cb, 1:100, 1)    # set a column
+CB.setRowData(cb, 1:50, 1)     # set a row
+# add a matrix, and style it
+cs <- CellStyle(wb) + DataFormat("#,##0.00")
+x  <- matrix(rnorm(900*45), nrow=900)
+CB.setMatrixData(cb, x, 10, 4, cellStyle=cs)
+
+wb <- createWorkbook()
+
+
 for (i in 1:length(varoutput)) {
-  write.xlsx(varoutput[[i]][!brand=='EMPTY'], file = '../output/descr_coefelast.xlsx', showNA=FALSE, sheetName = names(share)[i], row.names=FALSE, append = ifelse(i==1, F, T))
+  sheet  <- createSheet(wb, sheetName = names(varoutput)[i])
+  #addDataFrame(varoutput[[i]]$coefs, sheet, row.names=FALSE, showNA=FALSE)
+  cb <- CellBlock(sheet, 1, 1, 1000, 20)
+  CB.setRowData(cb, colnames(varoutput[[i]]$coefs),1,0,showNA=FALSE)
+  CB.setMatrixData(cb, as.matrix(varoutput[[i]]$coefs[,1:2]),2,1,showNA=FALSE)
+  CB.setMatrixData(cb, as.matrix(varoutput[[i]]$coefs[, -c(1:2)]),2,3,showNA=FALSE)
+  
+  tmp=data.frame(varoutput[[i]]$sig)
+  tmp[tmp==0]<-NA
+  
+  fill <- Fill(foregroundColor = "red", backgroundColor="red")
+  ind  <- which(tmp == 1, arr.ind=TRUE)
+  CB.setFill(cb, fill, ind[,1]+1, ind[,2])
+  
+   # write.xlsx(varoutput[[i]][!brand=='EMPTY'], , showNA=FALSE, row.names=FALSE, append = ifelse(i==1, F, T))
   
 }
+
+saveWorkbook(wb, file = '../output/descr_coefelast.xlsx')
