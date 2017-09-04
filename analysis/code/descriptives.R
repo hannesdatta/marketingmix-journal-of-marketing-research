@@ -115,7 +115,7 @@ write.xlsx(tmp, file = '../output/descr_countries.xlsx', showNA=FALSE, sheetName
 ######## get the results
 
 # Load results
-#load(file = c('../temp/results_20170822.RData')) # still gotta fix the mistaskes here!!! e.g market 55.
+#load(file = c('../temp/results_20170822.RData')) # still gotta fix the mistakes here!!! e.g market 55.
 load(file = c('../temp/results_20170731.RData'))
 
 
@@ -142,6 +142,18 @@ sbbe[, variable:=ifelse(grepl('[_]dum', variable), '_intercept', '_lagms')]
 setnames(sbbe, 'coef', 'value')
 
 elast[, z:=elast/elast_se]
+
+elast[, sig := ifelse(abs(z)>1.69,1,0)]
+elast[!variable=='rwpspr' & elast>0, facevalid := 1]
+elast[!variable=='rwpspr' & !elast>0, facevalid := 0]
+elast[variable=='rwpspr' & elast>0, facevalid := 0]
+elast[variable=='rwpspr' & !elast>0, facevalid := 1]
+
+elast[!is.na(elast), list(face_valid_sig = sum(facevalid * sig)/.N, 
+                                       not_facevalid_sig = sum((1-facevalid) * (sig))/.N,
+                                       insig = sum(1-sig)/.N), by = c('category')]
+
+
 
 elast_tmp = elast[, c('brand', 'market_id', 'variable', 'mean_var', 'elast', 'z')]
 setnames(elast_tmp, 'variable', 'var')
@@ -185,35 +197,38 @@ varoutput = lapply(split(dt, dt$category), function (x) {
 })
 
 
-sheet  <- createSheet(wb, sheetName="CellBlock")
-cb <- CellBlock(sheet, 7, 3, 1000, 60)
-CB.setColData(cb, 1:100, 1)    # set a column
-CB.setRowData(cb, 1:50, 1)     # set a row
-# add a matrix, and style it
-cs <- CellStyle(wb) + DataFormat("#,##0.00")
-x  <- matrix(rnorm(900*45), nrow=900)
-CB.setMatrixData(cb, x, 10, 4, cellStyle=cs)
-
 wb <- createWorkbook()
 
 
 for (i in 1:length(varoutput)) {
+  print(i)
+#  wb <- createWorkbook()
   sheet  <- createSheet(wb, sheetName = names(varoutput)[i])
   #addDataFrame(varoutput[[i]]$coefs, sheet, row.names=FALSE, showNA=FALSE)
-  cb <- CellBlock(sheet, 1, 1, 1000, 20)
-  CB.setRowData(cb, colnames(varoutput[[i]]$coefs),1,0,showNA=FALSE)
+  
+ # saveWorkbook(wb, file = '../output/descr_coefelast.xlsx')
+  
+  cs <- CellStyle(wb) + DataFormat("#,##0.00")
+  
+  cb <- CellBlock(sheet, 1, 1, 2500, 20)
+  CB.setRowData(cb, colnames(varoutput[[i]]$coefs),1,showNA=FALSE)
+  
   CB.setMatrixData(cb, as.matrix(varoutput[[i]]$coefs[,1:2]),2,1,showNA=FALSE)
-  CB.setMatrixData(cb, as.matrix(varoutput[[i]]$coefs[, -c(1:2)]),2,3,showNA=FALSE)
+  CB.setMatrixData(cb, as.matrix((varoutput[[i]]$coefs[,-c(1:2),with=F])),2,3,showNA=TRUE)
+  
   
   tmp=data.frame(varoutput[[i]]$sig)
   tmp[tmp==0]<-NA
   
-  fill <- Fill(foregroundColor = "red", backgroundColor="red")
   ind  <- which(tmp == 1, arr.ind=TRUE)
-  CB.setFill(cb, fill, ind[,1]+1, ind[,2])
+  fill <- Fill(backgroundColor="red")
+  CB.setFont(cb, Font(wb, isBold=TRUE), ind[,1]+1,ind[,2])
   
    # write.xlsx(varoutput[[i]][!brand=='EMPTY'], , showNA=FALSE, row.names=FALSE, append = ifelse(i==1, F, T))
-  
+  #saveWorkbook(wb, file = paste0('../output/descr_coefelast_',  names(varoutput)[i], '.xlsx'))
+  #rm(wb)
+  rm(cb)
+  rm(sheet)
+  Sys.sleep(1)
 }
-
-saveWorkbook(wb, file = '../output/descr_coefelast.xlsx')
+saveWorkbook(wb, file = paste0('../output/descr_coefelast.xlsx'))
