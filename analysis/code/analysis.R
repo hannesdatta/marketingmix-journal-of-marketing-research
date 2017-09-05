@@ -219,6 +219,44 @@ assign_model(m1)
   save(results_MNL, results_MCI, results_MNL_wquarter, analysis_markets, m1, file = c('../temp/results_20170822.RData'))
 
  # run up to this point. 
+
+  ################
+  # DESCRIPTIVES #
+  ################
+  
+  # compare elasticities: nov6 vs nov3
+  
+  load('../temp/results_20170905.RData')
+  
+  get_elast <- function(results_brands) {
+    checks <- unlist(lapply(results_brands, class))
+    
+    cat('error report:\n\n')
+    print(table(checks))
+  
+    # elasticities
+    elast <- rbindlist(lapply(results_brands[!checks=='try-error'], function(x) x$elast))
+  
+    zval=1.69
+    out=elast[!is.na(coef), list(median_elast = median(elast), 
+                           w_elast = sum(elast/elast_se)/sum(1/elast_se), 
+                           N_brands= .N, 
+                           perc_positive = length(which(z>=(zval)))/.N, 
+                           perc_null = length(which(abs(z)<zval))/.N, 
+                           perc_negative = length(which(z<=(-zval)))/.N), by=c('variable')]
+    res=list(checks=checks, elast=out)
+    return(res)
+  }
+  
+  m3 = get_elast(results_MNL)
+  m6 = get_elast(results_MNL_6sh)
+  
+  {
+  cat('Summary of elasticities with novelty share 3-months\n')
+  print(m3$elast)
+  cat('\n\nSummary of elasticities with novelty share 6-months\n')
+  print(m6$elast)
+  }
   
 ############### LEGACY CODE #########################  
   
