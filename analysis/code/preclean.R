@@ -27,8 +27,10 @@ require(data.table)
 	brand_panel[, ':=' (date = as.Date(date))]
 	brand_panel <- brand_panel[selected==T]
 	
+	brand_panel[, nov6sh := (nov6/llen)*100]
 	brand_panel[, nov3sh := (nov3/llen)*100]
 	brand_panel[, nov1sh := (nov1/llen)*100]
+	
 	brand_panel[, quarter := quarter(date)]
 
 	brand_panel[, usalessh := usales/sum(usales,na.rm=T), by=c('category', 'country', 'date')]

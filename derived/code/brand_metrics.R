@@ -93,7 +93,7 @@ for (i in 1:length(skus_by_date_list)) {
 		# novelty variables must be set to missing for the first three months.
 		merged_attr_sales[, N:=1:.N, by=c('category', 'country','brand')]
 		merged_attr_sales[N%in%1:3, nov3:=NA]
-		merged_attr_sales[N%in%1:6, nov6:=NA]
+		merged_attr_sales[N%in%1:3, nov6:=NA]
 		merged_attr_sales[N%in%1, nov1:=NA]
 		merged_attr_sales[, N:=NULL]
 		
