@@ -194,7 +194,7 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 
     # execute procedures by brand
 		eq_by_brand=lapply(seq(along=dat_by_brand), function(z) {
-		  	
+		  
 		  ####################
 		  # Enders procedure #
 		  ####################
@@ -293,7 +293,7 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 				
 			
 			if (takediff == 'alwaysdiff') {
-			  to_be_diffed = adf$variable
+			  to_be_diffed = data.table(adf)[included==T]$variable
 		  }
 			
 			if (takediff == 'none') {
