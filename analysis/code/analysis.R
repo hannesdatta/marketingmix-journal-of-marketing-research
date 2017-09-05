@@ -167,9 +167,35 @@ assign_model(m1)
 			})
 	results_MNL[[124]]=analyze_by_market(138, setup_y = setup_y, setup_x = c(price = 'rwpspr', dist = 'wpswdst', nov = 'nov3sh', uniq='wpsun'), setup_endogenous = c(price = 'rwpspr', dist = 'wpswdst', nov = 'nov3sh', uniq='wpsun'), trend = 'none', maxiter=300, use_quarters=F, estmethod='FGLS-Praise-Winsten')
 	
+	
 	Sys.time()
 
+	# MNL without quarter (preferred/main), with nov6_sh
+	Sys.time()
+	
+	m1$setup_x["nov"]<-'nov6sh'
+	m1$setup_endogenous[which(m1$setup_endogenous=='nov3sh')]<-'nov6sh'
+	assign_model(m1, del = TRUE)
+	assign_model(m1)
+	clusterExport(cl,names(m1))
+	
+	results_MNL_6sh <- parLapplyLB(cl, analysis_markets[1:last.item], function(i) {
+	  if(i==27) {maxit=30000} else {maxit=400}
+	  try(analyze_by_market(i, setup_y = setup_y, setup_x = setup_x, setup_endogenous = setup_endogenous, trend = 'none', pval = pval, max.lag = max.lag, min.t = min.t, maxiter = maxit, use_quarters=F, plusx=plusx, attraction_model=attraction_model),silent=T)
+	})
+	results_MNL_6sh[[124]]=analyze_by_market(138, setup_y = setup_y, setup_x = c(price = 'rwpspr', dist = 'wpswdst', nov = 'nov6sh', uniq='wpsun'), setup_endogenous = c(price = 'rwpspr', dist = 'wpswdst', nov = 'nov6sh', uniq='wpsun'), trend = 'none', maxiter=300, use_quarters=F, estmethod='FGLS-Praise-Winsten')
+	
+	
+	Sys.time()
+	
 	# MNL with quarter	
+
+	m1$setup_x["nov"]<-'nov3sh'
+	m1$setup_endogenous[which(m1$setup_endogenous=='nov6sh')]<-'nov3sh'
+	assign_model(m1, del = TRUE)
+	assign_model(m1)
+	clusterExport(cl,names(m1))
+	
 	Sys.time()
 	results_MNL_wquarter <- parLapplyLB(cl, analysis_markets[1:last.item], function(i) {
 	  if(i==27) {maxit=30000} else {maxit=400}
@@ -180,6 +206,8 @@ assign_model(m1)
 	# MCI without quarter
 	m1$plusx=c('nov3sh', 'wpswdst')
 	m1$attraction_model='MCI'
+	assign_model(m1, del = TRUE)
+	assign_model(m1)
 	clusterExport(cl,names(m1))
 	
 	results_MCI <- parLapplyLB(cl, analysis_markets[1:last.item], function(i) {
