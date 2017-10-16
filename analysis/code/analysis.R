@@ -216,8 +216,9 @@ assign_model(m1)
 	})
 	results_MCI[[124]]=analyze_by_market(138, setup_y = setup_y, setup_x = c(price = 'rwpspr', dist = 'wpswdst', nov = 'nov3sh', uniq='wpsun'), setup_endogenous = c(price = 'rwpspr', dist = 'wpswdst', nov = 'nov3sh', uniq='wpsun'), trend = 'none', maxiter=300, use_quarters=F, estmethod='FGLS-Praise-Winsten')
 	
-  save(results_MNL, results_MCI, results_MNL_wquarter, analysis_markets, m1, file = c('../temp/results_20170822.RData'))
-
+  save(results_MNL, results_MNL_6sh, results_MCI, results_MNL_wquarter, analysis_markets, m1, file = c('../temp/results_20170905.RData'))
+  Sys.time()
+  
  # run up to this point. 
 
   ################
