@@ -31,7 +31,7 @@ require(Matrix)
 # Main analysis function (to be run seperately for each market_id i)
 analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend = 'none', pval = .05, max.lag = 12, min.t = 36, 
                               estmethod = "FGLS-Praise-Winsten", benchmarkb = NULL, use_quarters = TRUE, maxiter=1000,
-                              attraction_model = "MNL", takediff = 'alwaysdiff', plusx = NULL) {
+                              attraction_model = "MNL", takediff = 'alwaysdiff', plusx = NULL, squared = F) {
 	
 		cat('data preparation\n...')
 		
@@ -416,14 +416,65 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 		
 		copula_sign <- rbindlist(copula_sign)
 		
-		keep_vars = seq(along=colnames(X))
+		keep_vars = colnames(X)
 		
 		if (nrow(copula_sign)>0) {
 			pval_cop=.1
 			exclude <- copula_sign[grepl('.*[_]cop[_]', variable)][abs(z)<abs(qnorm(pval_cop/2))]
-			keep_vars <- which(!colnames(X)%in%exclude$variable)
+			keep_vars <- colnames(X)[which(!colnames(X)%in%exclude$variable)]
 			} 
-			
+		
+		
+		# Step 2: Determine significance of squared terms
+		if(squared==T) {
+		  
+		  squared_sign = lapply(gsub('_sq', '', grep('_sq', setup_x, value=T)), function(regr) {
+		    exclude <- grep('.*[_]sq.*', colnames(X), value=T)
+		    include <- grep(paste0('.*[_]', regr, '[_].*'), colnames(X), value=T)
+		    final_exclude <- setdiff(exclude,include)
+		    final_include <- setdiff(keep_vars, final_exclude)
+		    
+		    m_interim<-itersur(X=as.matrix(X[,which(colnames(X)%in%final_include)]),Y=as.matrix(Y),index=index, method = estmethod, maxiter=maxiter)
+		    
+		    if (m_interim@iterations==maxiter) stop('error with iterations')
+		    res = data.table(m_interim@coefficients)
+		    res[, var := regr]
+		    return(res)
+		  })
+		  
+		  squared_sign <- rbindlist(squared_sign)
+		  
+		  if (nrow(squared_sign)>0) {
+		    pval_sq=.1
+		    
+		    # retain only information on squared terms (e.g., remove copula, retain only when squares were estimtaed)
+		    square_terms = squared_sign
+		    square_terms = square_terms[, checkvar:=grepl(paste0('.*', unique(var),'.*'), variable), by = 'var'][checkvar==T&!grepl('.*[_]cop[_].*', variable)][,checkvar:=NULL]
+		    square_terms[, original_variable := gsub('[_]sq','', variable)]
+		    square_terms[, sq := ifelse(grepl('[_]sq', variable), 'sq', 'lin')]
+		    setnames(square_terms, 'variable', 'brand_variable')
+		    tmp = melt(square_terms, id.vars=c('brand_variable', 'var', 'original_variable', 'sq'))
+		    
+		    square_terms=data.table(dcast(tmp, original_variable + var ~ sq+variable, value.var='value'))
+		    
+		    # obtain range of observed variables
+		    range = data.table(original_variable=colnames(X), min = colMins(X), max=colMaxs(X))[!grepl('[_]sq', original_variable)]
+		    
+		    square_terms = merge(square_terms, range, by = c('original_variable'), all.x=T, all.y=F)
+		    
+		    # calculate inflection points
+		    square_terms[, inflection_point := (-lin_coef/(2*sq_coef)), by = c('var','original_variable')]
+		    square_terms[, inflection_inrange := inflection_point>=min & inflection_point<=max, by = c('var','original_variable')]
+		    
+		    # retain only rows with squared terms; decide which ones to exclude:
+		    # a) insignificantsquared terms, and those outside of the inflection points
+		    square_terms[, sq_included := !(abs(sq_z)<abs(qnorm(pval_sq/2))|inflection_inrange==F)]
+		    res$squared_terms <- square_terms
+		    keep_vars <- keep_vars[which(!keep_vars%in%paste0(square_terms[sq_included==F]$original_variable, '_sq'))]
+		    
+		  } 
+		}
+		
 		# Run final model
 		cat('running SUR for selected variables\n')
 		

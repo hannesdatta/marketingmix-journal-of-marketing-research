@@ -27,6 +27,9 @@ require(bit64)
 	brand_panel=fread('../temp/preclean.csv')
 	brand_panel[, ':=' (date = as.Date(date))]
 
+# add squared terms
+	brand_panel[, ':=' (llen_sq = llen^2, wpsun_sq = wpsun^2, nov3sh_sq = nov3sh^2, nov6sh_sq = nov6^2)]
+
 ## How many brands are active in multiple countries
 	tmp = brand_panel[, list(N=.N), by = c('brand', 'country')]
 	tmp[, Ncountries := .N, by = c('brand')]
@@ -79,7 +82,8 @@ require(bit64)
 	
 
 	m1 <- list(setup_y=c(usalessh = 'usalessh'),
-		   setup_x=c(price = 'rwpspr', dist = 'wpswdst', llen = 'llen', nov = 'nov3sh', uniq='wpsun'),
+		   setup_x=c(price = 'rwpspr', dist = 'wpswdst', llen = 'llen', nov = 'nov6sh', uniq='wpsun',
+		             llen_sq = 'llen_sq', nov6sh_sq = 'nov6sh_sq', wpsun_sq = 'wpsun_sq'),
 		   #setup_endogenous = NULL,
 		   setup_endogenous = c('rwpspr', 'wpswdst','llen','nov3sh','wpsun'),
 		   trend='none', # choose from: all, ur, none.
@@ -94,6 +98,7 @@ require(bit64)
 		   takediff = 'alwaysdiff',
 		   use_quarters = F,
 		   plusx = NULL, #c('nov3sh', 'wpswdst'),
+		   squared=T,
 		   maxiter = 300)
 
 #m1$plusx=c('nov3sh', 'wpswdst')
@@ -131,7 +136,7 @@ assign_model(m1)
 		                                             setup_endogenous = setup_endogenous, 
 		                                             trend = trend, pval = pval, max.lag = max.lag, 
 		                                             min.t = min.t, maxiter=maxiter, attraction_model = attraction_model, 
-		                                             plusx=plusx, use_quarters=use_quarters), silent=T)
+		                                             plusx=plusx, use_quarters=use_quarters, squared=squared), silent=T)
 		
 		assign_model(m1, del = TRUE)
 		
@@ -163,10 +168,82 @@ assign_model(m1)
 	
 	results_MNL <- parLapplyLB(cl, analysis_markets[1:last.item], function(i) {
 	    if(i==27) {maxit=30000} else {maxit=400}
-			try(analyze_by_market(i, setup_y = setup_y, setup_x = setup_x, setup_endogenous = setup_endogenous, trend = 'none', pval = pval, max.lag = max.lag, min.t = min.t, maxiter = maxit, use_quarters=F, plusx=plusx, attraction_model=attraction_model),silent=T)
+			try(analyze_by_market(i, setup_y = setup_y, setup_x = setup_x, setup_endogenous = setup_endogenous, trend = 'none', pval = pval, max.lag = max.lag, min.t = min.t, maxiter = maxit, use_quarters=F, plusx=plusx, attraction_model=attraction_model, squared=squared),silent=T)
 			})
-	results_MNL[[124]]=analyze_by_market(138, setup_y = setup_y, setup_x = c(price = 'rwpspr', dist = 'wpswdst', nov = 'nov3sh', uniq='wpsun'), setup_endogenous = c(price = 'rwpspr', dist = 'wpswdst', nov = 'nov3sh', uniq='wpsun'), trend = 'none', maxiter=300, use_quarters=F, estmethod='FGLS-Praise-Winsten')
+	results_MNL[[124]]=analyze_by_market(138, setup_y = setup_y, setup_x = c(price = 'rwpspr', dist = 'wpswdst', nov = 'nov6sh', uniq='wpsun', nov6sh_sq='nov6sh_sq', wpsun_sq='wpsun_sq'), setup_endogenous = c(price = 'rwpspr', dist = 'wpswdst', nov = 'nov3sh', uniq='wpsun'), trend = 'none', maxiter=300, use_quarters=F, estmethod='FGLS-Praise-Winsten',squared=squared)
 	
+	Sys.time()
+	
+	save(results_MNL, analysis_markets, m1, file = c('../temp/results_20171020.RData'))
+	
+	
+	
+	# explore squared terms
+	load(file = c('../temp/results_20171020.RData'))
+	
+	
+	# identify model crashes
+	results_brands<-results_MNL
+	checks <- unlist(lapply(results_brands, class))
+	table(checks)
+	last.item = length(analysis_markets)
+	
+	# provide overview of squared terms
+	squares <- rbindlist(lapply(results_brands[!checks=='try-error'], function(x) data.table(market_id=unique(x$specs$market_id),
+	                                                                               category=unique(x$specs$category),
+	                                                                               country=unique(x$specs$country),
+	                                                                               x$squared_terms)))
+	
+	pval_sq=.1
+
+	squares[!is.na(lin_coef), list(N_squares_tested=.N, 
+	               perc_significant = length(which(abs(sq_z)<abs(qnorm(pval_sq/2))))/.N, 
+	               perc_sig_inflect_inrange = length(which(sq_included==T))/.N), by = c('var')]
+	
+  squares[, brand:=sapply(original_variable, function(x) strsplit(x, '[_]')[[1]][1])]
+  
+	# summarize coefficients
+	coefs <- rbindlist(lapply(results_brands[!checks=='try-error'], function(x) data.table(market_id=unique(x$specs$market_id),
+	                                                                                         category=unique(x$specs$category),
+	                                                                                         country=unique(x$specs$country),
+	                                                                                       x$model@coefficients)))
+ 	coefs <- coefs[!(grepl('cop[_]', varname)|varname=='lagunitsales_sh'|varname=='dum')]
+	setnames(coefs, 'variable', 'original_variable')
+	
+	coefs[, sq_term := ifelse(grepl('[_]sq', original_variable), 'sq', 'lin')]
+	coefs[, varname2 := gsub('[_]sq', '', varname)]
+	
+	tmp = melt(coefs, id.vars=c('market_id', 'category', 'country', 'original_variable', 'brand', 'varname', 'sq_term', 'varname2'))
+	
+	coefs=dcast.data.table(tmp,market_id+category+country+brand+varname2~sq_term+variable, value.var='value')
+	setnames(coefs, 'varname2', 'varname')
+	
+	# check
+	
+	
+	
+	coefs[, type := '']
+	crit_val = abs(qnorm(pval_sq/2))
+	coefs[is.na(sq_coef)&lin_coef>0&abs(lin_z)>=crit_val, type := 'pos+sig']
+	coefs[!is.na(sq_coef)&lin_coef>0&abs(lin_z)>=crit_val&sq_z<crit_val, type := 'pos+sig']
+	
+	coefs[is.na(sq_coef)&lin_coef<0&abs(lin_z)>=crit_val, type := 'neg+sig']
+	coefs[!is.na(sq_coef)&lin_coef<0&abs(lin_z)>=crit_val&sq_z<crit_val, type := 'neg+sig']
+	
+	coefs[!is.na(sq_coef)&sq_coef<0&abs(sq_z)>=crit_val, type := 'inverseU+sig']
+	coefs[!is.na(sq_coef)&sq_coef>0&abs(sq_z)>=crit_val, type := 'U+sig']
+	coefs[is.na(sq_coef)&abs(lin_z)<crit_val, type := 'insig']
+	coefs[abs(lin_z)<crit_val&abs(sq_z)<crit_val, type := 'insig']
+	
+	tmp = coefs[, list(N=.N), by = c('varname', 'type')]
+	
+	tmp=data.table(dcast(tmp, varname~type))
+	tmp[, Ntotal := rowSums(tmp[,-1, with=F], na.rm=T)]
+	
+	setcolorder(tmp, c('varname','Ntotal', 'pos+sig', 'neg+sig', 'U+sig', 'inverseU+sig', 'insig'))
+	
+	
+
 	
 	Sys.time()
 
