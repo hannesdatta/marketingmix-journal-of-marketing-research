@@ -174,12 +174,12 @@ assign_model(m1)
 	
 	Sys.time()
 	
-	save(results_MNL, analysis_markets, m1, file = c('../temp/results_20171020.RData'))
+	save(results_MNL, analysis_markets, m1, file = c('../temp/results_20171023.RData'))
 	
 	
 	
 	# explore squared terms
-	load(file = c('../temp/results_20171020.RData'))
+	load(file = c('../temp/results_20171023.RData'))
 	
 	
 	# identify model crashes
@@ -195,10 +195,59 @@ assign_model(m1)
 	                                                                               x$squared_terms)))
 	
 	pval_sq=.1
+	critval = abs(qnorm(pval_sq/2))
+	
+	tmp=squares[!is.na(lin_coef), list(N_squares_tested=.N, 
+	               perc_noeffect = length(which(abs(sq_z)<critval & abs(lin_z)<critval))/.N,
+	               perc_pos_lin = length(which(abs(sq_z)<critval & abs(lin_z)>=critval & lin_coef>0))/.N,
+	               perc_neg_lin = length(which(abs(sq_z)<critval & abs(lin_z)>=critval & lin_coef<0))/.N,
+	               
+	               
+	               perc_invU = length(which(sq_coef<0&abs(sq_z)>=critval&inflection_inrange==T))/.N,
+	               perc_U = length(which(sq_coef>0&abs(sq_z)>=critval&inflection_inrange==T))/.N,
+	               perc_pos_decr = length(which(inflection_point>=max&sq_coef<0&abs(sq_z)>=critval))/.N,
+	               perc_pos_incr = length(which(inflection_point<=min&sq_coef>0&abs(sq_z)>=critval))/.N,
+	               perc_neg_decr = length(which(inflection_point>=max&sq_coef>0&abs(sq_z)>=critval))/.N,
+	               perc_neg_incr = length(which(inflection_point<=min&sq_coef<0&abs(sq_z)>=critval))/.N),
+	               by = c('var')]
 
-	squares[!is.na(lin_coef), list(N_squares_tested=.N, 
-	               perc_significant = length(which(abs(sq_z)<abs(qnorm(pval_sq/2))))/.N, 
-	               perc_sig_inflect_inrange = length(which(sq_included==T))/.N), by = c('var')]
+	tmp=squares[!is.na(lin_coef), list(N_squares_tested=.N, 
+	                                   perc_sq_insig = length(which(abs(sq_z)<critval))/.N,
+	                                   perc_invU = length(which(sq_coef<0&abs(sq_z)>=critval&inflection_inrange==T))/.N,
+	                                   perc_U = length(which(sq_coef>0&abs(sq_z)>=critval&inflection_inrange==T))/.N,
+	                                   perc_pos_decr = length(which(inflection_point>=max&sq_coef<0&abs(sq_z)>=critval))/.N,
+	                                   perc_pos_incr = length(which(inflection_point<=min&sq_coef>0&abs(sq_z)>=critval))/.N,
+	                                   perc_neg_decr = length(which(inflection_point>=max&sq_coef>0&abs(sq_z)>=critval))/.N,
+	                                   perc_neg_incr = length(which(inflection_point<=min&sq_coef<0&abs(sq_z)>=critval))/.N),
+	            by = c('var')]
+	
+	tmp
+	
+  squares[, type:=NULL]
+  squares[!is.na(lin_coef), type:='']
+  
+	squares[!is.na(lin_coef) & abs(sq_z)<critval, type := 'sq_insig']
+	squares[!is.na(lin_coef) & sq_coef<0&abs(sq_z)>=critval&inflection_inrange==T, type := 'invU']
+	squares[!is.na(lin_coef) & sq_coef>0&abs(sq_z)>=critval&inflection_inrange==T, type := 'U']
+	squares[!is.na(lin_coef) & inflection_point>=max&sq_coef<0&abs(sq_z)>=critval, type := 'pos_decr']
+	squares[!is.na(lin_coef) & inflection_point<=min&sq_coef>0&abs(sq_z)>=critval, type := 'pos_incr']
+	squares[!is.na(lin_coef) & inflection_point>=max&sq_coef>0&abs(sq_z)>=critval, type := 'neg_decr']
+	squares[!is.na(lin_coef) & inflection_point<=min&sq_coef<0&abs(sq_z)>=critval, type := 'neg_incr']
+	
+	
+	          
+	squares[!is.na(lin_coef) & inflection_inrange == F & 
+	          inflection_point > max & sq_coef < 0 & abs(sq_z)>=crit_val, type := 'sq-incr_positive']
+	
+	tmp=squares[!is.na(lin_coef), list(N_squares_tested=.N, 
+	                                   perc_sq_insig = length(which(abs(sq_z)<critval))/.N,
+	                                   perc_invU = length(which(sq_coef<0&abs(sq_z)>=critval&inflection_inrange==T))/.N,
+	                                   perc_U = length(which(sq_coef>0&abs(sq_z)>=critval&inflection_inrange==T))/.N,
+	                                   perc_pos_decr = length(which(inflection_point>=max&sq_coef<0&abs(sq_z)>=critval))/.N,
+	                                   perc_pos_incr = length(which(inflection_point<=min&sq_coef>0&abs(sq_z)>=critval))/.N,
+	                                   perc_neg_decr = length(which(inflection_point>=max&sq_coef>0&abs(sq_z)>=critval))/.N,
+	                                   perc_neg_incr = length(which(inflection_point<=min&sq_coef<0&abs(sq_z)>=critval))/.N),
+	            by = c('var')]
 	
   squares[, brand:=sapply(original_variable, function(x) strsplit(x, '[_]')[[1]][1])]
   
@@ -224,14 +273,14 @@ assign_model(m1)
 	
 	coefs[, type := '']
 	crit_val = abs(qnorm(pval_sq/2))
-	coefs[is.na(sq_coef)&lin_coef>0&abs(lin_z)>=crit_val, type := 'pos+sig']
-	coefs[!is.na(sq_coef)&lin_coef>0&abs(lin_z)>=crit_val&sq_z<crit_val, type := 'pos+sig']
+	coefs[is.na(sq_coef)&lin_coef>0&abs(lin_z)>=crit_val, type := 'pos-incr-or-decr']
+	coefs[!is.na(sq_coef)&lin_coef>0&abs(lin_z)>=crit_val&sq_z<crit_val, type := 'pos-incr-or-decr']
 	
-	coefs[is.na(sq_coef)&lin_coef<0&abs(lin_z)>=crit_val, type := 'neg+sig']
-	coefs[!is.na(sq_coef)&lin_coef<0&abs(lin_z)>=crit_val&sq_z<crit_val, type := 'neg+sig']
+	coefs[is.na(sq_coef)&lin_coef<0&abs(lin_z)>=crit_val, type := 'neg-incr-or-decr']
+	coefs[!is.na(sq_coef)&lin_coef<0&abs(lin_z)>=crit_val&sq_z<crit_val, type := 'neg-incr-or-decr']
 	
-	coefs[!is.na(sq_coef)&sq_coef<0&abs(sq_z)>=crit_val, type := 'inverseU+sig']
-	coefs[!is.na(sq_coef)&sq_coef>0&abs(sq_z)>=crit_val, type := 'U+sig']
+	coefs[!is.na(sq_coef)&sq_coef<0&abs(sq_z)>=crit_val, type := 'inverseU']
+	coefs[!is.na(sq_coef)&sq_coef>0&abs(sq_z)>=crit_val, type := 'U']
 	coefs[is.na(sq_coef)&abs(lin_z)<crit_val, type := 'insig']
 	coefs[abs(lin_z)<crit_val&abs(sq_z)<crit_val, type := 'insig']
 	
@@ -240,7 +289,7 @@ assign_model(m1)
 	tmp=data.table(dcast(tmp, varname~type))
 	tmp[, Ntotal := rowSums(tmp[,-1, with=F], na.rm=T)]
 	
-	setcolorder(tmp, c('varname','Ntotal', 'pos+sig', 'neg+sig', 'U+sig', 'inverseU+sig', 'insig'))
+	setcolorder(tmp, c('varname','Ntotal', 'pos-incr-or-decr', 'neg-incr-or-decr', 'U', 'inverseU', 'insig'))
 	
 	
 

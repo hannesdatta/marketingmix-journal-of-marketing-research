@@ -206,7 +206,7 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 			curr_brand = names(dat_by_brand)[z]
 			#print(curr_brand)
 			
-			vars = setdiff(colnames(dat_by_brand[[z]])[!colSums(dat_by_brand[[z]])==0 & !grepl('[_]dum|trend', colnames(dat_by_brand[[z]]))],'period')
+			vars = setdiff(colnames(dat_by_brand[[z]])[!colSums(abs(dat_by_brand[[z]]))==0 & !grepl('[_]dum|trend', colnames(dat_by_brand[[z]]))],'period')
 			
 			# verify whether, for any given brand/base brand combination, the minimum N constraint for number of observations (result of use_ts) is given.
 			delvars = vars[sapply(vars, function(xx) use_ts(ifelse(grepl(dtbb@benchmark, xx), -1, 1) * unlist(dat_by_brand[[z]][, xx])))==F]
@@ -347,7 +347,7 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 			index=data.frame(date=dtbb@period,brand=dtbb@individ)
 
 		# remove all-zero columns from X (e.g., where a brand variable is removed earlier ("NA"), and contains zeros for all other brands).
-			delvars = colnames(X)[which(colSums(X)==0)]
+			delvars = colnames(X)[which(colSums(abs(X))==0)]
 			keepv = setdiff(colnames(X), delvars)
 			X = X[, keepv, with=F]
 	
