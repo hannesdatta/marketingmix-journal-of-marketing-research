@@ -85,7 +85,7 @@ require(bit64)
 		   setup_x=c(price = 'rwpspr', dist = 'wpswdst', llen = 'llen', nov = 'nov6sh', uniq='wpsun',
 		             llen_sq = 'llen_sq', nov6sh_sq = 'nov6sh_sq', wpsun_sq = 'wpsun_sq'),
 		   #setup_endogenous = NULL,
-		   setup_endogenous = c('rwpspr', 'wpswdst','llen','nov3sh','wpsun'),
+		   setup_endogenous = c('rwpspr', 'wpswdst','llen','nov6sh','wpsun'),
 		   trend='none', # choose from: all, ur, none.
 		   pval = .05,
 		   max.lag = 12, 
@@ -175,6 +175,68 @@ assign_model(m1)
 	Sys.time()
 	
 	save(results_MNL, analysis_markets, m1, file = c('../temp/results_20171023.RData'))
+	
+	# Estimate different combinations of squared terms
+	Sys.time()
+	
+	# m1: linear: price/distribution, squared terms: line length, novelty, and uniqueness
+	results_m1 <- parLapplyLB(cl, analysis_markets[1:last.item], function(i) {
+	  if(i==27) {maxit=30000} else {maxit=400}
+	  try(analyze_by_market(i, setup_y = setup_y, 
+	                        setup_x = c(price = 'rwpspr', dist = 'wpswdst', llen = 'llen', nov = 'nov6sh', uniq='wpsun',
+	                                    llen_sq = 'llen_sq', nov6sh_sq = 'nov6sh_sq', wpsun_sq = 'wpsun_sq'),
+	                        setup_endogenous = 	c('rwpspr', 'wpswdst','llen','nov6sh','wpsun'), 
+	                        trend = 'none', pval = pval, max.lag = max.lag, min.t = min.t, maxiter = maxit, 
+	                        use_quarters=F, plusx=plusx, attraction_model=attraction_model, squared=squared),silent=T)
+	})
+	results_m1[[124]]=analyze_by_market(138, setup_y = setup_y, 
+	                                    setup_x = c(price = 'rwpspr', dist = 'wpswdst', nov = 'nov6sh', uniq='wpsun', 
+	                                                nov6sh_sq='nov6sh_sq', wpsun_sq='wpsun_sq'), 
+	                                    setup_endogenous = c(price = 'rwpspr', dist = 'wpswdst', nov = 'nov6sh', uniq='wpsun'), 
+	                                    trend = 'none', maxiter=300, use_quarters=F, estmethod='FGLS-Praise-Winsten',squared=squared)
+	
+	Sys.time()
+	
+	# m2: linear: price/distribution, squared terms: line length
+	results_m2 <- parLapplyLB(cl, analysis_markets[1:last.item], function(i) {
+	  if(i==27) {maxit=30000} else {maxit=400}
+	  try(analyze_by_market(i, setup_y = setup_y, 
+	                        setup_x = c(price = 'rwpspr', dist = 'wpswdst', llen = 'llen', 
+	                                    llen_sq = 'llen_sq'),
+	                        setup_endogenous = 	c('rwpspr', 'wpswdst','llen'), 
+	                        trend = 'none', pval = pval, max.lag = max.lag, min.t = min.t, maxiter = maxit, 
+	                        use_quarters=F, plusx=plusx, attraction_model=attraction_model, squared=squared),silent=T)
+	})
+	Sys.time()
+	
+	# m3: linear: price/distribution, squared terms: line length and novelty
+	results_m3 <- parLapplyLB(cl, analysis_markets[1:last.item], function(i) {
+	  if(i==27) {maxit=30000} else {maxit=400}
+	  try(analyze_by_market(i, setup_y = setup_y, 
+	                        setup_x = c(price = 'rwpspr', dist = 'wpswdst', llen = 'llen', nov = 'nov6sh',
+	                                    llen_sq = 'llen_sq', nov6sh_sq = 'nov6sh_sq'),
+	                        setup_endogenous = 	c('rwpspr', 'wpswdst','llen','nov6sh'), 
+	                        trend = 'none', pval = pval, max.lag = max.lag, min.t = min.t, maxiter = maxit, 
+	                        use_quarters=F, plusx=plusx, attraction_model=attraction_model, squared=squared),silent=T)
+	})
+	Sys.time()
+	
+	# m4: linear: price/distribution, squared terms: line length and uniqueness
+	results_m4 <- parLapplyLB(cl, analysis_markets[1:last.item], function(i) {
+	  if(i==27) {maxit=30000} else {maxit=400}
+	  try(analyze_by_market(i, setup_y = setup_y, 
+	                        setup_x = c(price = 'rwpspr', dist = 'wpswdst', llen = 'llen', uniq='wpsun',
+	                                    llen_sq = 'llen_sq', wpsun_sq = 'wpsun_sq'),
+	                        setup_endogenous = 	c('rwpspr', 'wpswdst','llen','wpsun'), 
+	                        trend = 'none', pval = pval, max.lag = max.lag, min.t = min.t, maxiter = maxit, 
+	                        use_quarters=F, plusx=plusx, attraction_model=attraction_model, squared=squared),silent=T)
+	})
+	
+	Sys.time()
+	
+	
+	save(results_m1, results_m2, results_m3, results_m4, analysis_markets, m1, file = c('../temp/results_20171024.RData'))
+	
 	
 	
 	
