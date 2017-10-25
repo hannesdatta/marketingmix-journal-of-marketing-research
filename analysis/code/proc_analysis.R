@@ -392,12 +392,18 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 		# rescale X matrix (normalize to 1?) - strongly recommended for these models to help conversion
 		rescale = TRUE
 		
+		res$ranges=list(before=data.table(original_variable=colnames(X), min = colMins(X), max=colMaxs(X))[!grepl('[_]sq|[_]cop[_]|[_]dum', original_variable)])
+		
 		# rescale X
 		if (rescale==T) {
 			rescale_values = apply(X, 2, function(x) max(abs(x)))
 			div_matrix <- matrix(rep(rescale_values, nrow(X)), byrow=TRUE, ncol=length(rescale_values))
 			X=X/div_matrix
+			res$ranges$after=data.table(original_variable=colnames(X), min = colMins(X), max=colMaxs(X))[!grepl('[_]sq|[_]cop[_]|[_]dum', original_variable)]
 			}
+		
+
+		res$ranges(list(before=ranges_before_scaling, after=ranges_after_scaling))
 		
 		# Step 1: Determine significance of copula terms by endogenous regressor; retain those brand-variable terms that are significant
 		copula_sign = lapply(setup_endogenous, function(regr) {
@@ -419,8 +425,7 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 		keep_vars = colnames(X)
 		
 		if (nrow(copula_sign)>0) {
-			pval_cop=.1
-			exclude <- copula_sign[grepl('.*[_]cop[_]', variable)][abs(z)<abs(qnorm(pval_cop/2))]
+			exclude <- copula_sign[grepl('.*[_]cop[_]', variable)][abs(z)<abs(qnorm(pval/2))]
 			keep_vars <- colnames(X)[which(!colnames(X)%in%exclude$variable)]
 			} 
 		
@@ -445,8 +450,6 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 		  squared_sign <- rbindlist(squared_sign)
 		  
 		  if (nrow(squared_sign)>0) {
-		    pval_sq=.1
-		    
 		    # retain only information on squared terms (e.g., remove copula, retain only when squares were estimtaed)
 		    square_terms = squared_sign
 		    square_terms = square_terms[, checkvar:=grepl(paste0('.*', unique(var),'.*'), variable), by = 'var'][checkvar==T&!grepl('.*[_]cop[_].*', variable)][,checkvar:=NULL]
@@ -468,7 +471,7 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 		    
 		    # retain only rows with squared terms; decide which ones to exclude:
 		    # a) insignificantsquared terms, and those outside of the inflection points
-		    square_terms[, sq_included := !(abs(sq_z)<abs(qnorm(pval_sq/2))|inflection_inrange==F)]
+		    square_terms[, sq_included := !(abs(sq_z)<abs(qnorm(pval/2))|inflection_inrange==F)]
 		    res$squared_terms <- square_terms
 		    keep_vars <- keep_vars[which(!keep_vars%in%paste0(square_terms[sq_included==F]$original_variable, '_sq'))]
 		    
