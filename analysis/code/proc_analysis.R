@@ -402,9 +402,7 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 			res$ranges$after=data.table(original_variable=colnames(X), min = colMins(X), max=colMaxs(X))[!grepl('[_]sq|[_]cop[_]|[_]dum', original_variable)]
 			}
 		
-
-		res$ranges(list(before=ranges_before_scaling, after=ranges_after_scaling))
-		
+	
 		# Step 1: Determine significance of copula terms by endogenous regressor; retain those brand-variable terms that are significant
 		copula_sign = lapply(setup_endogenous, function(regr) {
 			exclude <- grep('.*[_]cop[_]', colnames(X), value=T)
