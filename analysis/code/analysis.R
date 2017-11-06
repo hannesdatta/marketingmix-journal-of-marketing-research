@@ -176,6 +176,8 @@ assign_model(m1)
 	
 	save(results_MNL, analysis_markets, m1, file = c('../temp/results_20171023.RData'))
 	
+	
+	
 	# Estimate different combinations of squared terms
 	Sys.time()
 	
@@ -194,6 +196,7 @@ assign_model(m1)
 	                                                nov6sh_sq='nov6sh_sq', wpsun_sq='wpsun_sq'), 
 	                                    setup_endogenous = c(price = 'rwpspr', dist = 'wpswdst', nov = 'nov6sh', uniq='wpsun'), 
 	                                    trend = 'none', maxiter=300, use_quarters=F, estmethod='FGLS-Praise-Winsten',squared=squared)
+	save(results_m1, analysis_markets, m1, file = c('../temp/results_20171025_m1.RData'))
 	
 	Sys.time()
 	

@@ -75,10 +75,10 @@ eval_models <- function(results_brands) {
   coefs[!is.na(sq_coef), inflection_point := -lin_coef/(2*sq_coef)]
   
   # get ranges of X
-  ranges=rbindlist(lapply(results_brands[!checks=='try-error'], function(x) x$melted_panel[, list(min=min(value), max=max(value)), by = c('market_id', 'brand', 'variable')]))
+  ranges=rbindlist(lapply(results_brands[!checks=='try-error'], function(x) data.table(market_id=unique(x$specs$market_id), x$ranges$before)))
   
-  setkey(ranges, market_id, brand, variable)
-  setkey(coefs, market_id, brand, var)
+  setkey(ranges, market_id, original_variable)
+  setkey(coefs, market_id, original_variable)
   coefs[ranges, ':=' (min=i.min, max=i.max)]
   coefs[is.na(sq_coef), ':=' (min=NA, max=NA)]
   
