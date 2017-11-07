@@ -87,7 +87,7 @@ require(bit64)
 		   #setup_endogenous = NULL,
 		   setup_endogenous = c('rwpspr', 'wpswdst','llen','nov6sh','wpsun'),
 		   trend='none', # choose from: all, ur, none.
-		   pval = .05,
+		   pval = .1,
 		   max.lag = 12, 
 		   min.t = 36,
 		   descr = 'endog_model',
@@ -163,7 +163,7 @@ assign_model(m1)
 	clusterExport(cl,names(m1))
 	
 	
-	# MNL without quarter (preferred/main)	
+	# MNL without quarter (preferred/main); no nonlinear effects
 	Sys.time()
 	
 	results_MNL <- parLapplyLB(cl, analysis_markets[1:last.item], function(i) {
@@ -196,7 +196,8 @@ assign_model(m1)
 	                                                nov6sh_sq='nov6sh_sq', wpsun_sq='wpsun_sq'), 
 	                                    setup_endogenous = c(price = 'rwpspr', dist = 'wpswdst', nov = 'nov6sh', uniq='wpsun'), 
 	                                    trend = 'none', maxiter=300, use_quarters=F, estmethod='FGLS-Praise-Winsten',squared=squared)
-	save(results_m1, analysis_markets, m1, file = c('../temp/results_20171025_m1.RData'))
+	
+	save(results_m1, analysis_markets, m1, file = c('../temp/results_20171107_p10.RData'))
 	
 	Sys.time()
 	
@@ -238,128 +239,14 @@ assign_model(m1)
 	Sys.time()
 	
 	
-	save(results_m1, results_m2, results_m3, results_m4, analysis_markets, m1, file = c('../temp/results_20171024.RData'))
-	
-	
-	
-	
-	# explore squared terms
-	load(file = c('../temp/results_20171023.RData'))
-	
-	
-	# identify model crashes
-	results_brands<-results_MNL
-	checks <- unlist(lapply(results_brands, class))
-	table(checks)
-	last.item = length(analysis_markets)
-	
-	# provide overview of squared terms
-	squares <- rbindlist(lapply(results_brands[!checks=='try-error'], function(x) data.table(market_id=unique(x$specs$market_id),
-	                                                                               category=unique(x$specs$category),
-	                                                                               country=unique(x$specs$country),
-	                                                                               x$squared_terms)))
-	
-	pval_sq=.1
-	critval = abs(qnorm(pval_sq/2))
-	
-	tmp=squares[!is.na(lin_coef), list(N_squares_tested=.N, 
-	               perc_noeffect = length(which(abs(sq_z)<critval & abs(lin_z)<critval))/.N,
-	               perc_pos_lin = length(which(abs(sq_z)<critval & abs(lin_z)>=critval & lin_coef>0))/.N,
-	               perc_neg_lin = length(which(abs(sq_z)<critval & abs(lin_z)>=critval & lin_coef<0))/.N,
-	               
-	               
-	               perc_invU = length(which(sq_coef<0&abs(sq_z)>=critval&inflection_inrange==T))/.N,
-	               perc_U = length(which(sq_coef>0&abs(sq_z)>=critval&inflection_inrange==T))/.N,
-	               perc_pos_decr = length(which(inflection_point>=max&sq_coef<0&abs(sq_z)>=critval))/.N,
-	               perc_pos_incr = length(which(inflection_point<=min&sq_coef>0&abs(sq_z)>=critval))/.N,
-	               perc_neg_decr = length(which(inflection_point>=max&sq_coef>0&abs(sq_z)>=critval))/.N,
-	               perc_neg_incr = length(which(inflection_point<=min&sq_coef<0&abs(sq_z)>=critval))/.N),
-	               by = c('var')]
-
-	tmp=squares[!is.na(lin_coef), list(N_squares_tested=.N, 
-	                                   perc_sq_insig = length(which(abs(sq_z)<critval))/.N,
-	                                   perc_invU = length(which(sq_coef<0&abs(sq_z)>=critval&inflection_inrange==T))/.N,
-	                                   perc_U = length(which(sq_coef>0&abs(sq_z)>=critval&inflection_inrange==T))/.N,
-	                                   perc_pos_decr = length(which(inflection_point>=max&sq_coef<0&abs(sq_z)>=critval))/.N,
-	                                   perc_pos_incr = length(which(inflection_point<=min&sq_coef>0&abs(sq_z)>=critval))/.N,
-	                                   perc_neg_decr = length(which(inflection_point>=max&sq_coef>0&abs(sq_z)>=critval))/.N,
-	                                   perc_neg_incr = length(which(inflection_point<=min&sq_coef<0&abs(sq_z)>=critval))/.N),
-	            by = c('var')]
-	
-	tmp
-	
-  squares[, type:=NULL]
-  squares[!is.na(lin_coef), type:='']
-  
-	squares[!is.na(lin_coef) & abs(sq_z)<critval, type := 'sq_insig']
-	squares[!is.na(lin_coef) & sq_coef<0&abs(sq_z)>=critval&inflection_inrange==T, type := 'invU']
-	squares[!is.na(lin_coef) & sq_coef>0&abs(sq_z)>=critval&inflection_inrange==T, type := 'U']
-	squares[!is.na(lin_coef) & inflection_point>=max&sq_coef<0&abs(sq_z)>=critval, type := 'pos_decr']
-	squares[!is.na(lin_coef) & inflection_point<=min&sq_coef>0&abs(sq_z)>=critval, type := 'pos_incr']
-	squares[!is.na(lin_coef) & inflection_point>=max&sq_coef>0&abs(sq_z)>=critval, type := 'neg_decr']
-	squares[!is.na(lin_coef) & inflection_point<=min&sq_coef<0&abs(sq_z)>=critval, type := 'neg_incr']
-	
-	
-	          
-	squares[!is.na(lin_coef) & inflection_inrange == F & 
-	          inflection_point > max & sq_coef < 0 & abs(sq_z)>=crit_val, type := 'sq-incr_positive']
-	
-	tmp=squares[!is.na(lin_coef), list(N_squares_tested=.N, 
-	                                   perc_sq_insig = length(which(abs(sq_z)<critval))/.N,
-	                                   perc_invU = length(which(sq_coef<0&abs(sq_z)>=critval&inflection_inrange==T))/.N,
-	                                   perc_U = length(which(sq_coef>0&abs(sq_z)>=critval&inflection_inrange==T))/.N,
-	                                   perc_pos_decr = length(which(inflection_point>=max&sq_coef<0&abs(sq_z)>=critval))/.N,
-	                                   perc_pos_incr = length(which(inflection_point<=min&sq_coef>0&abs(sq_z)>=critval))/.N,
-	                                   perc_neg_decr = length(which(inflection_point>=max&sq_coef>0&abs(sq_z)>=critval))/.N,
-	                                   perc_neg_incr = length(which(inflection_point<=min&sq_coef<0&abs(sq_z)>=critval))/.N),
-	            by = c('var')]
-	
-  squares[, brand:=sapply(original_variable, function(x) strsplit(x, '[_]')[[1]][1])]
-  
-	# summarize coefficients
-	coefs <- rbindlist(lapply(results_brands[!checks=='try-error'], function(x) data.table(market_id=unique(x$specs$market_id),
-	                                                                                         category=unique(x$specs$category),
-	                                                                                         country=unique(x$specs$country),
-	                                                                                       x$model@coefficients)))
- 	coefs <- coefs[!(grepl('cop[_]', varname)|varname=='lagunitsales_sh'|varname=='dum')]
-	setnames(coefs, 'variable', 'original_variable')
-	
-	coefs[, sq_term := ifelse(grepl('[_]sq', original_variable), 'sq', 'lin')]
-	coefs[, varname2 := gsub('[_]sq', '', varname)]
-	
-	tmp = melt(coefs, id.vars=c('market_id', 'category', 'country', 'original_variable', 'brand', 'varname', 'sq_term', 'varname2'))
-	
-	coefs=dcast.data.table(tmp,market_id+category+country+brand+varname2~sq_term+variable, value.var='value')
-	setnames(coefs, 'varname2', 'varname')
-	
-	# check
-	
-	
-	
-	coefs[, type := '']
-	crit_val = abs(qnorm(pval_sq/2))
-	coefs[is.na(sq_coef)&lin_coef>0&abs(lin_z)>=crit_val, type := 'pos-incr-or-decr']
-	coefs[!is.na(sq_coef)&lin_coef>0&abs(lin_z)>=crit_val&sq_z<crit_val, type := 'pos-incr-or-decr']
-	
-	coefs[is.na(sq_coef)&lin_coef<0&abs(lin_z)>=crit_val, type := 'neg-incr-or-decr']
-	coefs[!is.na(sq_coef)&lin_coef<0&abs(lin_z)>=crit_val&sq_z<crit_val, type := 'neg-incr-or-decr']
-	
-	coefs[!is.na(sq_coef)&sq_coef<0&abs(sq_z)>=crit_val, type := 'inverseU']
-	coefs[!is.na(sq_coef)&sq_coef>0&abs(sq_z)>=crit_val, type := 'U']
-	coefs[is.na(sq_coef)&abs(lin_z)<crit_val, type := 'insig']
-	coefs[abs(lin_z)<crit_val&abs(sq_z)<crit_val, type := 'insig']
-	
-	tmp = coefs[, list(N=.N), by = c('varname', 'type')]
-	
-	tmp=data.table(dcast(tmp, varname~type))
-	tmp[, Ntotal := rowSums(tmp[,-1, with=F], na.rm=T)]
-	
-	setcolorder(tmp, c('varname','Ntotal', 'pos-incr-or-decr', 'neg-incr-or-decr', 'U', 'inverseU', 'insig'))
-	
+	save(results_m1, results_m2, results_m3, results_m4, analysis_markets, m1, file = c('../temp/results_20171107b_p10.RData'))
 	
 
 	
-	Sys.time()
+	
+	
+	
+	# legacy models #
 
 	# MNL without quarter (preferred/main), with nov6_sh
 	Sys.time()
@@ -449,73 +336,10 @@ assign_model(m1)
   cat('\n\nSummary of elasticities with novelty share 6-months\n')
   print(m6$elast)
   }
-  
-############### LEGACY CODE #########################  
-  
+
   
   
   
-#####################################
-# COMPARISON QUARTER VS NOT QUARTER #
-#####################################
-  
-  load(file = c('../temp/results_noquarter.RData'))
-
-	# model crashes
-	checks <- unlist(lapply(results_brands, class))
-	table(checks)
-	last.item = length(analysis_markets)
-
-	err_markets = data.frame(market_id=analysis_markets[1:last.item][which(checks=='try-error')],msg=as.character(results_brands[which(checks=='try-error')]))
-	merge(err_markets,markets,by=c('market_id'),all.x=T, all.y=F)
-	
-	# elasticities
-	elast_noq <- rbindlist(lapply(results_brands[!checks=='try-error'], function(x) x$elast))
-	
-
-	fwrite(elast_noq, file = '../output/elasticities.csv', row.names=F)
-	
-	
-	
-	load(file = c('../temp/results_withquarter.RData'))
-	# model crashes
-	checks <- unlist(lapply(results_brands, class))
-	table(checks)
-	last.item = length(analysis_markets)
-	
-	# elasticities
-	elast_q <- rbindlist(lapply(results_brands[!checks=='try-error'], function(x) x$elast))
-	
-	# compare elasticities
-	elast_q[, source:='quarter']
-	elast_noq[, source:='noquarter']
-	
-	melast = rbind(elast_q, elast_noq)
-	
-	tmp=dcast(melast[variable%in%setup_x&!grepl('cop', var_orig)], brand+market_id+variable~source, value.var='coef')
-	tmp=data.table(tmp)
-	
-	tmp[, (cor(noquarter,quarter,use='pairwise.complete')), by = c('variable')]
-	
-
-######################
-# ITERATION ANALYSIS #
-######################
-
-	
-
-if(0){
-	iters<-fread('iter_out.csv')
-	
-	for (cols in setdiff(colnames(iters), c('iteration','delta'))) {
-		fn=paste0('../temp/iter_', cols, '.png')
-		png(fn, res=400, units='in', height=8, width=8)
-		iters[, varplot := get(cols)]
-		print(xyplot(varplot~iteration, main = cols, ylab = cols, xlab = 'iteration', type ='l', data = iters))
-		dev.off()
-		}
-}
-	
 #####################
 # summarize results #
 #####################

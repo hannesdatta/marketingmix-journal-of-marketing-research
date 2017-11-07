@@ -1,6 +1,6 @@
 # EVALUATES SQUARED TERMS
 
-load(file = c('../temp/results_20171024.RData'))
+load(file = c('../temp/results_20171107b_p10.RData'))
 
 # m1: linear: price/distribution, squared terms: line length, novelty, and uniqueness
 # m2: linear: price/distribution, squared terms: line length
@@ -8,22 +8,13 @@ load(file = c('../temp/results_20171024.RData'))
 # m4: linear: price/distribution, squared terms: line length and uniqueness
 
 
-# identify model crashes
-results_brands<-results_m1
-
-out_m1 = eval_models(results_m1)
-out_m2 = eval_models(results_m2)
-out_m3 = eval_models(results_m3)
-out_m4 = eval_models(results_m4)
-
-
-eval_models <- function(results_brands) {
+eval_models <- function(results_brands, pval_sq=.10) {
   checks <- unlist(lapply(results_brands, class))
   cat('Errors in model estimation (try-error = error, list = no error)\n')
   print(table(checks))
   
   last.item = length(analysis_markets)
-  pval_sq=.1
+  #pval_sq=.1
   critval = abs(qnorm(pval_sq/2))
   
   
@@ -46,6 +37,7 @@ eval_models <- function(results_brands) {
                                      perc_neg_decr = length(which(inflection_point>=max&sq_coef>0&abs(sq_z)>=critval))/.N,
                                      perc_neg_incr = length(which(inflection_point<=min&sq_coef<0&abs(sq_z)>=critval))/.N),
               by = c('var')]
+  setorder(tmp,var)
   
   res = NULL
   res$errors=checks
@@ -71,11 +63,12 @@ eval_models <- function(results_brands) {
   # clean out non-estimated linear coefficients
   coefs <- coefs[!is.na(lin_coef)]
   
-  # calculate (potential) inflection points
+  # retrieve (potential) inflection points
   coefs[!is.na(sq_coef), inflection_point := -lin_coef/(2*sq_coef)]
   
   # get ranges of X
   ranges=rbindlist(lapply(results_brands[!checks=='try-error'], function(x) data.table(market_id=unique(x$specs$market_id), x$ranges$before)))
+  rangesafter=rbindlist(lapply(results_brands[!checks=='try-error'], function(x) data.table(market_id=unique(x$specs$market_id), x$ranges$after)))
   
   setkey(ranges, market_id, original_variable)
   setkey(coefs, market_id, original_variable)
@@ -84,7 +77,6 @@ eval_models <- function(results_brands) {
   
   # classify types
   coefs[, type := '']
-  
   
   coefs[is.na(sq_coef)&lin_coef>0&abs(lin_z)>=critval, type := 'pos_lin']
   coefs[!is.na(sq_coef)&sq_z<critval&lin_coef>0&abs(lin_z)>=critval, type := 'pos_lin']
@@ -115,9 +107,34 @@ eval_models <- function(results_brands) {
   
   # turn into percent
   res$coefs=cbind(tmp[,c(1:2)], tmp[,-c(1:2)]/matrix(rep(unlist(tmp[,2]),ncol(tmp)-2), ncol=ncol(tmp)-2))
+  setorder(res$coefs, var)
+  res$coefs=res$coefs[match(c(res$square_test$var, setdiff(res$coefs$var,res$square_test$var)), res$coefs$var),]
   
   return(res)
 }
+
+
+
+# identify model crashes
+results_brands<-results_m1
+
+out_m1 = eval_models(results_m1)
+out_m2 = eval_models(results_m2)
+out_m3 = eval_models(results_m3)
+out_m4 = eval_models(results_m4)
+
+# compare for high income vs low income countries
+results_brands<-results_m1
+checks <- unlist(lapply(results_brands, class))
+
+market_models <- unlist(lapply(results_brands[!checks=='try-error'], function(x) unique(x$specs$country)))
+
+m_low = results_brands[!checks=='try-error'][which(market_models%in%c('indonesia','vietnam','thailand','malaysia','philippines','china','india'))]
+m_high = results_brands[!checks=='try-error'][which(!market_models%in%c('indonesia','vietnam','thailand','malaysia','philippines','china','india'))]
+
+eval_models(m_low)
+eval_models(m_high)
+
 
   
   
