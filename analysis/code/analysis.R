@@ -27,9 +27,6 @@ require(bit64)
 	brand_panel=fread('../temp/preclean.csv')
 	brand_panel[, ':=' (date = as.Date(date))]
 
-# add squared terms
-	brand_panel[, ':=' (llen_sq = llen^2, wpsun_sq = wpsun^2, nov3sh_sq = nov3sh^2, nov6sh_sq = nov6^2)]
-
 ## How many brands are active in multiple countries
 	tmp = brand_panel[, list(N=.N), by = c('brand', 'country')]
 	tmp[, Ncountries := .N, by = c('brand')]
@@ -82,29 +79,22 @@ require(bit64)
 	
 
 	m1 <- list(setup_y=c(usalessh = 'usalessh'),
-		   setup_x=c(price = 'rwpspr', dist = 'wpswdst', llen = 'llen', nov = 'nov6sh', uniq='wpsun',
-		             llen_sq = 'llen_sq', nov6sh_sq = 'nov6sh_sq', wpsun_sq = 'wpsun_sq'),
-		   #setup_endogenous = NULL,
-		   setup_endogenous = c('rwpspr', 'wpswdst','llen','nov6sh','wpsun'),
+		   setup_x=c(price = 'rwpspr', dist = 'wpswdst', llen = 'llen', nov = 'nov6sh'),
+		   setup_endogenous = c('rwpspr', 'wpswdst','llen','nov6sh'),
 		   trend='none', # choose from: all, ur, none.
 		   pval = .1,
 		   max.lag = 12, 
 		   min.t = 36,
-		   descr = 'endog_model',
-		   fn = 'endog_model',
+		   descr = 'model',
+		   fn = 'model',
 		   benchmarkb = NULL,
 		   estmethod = "FGLS-Praise-Winsten",
 		   attraction_model = "MNL",
 		   takediff = 'alwaysdiff',
 		   use_quarters = F,
 		   plusx = NULL, #c('nov3sh', 'wpswdst'),
-		   squared=T,
+		   squared=F,
 		   maxiter = 300)
-
-#m1$plusx=c('nov3sh', 'wpswdst')
-#m1$attraction_model='MCI'
-
-#models <- list(m1)
 
 assign_model(m1)
 #assign_model(m1,del=T)
@@ -143,8 +133,6 @@ assign_model(m1)
 	}
 	assign_model(m1, del = TRUE)
 	
-	# calculate elasticities and significance!!!
-	
 	######################
 	# Cluster			 #
 	######################
@@ -168,108 +156,16 @@ assign_model(m1)
 	
 	results_MNL <- parLapplyLB(cl, analysis_markets[1:last.item], function(i) {
 	    if(i==27) {maxit=30000} else {maxit=400}
-			try(analyze_by_market(i, setup_y = setup_y, setup_x = setup_x, setup_endogenous = setup_endogenous, trend = 'none', pval = pval, max.lag = max.lag, min.t = min.t, maxiter = maxit, use_quarters=F, plusx=plusx, attraction_model=attraction_model, squared=squared),silent=T)
+			try(analyze_by_market(i, setup_y = setup_y, setup_x = setup_x, setup_endogenous = setup_endogenous, trend = trend, pval = pval, max.lag = max.lag, min.t = min.t, maxiter = maxit, use_quarters=F, plusx=plusx, attraction_model=attraction_model, squared=squared),silent=T)
 			})
-	results_MNL[[124]]=analyze_by_market(138, setup_y = setup_y, setup_x = c(price = 'rwpspr', dist = 'wpswdst', nov = 'nov6sh', uniq='wpsun', nov6sh_sq='nov6sh_sq', wpsun_sq='wpsun_sq'), setup_endogenous = c(price = 'rwpspr', dist = 'wpswdst', nov = 'nov3sh', uniq='wpsun'), trend = 'none', maxiter=300, use_quarters=F, estmethod='FGLS-Praise-Winsten',squared=squared)
+	results_MNL[[124]]=analyze_by_market(138, setup_y = setup_y, setup_x = c(price = 'rwpspr', dist = 'wpswdst', nov = 'nov6sh'), setup_endogenous = c(price = 'rwpspr', dist = 'wpswdst', nov = 'nov6sh'), trend = 'none', maxiter=300, use_quarters=F, estmethod='FGLS-Praise-Winsten',squared=squared)
 	
 	Sys.time()
 	
-	save(results_MNL, analysis_markets, m1, file = c('../temp/results_20171023.RData'))
+	save(results_MNL, analysis_markets, m1, file = c('../temp/results_20171113.RData'))
 	
-	
-	
-	# Estimate different combinations of squared terms
-	Sys.time()
-	
-	# m1: linear: price/distribution, squared terms: line length, novelty, and uniqueness
-	results_m1 <- parLapplyLB(cl, analysis_markets[1:last.item], function(i) {
-	  if(i==27) {maxit=30000} else {maxit=400}
-	  try(analyze_by_market(i, setup_y = setup_y, 
-	                        setup_x = c(price = 'rwpspr', dist = 'wpswdst', llen = 'llen', nov = 'nov6sh', uniq='wpsun',
-	                                    llen_sq = 'llen_sq', nov6sh_sq = 'nov6sh_sq', wpsun_sq = 'wpsun_sq'),
-	                        setup_endogenous = 	c('rwpspr', 'wpswdst','llen','nov6sh','wpsun'), 
-	                        trend = 'none', pval = pval, max.lag = max.lag, min.t = min.t, maxiter = maxit, 
-	                        use_quarters=F, plusx=plusx, attraction_model=attraction_model, squared=squared),silent=T)
-	})
-	results_m1[[124]]=analyze_by_market(138, setup_y = setup_y, 
-	                                    setup_x = c(price = 'rwpspr', dist = 'wpswdst', nov = 'nov6sh', uniq='wpsun', 
-	                                                nov6sh_sq='nov6sh_sq', wpsun_sq='wpsun_sq'), 
-	                                    setup_endogenous = c(price = 'rwpspr', dist = 'wpswdst', nov = 'nov6sh', uniq='wpsun'), 
-	                                    trend = 'none', maxiter=300, use_quarters=F, estmethod='FGLS-Praise-Winsten',squared=squared)
-	
-	save(results_m1, analysis_markets, m1, file = c('../temp/results_20171107_p10.RData'))
-	
-	Sys.time()
-	
-	# m2: linear: price/distribution, squared terms: line length
-	results_m2 <- parLapplyLB(cl, analysis_markets[1:last.item], function(i) {
-	  if(i==27) {maxit=30000} else {maxit=400}
-	  try(analyze_by_market(i, setup_y = setup_y, 
-	                        setup_x = c(price = 'rwpspr', dist = 'wpswdst', llen = 'llen', 
-	                                    llen_sq = 'llen_sq'),
-	                        setup_endogenous = 	c('rwpspr', 'wpswdst','llen'), 
-	                        trend = 'none', pval = pval, max.lag = max.lag, min.t = min.t, maxiter = maxit, 
-	                        use_quarters=F, plusx=plusx, attraction_model=attraction_model, squared=squared),silent=T)
-	})
-	Sys.time()
-	
-	# m3: linear: price/distribution, squared terms: line length and novelty
-	results_m3 <- parLapplyLB(cl, analysis_markets[1:last.item], function(i) {
-	  if(i==27) {maxit=30000} else {maxit=400}
-	  try(analyze_by_market(i, setup_y = setup_y, 
-	                        setup_x = c(price = 'rwpspr', dist = 'wpswdst', llen = 'llen', nov = 'nov6sh',
-	                                    llen_sq = 'llen_sq', nov6sh_sq = 'nov6sh_sq'),
-	                        setup_endogenous = 	c('rwpspr', 'wpswdst','llen','nov6sh'), 
-	                        trend = 'none', pval = pval, max.lag = max.lag, min.t = min.t, maxiter = maxit, 
-	                        use_quarters=F, plusx=plusx, attraction_model=attraction_model, squared=squared),silent=T)
-	})
-	Sys.time()
-	
-	# m4: linear: price/distribution, squared terms: line length and uniqueness
-	results_m4 <- parLapplyLB(cl, analysis_markets[1:last.item], function(i) {
-	  if(i==27) {maxit=30000} else {maxit=400}
-	  try(analyze_by_market(i, setup_y = setup_y, 
-	                        setup_x = c(price = 'rwpspr', dist = 'wpswdst', llen = 'llen', uniq='wpsun',
-	                                    llen_sq = 'llen_sq', wpsun_sq = 'wpsun_sq'),
-	                        setup_endogenous = 	c('rwpspr', 'wpswdst','llen','wpsun'), 
-	                        trend = 'none', pval = pval, max.lag = max.lag, min.t = min.t, maxiter = maxit, 
-	                        use_quarters=F, plusx=plusx, attraction_model=attraction_model, squared=squared),silent=T)
-	})
-	
-	Sys.time()
-	
-	
-	save(results_m1, results_m2, results_m3, results_m4, analysis_markets, m1, file = c('../temp/results_20171107b_p10.RData'))
-	
-
-	
-	
-	
-	
-	# legacy models #
-
-	# MNL without quarter (preferred/main), with nov6_sh
-	Sys.time()
-	
-	m1$setup_x["nov"]<-'nov6sh'
-	m1$setup_endogenous[which(m1$setup_endogenous=='nov3sh')]<-'nov6sh'
-	assign_model(m1, del = TRUE)
-	assign_model(m1)
-	clusterExport(cl,names(m1))
-	
-	results_MNL_6sh <- parLapplyLB(cl, analysis_markets[1:last.item], function(i) {
-	  if(i==27) {maxit=30000} else {maxit=400}
-	  try(analyze_by_market(i, setup_y = setup_y, setup_x = setup_x, setup_endogenous = setup_endogenous, trend = 'none', pval = pval, max.lag = max.lag, min.t = min.t, maxiter = maxit, use_quarters=F, plusx=plusx, attraction_model=attraction_model),silent=T)
-	})
-	results_MNL_6sh[[124]]=analyze_by_market(138, setup_y = setup_y, setup_x = c(price = 'rwpspr', dist = 'wpswdst', nov = 'nov6sh', uniq='wpsun'), setup_endogenous = c(price = 'rwpspr', dist = 'wpswdst', nov = 'nov6sh', uniq='wpsun'), trend = 'none', maxiter=300, use_quarters=F, estmethod='FGLS-Praise-Winsten')
-	
-	
-	Sys.time()
 	
 	# MNL with quarter	
-
-	m1$setup_x["nov"]<-'nov3sh'
-	m1$setup_endogenous[which(m1$setup_endogenous=='nov6sh')]<-'nov3sh'
 	assign_model(m1, del = TRUE)
 	assign_model(m1)
 	clusterExport(cl,names(m1))
@@ -282,7 +178,7 @@ assign_model(m1)
 	Sys.time()
 	
 	# MCI without quarter
-	m1$plusx=c('nov3sh', 'wpswdst')
+	m1$plusx=c('nov6sh', 'wpswdst')
 	m1$attraction_model='MCI'
 	assign_model(m1, del = TRUE)
 	assign_model(m1)
@@ -292,20 +188,17 @@ assign_model(m1)
 	  if(i==27) {maxit=30000} else {maxit=400}
 	  try(analyze_by_market(i, setup_y = setup_y, setup_x = setup_x, setup_endogenous = setup_endogenous, trend = trend, pval = pval, max.lag = max.lag, min.t = min.t, maxiter = maxit, use_quarters=F, plusx=plusx, attraction_model=attraction_model),silent=T)
 	})
-	results_MCI[[124]]=analyze_by_market(138, setup_y = setup_y, setup_x = c(price = 'rwpspr', dist = 'wpswdst', nov = 'nov3sh', uniq='wpsun'), setup_endogenous = c(price = 'rwpspr', dist = 'wpswdst', nov = 'nov3sh', uniq='wpsun'), trend = 'none', maxiter=300, use_quarters=F, estmethod='FGLS-Praise-Winsten')
+	results_MCI[[124]]=analyze_by_market(138, setup_y = setup_y, setup_x = c(price = 'rwpspr', dist = 'wpswdst', nov = 'nov3sh'), setup_endogenous = c(price = 'rwpspr', dist = 'wpswdst', nov = 'nov3sh'), trend = trend, maxiter=300, use_quarters=F, estmethod='FGLS-Praise-Winsten')
 	
-  save(results_MNL, results_MNL_6sh, results_MCI, results_MNL_wquarter, analysis_markets, m1, file = c('../temp/results_20170905.RData'))
-  Sys.time()
-  
+  save(results_MNL, results_MCI, results_MNL_wquarter, analysis_markets, m1, file = c('../temp/results_20171113.RData'))
+
+    Sys.time()
+
  # run up to this point. 
 
   ################
   # DESCRIPTIVES #
   ################
-  
-  # compare elasticities: nov6 vs nov3
-  
-  load('../temp/results_20170905.RData')
   
   get_elast <- function(results_brands) {
     checks <- unlist(lapply(results_brands, class))
