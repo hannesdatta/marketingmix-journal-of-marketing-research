@@ -44,7 +44,7 @@ require(bit64)
 	require(parallel)
 	
 ### Setup cluster environment
-	ncpu = 10
+	ncpu = 4#10
 	
 ### Initialize all required functions (possibly on the cluster, too)
 
@@ -199,7 +199,9 @@ assign_model(m1)
   ################
   # DESCRIPTIVES #
   ################
-  
+    load(file = c('../temp/results_20171113.RData'))
+    
+    
   get_elast <- function(results_brands) {
     checks <- unlist(lapply(results_brands, class))
     
@@ -209,7 +211,7 @@ assign_model(m1)
     # elasticities
     elast <- rbindlist(lapply(results_brands[!checks=='try-error'], function(x) x$elast))
   
-    zval=1.69
+    zval=1.64
     out=elast[!is.na(coef), list(median_elast = median(elast), 
                            w_elast = sum(elast/elast_se)/sum(1/elast_se), 
                            N_brands= .N, 
@@ -219,6 +221,10 @@ assign_model(m1)
     res=list(checks=checks, elast=out)
     return(res)
   }
+  
+  m = get_elast(results_MNL)
+  
+  
   
   m3 = get_elast(results_MNL)
   m6 = get_elast(results_MNL_6sh)
