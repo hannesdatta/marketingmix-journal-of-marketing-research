@@ -199,8 +199,8 @@ assign_model(m1)
   ################
   # DESCRIPTIVES #
   ################
+
     load(file = c('../temp/results_20171113.RData'))
-    
     
   get_elast <- function(results_brands) {
     checks <- unlist(lapply(results_brands, class))
