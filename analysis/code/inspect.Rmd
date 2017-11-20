@@ -1,12 +1,13 @@
 ---
 title: "GfK Singapore"
 output:
-  pdf_document: default
+  html_document: default
+date: "`r format(Sys.time(), '%d %B %Y')`"
 ---
-
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
+
 require(data.table)
 require(stargazer)
 library(knitr)
@@ -55,15 +56,15 @@ elast[, wb_uppermid:=country%in%wb_uppermidx]
 
 elast[, low := wb_lowermid+wb_uppermid]
 
-	
+tableno<<-0
+figureno<<-0
+fig<-function(caption) {figureno<<-figureno+1;paste0('Figure ', figureno, ': ', caption)}
+tab<-function(caption) {tableno<<-tableno+1;paste0('Table ', tableno, ': ', caption)}
 ```
 
-```{r global_options, include=FALSE}
-knitr::opts_chunk$set(fig.pos = 'H')
-```
-
+# Estimation sample
+## Overview
 ```{r overview, echo=FALSE}
-cat('DATA USED FOR MODEL ESTIMATION\n================================\n')
 cat('Number of markets: ', length(unique(elast$market_id)), '\n')
 cat('Number of brands (sum of unique brands per market): ', nrow(elast[, .N, by = c('market_id', 'brand')]),'\n')
 cat('Number of unique brands: ', nrow(elast[, .N, by = c('brand')]))
@@ -71,10 +72,11 @@ cat('Number of unique brands: ', nrow(elast[, .N, by = c('brand')]))
 
 ```{r brand_activity, echo=FALSE,results='asis'}
 tmp=elast[, list(ncountries=length(unique(country))), by = c('brand')]
-hist(tmp$ncountries,main='Distribution of active brands in number of countries (estimation data)', xlab='countries',breaks=20,xlim=c(1,15),cex.main=.8)
+
+hist(tmp$ncountries,main=fig('Distribution of active brands by number of countries (estimation data)'), xlab='countries',breaks=20,xlim=c(1,15),cex.main=.8)
 tmp=data.table(table(tmp$ncountries))
 setnames(tmp, c('number of countries', 'active brands'))
-print(xtable(tmp,caption='Frequency table of active brands in number of countries (estimation data'),include.rownames=FALSE,type='latex')
+print(xtable(tmp,caption=tab('Frequency table of active brands by number of countries (estimation data)')),include.rownames=FALSE,type='html',longtable=T,caption.placement='top')
 
 ```
 
@@ -82,13 +84,13 @@ print(xtable(tmp,caption='Frequency table of active brands in number of countrie
 
 tmp = elast[, list(Nbrands = length(unique(brand))), by = c('market_id', 'category','country')]
 
-tab = dcast(tmp, category~country, value.var=c('Nbrands'))
-print(xtable(tab, caption = 'Overview of included categories and countries (with number of brands indicated for each market), in estimation data'), scalebox='0.6',caption.placement='top',type='latex')
+tabl = dcast(tmp, category~country, value.var=c('Nbrands'))
+print(xtable(tabl, caption = tab('Overview of included categories and countries (with number of brands indicated for each market), in estimation data')), scalebox='0.6',type='html',caption.placement='top')
 
 
 ```
 
-```{r elast_overall, echo = FALSE, width = 600,results='asis'}
+```{r elast_overall, echo = FALSE, results='asis'}
 
 	zval=1.64
 	tmp=elast[!is.na(coef), list(median_elast = median(elast), 
@@ -97,7 +99,7 @@ print(xtable(tab, caption = 'Overview of included categories and countries (with
 												  perc_positive = length(which(z>=(zval)))/.N, 
 												  perc_null = length(which(abs(z)<zval))/.N, 
 												  perc_negative = length(which(z<=(-zval)))/.N), by=c('variable')]
-	print(xtable(tmp, caption = 'Elasticities by variable for all brands (significance tested at p<.1 (z >= 1.64).'),type='latex')
+	print(xtable(tmp, caption = tab('Elasticities by variable for all brands (significance tested at p<.1 (z >= 1.64).')),type='html',caption.placement='top')
 	
 
 	if(0){# Copulas
@@ -115,8 +117,18 @@ print(xtable(tab, caption = 'Overview of included categories and countries (with
 }
 
 ```
+## ANOVAs
+```{r anova_full, echo=FALSE,results='asis', warning=FALSE}
 
+for (i in unique(elast$variable)) {
+  m<-aov(elast~brand+country+category, data=elast, subset=variable==i)
+  print(xtable(anova_stats(m), caption = tab(paste0("ANOVA for marketing mix ", i, ' in FULL sample'))),type='html',caption.placement='top')
+}
 
+```
+
+# Selected sample
+## Overview
 ```{r brandselect, echo=FALSE,results='asis'}
 
 elast_select = elast[, ncountries:=length(unique(country)), by = c('brand')]
@@ -124,8 +136,9 @@ elast_select = elast_select[ncountries>2]
 # exclude
 elast_select = elast_select[!brand%in% c('unbranded')]
 
-tmp=elast_select[, list(ncountries=length(unique(country)), ncategories=length(unique(country))), by = c('brand')]
-print(xtable(tmp, caption='Overview of selected brands (need to be active in at least three countries)'), type='latex')
+tmp=elast_select[, list(ncountries=length(unique(country)), ncategories=length(unique(category))), by = c('brand')]
+setorderv(tmp, c('ncountries','ncategories'),order=-1L)
+print(xtable(tmp, caption=tab('Overview of selected brands (need to be active in at least three countries)')), type='html',caption.placement='top')
 
 ```
 
@@ -133,8 +146,8 @@ print(xtable(tmp, caption='Overview of selected brands (need to be active in at 
 
 tmp = elast_select[, list(Nbrands = length(unique(brand))), by = c('market_id', 'category','country')]
 
-tab = dcast(tmp, category~country, value.var=c('Nbrands'))
-print(xtable(tab, caption = 'Overview of included categories and countries (with number of brands indicated for each market), in selected sample'), scalebox='0.6',caption.placement='top',type='latex')
+tabl = dcast(tmp, category~country, value.var=c('Nbrands'))
+print(xtable(tabl, caption = tab('Overview of included categories and countries (with number of brands indicated for each market), in selected sample')), scalebox='0.6',type='html',caption.placement='top')
 
 
 ```
@@ -148,7 +161,7 @@ print(xtable(tab, caption = 'Overview of included categories and countries (with
 												  perc_positive = length(which(z>=(zval)))/.N, 
 												  perc_null = length(which(abs(z)<zval))/.N, 
 												  perc_negative = length(which(z<=(-zval)))/.N), by=c('variable')]
-	print(xtable(tmp, caption = 'Elasticities by variable in selected sample (significance tested at p<.1 (z >= 1.64).'),type='latex')
+	print(xtable(tmp, caption = tab('Elasticities by variable in selected sample (significance tested at p<.1 (z >= 1.64).')),type='html',caption.placement='top')
 	
 	
   if(0){
@@ -168,47 +181,40 @@ print(xtable(tab, caption = 'Overview of included categories and countries (with
   }
 ```
 
-```{r anova_full, echo=FALSE,results='asis', warning=FALSE}
-
-for (i in unique(elast$variable)) {
-  m<-aov(elast~brand+country+category, data=elast, subset=variable==i)
-  print(xtable(anova_stats(m), caption = paste0("ANOVA for marketing mix ", i, ' in FULL sample')),type='latex')
-}
-
-```
+## ANOVAs
 ```{r anova, echo=FALSE,results='asis', warning=FALSE}
 
 for (i in unique(elast_select$variable)) {
   m<-aov(elast~brand+country+category, data=elast_select, subset=variable==i)
-  print(xtable(anova_stats(m), caption = paste0("ANOVA for marketing mix ", i, ' in SELECTED sample')),type='latex')
+  print(xtable(anova_stats(m), caption = tab(paste0("ANOVA for marketing mix ", i, ' in SELECTED sample'))),type='html',caption.placement='top')
 }
 
 ```
 
-
-```{r plots_elast, echo=FALSE, fig.pos="H"}
+## Plots
+```{r plots_elast, echo=FALSE, fig.pos="H", include = TRUE,fig.width=12, fig.height=6,dpi=600}
 
 # median elasticities by country
 
 for (i in unique(elast_select$variable)) {
-  #par(mfrow=c(1,3))
+  par(mfrow=c(1,3))
   # by country
-  
+  cat(paste0('Variable: ', i, '\n'))
   	tmp=elast_select[!is.na(coef)&variable==i, list(w_elast = sum(elast/elast_se)/sum(1/elast_se)), by=c('variable','country')]
 	setorderv(tmp, 'w_elast', ifelse(i=='rwpspr', 1,-1))
-	barplot(tmp$w_elast,names.arg=tmp$country, las=2, cex.names=.8, main = paste0('Weighted elasticities of ', i, ' by countries (selected sample)'),cex.main=.8)
+	barplot(tmp$w_elast,names.arg=tmp$country, las=2, cex.names=.8, main = fig(paste0(i, ', by countries')),cex.main=.8)
 	
 	  # by category
   
   	tmp=elast_select[!is.na(coef)&variable==i, list(w_elast = sum(elast/elast_se)/sum(1/elast_se)), by=c('variable','category')]
 	setorderv(tmp, 'w_elast', ifelse(i=='rwpspr', 1,-1))
-	barplot(tmp$w_elast,names.arg=tmp$category, las=2, cex.names=.8, main = paste0('Weighted elasticities of ', i, ' by categories (selected sample)'),cex.main=.8)
+	barplot(tmp$w_elast,names.arg=tmp$category, las=2, cex.names=.8, main = fig(paste0(i, ', by categories')),cex.main=.8)
 	
 	  # by brand
   
   	tmp=elast_select[!is.na(coef)&variable==i, list(w_elast = sum(elast/elast_se)/sum(1/elast_se)), by=c('variable','brand')]
 	setorderv(tmp, 'w_elast', ifelse(i=='rwpspr', 1,-1))
-	barplot(tmp$w_elast,names.arg=tmp$brand, las=2, cex.names=.8, main = paste0('Weighted elasticities of ', i, ' by brands (selected sample)'),cex.main=.8)
+	barplot(tmp$w_elast,names.arg=tmp$brand, las=2, cex.names=.8, main = fig(paste0(i, ', by brands')),cex.main=.8)
 	
 	  }
 
