@@ -30,7 +30,7 @@
 	#res = results_brands[[1]]
 	
 	
-	simulate <- function(sim_set, res) {
+	simulate <- function(sim_set, res, L, nperiods) {
 
 	# transform to base-brand representation
 	m_form = as.formula(paste0(res$variables$y, ' ~ ', paste0(res$variables$x, collapse = '+'), ' + lagunitsales_sh'))
@@ -248,7 +248,7 @@
 	
 	
 	
-	execute_sim <- function(res, sim_vars = c('rwpspr', 'wpswdst', 'llen', 'nov3sh', 'wpsun'), nperiods=36, L = 1000, shock_period=1, shock_perc = 1.01) {
+	execute_sim <- function(res, sim_vars = c('rwpspr', 'wpswdst', 'llen', 'nov6sh'), nperiods=36, L = 1000, shock_period=1, shock_perc = 1.01) {
 	
 		
 		# L = number of simulation draws
@@ -279,34 +279,33 @@
 			}
 		
 		# Set up simulation
-		sim_brands = unique(sim_set$brand)
+		brand_ofs = unique(sim_set$brand)
 		
-		
-		baseline <- simulate(sim_set, res)
+		baseline <- simulate(sim_set, res, L=L, nperiods=nperiods)
 		
 		sims <- NULL
 		
 		cntr <- 1
 		for (.var in sim_vars) {
-			for (.brand in sim_brands) {
+			for (.brand in brand_ofs) {
 				# baseline + shock
 				# simulate only if variable has been estimated for a given brand
 				if (!paste0(.brand,'_', .var)%in%res$model@coefficients$variable) next
 				cat(paste0('simulating for ', .brand, ' and ', .var, '...\n'))
 				sim_dat = data.table(sim_set)
 				sim_dat[brand==.brand & month == shock_period+1, (.var) := get(.var)*shock_perc]
-				tmp = simulate(sim_dat, res)
+				tmp = simulate(sim_dat, res, L=L, nperiods=nperiods)
 				#sims <- rbind(sims, tmp)
-				sims[[cntr]] <- list(data=tmp, perc_change = (tmp-baseline)/baseline, spec = list(sim_var=.var, sim_brand = .brand))
+				sims[[cntr]] <- list(data=tmp, perc_change = (tmp-baseline)/baseline, spec = list(sim_var=.var, brand_of = .brand))
 				cntr <- cntr+1
 				}
 			}
 		
 		# Compute IRFs
 		predictions=rbindlist(lapply(sims, function(x) {
-			tmp = melt(t(apply(x$perc_change, 1, function(y) apply(y, 1, mean))))
+			tmp = melt(t(apply(x$perc_change*100, 1, function(y) apply(y, 1, mean))))
 			colnames(tmp)[3] <- 'elast_mean'
-			tmp2 = melt(t(apply(x$perc_change, 1, function(y) apply(y, 1, sd))))
+			tmp2 = melt(t(apply(x$perc_change*100, 1, function(y) apply(y, 1, sd))))
 			tmp$elast_sd <- tmp2$value
 			rm(tmp2)
 			tmp3 = melt(t(apply(x$data, 1, rowMeans)))
@@ -316,7 +315,7 @@
 			tmp$base_ms <- tmp4$value
 			rm(tmp4)
 			tmp$sim_var = as.factor(x$spec$sim_var)
-			tmp$sim_brand = as.factor(x$spec$sim_brand)
+			tmp$brand_of = as.factor(x$spec$brand_of)
 			colnames(tmp)[1:2] <- c('period', 'brand')
 			return(tmp)
 			}))
@@ -335,11 +334,11 @@
 	  # only own-brand elasticities
 	  for (.brand in unique(simobj$brand)) {
 	    
-	    vars = unique(simobj[brand==.brand&sim_brand==.brand]$sim_var)
+	    vars = unique(simobj[brand==.brand&brand_of==.brand]$sim_var)
 	    par(mfrow=c(2,length(vars)))
 	    
 	      for (.var in vars) {
-	        tmp = simobj[brand==.brand&sim_brand==.brand&period>=1&sim_var==.var]
+	        tmp = simobj[brand==.brand&brand_of==.brand&period>=1&sim_var==.var]
 	        
 	        # market shares
 	        with(tmp, plot(x=period, y=ms, type='l', main = paste('shares ', .brand, '-', .var), xlab = 'period', ylab = 'market share'))
