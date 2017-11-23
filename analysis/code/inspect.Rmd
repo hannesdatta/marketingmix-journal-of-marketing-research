@@ -1,7 +1,7 @@
 ---
 title: "GfK Singapore"
 output:
-  html_document: default
+  html_document
 date: "`r format(Sys.time(), '%d %B %Y')`"
 ---
 
@@ -136,6 +136,15 @@ elast_select = elast_select[ncountries>2]
 # exclude
 elast_select = elast_select[!brand%in% c('unbranded')]
 
+elast_select[, hedon := category %in% c('tablets', 'phones_smart', 'phones_mobile', 'camera_slr', 'camera_compact', 'dvd', 'tv_gen1_crtv', 'tv_gen2_lcd')]
+elast_select[, highms := mean_ms>=median(mean_ms), by = c('market_id', 'variable')]
+
+load('..\\..\\derived\\temp\\gdppercap.RData')
+gdp = gdppercap[, list(gdppercap=mean(gdppercap,na.rm=T)), by = c('country')]
+setkey(gdp, country)
+setkey(elast_select, country)
+elast_select[gdp, gdppercap:=i.gdppercap]
+
 tmp=elast_select[, list(ncountries=length(unique(country)), ncategories=length(unique(category))), by = c('brand')]
 setorderv(tmp, c('ncountries','ncategories'),order=-1L)
 print(xtable(tmp, caption=tab('Overview of selected brands (need to be active in at least three countries)')), type='html',caption.placement='top')
@@ -192,32 +201,76 @@ for (i in unique(elast_select$variable)) {
 ```
 
 ## Plots
-```{r plots_elast, echo=FALSE, fig.pos="H", include = TRUE,fig.width=12, fig.height=6,dpi=600}
+```{r plots_elast, echo=FALSE, fig.pos="H", include = TRUE,fig.width=12, fig.height=6,dpi=300}
 
 # median elasticities by country
 
 for (i in unique(elast_select$variable)) {
   par(mfrow=c(1,3))
   # by country
+  tmp_bycntry=elast_select[!is.na(coef)&variable==i, list(w_elast = sum(elast/elast_se)/sum(1/elast_se)), by=c('variable','country')]
+	setorderv(tmp_bycntry, 'w_elast', ifelse(i=='rwpspr', 1,-1))
+	tmp_bycat=elast_select[!is.na(coef)&variable==i, list(w_elast = sum(elast/elast_se)/sum(1/elast_se)), by=c('variable','category')]
+	setorderv(tmp_bycat, 'w_elast', ifelse(i=='rwpspr', 1,-1))
+	tmp_bybrand=elast_select[!is.na(coef)&variable==i, list(w_elast = sum(elast/elast_se)/sum(1/elast_se)), by=c('variable','brand')]
+	setorderv(tmp_bybrand, 'w_elast', ifelse(i=='rwpspr', 1,-1))
+	
+	ymin = min(c(tmp_bycntry$w_elast, tmp_bycat$w_elast,tmp_bybrand$w_elast))
+	ymax = max(c(tmp_bycntry$w_elast, tmp_bycat$w_elast,tmp_bybrand$w_elast))
+	
   cat(paste0('Variable: ', i, '\n'))
-  	tmp=elast_select[!is.na(coef)&variable==i, list(w_elast = sum(elast/elast_se)/sum(1/elast_se)), by=c('variable','country')]
-	setorderv(tmp, 'w_elast', ifelse(i=='rwpspr', 1,-1))
-	barplot(tmp$w_elast,names.arg=tmp$country, las=2, cex.names=.8, main = fig(paste0(i, ', by countries')),cex.main=.8)
-	
-	  # by category
   
-  	tmp=elast_select[!is.na(coef)&variable==i, list(w_elast = sum(elast/elast_se)/sum(1/elast_se)), by=c('variable','category')]
-	setorderv(tmp, 'w_elast', ifelse(i=='rwpspr', 1,-1))
-	barplot(tmp$w_elast,names.arg=tmp$category, las=2, cex.names=.8, main = fig(paste0(i, ', by categories')),cex.main=.8)
-	
-	  # by brand
-  
-  	tmp=elast_select[!is.na(coef)&variable==i, list(w_elast = sum(elast/elast_se)/sum(1/elast_se)), by=c('variable','brand')]
-	setorderv(tmp, 'w_elast', ifelse(i=='rwpspr', 1,-1))
-	barplot(tmp$w_elast,names.arg=tmp$brand, las=2, cex.names=.8, main = fig(paste0(i, ', by brands')),cex.main=.8)
-	
-	  }
+  barplot(tmp_bycntry$w_elast,names.arg=tmp_bycntry$country, las=2, cex.names=.8, main = fig(paste0(i, ', by countries')),cex.main=.8, ylim = c(ymin, ymax))
+	barplot(tmp_bycat$w_elast,names.arg=tmp_bycat$category, las=2, cex.names=.8, main = fig(paste0(i, ', by categories')),cex.main=.8, ylim = c(ymin, ymax))
+	barplot(tmp_bybrand$w_elast,names.arg=tmp_bybrand$brand, las=2, cex.names=.8, main = fig(paste0(i, ', by brands')),cex.main=.8, ylim = c(ymin, ymax))
+	 }
 
 
 
 ```
+
+## Additional ANOVAs
+### Emerging vs. developed
+Replacing countries by an indicator for high income countries (country_class)
+
+```{r anova2, echo=FALSE,results='asis', warning=FALSE}
+
+for (i in unique(elast_select$variable)) {
+  m<-aov(elast~brand+country_class+category, data=elast_select, subset=variable==i)
+  #print(anova_stats(m))
+  print(xtable(anova_stats(m), caption = tab(paste0("ANOVA for marketing mix ", i, ' in SELECTED sample'))),type='html',caption.placement='top')
+}
+
+```
+
+### hi/lo economic (country_class), hi/lo brand market share; hi/lo hedonic category
+Hi/lo market share: median split on a brand's mean market share, by market
+(so, in each market, 50% of the brands are classified as low market share,
+and 50% as high market share).
+
+Hedonic categories = tablets, phones, phones, cameras, DVD players, TVs
+Utilitarian categories = laptops, desktops, microwave, cooling, washing
+
+```{r anova3, echo=FALSE,results='asis', warning=FALSE}
+
+
+for (i in unique(elast_select$variable)) {
+  m<-aov(elast~highms+country_class+hedon, data=elast_select, subset=variable==i)
+  #print(anova_stats(m))
+  print(xtable(anova_stats(m), caption = tab(paste0("ANOVA for marketing mix ", i, ' in SELECTED sample'))),type='html',caption.placement='top')
+}
+
+```
+### + interactions
+
+```{r anova4, echo=FALSE,results='asis', warning=FALSE}
+
+
+for (i in unique(elast_select$variable)) {
+  m<-aov(elast~brand+category+country+brand*category+brand*country+category*country, data=elast_select, subset=variable==i)
+  #print(anova_stats(m))
+  print(xtable(anova_stats(m), caption = tab(paste0("ANOVA for marketing mix ", i, ' in SELECTED sample'))),type='html',caption.placement='top')
+}
+
+```
+
