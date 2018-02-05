@@ -162,7 +162,7 @@ assign_model(m1)
 	
 	Sys.time()
 	
-	save(results_MNL, analysis_markets, m1, file = c('../temp/results_20171113.RData'))
+	save(results_MNL, analysis_markets, m1, file = c('../temp/results_20180205.RData'))
 	
 	
 	# MNL with quarter	

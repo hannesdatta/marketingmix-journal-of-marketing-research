@@ -507,6 +507,10 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 	res$model <- m
 	res$model@coefficients$brand <- unlist(lapply(strsplit(as.character(res$model@coefficients$variable), '_'), function(x) x[1]))
 	res$model@coefficients$varname <- unlist(lapply(strsplit(as.character(res$model@coefficients$variable), '_'), function(x) paste(x[-1],collapse='_')))
+	res$model@coefficients$market_id = unique(res$specs$market_id)
+	res$model@coefficients$category = unique(res$specs$category)
+	res$model@coefficients$country = unique(res$specs$country)
+	
 	
 	# @fix this
 	# legacy: R2s by model
@@ -582,24 +586,33 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 	means <- melted_panel[variable%in%setup_x, list(mean_var = mean(value)), by = c('country','category','market_id','brand', 'variable')]
 	msaverage <- melted_panel[variable%in%setup_y, list(mean_ms = mean(value)),c('country','category','market_id','brand')]
 	
-	# note: does not add up to 1.
+	# note: sum of mean of shares need not add up to 1 
 	coefs = data.table(res$model@coefficients)[varname%in%setup_x]
 	setnames(coefs, 'variable', 'var_orig')
 	setnames(coefs, 'varname', 'variable')
 	
-	elasticities <- merge(means, coefs, by=c('variable', 'brand'), all.x=T, all.y=F)
+	elasticities <- merge(means, coefs, by=c('variable', 'brand','category','country', 'market_id'), all.x=T, all.y=F)
 	elasticities <- merge(elasticities, msaverage, by=c('brand', 'category','country', 'market_id'))
 	
-		
+	elasticities[, index_coef := match(var_orig, res$model@coefficients$variable)]
+	elasticities[, index_laggedterm := match(paste0(brand,'_lagunitsales_sh'), res$model@coefficients$variable)]
+	
+	
+  .tmpcoefs = res$model@coefficients$coef
+  names(.tmpcoefs)<-paste0('x',1:length(.tmpcoefs))
+  .varcovar = res$model@varcovar
+  
 	if (attraction_model=="MNL") {
-			elasticities[, elast := coef * (1-mean_ms) * mean_var]
-			elasticities[, elast_se := se * (1-mean_ms) * mean_var]
-			}
-			
-		if (attraction_model=="MCI") {
+	  elasticities[, elast := coef * (1-mean_ms) * mean_var, by = c('brand','variable')]
+	  elasticities[, elast_se := se * (1-mean_ms) * mean_var, by = c('brand','variable')]
+	  elasticities[, c('elastlt','elastlt_se') := deltaMethod(.tmpcoefs, paste0('((1-', mean_ms,')*x',index_coef,'*',mean_var,')/(1-x',index_laggedterm,')'),.varcovar), by = c('brand','variable')]
+	}
+  
+	if (attraction_model=="MCI") {
 			elasticities[, elast := coef * (1-mean_ms)]
 			elasticities[, elast_se := se * (1-mean_ms)]
-			}
+			elasticities[, c('elastlt','elastlt_se') := deltaMethod(.tmpcoefs, paste0('((1-', mean_ms,')*x',index_coef,')/(1-x',index_laggedterm,')'),.varcovar), by = c('brand','variable')]
+	  }
 		
 	# add elasticities to model output
 	res$elast <- elasticities
