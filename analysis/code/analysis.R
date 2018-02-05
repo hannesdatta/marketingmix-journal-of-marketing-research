@@ -145,6 +145,7 @@ assign_model(m1)
 	
 # run estimation for brand-level attraction models
 	void<-clusterEvalQ(cl, init())
+	init()
 	last.item = length(analysis_markets)
 	assign_model(m1)
 	
