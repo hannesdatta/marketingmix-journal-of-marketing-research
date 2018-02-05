@@ -595,8 +595,11 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 	elasticities <- merge(elasticities, msaverage, by=c('brand', 'category','country', 'market_id'))
 	
 	elasticities[, index_coef := match(var_orig, res$model@coefficients$variable)]
-	elasticities[, index_laggedterm := match(paste0(brand,'_lagunitsales_sh'), res$model@coefficients$variable)]
+	elasticities[, Nbrands:=length(unique(brand)),by=c('market_id')]
 	
+	elasticities[Nbrands>2, index_laggedterm := match(paste0(brand,'_lagunitsales_sh'), res$model@coefficients$variable)]
+	elasticities[Nbrands==2, index_laggedterm := match(paste0(unique(brand[!brand==res$benchmark_brand]),'_lagunitsales_sh'), res$model@coefficients$variable)]
+	elasticities[, Nbrands:=NULL]
 	
   .tmpcoefs = res$model@coefficients$coef
   names(.tmpcoefs)<-paste0('x',1:length(.tmpcoefs))
@@ -605,13 +608,15 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 	if (attraction_model=="MNL") {
 	  elasticities[, elast := coef * (1-mean_ms) * mean_var, by = c('brand','variable')]
 	  elasticities[, elast_se := se * (1-mean_ms) * mean_var, by = c('brand','variable')]
-	  elasticities[, c('elastlt','elastlt_se') := deltaMethod(.tmpcoefs, paste0('((1-', mean_ms,')*x',index_coef,'*',mean_var,')/(1-x',index_laggedterm,')'),.varcovar), by = c('brand','variable')]
+	  
+	  # any remaing NAs in index_laggedterm will be set to zero
+	  elasticities[!is.na(elast), c('elastlt','elastlt_se') := deltaMethod(.tmpcoefs, paste0('((1-', mean_ms,')*x',index_coef,'*',mean_var,')/(1-', ifelse(is.na(index_laggedterm),'0', paste0('x',index_laggedterm)),')'),.varcovar), by = c('brand','variable')]
 	}
   
 	if (attraction_model=="MCI") {
 			elasticities[, elast := coef * (1-mean_ms)]
 			elasticities[, elast_se := se * (1-mean_ms)]
-			elasticities[, c('elastlt','elastlt_se') := deltaMethod(.tmpcoefs, paste0('((1-', mean_ms,')*x',index_coef,')/(1-x',index_laggedterm,')'),.varcovar), by = c('brand','variable')]
+			elasticities[!is.na(elast), c('elastlt','elastlt_se') := deltaMethod(.tmpcoefs, paste0('((1-', mean_ms,')*x',index_coef,')/(1-', ifelse(is.na(index_laggedterm),'0', paste0('x',index_laggedterm)),')'),.varcovar), by = c('brand','variable')]
 	  }
 		
 	# add elasticities to model output
