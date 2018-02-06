@@ -18,7 +18,7 @@ library(sjstats)
 options(xtable.comment = FALSE)
 
 # Load results
-  load(file = c('../temp/results_20171113.RData'))
+  load(file = c('../temp/results_20180205.RData'))
 
 # determine model to analyze
   results_brands <- results_MNL
@@ -64,34 +64,36 @@ tab<-function(caption) {tableno<<-tableno+1;paste0('Table ', tableno, ': ', capt
 
 # Estimation sample
 ## Overview
-```{r overview, echo=FALSE}
-cat('Number of markets: ', length(unique(elast$market_id)), '\n')
-cat('Number of brands (sum of unique brands per market): ', nrow(elast[, .N, by = c('market_id', 'brand')]),'\n')
-cat('Number of unique brands: ', nrow(elast[, .N, by = c('brand')]))
-```
+
+Number of markets: `r length(unique(elast$market_id))`.
+Number of brands: `r nrow(elast[, .N, by = c('market_id', 'brand')])`.
+Number of unique brands: `r nrow(elast[, .N, by = c('brand')])`.
+
+## In how many countries are brands active?
 
 ```{r brand_activity, echo=FALSE,results='asis'}
 tmp=elast[, list(ncountries=length(unique(country))), by = c('brand')]
 
-hist(tmp$ncountries,main=fig('Distribution of active brands by number of countries (estimation data)'), xlab='countries',breaks=20,xlim=c(1,15),cex.main=.8)
+hist(tmp$ncountries,main=fig('Distribution of brands that are active in a given number of countries (estimation data)'), xlab='countries',breaks=12,cex.main=.8)
 tmp=data.table(table(tmp$ncountries))
 setnames(tmp, c('number of countries', 'active brands'))
-print(xtable(tmp,caption=tab('Frequency table of active brands by number of countries (estimation data)')),include.rownames=FALSE,type='html',longtable=T,caption.placement='top')
+print(xtable(tmp,caption=tab('Frequency table of brands that are active in a given number of countries (estimation data)')),include.rownames=FALSE,type='html',longtable=T,caption.placement='top')
 
 ```
 
 ```{r overview2, echo=FALSE, results='asis'}
-
 tmp = elast[, list(Nbrands = length(unique(brand))), by = c('market_id', 'category','country')]
 
 tabl = dcast(tmp, category~country, value.var=c('Nbrands'))
-print(xtable(tabl, caption = tab('Overview of included categories and countries (with number of brands indicated for each market), in estimation data')), scalebox='0.6',type='html',caption.placement='top')
-
-
+print(xtable(tabl, caption = tab('Overview of categories and countries (with number of brands indicated for each market), in estimation data')), scalebox='0.6',type='html',caption.placement='top')
 ```
 
-```{r elast_overall, echo = FALSE, results='asis'}
+## Elasticities
 
+### Short-term
+
+```{r elast_overall, echo = FALSE, results='asis'}
+.vars=c('llen','wpswdst','rwpspr','nov6sh')
 	zval=1.64
 	tmp=elast[!is.na(coef), list(median_elast = median(elast), 
 												  w_elast = sum(elast/elast_se)/sum(1/elast_se), 
@@ -99,7 +101,7 @@ print(xtable(tabl, caption = tab('Overview of included categories and countries 
 												  perc_positive = length(which(z>=(zval)))/.N, 
 												  perc_null = length(which(abs(z)<zval))/.N, 
 												  perc_negative = length(which(z<=(-zval)))/.N), by=c('variable')]
-	print(xtable(tmp, caption = tab('Elasticities by variable for all brands (significance tested at p<.1 (z >= 1.64).')),type='html',caption.placement='top')
+	print(xtable(tmp[match(.vars, variable)], caption = tab('Short-term elasticities by variable for all brands (significance tested at p<.1 (z >= 1.64).')),type='html',caption.placement='top')
 	
 
 	if(0){# Copulas
@@ -117,18 +119,104 @@ print(xtable(tabl, caption = tab('Overview of included categories and countries 
 }
 
 ```
-## ANOVAs
-```{r anova_full, echo=FALSE,results='asis', warning=FALSE}
 
-for (i in unique(elast$variable)) {
-  m<-aov(elast~brand+country+category, data=elast, subset=variable==i)
-  print(xtable(anova_stats(m), caption = tab(paste0("ANOVA for marketing mix ", i, ' in FULL sample'))),type='html',caption.placement='top')
+### Long-term
+
+```{r adf, echo=FALSE,results='asis'}
+
+# extract outcomes of adf tests
+.vars=c('llen','wpswdst','rwpspr','nov6sh')
+adf <- rbindlist(lapply(results_brands[!checks=='try-error'], function(x) x$adf_sur))
+adf[, varname:=sapply(variable, function(x) rev(strsplit(x,'[_]')[[1]])[1])]
+# add benchmark brand
+adf[, brand2:=sapply(variable, function(x) strsplit(x,'[_]')[[1]][1])]
+
+adf[, y_ur:=ur[variable=='y'], by = c('market_id','brand')]
+adf=adf[included==T&varname%in%.vars&!grepl('cop[_]', variable)]
+
+# only retain one brand per market (benchmark kicked out a couple of times)
+adf=data.table(adf)
+
+adf[, obs:=.I, by = c('market_id','varname','brand2')]
+adf[, isminobs := obs==min(obs), by = c('market_id','varname','brand2')]
+adf=adf[isminobs==T]
+adf[, obs:=NULL]
+adf[, isminobs:=NULL]
+
+adf[, mixed:=!y_ur==ur]
+
+```
+
+#### Elasticities
+
+Long-term elasticities can only be derived for cases in which both variables of a UR, or both variables are stationary. In the results below, mixed cases are removed.
+
+```{r elast_overall_lt, echo = FALSE, results='asis'}
+  setkey(adf, market_id, brand2, varname)
+  setkey(elast, market_id, brand, variable)
+  elast[adf, mixed:=i.mixed]
+  
+	zval=1.64
+	tmp=elast[!is.na(coef)&mixed==F, list(median_elast = median(elastlt), 
+												  w_elast = sum(elastlt/elastlt_se)/sum(1/elastlt_se), 
+												  N_brands= .N, 
+												  perc_positive = length(which(elastlt/elastlt_se>=(zval)))/.N, 
+												  perc_null = length(which(abs(elastlt/elastlt_se)<zval))/.N, 
+												  perc_negative = length(which(elastlt/elastlt_se<=(-zval)))/.N), by=c('variable')]
+	print(xtable(tmp[match(.vars, variable)], caption = tab('Long-term elasticities by variable for all brands (significance tested at p<.1 (z >= 1.64).')),type='html',caption.placement='top')
+	
+```
+
+#### Outcome of UR tests
+
+Four cases (DV has UR yes/no VS X has UR yes/no). 
+Reported as shares (adding up to 1).
+
+```{r urtesting,echo=FALSE, results='asis',warnings=FALSE}
+
+tmp = adf[, list(N=.N), by = c('y_ur','ur','varname')]
+
+for (.var in .vars) {
+  printtmp = dcast(tmp[varname==.var], y_ur~ur, value.var='N')[,-1]
+  printtmp=printtmp/sum(printtmp)
+  rownames(printtmp)<-c('y no UR','y UR')
+  colnames(printtmp)<-c('X no UR','X UR')
+  
+  print(xtable(printtmp,caption=tab(paste0('UR test outcomes: Y vs. ', .var))),include.rownames=T,type='html',caption.placement='top')
 }
 
 ```
 
+
+## ANOVAs
+
+### on short-term elasticities
+```{r anova_full, echo=FALSE,results='asis', warning=FALSE}
+.vars=c('llen','wpswdst','rwpspr','nov6sh')
+
+for (i in .vars) {
+  m<-aov(elast~brand+country+category, data=elast, subset=variable==i)
+  print(xtable(anova_stats(m), caption = tab(paste0("ANOVA for marketing mix ", i, ' in FULL sample, short-term'))),type='html',caption.placement='top')
+}
+
+```
+
+### on long-term elasticities
+
+```{r anova_full_lt, echo=FALSE,results='asis', warning=FALSE}
+.vars=c('llen','wpswdst','rwpspr','nov6sh')
+
+for (i in unique(elast$variable)) {
+  m<-aov(elastlt~brand+country+category, data=elast, subset=variable==i)
+  print(xtable(anova_stats(m), caption = tab(paste0("ANOVA for marketing mix ", i, ' in FULL sample, long-term'))),type='html',caption.placement='top')
+}
+
+```
+
+
 # Selected sample
 ## Overview
+
 ```{r brandselect, echo=FALSE,results='asis'}
 
 elast_select = elast[, ncountries:=length(unique(country)), by = c('brand')]
@@ -161,7 +249,10 @@ print(xtable(tabl, caption = tab('Overview of included categories and countries 
 
 ```
 
+## Short- and long-term elasticities
+
 ```{r elast_selected, echo = FALSE, width = 600,results='asis'}
+.vars=c('llen','wpswdst','rwpspr','nov6sh')
 
 	zval=1.64
 	tmp=elast_select[!is.na(coef), list(median_elast = median(elast), 
@@ -170,42 +261,51 @@ print(xtable(tabl, caption = tab('Overview of included categories and countries 
 												  perc_positive = length(which(z>=(zval)))/.N, 
 												  perc_null = length(which(abs(z)<zval))/.N, 
 												  perc_negative = length(which(z<=(-zval)))/.N), by=c('variable')]
-	print(xtable(tmp, caption = tab('Elasticities by variable in selected sample (significance tested at p<.1 (z >= 1.64).')),type='html',caption.placement='top')
+	print(xtable(tmp[match(.vars, variable)], caption = tab('Short-term elasticities by variable in selected sample (significance tested at p<.1 (z >= 1.64).')),type='html',caption.placement='top')
 	
-	
-  if(0){
-	# copulas
-	copulas <- rbindlist(lapply(results_brands[!checks=='try-error'], function(x) x$model@coefficients))
-	copulas <- copulas[grepl('cop_', varname)]
-	
-	tmp=copulas[!is.na(coef), list(median = median(coef), 
-											  weighted = sum(coef/se)/sum(1/se), 
-											  N_brands= .N, 
-											  perc_positive = length(which(z>=(zval)))/.N, 
-											  perc_null = length(which(abs(z)<zval))/.N, 
-											  perc_negative = length(which(z<=(-zval)))/.N), by=c('varname')]
 
-	kable(tmp, caption = 'Copula terms by variable (used for getting an understanding about significance)')
-
-  }
+	tmp=elast_select[!is.na(coef)&mixed==F, list(median_elast = median(elastlt), 
+												  w_elast = sum(elastlt/elastlt_se)/sum(1/elastlt_se), 
+												  N_brands= .N, 
+												  perc_positive = length(which(elastlt/elastlt_se>=(zval)))/.N, 
+												  perc_null = length(which(abs(elastlt/elastlt_se)<zval))/.N, 
+												  perc_negative = length(which(elastlt/elastlt_se<=(-zval)))/.N), by=c('variable')]
+	print(xtable(tmp[match(.vars, variable)], caption = tab('Long-term elasticities by variable in selected sample (significance tested at p<.1 (z >= 1.64).')),type='html',caption.placement='top')
+		
 ```
 
 ## ANOVAs
-```{r anova, echo=FALSE,results='asis', warning=FALSE}
 
-for (i in unique(elast_select$variable)) {
+### on short-term elasticities
+```{r anova, echo=FALSE,results='asis', warning=FALSE}
+.vars=c('llen','wpswdst','rwpspr','nov6sh')
+
+for (i in .vars) {
   m<-aov(elast~brand+country+category, data=elast_select, subset=variable==i)
-  print(xtable(anova_stats(m), caption = tab(paste0("ANOVA for marketing mix ", i, ' in SELECTED sample'))),type='html',caption.placement='top')
+  print(xtable(anova_stats(m), caption = tab(paste0("ANOVA for marketing mix ", i, ' in SELECTED sample, short-term'))),type='html',caption.placement='top')
 }
 
 ```
 
-## Plots
+
+### on long-term elasticities
+```{r anova_lt, echo=FALSE,results='asis', warning=FALSE}
+.vars=c('llen','wpswdst','rwpspr','nov6sh')
+
+for (i in .vars) {
+  m<-aov(elastlt~brand+country+category, data=elast_select, subset=variable==i)
+  print(xtable(anova_stats(m), caption = tab(paste0("ANOVA for marketing mix ", i, ' in SELECTED sample, long-term'))),type='html',caption.placement='top')
+}
+
+```
+
+## Plots for short-term elasticities
 ```{r plots_elast, echo=FALSE, fig.pos="H", include = TRUE,fig.width=12, fig.height=6,dpi=300}
 
 # median elasticities by country
+.vars=c('llen','wpswdst','rwpspr','nov6sh')
 
-for (i in unique(elast_select$variable)) {
+for (i in .vars) {
   par(mfrow=c(1,3))
   # by country
   tmp_bycntry=elast_select[!is.na(coef)&variable==i, list(w_elast = sum(elast/elast_se)/sum(1/elast_se)), by=c('variable','country')]
@@ -229,7 +329,35 @@ for (i in unique(elast_select$variable)) {
 
 ```
 
-## Additional ANOVAs
+## Plots for long-term elasticities
+```{r plots_elast_lt, echo=FALSE, fig.pos="H", include = TRUE,fig.width=12, fig.height=6,dpi=300}
+
+# median elasticities by country
+.vars=c('llen','wpswdst','rwpspr','nov6sh')
+
+for (i in .vars) {
+  par(mfrow=c(1,3))
+  # by country
+  tmp_bycntry=elast_select[!is.na(coef)&mixed==F&variable==i, list(w_elast = sum(elastlt/elastlt_se)/sum(1/elastlt_se)), by=c('variable','country')]
+	setorderv(tmp_bycntry, 'w_elast', ifelse(i=='rwpspr', 1,-1))
+	tmp_bycat=elast_select[!is.na(coef)&variable==i, list(w_elast = sum(elastlt/elastlt_se)/sum(1/elastlt_se)), by=c('variable','category')]
+	setorderv(tmp_bycat, 'w_elast', ifelse(i=='rwpspr', 1,-1))
+	tmp_bybrand=elast_select[!is.na(coef)&variable==i, list(w_elast = sum(elastlt/elastlt_se)/sum(1/elastlt_se)), by=c('variable','brand')]
+	setorderv(tmp_bybrand, 'w_elast', ifelse(i=='rwpspr', 1,-1))
+	
+	ymin = min(c(tmp_bycntry$w_elast, tmp_bycat$w_elast,tmp_bybrand$w_elast))
+	ymax = max(c(tmp_bycntry$w_elast, tmp_bycat$w_elast,tmp_bybrand$w_elast))
+	
+  cat(paste0('Variable: ', i, '\n'))
+  
+  barplot(tmp_bycntry$w_elast,names.arg=tmp_bycntry$country, las=2, cex.names=.8, main = fig(paste0(i, ', by countries')),cex.main=.8, ylim = c(ymin, ymax))
+	barplot(tmp_bycat$w_elast,names.arg=tmp_bycat$category, las=2, cex.names=.8, main = fig(paste0(i, ', by categories')),cex.main=.8, ylim = c(ymin, ymax))
+	barplot(tmp_bybrand$w_elast,names.arg=tmp_bybrand$brand, las=2, cex.names=.8, main = fig(paste0(i, ', by brands')),cex.main=.8, ylim = c(ymin, ymax))
+	 }
+
+```
+
+## Additional ANOVAs (only for short-term elasticities)
 ### Emerging vs. developed
 Replacing countries by an indicator for high income countries (country_class)
 
@@ -238,7 +366,7 @@ Replacing countries by an indicator for high income countries (country_class)
 for (i in unique(elast_select$variable)) {
   m<-aov(elast~brand+country_class+category, data=elast_select, subset=variable==i)
   #print(anova_stats(m))
-  print(xtable(anova_stats(m), caption = tab(paste0("ANOVA for marketing mix ", i, ' in SELECTED sample'))),type='html',caption.placement='top')
+  print(xtable(anova_stats(m), caption = tab(paste0("ANOVA for marketing mix ", i, ' in SELECTED sample, short-term'))),type='html',caption.placement='top')
 }
 
 ```
@@ -257,7 +385,7 @@ Utilitarian categories = laptops, desktops, microwave, cooling, washing
 for (i in unique(elast_select$variable)) {
   m<-aov(elast~highms+country_class+hedon, data=elast_select, subset=variable==i)
   #print(anova_stats(m))
-  print(xtable(anova_stats(m), caption = tab(paste0("ANOVA for marketing mix ", i, ' in SELECTED sample'))),type='html',caption.placement='top')
+  print(xtable(anova_stats(m), caption = tab(paste0("ANOVA for marketing mix ", i, ' in SELECTED sample, short-term'))),type='html',caption.placement='top')
 }
 
 ```
@@ -269,7 +397,7 @@ for (i in unique(elast_select$variable)) {
 for (i in unique(elast_select$variable)) {
   m<-aov(elast~brand+category+country+brand*category+brand*country+category*country, data=elast_select, subset=variable==i)
   #print(anova_stats(m))
-  print(xtable(anova_stats(m), caption = tab(paste0("ANOVA for marketing mix ", i, ' in SELECTED sample'))),type='html',caption.placement='top')
+  print(xtable(anova_stats(m), caption = tab(paste0("ANOVA for marketing mix ", i, ' in SELECTED sample, short-term'))),type='html',caption.placement='top')
 }
 
 ```

@@ -165,6 +165,8 @@ assign_model(m1)
 	
 	save(results_MNL, analysis_markets, m1, file = c('../temp/results_20180205.RData'))
 	
+	#	What if ??_b (or ??_B) are negative, or not bounded between zero and one?
+	#-	Note: Els/Bernadette compute elasticities only in cases where both ms and X have UR, or not. NOT for mixed cases, but exclude it from paper.
 	
 	# MNL with quarter	
 	assign_model(m1, del = TRUE)
