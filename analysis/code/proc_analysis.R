@@ -55,6 +55,7 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 		                       brand=unique(panel$brand), 
 		                       market_id=as.numeric(unique(panel$market_id[1])),
 		                       stringsAsFactors=F)
+		res$market_id=as.numeric(unique(panel$market_id[1]))
 		
 		# create trend variable for all non-NA observations
 		eval(parse(text=paste0('panel[!is.na(',setup_y,'), trend:=1:.N, by=c(\'category\', \'country\', \'brand\')]')))
@@ -248,6 +249,8 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 
 			adf = data.frame(data.table(adf)[variable=='y', trend_included:=F])
 			
+			ytrend=0
+			
 			if (takediff=='flexible') {
 			  #		1) UR test outcome on Y; 
 			  #		   o if trend --> add trend variable
@@ -261,18 +264,7 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 			  ydiff = data.table(adf)[variable=='y']$ur
 				ytrend = data.table(adf)[variable=='y']$trend
 				
-				if (ytrend==1) {
-				  if (attraction_model=='MNL') out_matrix <- cbind(out_matrix, trend = seq(from=1, to=nrow(out_matrix)))
-				  if (attraction_model=='MCI') out_matrix <- cbind(out_matrix, trend = log(seq(from=1, to=nrow(out_matrix))))
-				}
-				 
-				if ('trend' %in% colnames(out_matrix)) {
-					colnames(out_matrix)[which(colnames(out_matrix)=='trend')] <- paste0(curr_brand, '_trend')
-					vars <- c(vars, paste0(curr_brand, '_trend'))
-					adf = data.frame(data.table(adf)[variable=='y', trend_included:=T])
-				}
 				
-					
 				to_be_diffed = NULL
 				
 				if (ydiff==1) {
@@ -298,6 +290,8 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 			
 			if (takediff == 'none') {
 			  # nothing
+			  to_be_diffed = NULL
+			  
 		  }
 		
 			# save which series are diffed, and which not
@@ -305,10 +299,27 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 			adf[, brand := curr_brand]
 			adf = data.frame(adf[variable%in%to_be_diffed, diffed := T])
 			
+			
 			# execute differencing
 			for (variable in to_be_diffed) {
 				out_matrix[,variable] = makediff(out_matrix[,variable])
 				}
+		
+			if (trend=='always') ytrend=1
+		  if (trend=='none') ytrend=0
+		  
+			# add trend; default is UR-based
+			if (ytrend==1) {
+			  if (attraction_model=='MNL') out_matrix <- cbind(out_matrix, trend = seq(from=1, to=nrow(out_matrix)))
+			  if (attraction_model=='MCI') out_matrix <- cbind(out_matrix, trend = log(seq(from=1, to=nrow(out_matrix))))
+			}
+			# relabel
+			if ('trend' %in% colnames(out_matrix)) {
+			  colnames(out_matrix)[which(colnames(out_matrix)=='trend')] <- paste0(curr_brand, '_trend')
+			  vars <- c(vars, paste0(curr_brand, '_trend'))
+			  adf = data.frame(data.table(adf)[variable=='y', trend_included:=T])
+			}
+			
 			
 			# create indicator for rows with non-missing information (missings arise from first-differencing)
 			complete_obs = complete.cases(out_matrix)
@@ -548,7 +559,8 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 
 	res$R2 <- R2
 	rm(adftmp)
-
+	}
+	
 	# Compute VIF values
 		vifs = rbindlist(lapply(split(1:nrow(index), as.character(index$brand)), function(ind) {
 			vifdf=as.matrix(X)[ind,]
@@ -575,7 +587,6 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 		 
 		res$vif <- data.table(data.frame(category=unique(res$specs$category), country=unique(res$specs$country), vifs))
 		rm(vifs)
-	}
 	
 
 	########################
