@@ -30,7 +30,7 @@ require(Matrix)
 
 # Main analysis function (to be run seperately for each market_id i)
 analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend = 'none', pval = .05, max.lag = 12, min.t = 36, 
-                              estmethod = "FGLS-Praise-Winsten", benchmarkb = NULL, use_quarters = TRUE, maxiter=1000,
+                              estmethod = "FGLS", benchmarkb = NULL, use_quarters = TRUE, maxiter=1000,
                               attraction_model = "MNL", takediff = 'alwaysdiff', plusx = NULL, squared = F) {
 	
 		cat('data preparation\n...')
@@ -147,7 +147,7 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 		dt <- data.table(dcast(melted_panel, brand+month+quarter~variable, value.var=c('value')))
 		
 		m_form = as.formula(paste0(res$variables$y, ' ~ ', paste0(res$variables$x, collapse = '+'), ' + lagunitsales_sh'))
-		m_form_heterog = as.formula(paste0('~ ', paste0(res$variables$x, collapse = '+'), ' + lagunitsales_sh'))
+		m_form_heterog = as.formula(paste0('~ ', paste0(res$variables$x, collapse = '+'), ''))
 		
 	  m_form_index = as.formula(~ brand + month)
 		
@@ -161,13 +161,13 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 
 		
 		# if there are only two brands, remove lagged market share of base brand for identification purposes
-		if (length(unique(dtbb@input$index$brand))==2) {
-			X = dtbb@X
-			delcol = which(colnames(X)==paste0(dtbb@benchmark, '_lagunitsales_sh'))
-			X <- X[, -delcol]
-			dtbb@X <- X
-			rm(X)
-			}
+		#if (length(unique(dtbb@input$index$brand))==2) {
+		#	X = dtbb@X
+		#	delcol = which(colnames(X)==paste0(dtbb@benchmark, '_lagunitsales_sh'))
+		#	X <- X[, -delcol]
+		#	dtbb@X <- X
+	#		rm(X)
+	#		}
 		
 				
 		###########################
@@ -561,7 +561,9 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 	rm(adftmp)
 	}
 	
+	
 	# Compute VIF values
+	
 		vifs = rbindlist(lapply(split(1:nrow(index), as.character(index$brand)), function(ind) {
 			vifdf=as.matrix(X)[ind,]
 		
@@ -569,15 +571,17 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 			vifdf = vifdf[,which(!colSums(vifdf)==0)]
 			vify = unlist(Y)[ind]
 			
-		   .vifvars = colnames(vifdf)
-		   df.cop = data.frame(as.matrix(cbind(y=vify, vifdf)))
+		  .vifvars = colnames(vifdf)
+		  df.cop = data.frame(as.matrix(cbind(y=vify, vifdf)))
 		   
-		   colnames(df.cop) <- c('y', .vifvars)
-		   colnames(df.cop) <- gsub('@', '.', colnames(df.cop))
-		   .vifvars= colnames(df.cop)[!grepl('cop_',  colnames(df.cop))] # remove copula terms
+		  colnames(df.cop) <- c('y', .vifvars)
+		  colnames(df.cop) <- gsub('@', '.', colnames(df.cop))
+		  .vifvars= colnames(df.cop)[!grepl('cop_',  colnames(df.cop))] # remove copula terms
+		  .vifvars= colnames(df.cop)[!grepl('cop_',  colnames(df.cop))] # remove benchmark brand terms
+		  
 		   
-		   m<-eval(parse(text=paste0('lm(y~1+', paste(.vifvars[!.vifvars=='y' & !grepl('intercept|[_]dum', .vifvars)],collapse='+'),', data=df.cop)')))
-		   data.frame(model_brand=as.character(index[ind[1],]$brand), vars = gsub('.', '@', names(vif(m)), fixed=T), vif=vif(m))
+		  m<-eval(parse(text=paste0('lm(y~1+', paste(.vifvars[!.vifvars=='y' & !grepl('intercept|[_]dum', .vifvars)],collapse='+'),', data=df.cop)')))
+		  data.frame(model_brand=as.character(index[ind[1],]$brand), vars = gsub('.', '@', names(vif(m)), fixed=T), vif=vif(m))
 		 }))
 		 
 		 vifs[, brand := sapply(vars, function(x) strsplit(as.character(x), '_',fixed=T)[[1]][1])]
@@ -588,7 +592,7 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 		res$vif <- data.table(data.frame(category=unique(res$specs$category), country=unique(res$specs$country), vifs))
 		rm(vifs)
 	
-
+	
 	########################
 	# EXTRACT ELASTICITIES #
 	########################

@@ -151,30 +151,85 @@ assign_model(m1)
 	
 	clusterExport(cl,names(m1))
 	
+	# MNL- always diffed, no trends and quarter dummies (starting model)
 	
-	# MNL without quarter (preferred/main); no nonlinear effects
+	results_MNL_diffed <- parLapplyLB(cl, analysis_markets[1:last.item], function(i) {
+	  maxit=400
+	  try(analyze_by_market(i, setup_y = setup_y, setup_x = setup_x, setup_endogenous = setup_endogenous, trend = trend, pval = pval, max.lag = max.lag, min.t = min.t, maxiter = maxit, use_quarters=F, plusx=plusx, attraction_model=attraction_model, squared=squared, takediff='alwaysdiff'),silent=T)
+	})
+	
+	save(results_MNL_diffed, analysis_markets, m1, file = c('../temp/results_20180302.RData'))
+
+	
+	results_MNL_diffed_onlyFGLS <- parLapplyLB(cl, analysis_markets[1:last.item], function(i) {
+	  maxit=400
+	  try(analyze_by_market(i, estmethod='FGLS', setup_y = setup_y, setup_x = setup_x, setup_endogenous = setup_endogenous, trend = trend, pval = pval, max.lag = max.lag, min.t = min.t, maxiter = maxit, use_quarters=F, plusx=plusx, attraction_model=attraction_model, squared=squared, takediff='alwaysdiff'),silent=T)
+	})
+	
+	save(results_MNL_diffed, results_MNL_diffed_onlyFGLS, analysis_markets, m1, file = c('../temp/results_20180302.RData'))
+
+	# MCI diffed
+	m1$plusx=c('nov6sh', 'wpswdst')
+	m1$attraction_model='MCI'
+	assign_model(m1, del = TRUE)
+	assign_model(m1)
+	clusterExport(cl,names(m1))
+	
+	results_MCI_diffed_onlyFGLS <- parLapplyLB(cl, analysis_markets[1:last.item], function(i) {
+	  maxit=400
+	  try(analyze_by_market(i, estmethod='FGLS', setup_y = setup_y, setup_x = setup_x, setup_endogenous = setup_endogenous, trend = trend, pval = pval, max.lag = max.lag, min.t = min.t, maxiter = maxit, use_quarters=F, plusx=plusx, attraction_model=attraction_model, squared=squared, takediff='alwaysdiff'),silent=T)
+	})
+	
+	save(results_MCI_diffed_onlyFGLS, results_MNL_diffed, results_MNL_diffed_onlyFGLS, analysis_markets, m1, file = c('../temp/results_20180302.RData'))
+	
+	
+	# MCI in levels
+	results_MCI_lev <- parLapplyLB(cl, analysis_markets[1:last.item], function(i) {
+	  maxit=400
+	  try(analyze_by_market(i, estmethod='FGLS', setup_y = setup_y, setup_x = setup_x, setup_endogenous = setup_endogenous, trend = trend, pval = pval, max.lag = max.lag, min.t = min.t, maxiter = maxit, use_quarters=F, plusx=plusx, attraction_model=attraction_model, squared=squared, takediff=takediff),silent=T)
+	})
+	
+	save(results_MCI_lev, results_MCI_diffed_onlyFGLS, results_MNL_diffed, results_MNL_diffed_onlyFGLS, analysis_markets, m1, file = c('../temp/results_20180302.RData'))
+	
+	
+	
+	# MCI in levels w trend/quarter
+	results_MCI_lev_tq <- parLapplyLB(cl, analysis_markets[1:last.item], function(i) {
+	  maxit=400
+	  try(analyze_by_market(i, estmethod='FGLS', setup_y = setup_y, setup_x = setup_x, setup_endogenous = setup_endogenous, trend = 'always', pval = pval, max.lag = max.lag, min.t = min.t, maxiter = maxit, use_quarters=T, plusx=plusx, attraction_model=attraction_model, squared=squared, takediff=takediff), silent=T)
+	})
+	
+	save(results_MCI_lev_tq, results_MCI_lev, results_MCI_diffed_onlyFGLS, results_MNL_diffed, results_MNL_diffed_onlyFGLS, analysis_markets, m1, file = c('../temp/results_20180302.RData'))
+	
+	# implement better VIFs
+	
+	
+	
+	
+	
+	# MNL in levels, no trends and quarter dummies
 	Sys.time()
 	
-	results_MNL <- parLapplyLB(cl, analysis_markets[1:last.item], function(i) {
-	    #if(i==27) {maxit=30000} else {maxit=400}
+	results_MNL_levels <- parLapplyLB(cl, analysis_markets[1:last.item], function(i) {
 	    maxit=400
-			try(analyze_by_market(i, setup_y = setup_y, setup_x = setup_x, setup_endogenous = setup_endogenous, trend = trend, pval = pval, max.lag = max.lag, min.t = min.t, maxiter = maxit, use_quarters=F, plusx=plusx, attraction_model=attraction_model, squared=squared, takediff=takediff),silent=T)
+			try(analyze_by_market(i, estmethod='FGLS', setup_y = setup_y, setup_x = setup_x, setup_endogenous = setup_endogenous, trend = trend, pval = pval, max.lag = max.lag, min.t = min.t, maxiter = maxit, use_quarters=F, plusx=plusx, attraction_model=attraction_model, squared=squared, takediff=takediff),silent=T)
 			})
 	
 	Sys.time()
 	
-	save(results_MNL, analysis_markets, m1, file = c('../temp/results_20180228.RData'))
+	save(results_MNL_diffed, results_MNL_diffed_onlyFGLS,  results_MNL_levels, analysis_markets, m1, file = c('../temp/results_20180302.RData'))
 	
 	
-	results_MNLw_quarter <- parLapplyLB(cl, analysis_markets[1:last.item], function(i) {
-	  #if(i==27) {maxit=30000} else {maxit=400}
+	results_MNL_lev_qt <- parLapplyLB(cl, analysis_markets[1:last.item], function(i) {
 	  maxit=400
-	  try(analyze_by_market(i, setup_y = setup_y, setup_x = setup_x, setup_endogenous = setup_endogenous, trend = 'always', pval = pval, max.lag = max.lag, min.t = min.t, maxiter = maxit, use_quarters=T, plusx=plusx, attraction_model=attraction_model, squared=squared, takediff=takediff),silent=T)
+	  try(analyze_by_market(i, estmethod='FGLS', setup_y = setup_y, setup_x = setup_x, setup_endogenous = setup_endogenous, trend = 'always', pval = pval, max.lag = max.lag, min.t = min.t, maxiter = maxit, use_quarters=T, plusx=plusx, attraction_model=attraction_model, squared=squared, takediff=takediff),silent=T)
 	})
 	
 	Sys.time()
 	
-	save(results_MNL,results_MNLw_quarter, analysis_markets, m1, file = c('../temp/results_20180228.RData'))
+	save(results_MNL_diffed, results_MNL_diffed_onlyFGLS, results_MNL_lev_qt, results_MNL_levels, analysis_markets, m1, file = c('../temp/results_20180302.RData'))
+	
+	
 	
 	# MCI 
 	m1$plusx=c('nov6sh', 'wpswdst')
@@ -188,7 +243,7 @@ assign_model(m1)
 	    	  try(analyze_by_market(i, setup_y = setup_y, setup_x = setup_x, setup_endogenous = setup_endogenous, trend = 'always', pval = pval, max.lag = max.lag, min.t = min.t, maxiter = maxit, use_quarters=T, plusx=plusx, attraction_model=attraction_model,squared=squared,takediff=takediff),silent=T)
 	})
 	
-	save(results_MNL,results_MNLw_quarter,results_MCI, analysis_markets, m1, file = c('../temp/results_20180228.RData'))
+	save(results_MNL,results_MNLw_quarter,results_MCI, analysis_markets, m1, file = c('../temp/results_20180302.RData'))
 
 	# MCI  without trend
 	results_MCI_notrend <- parLapplyLB(cl, analysis_markets[1:last.item], function(i) {
@@ -196,7 +251,7 @@ assign_model(m1)
 	  try(analyze_by_market(i, setup_y = setup_y, setup_x = setup_x, setup_endogenous = setup_endogenous, trend = 'none', pval = pval, max.lag = max.lag, min.t = min.t, maxiter = maxit, use_quarters=T, plusx=plusx, attraction_model=attraction_model,squared=squared,takediff=takediff),silent=T)
 	})
 	
-	save(results_MNL,results_MNLw_quarter,results_MCI,results_MCI_notrend, analysis_markets, m1, file = c('../temp/results_20180228.RData'))
+	save(results_MNL,results_MNLw_quarter,results_MCI,results_MCI_notrend, analysis_markets, m1, file = c('../temp/results_20180302.RData'))
 	
 	
 	
@@ -235,10 +290,6 @@ assign_model(m1)
 	clusterExport(cl,names(m1))
 	
 	
-	results_MNL_diffed <- parLapplyLB(cl, analysis_markets[1:last.item], function(i) {
-	  maxit=400
-	  try(analyze_by_market(i, setup_y = setup_y, setup_x = setup_x, setup_endogenous = setup_endogenous, trend = trend, pval = pval, max.lag = max.lag, min.t = min.t, maxiter = maxit, use_quarters=F, plusx=plusx, attraction_model=attraction_model, squared=squared, takediff='alwaysdiff'),silent=T)
-	})
 	
 	Sys.time()
 	
