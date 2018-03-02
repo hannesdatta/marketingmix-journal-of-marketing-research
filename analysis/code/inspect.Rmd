@@ -18,10 +18,10 @@ library(sjstats)
 options(xtable.comment = FALSE)
 
 # Load results
-  load(file = c('../temp/results_20180227.RData'))
+  load(file = c('../temp/results_20180228.RData'))
 
 # determine model to analyze
-  results_brands <- results_MCI#results_MNL
+  results_brands <- results_MNLw_quarter#results_MNL_diffed#results_MNL #results_MCI_notrend #results_MCI #results_MNL
   
 # identify model crashes
 	checks <- unlist(lapply(results_brands, class))
@@ -63,31 +63,13 @@ tab<-function(caption) {tableno<<-tableno+1;paste0('Table ', tableno, ': ', capt
 ```
 
 # Estimation sample
+
 ## Overview
 
 Number of markets: `r length(unique(elast$market_id))`.
 Number of brands: `r nrow(elast[, .N, by = c('market_id', 'brand')])`.
 Number of unique brands: `r nrow(elast[, .N, by = c('brand')])`.
 Number of markets which could not be estimated due to errors: `r length(which(!checks=='list'))`.
-
-## In how many countries are brands active?
-
-```{r brand_activity, echo=FALSE,results='asis'}
-tmp=elast[, list(ncountries=length(unique(country))), by = c('brand')]
-
-hist(tmp$ncountries,main=fig('Distribution of brands that are active in a given number of countries (estimation data)'), xlab='countries',breaks=12,cex.main=.8)
-tmp=data.table(table(tmp$ncountries))
-setnames(tmp, c('number of countries', 'active brands'))
-print(xtable(tmp,caption=tab('Frequency table of brands that are active in a given number of countries (estimation data)')),include.rownames=FALSE,type='html',longtable=T,caption.placement='top')
-
-```
-
-```{r overview2, echo=FALSE, results='asis'}
-tmp = elast[, list(Nbrands = length(unique(brand))), by = c('market_id', 'category','country')]
-
-tabl = dcast(tmp, category~country, value.var=c('Nbrands'))
-print(xtable(tabl, caption = tab('Overview of categories and countries (with number of brands indicated for each market), in estimation data')), scalebox='0.6',type='html',caption.placement='top')
-```
 
 ## Elasticities
 
@@ -102,7 +84,7 @@ print(xtable(tabl, caption = tab('Overview of categories and countries (with num
 												  perc_positive = length(which(z>=(zval)))/.N, 
 												  perc_null = length(which(abs(z)<zval))/.N, 
 												  perc_negative = length(which(z<=(-zval)))/.N), by=c('variable')]
-	print(xtable(tmp[match(.vars, variable)], caption = tab('Short-term elasticities by variable for all brands (significance tested at p<.1 (z >= 1.64).')),type='html',caption.placement='top')
+	kable(tmp[match(.vars, variable)], caption = tab('Short-term elasticities by variable for all brands (significance tested at p<.1 (z >= 1.64).'))
 	
 
 	#Copulas
@@ -110,7 +92,6 @@ print(xtable(tabl, caption = tab('Overview of categories and countries (with num
 	copulas <- copulas[grepl('cop_', varname)]
 	
 	tmp=copulas[!is.na(coef), list(median = median(coef), 
-											  weighted = sum(coef/se)/sum(1/se), 
 											  N_brands= .N, 
 											  perc_positive = length(which(z>=(zval)))/.N, 
 											  perc_null = length(which(abs(z)<zval))/.N, 
@@ -139,16 +120,25 @@ print(xtable(tabl, caption = tab('Overview of categories and countries (with num
 	
 ```
 
-# Carry-over coefficients (descriptives)
-
+# Carry-over coefficients
 ```{r carryover, echo = FALSE, results='asis'}
 kable(data.table(t(summary(carryover$coef)))[, ':=' (V1=NULL, value=N, N=NULL)], caption = "Distribution of carry-over coefficients",col.names = NA)
-print(hist(carryover$coef, main = 'Distribution of carry-over coefficients'))
-
-
-kable(data.table(t(summary(carryover[abs(z)>zval]$coef)))[, ':=' (V1=NULL, value=N, N=NULL)], caption = "Distribution of significant carry-over coefficients", col.names = NA)
-print(hist(carryover[abs(z)>zval]$coef, main = 'Distribution of significant carry-over coefficients'))
-
+hist(carryover$coef, main = 'Distribution of carry-over coefficients')
 ```	
 	
-### the end
+
+# VIFs
+
+```{r vif, echo = FALSE, results='asis'}
+vifs <- rbindlist(lapply(results_brands[!checks=='try-error'], function(x) x$vif))
+.vars <- table(vifs$variable)[which(table(vifs$variable)>600)]
+
+tmp=vifs[variable%in%names(.vars)][, list(mean=mean(vif), min=min(vif), max=max(vif), median=median(vif), perc_below6=length(which(vif<=6))/.N,perc_below10=length(which(vif<=10))/.N),by=c('variable')]
+
+
+kable(tmp, caption = "VIFs by variable")
+
+```	
+
+
+
