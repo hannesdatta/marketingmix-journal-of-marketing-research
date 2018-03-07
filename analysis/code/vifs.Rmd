@@ -1,0 +1,138 @@
+---
+title: "VIFs"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+
+### LOAD DATA SETS
+library(data.table)
+library(bit64)
+library(stargazer)
+library(knitr)
+library(car)
+  
+### Stack data in data.table
+brand_panel=fread('../temp/preclean.csv')
+brand_panel[, ':=' (date = as.Date(date))]
+
+# lag variables
+xvars = c('rwpspr', 'wpswdst','llen','nov6sh', 'usalessh')
+plusx = c('nov6sh', 'wpswdst', 'lnov6sh','lwpswdst')
+
+# create lags
+for (.var in xvars) {
+  brand_panel[, paste0('l', .var) := c(NA, get(.var)[-.N]), by = c('market_id')]
+  }
+
+# create logs
+for (.var in c(xvars, paste0('l', xvars), 'month_no')) {
+  brand_panel[, paste0('ln', .var) := log(get(.var)+ifelse(.var%in%plusx, 1,0)), by = c('market_id')]
+}
+
+# create quarterly dummies
+for (q in 2:4) brand_panel[, (paste0('quarter', q)):=ifelse(quarter==q, 1, 0)]
+
+# function to compute VIFs
+run_vif <- function(.vars = c(paste0('ln', xvars), paste0('lnl',xvars), 'lnmonth_no', 'quarter2','quarter3','quarter4')) {
+
+rbindlist(lapply(unique(brand_panel$market_id), function(i) {
+    
+  dt = brand_panel[market_id==i]
+  
+  .brands = unique(dt$brand)
+  
+ 
+  vif_market = rbindlist(lapply(split(dt, as.character(dt$brand)), function(x) {
+    y=rnorm(nrow(x))
+    X=data.frame(x[, .vars,with=F])
+    X = X[,which(!colSums(X)==0)]
+    
+    m<-eval(parse(text=paste0('lm(y~1+', paste(colnames(X),collapse=' + '), ', data = X)')))
+    res = data.frame(vif(m))
+    res$brand=unique(x$brand)
+    res$variable=rownames(res)
+    colnames(res)[1]='vif'
+    rownames(res)=NULL
+    return(res)
+    }))
+  vif_market[, market_id := i]
+  return(vif_market)
+}))}
+
+report <- function(vifobj, caption='') {
+
+  tmp=vifobj[, list(mean=mean(vif), min=min(vif), max=max(vif), median=median(vif), perc_below6=length(which(vif<=6))/.N,perc_below10=length(which(vif<=10))/.N),by=c('variable')]
+
+kable(tmp, caption = caption)
+
+}
+
+tableno<<-0
+figureno<<-0
+fig<-function(caption) {figureno<<-figureno+1;paste0('Figure ', figureno, ': ', caption)}
+tab<-function(caption) {tableno<<-tableno+1;paste0('Table ', tableno, ': ', caption)}
+
+```
+
+*computations in pseudo code:*
+```
+  for m in all_markets:
+
+    for i in brands_in_market_m:
+    
+        for c in available_covariates_for_brand_i_in_market_mm:
+        
+           regress c on all available_covariates_m,i, excluding focal covariate C.
+           
+           VIF = 1 / (1-R^2)
+           
+```
+
+*in words:*        
+VIFs computed in log(attraction_(market m, brand i)) part of an MCI model, using ln-transformed variables
+for each brand i of all the brands in market m.
+
+*variables used:*
+
+Name            | Variable
+--------------- | -------------
+lnrwpspr        | Log price (deflated)
+lnwpswdst       | Log weighted distribution (0-100, +1)
+lnllen          | Log line length
+lnnov6sh        | Log novelty share (percentage new SKUs introduced in past 6 months; 0-100, +1)
+lnlusalessh     | Log lagged market share
+quarter2-4      | Quarter dummies
+lnmonth_no      | Log trend
+lnlrwpspr       | Lag of lag price (deflated)
+...             | ...
+
+<!-- -->
+
+```{r vifs, echo = FALSE, results='asis', include = TRUE}
+
+# no carry-over for market shares in here right now
+xvars=c('rwpspr', 'wpswdst','llen','nov6sh')
+
+
+vifs1=run_vif(c(paste0('ln', xvars)))
+report(vifs1, tab('VIFs: ln X, no trend, no quarters, no lagged MS'))
+
+vifs1b=run_vif(c(paste0('ln', xvars), 'lnlusalessh'))
+report(vifs1b, tab('VIFs: ln X, no trend, no quarter dummies, lagged ln MS'))
+
+vifs2=run_vif(c(paste0('ln', xvars), 'lnlusalessh', 'quarter2','quarter3','quarter4'))
+report(vifs2, tab('VIFs: ln X, no trend, quarter dummies, lagged ln MS'))
+
+vifs3=run_vif(c(paste0('ln', xvars), 'lnlusalessh', 'lnmonth_no', 'quarter2','quarter3','quarter4'))
+report(vifs3, tab('VIFs: ln X, ln trend, quarter dummies, lagged ln MS'))
+
+vifs4=run_vif(c(paste0('ln', xvars), 'lnlusalessh', 'quarter2','quarter3','quarter4', paste0('lnl',xvars)))
+report(vifs4, tab('VIFs: ln X, ln X_t-1, no trend, quarter dummies, lagged ln MS'))
+
+vifs5=run_vif(c(paste0('ln', xvars), 'lnlusalessh', 'lnmonth_no', 'quarter2','quarter3','quarter4', paste0('lnl',xvars)))
+report(vifs5, tab('VIFs: ln X, ln X_t-1, ln trend, quarter dummies, lagged ln MS'))
+
+```
