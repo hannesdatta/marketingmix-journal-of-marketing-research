@@ -22,7 +22,7 @@ require(Matrix)
         if (length(unique(tmp))<=1) return(F)
 				
         # invalid series if it has less than x months of non-zero observations
-				if (length(which(!tmp==min(tmp)))<12) return(F)
+				if (length(which(!tmp==min(tmp, na.rm=T)))<12) return(F)
 				
         return(T)
         }
@@ -31,7 +31,7 @@ require(Matrix)
 # Main analysis function (to be run seperately for each market_id i)
 analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend = 'none', pval = .05, max.lag = 12, min.t = 36, 
                               estmethod = "FGLS", benchmarkb = NULL, use_quarters = TRUE, maxiter=1000,
-                              attraction_model = "MNL", takediff = 'alwaysdiff', plusx = NULL, squared = F) {
+                              attraction_model = "MNL", takediff = 'alwaysdiff', plusx = NULL, squared = F, lag_heterog=F) {
 	
 		cat('data preparation\n...')
 		
@@ -147,7 +147,7 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 		dt <- data.table(dcast(melted_panel, brand+month+quarter~variable, value.var=c('value')))
 		
 		m_form = as.formula(paste0(res$variables$y, ' ~ ', paste0(res$variables$x, collapse = '+'), ' + lagunitsales_sh'))
-		m_form_heterog = as.formula(paste0('~ ', paste0(res$variables$x, collapse = '+'), ''))
+		m_form_heterog = as.formula(paste0('~ ', paste0(res$variables$x, collapse = '+'), ifelse(lag_heterog==T, ' + lagunitsales_sh', '')))
 		
 	  m_form_index = as.formula(~ brand + month)
 		
@@ -160,14 +160,14 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 								model = attraction_model))
 
 		
-		# if there are only two brands, remove lagged market share of base brand for identification purposes
-		#if (length(unique(dtbb@input$index$brand))==2) {
-		#	X = dtbb@X
-		#	delcol = which(colnames(X)==paste0(dtbb@benchmark, '_lagunitsales_sh'))
-		#	X <- X[, -delcol]
-		#	dtbb@X <- X
-	#		rm(X)
-	#		}
+		# in the case of only two brands and a heterogenous carry-over parameter, remove lagged market share of base brand for identification purposes
+		if (length(unique(dtbb@input$index$brand))==2 & lag_heterog==T) {
+			X = dtbb@X
+			delcol = which(colnames(X)==paste0(dtbb@benchmark, '_lagunitsales_sh'))
+			X <- X[, -delcol]
+			dtbb@X <- X
+			rm(X)
+			}
 		
 				
 		###########################
@@ -597,45 +597,53 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 	# EXTRACT ELASTICITIES #
 	########################
 
+	# retrieve estimated coefficients
+		coefs = data.table(res$model@coefficients)[, index:=1:.N][varname%in%setup_x]
+		coefs[, lagged:=ifelse(grepl('^lag', varname), 'index_lagged','index_current')]
+		setnames(coefs, 'variable', 'var_orig')
+		setnames(coefs, 'varname', 'variable')
+		coefs[,variable:=gsub('^lag', '', variable)]
+		
+	
+		coefs = dcast(coefs, market_id+brand+variable~lagged, value.var=c('index'))
+		if (!"index_lagged" %in% colnames(coefs)) coefs$index_lagged = NA
+		
 	# calculate means of explanatory variables
-	means <- melted_panel[variable%in%setup_x, list(mean_var = mean(value)), by = c('country','category','market_id','brand', 'variable')]
+	means <- melted_panel[variable%in%coefs$variable, list(mean_x = mean(value)), by = c('country','category','market_id','brand', 'variable')]
+  # calculate average market share
 	msaverage <- melted_panel[variable%in%setup_y, list(mean_ms = mean(value)),c('country','category','market_id','brand')]
 	
-	# note: sum of mean of shares need not add up to 1 
-	coefs = data.table(res$model@coefficients)[varname%in%setup_x]
-	setnames(coefs, 'variable', 'var_orig')
-	setnames(coefs, 'varname', 'variable')
+	elasticities =	merge(coefs, means, by = c('market_id', 'brand','variable'))
+	elasticities = merge(elasticities, msaverage, by = c('market_id', 'brand', 'category','country'))
+	elasticities <- data.table(elasticities)
 	
-	elasticities <- merge(means, coefs, by=c('variable', 'brand','category','country', 'market_id'), all.x=T, all.y=F)
-	elasticities <- merge(elasticities, msaverage, by=c('brand', 'category','country', 'market_id'))
+	elasticities[, Nbrands:=length(unique(brand))]
 	
-	elasticities[, index_coef := match(var_orig, res$model@coefficients$variable)]
-	elasticities[, Nbrands:=length(unique(brand)),by=c('market_id')]
+	if(lag_heterog==F) elasticities$index_lagms = match(paste0('hom_lagunitsales_sh'), res$model@coefficients$variable)
+	if(lag_heterog==T) {
+	  elasticities[Nbrands>2, index_lagms := match(paste0(brand,'_lagunitsales_sh'), res$model@coefficients$variable)]
+	  elasticities[Nbrands==2, index_lagms := match(paste0(unique(brand[!brand==res$benchmark_brand]),'_lagunitsales_sh'), res$model@coefficients$variable)]
+	}
 	
-	elasticities[Nbrands>2, index_laggedterm := match(paste0(brand,'_lagunitsales_sh'), res$model@coefficients$variable)]
-	elasticities[Nbrands==2, index_laggedterm := match(paste0(unique(brand[!brand==res$benchmark_brand]),'_lagunitsales_sh'), res$model@coefficients$variable)]
-	elasticities[, Nbrands:=NULL]
-	
-  .tmpcoefs = res$model@coefficients$coef
+	.tmpcoefs = res$model@coefficients$coef
   names(.tmpcoefs)<-paste0('x',1:length(.tmpcoefs))
   .varcovar = res$model@varcovar
   
 	if (attraction_model=="MNL") {
-	  elasticities[, elast := coef * (1-mean_ms) * mean_var, by = c('brand','variable')]
-	  elasticities[, elast_se := se * (1-mean_ms) * mean_var, by = c('brand','variable')]
-	  
-	  # any remaing NAs in index_laggedterm will be set to zero
-	  elasticities[!is.na(elast), c('elastlt','elastlt_se') := deltaMethod(.tmpcoefs, paste0('((1-', mean_ms,')*x',index_coef,'*',mean_var,')/(1-', ifelse(is.na(index_laggedterm),'0', paste0('x',index_laggedterm)),')'),.varcovar), by = c('brand','variable')]
+	  elasticities[!is.na(index_current), c('elast','elast_se') := deltaMethod(.tmpcoefs, paste0('((1-', mean_ms,')*',mean_x,'*x',index_current,')'),.varcovar), by = c('brand','variable')]
+	  elasticities[!is.na(index_lagms), c('elastlt','elastlt_se') := deltaMethod(.tmpcoefs, paste0('((1-', mean_ms,')*',mean_x,')*((x',index_current,'+', ifelse(is.na(index_lagged),'0', paste0('x',index_lagged)),')/(1-', ifelse(is.na(index_lagms),'0', paste0('x',index_lagms)),'))'),.varcovar), by = c('brand','variable')]
 	}
   
 	if (attraction_model=="MCI") {
-			elasticities[, elast := coef * (1-mean_ms)]
-			elasticities[, elast_se := se * (1-mean_ms)]
-			elasticities[!is.na(elast), c('elastlt','elastlt_se') := deltaMethod(.tmpcoefs, paste0('((1-', mean_ms,')*x',index_coef,')/(1-', ifelse(is.na(index_laggedterm),'0', paste0('x',index_laggedterm)),')'),.varcovar), by = c('brand','variable')]
-	  }
-		
+	  elasticities[!is.na(index_current), c('elast','elast_se') := deltaMethod(.tmpcoefs, paste0('((1-', mean_ms,')*x',index_current,')'),.varcovar), by = c('brand','variable')]
+	  elasticities[!is.na(index_lagms), c('elastlt','elastlt_se') := deltaMethod(.tmpcoefs, paste0('(1-', mean_ms,')*((x',index_current,'+', ifelse(is.na(index_lagged),'0', paste0('x',index_lagged)),')/(1-', ifelse(is.na(index_lagms),'0', paste0('x',index_lagms)),'))'),.varcovar), by = c('brand','variable')]
+	  
+	  
+  }
+  
 	# add elasticities to model output
 	res$elast <- elasticities
+	
 	res$attraction_model <- attraction_model
 	
 	return(res)
