@@ -18,10 +18,10 @@ library(sjstats)
 options(xtable.comment = FALSE)
 
 # Load results
-  load(file = c('../temp/results_20180302.RData'))
+  load(file = c('../temp/results_20180307.RData'))
 
 # determine model to analyze
-  results_brands <- results_MCI_lev#results_MCI_diffed_onlyFGLS #results_MNLw_quarter#results_MNL_diffed#results_MNL #results_MCI_notrend #results_MCI #results_MNL
+  results_brands <- results_m10 #results_MCI_wlag_urtrend #results_MCI_wlag_ac #MCI_wlag_ac#results_MCI_wlag #results_MCI_lev_tq #results_MCI_lev_hom #results_MCI_lev #results_MCI_diffed_onlyFGLS #results_MNL_diffed_onlyFGLS# results_MNL_diffed
   
 # identify model crashes
 	checks <- unlist(lapply(results_brands, class))
@@ -76,17 +76,27 @@ Number of markets which could not be estimated due to errors: `r length(which(!c
 ### Short-term
 
 ```{r elast_overall, echo = FALSE, results='asis'}
-.vars=c('llen','wpswdst','rwpspr','nov6sh')
-	zval=1.64
-	tmp=elast[!is.na(coef), list(median_elast = median(elast), 
+  .vars=c('llen','wpswdst','rwpspr','nov6sh')
+	
+  zval=1.64
+	tmp=elast[!is.na(elast), list(median_elast = median(elast), 
 												  w_elast = sum(elast/elast_se)/sum(1/elast_se), 
 												  N_brands= .N, 
-												  perc_positive = length(which(z>=(zval)))/.N, 
-												  perc_null = length(which(abs(z)<zval))/.N, 
-												  perc_negative = length(which(z<=(-zval)))/.N), by=c('variable')]
+												  perc_positive = length(which(elast/elast_se>=(zval)))/.N, 
+												  perc_null = length(which(abs(elast/elast_se)<zval))/.N, 
+												  perc_negative = length(which(elast/elast_se<=(-zval)))/.N), by=c('variable')]
 	kable(tmp[match(.vars, variable)], caption = tab('Short-term elasticities by variable for all brands (significance tested at p<.1 (z >= 1.64).'))
 	
-
+  zval=1.64
+	tmp=elast[!is.na(elast), list(median_elast = median(elastlt), 
+												  w_elast = sum(elastlt/elastlt_se)/sum(1/elastlt_se), 
+												  N_brands= .N, 
+												  perc_positive = length(which(elastlt/elastlt_se>=(zval)))/.N, 
+												  perc_null = length(which(abs(elastlt/elastlt_se)<zval))/.N, 
+												  perc_negative = length(which(elastlt/elastlt_se<=(-zval)))/.N), by=c('variable')]
+	kable(tmp[match(.vars, variable)], caption = tab('Long-term elasticities by variable for all brands (significance tested at p<.1 (z >= 1.64).'))
+	
+	
 	#Copulas
 	copulas <- rbindlist(lapply(results_brands[!checks=='try-error'], function(x) x$model@coefficients))
 	copulas <- copulas[grepl('cop_', varname)]
@@ -116,8 +126,6 @@ Number of markets which could not be estimated due to errors: `r length(which(!c
 	carryover <- carryover[grepl('lagunitsales[_]', varname)]
   benchmark_brands <- rbindlist(lapply(results_brands[!checks=='try-error'], function(x) data.table(market_id=unique(x$specs$market_id), benchmarkbrand = x$benchmark_brand)))
 	
-	# maybe do an MCI instead?!
-	
 ```
 
 # Carry-over coefficients
@@ -126,19 +134,3 @@ kable(data.table(t(summary(carryover$coef)))[, ':=' (V1=NULL, value=N, N=NULL)],
 hist(carryover$coef, main = 'Distribution of carry-over coefficients')
 ```	
 	
-
-# VIFs
-
-```{r vif, echo = FALSE, results='asis'}
-vifs <- rbindlist(lapply(results_brands[!checks=='try-error'], function(x) x$vif))
-.vars <- table(vifs$variable)[which(table(vifs$variable)>600)]
-
-tmp=vifs[variable%in%names(.vars)][, list(mean=mean(vif), min=min(vif), max=max(vif), median=median(vif), perc_below6=length(which(vif<=6))/.N,perc_below10=length(which(vif<=10))/.N),by=c('variable')]
-
-
-kable(tmp, caption = "VIFs by variable")
-
-```	
-
-
-
