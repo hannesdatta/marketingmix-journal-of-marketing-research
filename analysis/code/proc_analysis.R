@@ -251,6 +251,7 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 			
 			ytrend=0
 			
+			
 			if (takediff=='flexible') {
 			  #		1) UR test outcome on Y; 
 			  #		   o if trend --> add trend variable
@@ -260,10 +261,10 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 			  #		   o if UR present in X and UR present in Y --> take difference of both Y and X (and the differences of the copula terms)
 			  #		   o if UR present in X, but not in Y --> difference X, but take level copulas (as error term is still in levels)
 			  
-			  
 			  ydiff = data.table(adf)[variable=='y']$ur
-				ytrend = data.table(adf)[variable=='y']$trend
-				
+			  ytrend = data.table(adf)[variable=='y']$trend
+			  
+			  	
 				
 				to_be_diffed = NULL
 				
@@ -307,12 +308,19 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 		
 			if (trend=='always') ytrend=1
 		  if (trend=='none') ytrend=0
-		  
+		  if (trend=='ur') {
+		    if (takediff=='flexible') NULL # has been set earlier
+		    if (takediff=='always') ytrend=ytrend # if diffed model, adding trend boils down to trend from UR estimation
+		    if (takediff=='none') ytrend=ifelse(ytrend==1|ydiff==1,1,0) # if not diffed model, trend either if process is UR or linearly evolving
+		    
+		  }
+			
 			# add trend; default is UR-based
 			if (ytrend==1) {
 			  if (attraction_model=='MNL') out_matrix <- cbind(out_matrix, trend = seq(from=1, to=nrow(out_matrix)))
 			  if (attraction_model=='MCI') out_matrix <- cbind(out_matrix, trend = log(seq(from=1, to=nrow(out_matrix))))
 			}
+			
 			# relabel
 			if ('trend' %in% colnames(out_matrix)) {
 			  colnames(out_matrix)[which(colnames(out_matrix)=='trend')] <- paste0(curr_brand, '_trend')
