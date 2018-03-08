@@ -124,7 +124,7 @@ vifs1b=run_vif(c(paste0('ln', xvars), 'lnlusalessh'))
 report(vifs1b, tab('VIFs: ln X, no trend, no quarter dummies, lagged ln MS'))
 
 vifs2=run_vif(c(paste0('ln', xvars), 'lnlusalessh', 'quarter2','quarter3','quarter4'))
-report(vifs2, tab('VIFs: ln X, no trend, quarter dummies, lagged ln MS'))
+report(vifs2, tab('VIFs: ln X, no trend, no quarter dummies, lagged ln MS'))
 
 vifs3=run_vif(c(paste0('ln', xvars), 'lnlusalessh', 'lnmonth_no', 'quarter2','quarter3','quarter4'))
 report(vifs3, tab('VIFs: ln X, ln trend, quarter dummies, lagged ln MS'))
