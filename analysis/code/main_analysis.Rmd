@@ -26,7 +26,6 @@ options(xtable.comment = FALSE)
   
   
   # get coefs from m10 model
-  coefs <- rbindlist(lapply(results_m10, function(x) x$model@coefficients))
   
   
 # identify model crashes
@@ -34,6 +33,9 @@ options(xtable.comment = FALSE)
 	table(checks)
 	last.item = length(analysis_markets)
 
+coefs <- rbindlist(lapply(results_brands[!checks=='try-error'], function(x) x$model@coefficients))
+  
+	
 # load data
 	brand_panel=fread('../temp/preclean.csv')
 	brand_panel[, ':=' (date = as.Date(date))]
