@@ -1,0 +1,192 @@
+---
+title: "GfK Singapore - RQs"
+output:
+  html_document: default
+  pdf_document: default
+date: "`r format(Sys.time(), '%d %B %Y')`"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+require(data.table)
+require(stargazer)
+library(knitr)
+require(xtable)
+require(texreg)
+library(sjstats)
+
+options(xtable.comment = FALSE)
+
+# Load results
+  load(file = c('../temp/results_20180307.RData'))
+
+# determine model to analyze
+  results_brands <- results_m10
+  
+  
+  # get coefs from m10 model
+  coefs <- rbindlist(lapply(results_m10, function(x) x$model@coefficients))
+  
+  
+# identify model crashes
+	checks <- unlist(lapply(results_brands, class))
+	table(checks)
+	last.item = length(analysis_markets)
+
+# load data
+	brand_panel=fread('../temp/preclean.csv')
+	brand_panel[, ':=' (date = as.Date(date))]
+	
+	# elasticities
+	elast <- rbindlist(lapply(results_brands[!checks=='try-error'], function(x) x$elast))
+
+	# selection
+	elast[, ncountries:=length(unique(country)), by = c('brand')]
+	elast = elast[ncountries>2]
+  elast = elast[!brand%in% c('unbranded')]
+
+elast[, hedon := category %in% c('tablets', 'phones_smart', 'phones_mobile', 'camera_slr', 'camera_compact', 'dvd', 'tv_gen1_crtv', 'tv_gen2_lcd')]
+elast[, highms := mean_ms>=median(mean_ms), by = c('market_id', 'variable')]
+
+load('..\\..\\derived\\temp\\gdppercap.RData')
+gdp = gdppercap[, list(gdppercap=mean(gdppercap,na.rm=T)), by = c('country')]
+setkey(gdp, country)
+setkey(elast, country)
+elast[gdp, gdppercap:=i.gdppercap]
+
+	
+	
+	# merge some more variables to it
+	vars = c('cat_class', 'country_class')
+	tmp = brand_panel[, c('market_id', vars), with=F]
+	setkey(tmp, market_id)
+	tmp = unique(tmp)
+	
+	elast = merge(elast, tmp, all.x=T, all.y=F, by = c('market_id'))
+	
+	
+new <- c('tablets', 'phones_smart')
+
+wb_lowermidx = c('india','indonesia', 'vietnam', 'philippines')
+wb_uppermidx = c('china', 'malaysia','thailand')
+
+
+elast[, new:=category%in%new]
+elast[, wb_lowermid:=country%in%wb_lowermidx]
+elast[, wb_uppermid:=country%in%wb_uppermidx]
+
+elast[, low := wb_lowermid+wb_uppermid]
+
+tableno<<-0
+figureno<<-0
+fig<-function(caption) {figureno<<-figureno+1;paste0('Figure ', figureno, ': ', caption)}
+tab<-function(caption) {tableno<<-tableno+1;paste0('Table ', tableno, ': ', caption)}
+```
+
+# Sample overview
+```{r sample_overview, echo=FALSE, results='asis'}
+
+tmp=elast[, list(ncountries=length(unique(country)), ncategories=length(unique(category))), by = c('brand')]
+setorderv(tmp, c('ncountries','ncategories'),order=-1L)
+print(xtable(tmp, caption=tab('Overview of selected brands (need to be active in at least three countries)')), type='html',caption.placement='top')
+
+```
+
+
+## Elasticities for brand selection
+
+```{r elast_overall, echo = FALSE, results='asis'}
+  .vars=c('llen','wpswdst','rwpspr','nov6sh')
+	
+  zval=1.64
+	tmp=elast[!is.na(elast), list(median_elast = median(elast), 
+												  w_elast = sum(elast/elast_se)/sum(1/elast_se), 
+												  N_brands= .N, 
+												  perc_positive = length(which(elast/elast_se>=(zval)))/.N, 
+												  perc_null = length(which(abs(elast/elast_se)<zval))/.N, 
+												  perc_negative = length(which(elast/elast_se<=(-zval)))/.N), by=c('variable')]
+	kable(tmp[match(.vars, variable)], caption = tab('Short-term elasticities by variable for all brands (significance tested at p<.1 (z >= 1.64).'))
+	
+  zval=1.64
+	tmp=elast[!is.na(elastlt), list(median_elast = median(elastlt), 
+												  w_elast = sum(elastlt/elastlt_se)/sum(1/elastlt_se), 
+												  N_brands= .N, 
+												  perc_positive = length(which(elastlt/elastlt_se>=(zval)))/.N, 
+												  perc_null = length(which(abs(elastlt/elastlt_se)<zval))/.N, 
+												  perc_negative = length(which(elastlt/elastlt_se<=(-zval)))/.N), by=c('variable')]
+	kable(tmp[match(.vars, variable)], caption = tab('Long-term elasticities by variable for all brands (significance tested at p<.1 (z >= 1.64).'))
+	
+
+```
+
+# R1: Are marketing elasticities really different in EMs vs developed markets?
+```{r rq1, echo = FALSE}
+### ANALYSIS 1: elasticities different in high versus low
+
+for (var in unique(elast$variable)) {
+  cat(paste0('=====================================\n', var,'\n=====================================\n\n'))
+  
+  cat('- SHORT TERM -\n')
+  print(t.test(elast[country_class=='hinc' & variable == var]$elast, elast[country_class=='linc' & variable == var]$elast))
+  cat('- LONG TERM -\n')
+  print(t.test(elast[country_class=='hinc' & variable == var]$elastlt, elast[country_class=='linc' & variable == var]$elastlt))
+}
+```
+
+# R2: Can we assume that marketing mix elasticities are the same within EMs or do they differ across EMs?
+
+(intercepts are China)
+
+```{r rq2, echo = FALSE}
+
+for (var in unique(elast$variable)) {
+  cat(paste0('=====================================\n', var,'\n=====================================\n\n'))
+  
+  cat('- SHORT TERM -\n')
+  m<-lm(elast~as.factor(country), data=elast, subset=country_class=='linc'&variable==var)
+  print(summary(m))
+  cat('- LONG TERM -\n')
+  m<-lm(elastlt~as.factor(country), data=elast, subset=country_class=='linc'&variable==var)
+  print(summary(m))
+  
+}
+```
+
+# R3: When we look at the same markets and product categories, do western brands have the same marketing elasticities than non-western brands?
+
+not done yet
+
+# R4: Are product categories in different life cycle stages across EMs and DMs and what does this imply for marketing mix elasticities?
+
+to be discussed
+
+# R5: How does competition from unbranded produts affect demand and marketing elasticities in EMs?
+
+to be discussed
+
+# R6: Does the lack of infrastructure in EMs lead to stronger or weaker distribution elasticities? 
+
+# RQ7: Is it true that in EMs, greater standardization (less variety) leads to better financial performance? (line length elasticity smaller in EMs than in DMs?)
+
+```{r rq7, echo = FALSE}
+  var = 'llen'
+
+  cat('- SHORT TERM -\n')
+  print(t.test(elast[country_class=='hinc' & variable == var]$elast, elast[country_class=='linc' & variable == var]$elast))
+  cat('- LONG TERM -\n')
+  print(t.test(elast[country_class=='hinc' & variable == var]$elastlt, elast[country_class=='linc' & variable == var]$elastlt))
+
+```
+
+# RQ8: Is it true that in EMs, the novelty elasticity is relatively strong? 
+
+```{r rq8, echo = FALSE}
+  var = 'nov6sh'
+
+  cat('- SHORT TERM -\n')
+  print(t.test(elast[country_class=='hinc' & variable == var]$elast, elast[country_class=='linc' & variable == var]$elast))
+  cat('- LONG TERM -\n')
+  print(t.test(elast[country_class=='hinc' & variable == var]$elastlt, elast[country_class=='linc' & variable == var]$elastlt))
+
+```
