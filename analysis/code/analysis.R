@@ -101,8 +101,8 @@ require(bit64)
 		   takediff = 'none', # choose from flexible (UR approach), none, alwaysdiff
 		   use_quarters = F,
 		   plusx = NULL, #c('nov3sh', 'wpswdst'),
+		   lag_heterog = T,
 		   squared=F,
-		   lag_heterog=F,
 		   maxiter = 300)
 
 assign_model(m1)
@@ -125,7 +125,6 @@ assign_model(m1)
 	last.item = length(analysis_markets)
 	last.item = 2
 
-# deactivate the rest
 	# not on cluster
 	results_brands <- NULL
 
@@ -136,7 +135,7 @@ assign_model(m1)
 		                                             setup_endogenous = setup_endogenous, 
 		                                             trend = trend, pval = pval, max.lag = max.lag, 
 		                                             min.t = min.t, maxiter=maxiter, attraction_model = attraction_model, 
-		                                             plusx=plusx, use_quarters=use_quarters, squared=squared, takediff=takediff), silent=T)
+		                                             plusx=plusx, use_quarters=use_quarters, squared=squared, takediff=takediff, lag_heterog=lag_heterog), silent=T)
 		
 		assign_model(m1, del = TRUE)
 		
@@ -161,23 +160,32 @@ assign_model(m1)
 	
 	clusterExport(cl,names(m1))
 	
-	# MNL- always diffed, no trends and quarter dummies (starting model)
+	fname = '../temp/results_20180307.RData'
 	
+	savemodels <- function() {
+	  stuff=setdiff(c('m1','analysis_markets', grep('results[_]', ls(envir=.GlobalEnv), value=T)),'results_brands')
+	  print(stuff)
+	  save(list=stuff , file = fname)
+	  
+	}
+	
+	#### M1 MNL- always diffed, no trends and quarter dummies (starting model)
 	results_MNL_diffed <- parLapplyLB(cl, analysis_markets[1:last.item], function(i) {
 	  maxit=400
-	  try(analyze_by_market(i, setup_y = setup_y, setup_x = setup_x, setup_endogenous = setup_endogenous, trend = trend, pval = pval, max.lag = max.lag, min.t = min.t, maxiter = maxit, use_quarters=F, plusx=plusx, attraction_model=attraction_model, squared=squared, takediff='alwaysdiff'),silent=T)
+	  try(analyze_by_market(i, setup_y = setup_y, setup_x = setup_x, setup_endogenous = setup_endogenous, trend = trend, pval = pval, max.lag = max.lag, min.t = min.t, maxiter = maxit, use_quarters=F, plusx=plusx, attraction_model=attraction_model, squared=squared, takediff='alwaysdiff', lag_heterog=lag_heterog),silent=T)
 	})
 	
-	save(results_MNL_diffed, analysis_markets, m1, file = c('../temp/results_20180302.RData'))
-
+	savemodels()
 	
+
+	#### M2
 	results_MNL_diffed_onlyFGLS <- parLapplyLB(cl, analysis_markets[1:last.item], function(i) {
 	  maxit=400
-	  try(analyze_by_market(i, estmethod='FGLS', setup_y = setup_y, setup_x = setup_x, setup_endogenous = setup_endogenous, trend = trend, pval = pval, max.lag = max.lag, min.t = min.t, maxiter = maxit, use_quarters=F, plusx=plusx, attraction_model=attraction_model, squared=squared, takediff='alwaysdiff'),silent=T)
+	  try(analyze_by_market(i, estmethod='FGLS', setup_y = setup_y, setup_x = setup_x, setup_endogenous = setup_endogenous, trend = trend, pval = pval, max.lag = max.lag, min.t = min.t, maxiter = maxit, use_quarters=F, plusx=plusx, attraction_model=attraction_model, squared=squared, takediff='alwaysdiff', lag_heterog=lag_heterog),silent=T)
 	})
 	
-	save(results_MNL_diffed, results_MNL_diffed_onlyFGLS, analysis_markets, m1, file = c('../temp/results_20180302.RData'))
-
+	savemodels()
+	
 	# MCI diffed
 	m1$plusx=c('nov6sh', 'wpswdst')
 	m1$attraction_model='MCI'
@@ -187,31 +195,39 @@ assign_model(m1)
 	
 	results_MCI_diffed_onlyFGLS <- parLapplyLB(cl, analysis_markets[1:last.item], function(i) {
 	  maxit=400
-	  try(analyze_by_market(i, estmethod='FGLS', setup_y = setup_y, setup_x = setup_x, setup_endogenous = setup_endogenous, trend = trend, pval = pval, max.lag = max.lag, min.t = min.t, maxiter = maxit, use_quarters=F, plusx=plusx, attraction_model=attraction_model, squared=squared, takediff='alwaysdiff'),silent=T)
+	  try(analyze_by_market(i, estmethod='FGLS', setup_y = setup_y, setup_x = setup_x, setup_endogenous = setup_endogenous, trend = trend, pval = pval, max.lag = max.lag, min.t = min.t, maxiter = maxit, use_quarters=F, plusx=plusx, attraction_model=attraction_model, squared=squared, takediff='alwaysdiff', lag_heterog=lag_heterog),silent=T)
 	})
 	
-	save(results_MCI_diffed_onlyFGLS, results_MNL_diffed, results_MNL_diffed_onlyFGLS, analysis_markets, m1, file = c('../temp/results_20180302.RData'))
+	savemodels()
 	
 	
 	# MCI in levels
 	results_MCI_lev <- parLapplyLB(cl, analysis_markets[1:last.item], function(i) {
 	  maxit=400
-	  try(analyze_by_market(i, estmethod='FGLS', setup_y = setup_y, setup_x = setup_x, setup_endogenous = setup_endogenous, trend = trend, pval = pval, max.lag = max.lag, min.t = min.t, maxiter = maxit, use_quarters=F, plusx=plusx, attraction_model=attraction_model, squared=squared, takediff=takediff),silent=T)
+	  try(analyze_by_market(i, estmethod='FGLS', setup_y = setup_y, setup_x = setup_x, setup_endogenous = setup_endogenous, trend = trend, pval = pval, max.lag = max.lag, min.t = min.t, maxiter = maxit, use_quarters=F, plusx=plusx, attraction_model=attraction_model, squared=squared, takediff=takediff, lag_heterog=lag_heterog),silent=T)
 	})
 	
-	save(results_MCI_lev, results_MCI_diffed_onlyFGLS, results_MNL_diffed, results_MNL_diffed_onlyFGLS, analysis_markets, m1, file = c('../temp/results_20180302.RData'))
+	savemodels()
 	
+	
+	# MCI in levels, but homogenous carry over
+	results_MCI_lev_hom <- parLapplyLB(cl, analysis_markets[1:last.item], function(i) {
+	  maxit=400
+	  try(analyze_by_market(i, estmethod='FGLS', setup_y = setup_y, setup_x = setup_x, setup_endogenous = setup_endogenous, trend = trend, pval = pval, max.lag = max.lag, min.t = min.t, maxiter = maxit, use_quarters=F, plusx=plusx, attraction_model=attraction_model, squared=squared, takediff=takediff, lag_heterog=F),silent=T)
+	})
+	
+	savemodels()
 	
 	# MCI in levels w trend/quarter
 	results_MCI_lev_tq <- parLapplyLB(cl, analysis_markets[1:last.item], function(i) {
 	  maxit=400
-	  try(analyze_by_market(i, estmethod='FGLS', setup_y = setup_y, setup_x = setup_x, setup_endogenous = setup_endogenous, trend = 'always', pval = pval, max.lag = max.lag, min.t = min.t, maxiter = maxit, use_quarters=T, plusx=plusx, attraction_model=attraction_model, squared=squared, takediff=takediff), silent=T)
+	  try(analyze_by_market(i, estmethod='FGLS', setup_y = setup_y, setup_x = setup_x, setup_endogenous = setup_endogenous, trend = 'always', pval = pval, max.lag = max.lag, min.t = min.t, maxiter = maxit, use_quarters=T, plusx=plusx, attraction_model=attraction_model, squared=squared, takediff=takediff, lag_heterog=F), silent=T)
 	})
 	
-	save(results_MCI_lev_tq, results_MCI_lev, results_MCI_diffed_onlyFGLS, results_MNL_diffed, results_MNL_diffed_onlyFGLS, analysis_markets, m1, file = c('../temp/results_20180302.RData'))
+	savemodels()
 	
 	
-	# with extra lags
+	# M6: add extra lags
 	m1$plusx=c('nov6sh', 'wpswdst', 'lagnov6sh', 'lagwpswdst')
 	m1$attraction_model='MCI'
 	m1$setup_x=c("rwpspr", "wpswdst", "llen", "nov6sh", "lagrwpspr", "lagwpswdst", "lagllen", "lagnov6sh")
@@ -222,36 +238,48 @@ assign_model(m1)
 	
 	results_MCI_wlag <- parLapplyLB(cl, analysis_markets[1:last.item], function(i) {
 	  maxit=400
-	  try(analyze_by_market(i, estmethod='FGLS', setup_y = setup_y, setup_x = setup_x, setup_endogenous = setup_endogenous, trend = 'always', pval = pval, max.lag = max.lag, min.t = min.t, maxiter = maxit, use_quarters=T, plusx=plusx, attraction_model=attraction_model, squared=squared, takediff=takediff), silent=T)
+	  try(analyze_by_market(i, estmethod='FGLS', setup_y = setup_y, setup_x = setup_x, setup_endogenous = setup_endogenous, trend = 'always', pval = pval, max.lag = max.lag, min.t = min.t, maxiter = maxit, use_quarters=T, plusx=plusx, attraction_model=attraction_model, squared=squared, takediff=takediff, lag_heterog=F), silent=T)
 	})
 	
-	save(results_MCI_wlag,results_MCI_lev_tq, results_MCI_lev, results_MCI_diffed_onlyFGLS, results_MNL_diffed, results_MNL_diffed_onlyFGLS, analysis_markets, m1, file = c('../temp/results_20180302.RData'))
+	savemodels()
+	
+	# turn on again praise winsten
+	results_MCI_wlag_ac <- parLapplyLB(cl, analysis_markets[1:last.item], function(i) {
+	  maxit=400
+	  try(analyze_by_market(i, estmethod='FGLS-Praise-Winsten', setup_y = setup_y, setup_x = setup_x, setup_endogenous = setup_endogenous, trend = 'always', pval = pval, max.lag = max.lag, min.t = min.t, maxiter = maxit, use_quarters=T, plusx=plusx, attraction_model=attraction_model, squared=squared, takediff=takediff, lag_heterog=F), silent=T)
+	})
+	
+	savemodels()
 	
 	
+	# M9: only use trend if MS has trend, no lagged Xs
+	m1$plusx=c('nov6sh', 'wpswdst')
+	m1$attraction_model='MCI'
+	m1$setup_x=c("rwpspr", "wpswdst", "llen", "nov6sh")
+	m1$estmethod='FGLS'
+	assign_model(m1, del = TRUE)
+	assign_model(m1)
+	clusterExport(cl,names(m1))
 	
-	#fiddle:
+	results_MCI_wlag_urtrend <- parLapplyLB(cl, analysis_markets[1:last.item], function(i) {
+	  maxit=400
+	  try(analyze_by_market(i, estmethod='FGLS', setup_y = setup_y, setup_x = setup_x, setup_endogenous = setup_endogenous, trend = 'ur', pval = pval, max.lag = max.lag, min.t = min.t, maxiter = maxit, use_quarters=T, plusx=plusx, attraction_model=attraction_model, squared=squared, takediff=takediff, lag_heterog=F), silent=T)
+	})
 	
-	i=1
-	maxit=400
-	out=analyze_by_market(i, estmethod='FGLS', setup_y = setup_y, setup_x = setup_x, setup_endogenous = setup_endogenous, trend = 'always', pval = pval, max.lag = max.lag, min.t = min.t, maxiter = maxit, use_quarters=T, plusx=plusx, attraction_model=attraction_model, squared=squared, takediff=takediff)
+	savemodels()
 	
+	# m10
+	m1$plusx=c('nov6sh', 'wpswdst', 'lagnov6sh', 'lagwpswdst')
+	m1$attraction_model='MCI'
+	m1$setup_x=c("rwpspr", "wpswdst", "llen", "nov6sh", "lagrwpspr", "lagwpswdst", "lagllen", "lagnov6sh")
+	m1$estmethod='FGLS'
+	assign_model(m1, del = TRUE)
+	assign_model(m1)
+	clusterExport(cl,names(m1))
 	
-	out=analyze_by_market(i, estmethod='FGLS', setup_y = setup_y, setup_x = setup_x, setup_endogenous = setup_endogenous, lag_heterog=F, trend = 'always', pval = pval, max.lag = max.lag, min.t = min.t, maxiter = maxit, use_quarters=T, plusx=plusx, attraction_model=attraction_model, squared=squared, takediff=takediff)
-	sum<-function(x) {
-	  
-	data.table(x$model@coefficients)[grepl('lagunitsales', variable)]  
-	  
-	}
+	results_m10 <- parLapplyLB(cl, analysis_markets[1:last.item], function(i) {
+	  maxit=400
+	  try(analyze_by_market(i, estmethod='FGLS', setup_y = setup_y, setup_x = setup_x, setup_endogenous = setup_endogenous, trend = 'none', pval = pval, max.lag = max.lag, min.t = min.t, maxiter = maxit, use_quarters=T, plusx=plusx, attraction_model=attraction_model, squared=squared, takediff=takediff, lag_heterog=F), silent=T)
+	})
 	
-	out2=analyze_by_market(i, estmethod='FGLS', setup_y = setup_y, setup_x = setup_x, setup_endogenous = setup_endogenous, lag_heterog=T, trend = 'always', pval = pval, max.lag = max.lag, min.t = min.t, maxiter = maxit, use_quarters=T, plusx=plusx, attraction_model=attraction_model, squared=squared, takediff=takediff)
-
-	out3=analyze_by_market(i, estmethod='FGLS', setup_y = setup_y, setup_x = setup_endogenous, setup_endogenous = setup_endogenous, lag_heterog=T, trend = 'always', pval = pval, max.lag = max.lag, min.t = min.t, maxiter = maxit, use_quarters=T, plusx=plusx, attraction_model=attraction_model, squared=squared, takediff=takediff)
-	
-	out4=analyze_by_market(i, estmethod='FGLS-Praise-Winsten', setup_y = setup_y, setup_x = setup_endogenous, setup_endogenous = setup_endogenous, lag_heterog=T, trend = 'always', pval = pval, max.lag = max.lag, min.t = min.t, maxiter = maxit, use_quarters=T, plusx=plusx, attraction_model=attraction_model, squared=squared, takediff=takediff)
-	
-	sum(out)
-	sum(out2)
-	sum(out3)
-	sum(out4)
-	
-	
+	savemodels()
