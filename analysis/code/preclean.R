@@ -25,7 +25,6 @@ require(data.table)
 ### Stack data in data.table
 	brand_panel=fread('../../derived/output/datasets.csv')
 	brand_panel[, ':=' (date = as.Date(date))]
-	brand_panel <- brand_panel[selected==T]
 	
 	brand_panel[, nov6sh := (nov6/llen)*100]
 	brand_panel[, nov3sh := (nov3/llen)*100]
@@ -33,14 +32,23 @@ require(data.table)
 	
 	brand_panel[, quarter := quarter(date)]
 
+	# lag variables
+	for (.var in c('rwpspr', 'wpswdst','llen','nov6sh', 'nov3sh')) {
+	  
+	  brand_panel[, paste0('lag', .var) := c(NA, get(.var)[-.N]), by = c('market_id', 'brand')]
+	  
+	}
+	
+	brand_panel <- brand_panel[selected==T]
+	
 	brand_panel[, usalessh := usales/sum(usales,na.rm=T), by=c('category', 'country', 'date')]
 	brand_panel[, vsalessh := vsales/sum(vsales,na.rm=T), by=c('category', 'country', 'date')]
 	brand_panel[, month_no := as.numeric(as.factor(date))]
-
+	
 	brand_panel[brand=='allothers', brand := paste0('allothers', .GRP), by = c('category', 'country')]
 	
+
 	# Define broad country/categories classifications
-	
 	brand_panel[grepl('camera', category), cat_class := 'cam']
 	brand_panel[grepl('phones|tablets', category), cat_class := 'ph']
 	brand_panel[grepl('desktoppc|laptop', category), cat_class := 'cp']
