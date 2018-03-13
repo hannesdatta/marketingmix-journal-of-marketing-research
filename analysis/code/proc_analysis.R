@@ -1,6 +1,6 @@
-require(car)
-require(reshape2)
-require(Matrix)
+library(car)
+library(reshape2)
+library(Matrix)
 
 ###########################
 ### AUXILARY FUNCTIONS ####
@@ -31,7 +31,8 @@ require(Matrix)
 # Main analysis function (to be run seperately for each market_id i)
 analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend = 'none', pval = .05, max.lag = 12, min.t = 36, 
                               estmethod = "FGLS", benchmarkb = NULL, use_quarters = TRUE, maxiter=1000,
-                              attraction_model = "MNL", takediff = 'alwaysdiff', plusx = NULL, squared = F, lag_heterog=F) {
+                              attraction_model = "MNL", takediff = 'alwaysdiff', plusx = NULL, squared = F, lag_heterog=F,
+                              carryover_zero=F) {
 	
 		cat('data preparation\n...')
 		
@@ -72,9 +73,12 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 		
 	  suppressWarnings(melted_panel <- melt(panel[,colnames(panel)%in%c(setup_y, setup_x, id_vars),with=F], id.vars=id_vars))
 	  # Note: I surpress warnings here (the message shows that since  variable types are not the same, the procedure coerces them to a more fine grained measure).
-	
+	  #melted_panel[, list(ts_selected = use_ts(value)), by=c('country','category', 'brand', 'variable')]
+	  
 		# check whether variables qualify for estimation
 		melted_panel[, ts_selected := use_ts(value), by=c('country','category', 'brand', 'variable')]
+		
+		# check whether lags of explanatory variables are included; verify these are kicked out!
 		
 		# kick out non-selected series and remove indicator column
 		melted_panel <- melted_panel[ts_selected==T][, ts_selected:=NULL]
@@ -130,12 +134,14 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 		# Transform variables to attraction model estimation system #
 		#############################################################
 		
+		if (carryover_zero==F) {
 		# add lagged dependent variable
 		lagged_ms = melted_panel[variable==res$variables$y]
 		lagged_ms[, value := makelag(value), by=c('brand')]
 		lagged_ms[, variable:='lagunitsales_sh']
 		melted_panel <- rbind(melted_panel, lagged_ms)
 		rm(lagged_ms)
+		}
 		
 		# create month variable from dates
 		melted_panel[, month := as.numeric(as.factor(date))]
@@ -146,8 +152,15 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 		# transform system to base-brand representation
 		dt <- data.table(dcast(melted_panel, brand+month+quarter~variable, value.var=c('value')))
 		
-		m_form = as.formula(paste0(res$variables$y, ' ~ ', paste0(res$variables$x, collapse = '+'), ' + lagunitsales_sh'))
-		m_form_heterog = as.formula(paste0('~ ', paste0(res$variables$x, collapse = '+'), ifelse(lag_heterog==T, ' + lagunitsales_sh', '')))
+		if (carryover_zero==F) {
+		  m_form = as.formula(paste0(res$variables$y, ' ~ ', paste0(res$variables$x, collapse = '+'), ' + lagunitsales_sh'))
+		  m_form_heterog = as.formula(paste0('~ ', paste0(res$variables$x, collapse = '+'), ifelse(lag_heterog==T, ' + lagunitsales_sh', '')))
+		}
+		
+		if (carryover_zero==T) {
+		  m_form = as.formula(paste0(res$variables$y, ' ~ ', paste0(res$variables$x, collapse = '+'), ''))
+		  m_form_heterog = as.formula(paste0('~ ', paste0(res$variables$x, collapse = '+'), ifelse(lag_heterog==T, '', '')))
+		}
 		
 	  m_form_index = as.formula(~ brand + month)
 		
@@ -161,7 +174,7 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 
 		
 		# in the case of only two brands and a heterogenous carry-over parameter, remove lagged market share of base brand for identification purposes
-		if (length(unique(dtbb@input$index$brand))==2 & lag_heterog==T) {
+		if (length(unique(dtbb@input$index$brand))==2 & lag_heterog==T & carryover_zero==F) {
 			X = dtbb@X
 			delcol = which(colnames(X)==paste0(dtbb@benchmark, '_lagunitsales_sh'))
 			X <- X[, -delcol]
@@ -211,6 +224,10 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 			
 			# verify whether, for any given brand/base brand combination, the minimum N constraint for number of observations (result of use_ts) is given.
 			delvars = vars[sapply(vars, function(xx) use_ts(ifelse(grepl(dtbb@benchmark, xx), -1, 1) * unlist(dat_by_brand[[z]][, xx])))==F]
+			
+			# also add copula and lagged values to deletion (doesn't make sense deleting the focal variable, but not its lagged term)
+			delvars = union(delvars, intersect(gsub('[_]', '_lag', delvars),vars))
+			delvars = union(delvars, intersect(gsub('[_]', '_cop_', delvars),vars))
 			
 			# if any variable does not satisfy the constraint, kick out those variables
 			for (kickout in delvars) {
@@ -637,17 +654,17 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
   names(.tmpcoefs)<-paste0('x',1:length(.tmpcoefs))
   .varcovar = res$model@varcovar
   
+  # check: can we actually calculate an LT elasticity if the carry over is negative??!?!
+  
 	if (attraction_model=="MNL") {
 	  elasticities[!is.na(index_current), c('elast','elast_se') := deltaMethod(.tmpcoefs, paste0('((1-', mean_ms,')*',mean_x,'*x',index_current,')'),.varcovar), by = c('brand','variable')]
-	  elasticities[!is.na(index_lagms), c('elastlt','elastlt_se') := deltaMethod(.tmpcoefs, paste0('((1-', mean_ms,')*',mean_x,')*((x',index_current,'+', ifelse(is.na(index_lagged),'0', paste0('x',index_lagged)),')/(1-', ifelse(is.na(index_lagms),'0', paste0('x',index_lagms)),'))'),.varcovar), by = c('brand','variable')]
+	  elasticities[!is.na(index_current), c('elastlt','elastlt_se') := deltaMethod(.tmpcoefs, paste0('((1-', mean_ms,')*',mean_x,')*((x',index_current,'+', ifelse(is.na(index_lagged),'0', paste0('x',index_lagged)),')/(1-', ifelse(is.na(index_lagms),'0', paste0('x',index_lagms)),'))'),.varcovar), by = c('brand','variable')]
 	}
   
 	if (attraction_model=="MCI") {
 	  elasticities[!is.na(index_current), c('elast','elast_se') := deltaMethod(.tmpcoefs, paste0('((1-', mean_ms,')*x',index_current,')'),.varcovar), by = c('brand','variable')]
-	  elasticities[!is.na(index_lagms), c('elastlt','elastlt_se') := deltaMethod(.tmpcoefs, paste0('(1-', mean_ms,')*((x',index_current,'+', ifelse(is.na(index_lagged),'0', paste0('x',index_lagged)),')/(1-', ifelse(is.na(index_lagms),'0', paste0('x',index_lagms)),'))'),.varcovar), by = c('brand','variable')]
-	  
-	  
-  }
+	  elasticities[!is.na(index_current), c('elastlt','elastlt_se') := deltaMethod(.tmpcoefs, paste0('(1-', mean_ms,')*((x',index_current,'+', ifelse(is.na(index_lagged),'0', paste0('x',index_lagged)),')/(1-', ifelse(is.na(index_lagms),'0', paste0('x',index_lagms)),'))'),.varcovar), by = c('brand','variable')]
+	}
   
 	# add elasticities to model output
 	res$elast <- elasticities

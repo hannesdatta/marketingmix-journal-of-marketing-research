@@ -20,7 +20,7 @@
 
 
 ### LOAD DATA SETS
-require(data.table)
+library(data.table)
 require(bit64)
 
 ### Stack data in data.table
@@ -41,7 +41,7 @@ require(bit64)
 	
 	
 ### Load additional packages
-	require(parallel)
+	library(parallel)
 	
 ### Setup cluster environment
 	ncpu = 10 #4
@@ -77,13 +77,7 @@ require(bit64)
   try(detach(m1), silent=T)
 	try(assign_model(m1,del=T), silent=T)
 	
-	# lag variables
-	for (.var in c('rwpspr', 'wpswdst','llen','nov6sh')) {
-	  
-	  brand_panel[, paste0('lag', .var) := c(NA, get(.var)[-.N]), by = c('market_id')]
-	  
-	}
-	
+
 	m1 <- list(setup_y=c(usalessh = 'usalessh'),
 		   setup_x=c(price = 'rwpspr', dist = 'wpswdst', llen = 'llen', nov = 'nov6sh'),
 		   setup_endogenous = c('rwpspr', 'wpswdst','llen','nov6sh'),
@@ -101,7 +95,8 @@ require(bit64)
 		   use_quarters = T,
 		   lag_heterog = F,
 		   squared=F,
-		   maxiter = 400)
+		   maxiter = 400,
+		   carryover_zero=F)
 
 assign_model(m1)
 #assign_model(m1,del=T)
@@ -140,7 +135,7 @@ m2$trend = 'none'
 		                                             attraction_model = attraction_model, 
 		                                             plusx=plusx, use_quarters=use_quarters, 
 		                                             squared=squared, takediff=takediff, 
-		                                             lag_heterog=lag_heterog), silent=T)
+		                                             lag_heterog=lag_heterog, carryover_zero=carryover_zero), silent=T)
 		
 		assign_model(m1, del = TRUE)
 		
@@ -162,7 +157,7 @@ m2$trend = 'none'
 	init()
 	last.item = length(analysis_markets)
 
-	fname = '../temp/results_20180309.RData'
+	fname = '../temp/results_20180313.RData'
 	
 	savemodels <- function() {
 	  lscall=ls(envir=.GlobalEnv)
@@ -183,9 +178,20 @@ m2$trend = 'none'
 	                        setup_endogenous = setup_endogenous, trend = trend, pval = pval, 
 	                        max.lag = max.lag, min.t = min.t, maxiter = maxiter, 
 	                        use_quarters=use_quarters, plusx=plusx, attraction_model=attraction_model, 
-	                        squared=squared, takediff=takediff, lag_heterog=lag_heterog), silent=T)
+	                        squared=squared, takediff=takediff, lag_heterog=lag_heterog,carryover_zero=carryover_zero), silent=T)
 	                        })
 	
+	# inspecting the carry-overs yields a negative one in NZ; set to zero
+	if(results_MCI_wolag_trend[[27]]$market_id==31) {
+	  
+	  results_MCI_wolag_trend[[27]] <- try(analyze_by_market(31, estmethod=estmethod, setup_y = setup_y, setup_x = setup_x, 
+	                          setup_endogenous = setup_endogenous, trend = trend, pval = pval, 
+	                          max.lag = max.lag, min.t = min.t, maxiter = maxiter, 
+	                          use_quarters=use_quarters, plusx=plusx, attraction_model=attraction_model, 
+	                          squared=squared, takediff=takediff, lag_heterog=lag_heterog,carryover_zero=F), silent=T)
+	}
+	  
+
 	savemodels()
 	
   # m10
@@ -195,11 +201,25 @@ m2$trend = 'none'
 	
 	results_MCI_wlag_wotrend <- parLapplyLB(cl, analysis_markets[1:last.item], function(i) {
 	  maxit=400
-	  try(analyze_by_market(i, estmethod=estmethod, setup_y = setup_y, setup_x = setup_x, 
+	  
+	  try(analyze_by_market(i, estmethod=estmethod, setup_y = setup_y, setup_x = if(i==1) setup_x else setup_x[c(1:6)],
 	                        setup_endogenous = setup_endogenous, trend = trend, pval = pval, 
 	                        max.lag = max.lag, min.t = min.t, maxiter = maxiter, 
 	                        use_quarters=use_quarters, plusx=plusx, attraction_model=attraction_model, 
-	                        squared=squared, takediff=takediff, lag_heterog=lag_heterog), silent=T)
+	                        squared=squared, takediff=takediff, lag_heterog=lag_heterog, carryover_zero=carryover_zero), silent=T)
 	})
 	
+	# inspecting the carry-overs yields a negative one in NZ; set to zero
+	if(results_MCI_wlag_wotrend[[27]]$market_id==31) {
+	  
+	  results_MCI_wlag_wotrend[[27]] <- try(analyze_by_market(31, estmethod=estmethod, setup_y = setup_y, setup_x = if(i==1) setup_x else setup_x[c(1:6)],
+	                                                         setup_endogenous = setup_endogenous, trend = trend, pval = pval, 
+	                                                         max.lag = max.lag, min.t = min.t, maxiter = maxiter, 
+	                                                         use_quarters=use_quarters, plusx=plusx, attraction_model=attraction_model, 
+	                                                         squared=squared, takediff=takediff, lag_heterog=lag_heterog,carryover_zero=F), silent=T)
+	}
+	
+	
 	savemodels()
+
+	
