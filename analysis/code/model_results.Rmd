@@ -18,10 +18,10 @@ library(sjstats)
 options(xtable.comment = FALSE)
 
 # Load results
-  load(file = c('../temp/results_20180307.RData'))
+  load(file = c('../temp/results_20180313.RData'))
 
 # determine model to analyze
-  results_brands <- results_m10 #results_MCI_wlag_urtrend #results_MCI_wlag_ac #MCI_wlag_ac#results_MCI_wlag #results_MCI_lev_tq #results_MCI_lev_hom #results_MCI_lev #results_MCI_diffed_onlyFGLS #results_MNL_diffed_onlyFGLS# results_MNL_diffed
+  results_brands <-  results_MCI_wolag_trend#results_MCI_wlag_wotrend #results_MCI_wolag_trend# results_MCI_wlag_wotrend #results_MCI_wolag_trend #
   
 # identify model crashes
 	checks <- unlist(lapply(results_brands, class))

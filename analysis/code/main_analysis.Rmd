@@ -19,10 +19,10 @@ library(sjstats)
 options(xtable.comment = FALSE)
 
 # Load results
-  load(file = c('../temp/results_20180307.RData'))
+  load(file = c('../temp/results_20180313.RData'))
 
 # determine model to analyze
-  results_brands <- results_m10
+  results_brands <- results_MCI_wlag_wotrend
   
   
   # get coefs from m10 model
@@ -136,6 +136,23 @@ for (var in unique(elast$variable)) {
 }
 ```
 
+```{r rq1b, echo = FALSE}
+
+for (var in unique(elast$variable)) {
+  cat(paste0('=====================================\n', var,'\n=====================================\n\n'))
+  
+  m<-lm(elast~gdppercap + as.factor(category) + as.factor(brand), data = elast, subset = variable==var)
+  print(summary(m))
+  
+  # + long term
+}
+ # cat('- SHORT TERM -\n')
+  #print(t.test(elast[country_class=='hinc' & variable == var]$elast, elast[country_class=='linc' & variable == var]$elast))
+  #cat('- LONG TERM -\n')
+  #print(t.test(elast[country_class=='hinc' & variable == var]$elastlt, elast[country_class=='linc' & #variable == var]$elastlt))
+```
+
+
 # R2: Can we assume that marketing mix elasticities are the same within EMs or do they differ across EMs?
 
 (intercepts are China)
@@ -146,11 +163,16 @@ for (var in unique(elast$variable)) {
   cat(paste0('=====================================\n', var,'\n=====================================\n\n'))
   
   cat('- SHORT TERM -\n')
-  m<-lm(elast~as.factor(country), data=elast, subset=country_class=='linc'&variable==var)
-  print(summary(m))
+  m<-lm(elast~as.factor(country) + as.factor(category) + as.factor(brand), data=elast, subset=country_class=='linc'&variable==var)
+  res=data.table(summary(m)$coefficients)
+  res[, variable:=rownames(summary(m)$coefficients)]
+  print(res[grepl('country', variable)])
+  
   cat('- LONG TERM -\n')
-  m<-lm(elastlt~as.factor(country), data=elast, subset=country_class=='linc'&variable==var)
-  print(summary(m))
+  m<-lm(elastlt~as.factor(country)+ as.factor(category) + as.factor(brand), data=elast, subset=country_class=='linc'&variable==var)
+  res=data.table(summary(m)$coefficients)
+  res[, variable:=rownames(summary(m)$coefficients)]
+  print(res[grepl('country', variable)])
   
 }
 ```
