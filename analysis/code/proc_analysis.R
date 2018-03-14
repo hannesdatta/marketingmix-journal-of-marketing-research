@@ -27,7 +27,23 @@ library(Matrix)
         return(T)
         }
 
+# assigns a model to main R environment
+	assign_model <- function(m, del=F) {
+	  if (del==F) {
+	    for (l in seq(along=m)) {
+	      var = m[[l]]
+	      eval(parse(text=paste0(names(m)[l], ' <<- var')))
+	    }
+	  }
+	  if (del==T) {
+	    for (l in seq(along=m)) suppressWarnings(eval(parse(text=paste0('rm(', names(m)[l],')'))))
+	  }
+	}
 
+######################
+### MAIN ANALYSIS ####
+######################
+		
 # Main analysis function (to be run seperately for each market_id i)
 analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend = 'none', pval = .05, max.lag = 12, min.t = 36, 
                               estmethod = "FGLS", benchmarkb = NULL, use_quarters = TRUE, maxiter=1000,

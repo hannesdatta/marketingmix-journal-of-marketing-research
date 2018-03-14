@@ -10,14 +10,22 @@ OUTPUT_DIR = ../output
 
 ###### BUILD COMMANDS ######
 
-import: $(TEMP_DIR)/preclean.csv
+.PHONY: preclean
+.PHONY: results
 
-###### DATA ANALYSIS ######
+preclean: $(TEMP_DIR)/preclean.csv
+results: $(TEMP_DIR)/results.RData
 
-# Compute instruments
+###### Build parts ######
+
+# Pre-clean the data
 $(TEMP_DIR)/preclean.csv: preclean.R ../../derived/output/datasets.csv
 	"$(RBIN64)Rterm.exe" --vanilla --args "" < "preclean.R"
 
-# xxxxx
-#$(TEMP_DIR)/preclean.dta: import.do $(TEMP_DIR)/preclean.csv
-#	$(STATABIN) /e do import.do
+# Run the model
+$(TEMP_DIR)/results.RData: analysis.R preclean.R proc_analysis.R
+	"$(RBIN64)Rterm.exe" --vanilla --args "" < "analysis.R"
+
+# Produce overall statistics on estimated models (e.g., elasticities, carry-over parameters, sign. of copula terms)
+$(OUTPUT_DIR)/elasticities.txt: extract_elast.R $(TEMP_DIR)/results.RData
+	"$(RBIN64)Rterm.exe" --vanilla --args "" < "extract_elast.R"
