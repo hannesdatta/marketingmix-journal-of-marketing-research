@@ -18,67 +18,6 @@ library(sjstats)
 
 options(xtable.comment = FALSE)
 
-# Load results
-  load(file = c('../temp/results_20180313.RData'))
-
-# determine model to analyze
-  results_brands <- results_MCI_wlag_wotrend
-  
-  
-  # get coefs from m10 model
-  
-  
-# identify model crashes
-	checks <- unlist(lapply(results_brands, class))
-	table(checks)
-	last.item = length(analysis_markets)
-
-coefs <- rbindlist(lapply(results_brands[!checks=='try-error'], function(x) x$model@coefficients))
-  
-	
-# load data
-	brand_panel=fread('../temp/preclean.csv')
-	brand_panel[, ':=' (date = as.Date(date))]
-	
-	# elasticities
-	elast <- rbindlist(lapply(results_brands[!checks=='try-error'], function(x) x$elast))
-
-	# selection
-	elast[, ncountries:=length(unique(country)), by = c('brand')]
-	elast = elast[ncountries>2]
-  elast = elast[!brand%in% c('unbranded')]
-
-elast[, hedon := category %in% c('tablets', 'phones_smart', 'phones_mobile', 'camera_slr', 'camera_compact', 'dvd', 'tv_gen1_crtv', 'tv_gen2_lcd')]
-elast[, highms := mean_ms>=median(mean_ms), by = c('market_id', 'variable')]
-
-load('..\\..\\derived\\temp\\gdppercap.RData')
-gdp = gdppercap[, list(gdppercap=mean(gdppercap,na.rm=T)), by = c('country')]
-setkey(gdp, country)
-setkey(elast, country)
-elast[gdp, gdppercap:=i.gdppercap]
-
-	
-	
-	# merge some more variables to it
-	vars = c('cat_class', 'country_class')
-	tmp = brand_panel[, c('market_id', vars), with=F]
-	setkey(tmp, market_id)
-	tmp = unique(tmp)
-	
-	elast = merge(elast, tmp, all.x=T, all.y=F, by = c('market_id'))
-	
-	
-new <- c('tablets', 'phones_smart')
-
-wb_lowermidx = c('india','indonesia', 'vietnam', 'philippines')
-wb_uppermidx = c('china', 'malaysia','thailand')
-
-
-elast[, new:=category%in%new]
-elast[, wb_lowermid:=country%in%wb_lowermidx]
-elast[, wb_uppermid:=country%in%wb_uppermidx]
-
-elast[, low := wb_lowermid+wb_uppermid]
 
 tableno<<-0
 figureno<<-0
