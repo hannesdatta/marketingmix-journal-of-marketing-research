@@ -40,6 +40,15 @@ library(Matrix)
 	  }
 	}
 
+savemodels <- function(fname) {
+	  lscall=ls(envir=.GlobalEnv)
+	  stuff=setdiff(c(grep('^m[0-9]+', lscall,value=T),'analysis_markets', grep('results[_]', lscall, value=T)),'results_brands')
+	  cat('saving...\n')
+	  print(stuff)
+	  cat('\ndone.\n')
+	  save(list=stuff , file = fname)
+	  }
+
 ######################
 ### MAIN ANALYSIS ####
 ######################

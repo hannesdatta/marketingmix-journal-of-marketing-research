@@ -55,7 +55,7 @@ library(parallel)
 	run_manual=TRUE
 	run_cluster=FALSE
 	ncpu = 10 #4
-	fname = '../temp/results_20180313.RData'
+	fname = '../temp/results.RData'
 	
 ### Function to initialize all required functions (on a cluster)
 	init <- function() {
@@ -123,6 +123,8 @@ if(run_manual==T) {
 	
 	#assign_model(m1)
 	#assign_model(m1,del=T)
+	
+	savemodels(fname)
 }
 
 ######################
@@ -140,15 +142,6 @@ if(run_cluster==T) {
 	void<-clusterEvalQ(cl, init())
 	init()
 	
-	savemodels <- function(fname) {
-	  lscall=ls(envir=.GlobalEnv)
-	  stuff=setdiff(c(grep('^m[0-9]+', lscall,value=T),'analysis_markets', grep('results[_]', lscall, value=T)),'results_brands')
-	  cat('saving...\n')
-	  print(stuff)
-	  cat('\ndone.\n')
-	  save(list=stuff , file = fname)
-	  }
-
 # Estimate without lagged Xs, but with trend
 	assign_model(m1)
 	clusterExport(cl,names(m1))

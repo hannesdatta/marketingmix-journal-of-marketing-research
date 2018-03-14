@@ -10,11 +10,9 @@ OUTPUT_DIR = ../output
 
 ###### BUILD COMMANDS ######
 
-.PHONY: preclean
-.PHONY: results
-
-preclean: $(TEMP_DIR)/preclean.csv
+pre: $(TEMP_DIR)/preclean.csv
 results: $(TEMP_DIR)/results.RData
+elast: $(OUTPUT_DIR)/elasticities.txt
 
 ###### Build parts ######
 
