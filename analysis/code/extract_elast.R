@@ -91,12 +91,12 @@ out = lapply(models, function(model_name) {
 
 results <- out
 
-for (i in seq(along=out)) {
- fwrite(out[[i]]$elast, file=paste0('../output/elast_', out[[i]]$model,'.csv'), row.names=F) 
-}
-
 sink('../output/elasticities.txt')
 cat('Finished building extract_elast.R at:\n')
 print(Sys.time())
 cat('\n\n(File used to enable track changes by makefile).\n')
 sink()
+
+for (i in seq(along=out)) {
+ fwrite(out[[i]]$elast, file=paste0('../output/elast_', out[[i]]$model,'.csv'), row.names=F) 
+}
