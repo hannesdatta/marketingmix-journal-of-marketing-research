@@ -182,17 +182,16 @@ m2$trend = 'none'
 	                        })
 	
 	# inspecting the carry-overs yields a negative one in NZ; set to zero
-	if(results_MCI_wolag_trend[[27]]$market_id==31) {
+	if(results_MCI_wolag_trend[[27]]$market_id==31 & data.table(results_MCI_wolag_trend[[27]]$model@coefficients)[grepl('lagunitsales',variable)]$coef<0) {
 	  
 	  results_MCI_wolag_trend[[27]] <- try(analyze_by_market(31, estmethod=estmethod, setup_y = setup_y, setup_x = setup_x, 
 	                          setup_endogenous = setup_endogenous, trend = trend, pval = pval, 
 	                          max.lag = max.lag, min.t = min.t, maxiter = maxiter, 
 	                          use_quarters=use_quarters, plusx=plusx, attraction_model=attraction_model, 
-	                          squared=squared, takediff=takediff, lag_heterog=lag_heterog,carryover_zero=F), silent=T)
+	                          squared=squared, takediff=takediff, lag_heterog=lag_heterog,carryover_zero=T), silent=T)
 	}
-	  
 
-	savemodels()
+#	savemodels()
 	
   # m10
 	assign_model(m1, del = TRUE)
@@ -202,7 +201,8 @@ m2$trend = 'none'
 	results_MCI_wlag_wotrend <- parLapplyLB(cl, analysis_markets[1:last.item], function(i) {
 	  maxit=400
 	  
-	  try(analyze_by_market(i, estmethod=estmethod, setup_y = setup_y, setup_x = if(i==1) setup_x else setup_x[c(1:6)],
+	  # note: TV1 in australia can only be estimated without the lagged vars for novelty and llen
+	  try(analyze_by_market(i, estmethod=estmethod, setup_y = setup_y, setup_x = if(!i==138) setup_x else setup_x[c(1:6)],
 	                        setup_endogenous = setup_endogenous, trend = trend, pval = pval, 
 	                        max.lag = max.lag, min.t = min.t, maxiter = maxiter, 
 	                        use_quarters=use_quarters, plusx=plusx, attraction_model=attraction_model, 
@@ -210,13 +210,13 @@ m2$trend = 'none'
 	})
 	
 	# inspecting the carry-overs yields a negative one in NZ; set to zero
-	if(results_MCI_wlag_wotrend[[27]]$market_id==31) {
-	  
-	  results_MCI_wlag_wotrend[[27]] <- try(analyze_by_market(31, estmethod=estmethod, setup_y = setup_y, setup_x = if(i==1) setup_x else setup_x[c(1:6)],
+	if(results_MCI_wlag_wotrend[[27]]$market_id==31 & data.table(results_MCI_wlag_wotrend[[27]]$model@coefficients)[grepl('lagunitsales',variable)]$coef<0) {
+	 
+	results_MCI_wlag_wotrend[[27]] <- try(analyze_by_market(31, estmethod=estmethod, setup_y = setup_y, setup_x = if(!31==138) setup_x else setup_x[c(1:6)],
 	                                                         setup_endogenous = setup_endogenous, trend = trend, pval = pval, 
 	                                                         max.lag = max.lag, min.t = min.t, maxiter = maxiter, 
 	                                                         use_quarters=use_quarters, plusx=plusx, attraction_model=attraction_model, 
-	                                                         squared=squared, takediff=takediff, lag_heterog=lag_heterog,carryover_zero=F), silent=T)
+	                                                         squared=squared, takediff=takediff, lag_heterog=lag_heterog,carryover_zero=T), silent=T)
 	}
 	
 	
