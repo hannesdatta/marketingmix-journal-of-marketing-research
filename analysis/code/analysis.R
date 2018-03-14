@@ -191,7 +191,7 @@ m2$trend = 'none'
 	                          squared=squared, takediff=takediff, lag_heterog=lag_heterog,carryover_zero=T), silent=T)
 	}
 
-#	savemodels()
+	savemodels()
 	
   # m10
 	assign_model(m1, del = TRUE)

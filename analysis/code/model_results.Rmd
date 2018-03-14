@@ -21,40 +21,15 @@ options(xtable.comment = FALSE)
   load(file = c('../temp/results_20180313.RData'))
 
 # determine model to analyze
-  results_brands <-  results_MCI_wolag_trend#results_MCI_wlag_wotrend #results_MCI_wolag_trend# results_MCI_wlag_wotrend #results_MCI_wolag_trend #
+  results_brands <-  results_MCI_wolag_trend#results_MCI_wlag_wotrend #results_MCI_wolag_trend#results_MCI_wlag_wotrend #results_MCI_wolag_trend# results_MCI_wlag_wotrend #results_MCI_wolag_trend #
   
 # identify model crashes
 	checks <- unlist(lapply(results_brands, class))
 	table(checks)
 	last.item = length(analysis_markets)
 
-# load data
-	brand_panel=fread('../temp/preclean.csv')
-	brand_panel[, ':=' (date = as.Date(date))]
-	
-	# elasticities
+# obtain elasticities
 	elast <- rbindlist(lapply(results_brands[!checks=='try-error'], function(x) x$elast))
-
-	# merge some more variables to it
-	vars = c('cat_class', 'country_class')
-	tmp = brand_panel[, c('market_id', vars), with=F]
-	setkey(tmp, market_id)
-	tmp = unique(tmp)
-	
-	elast = merge(elast, tmp, all.x=T, all.y=F, by = c('market_id'))
-	
-	
-new <- c('tablets', 'phones_smart')
-
-wb_lowermidx = c('india','indonesia', 'vietnam', 'philippines')
-wb_uppermidx = c('china', 'malaysia','thailand')
-
-
-elast[, new:=category%in%new]
-elast[, wb_lowermid:=country%in%wb_lowermidx]
-elast[, wb_uppermid:=country%in%wb_uppermidx]
-
-elast[, low := wb_lowermid+wb_uppermid]
 
 tableno<<-0
 figureno<<-0
@@ -122,8 +97,15 @@ Number of markets which could not be estimated due to errors: `r length(which(!c
 	kable(tmp, caption = 'Assessing non-normality of marketing mix instruments')
 	
 	# Assessing carry-over coefficients
-	carryover <- rbindlist(lapply(results_brands[!checks=='try-error'], function(x) x$model@coefficients))
-	carryover <- carryover[grepl('lagunitsales[_]', varname)]
+	tmp <- rbindlist(lapply(results_brands[!checks=='try-error'], function(x) x$model@coefficients))
+	tmp <- tmp[grepl('lagunitsales[_]', varname)]
+	# check markets
+	carryover <- data.table(market_id=unlist(lapply(results_brands, function(x) x$market_id)))
+	setkey(carryover, market_id)
+	setkey(tmp, market_id)
+	carryover[tmp, coef:=i.coef]
+	carryover[is.na(coef), coef:=0]
+	
   benchmark_brands <- rbindlist(lapply(results_brands[!checks=='try-error'], function(x) data.table(market_id=unique(x$specs$market_id), benchmarkbrand = x$benchmark_brand)))
 	
 ```
