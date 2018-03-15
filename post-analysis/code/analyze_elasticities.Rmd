@@ -115,9 +115,9 @@ print(xtable(tmp, caption=tab('Overview of selected brands (need to be active in
 
 # Research questions
 
-# RQ1: Are marketing elasticities really different in EMs versus developed markets?
+## RQ1: Are marketing elasticities really different in EMs versus developed markets?
 
-## Simple t-tests
+### Simple t-tests
 
 ```{r rq1, echo = FALSE}
 ### ANALYSIS 1: elasticities different in high versus low
@@ -148,7 +148,7 @@ kable(out[type=='longterm'], caption = tab('T-tests on differences in long-term 
 
 ```
 
-## Regression approach
+### Regression approach
 
 with category- and brand-fixed effects.
 
@@ -172,7 +172,7 @@ kable(out[type=='longterm'], caption = tab('Regression estimate for low-income c
 
 ```
 
-## Regression approach using GDP per capita (instead of dummy)
+### Regression approach using GDP per capita (instead of dummy)
 
 with category- and brand-fixed effects.
 
@@ -198,7 +198,7 @@ kable(out[type=='longterm'], caption = tab('Regression estimate for GDP per capi
 
 ```
 
-# RQ2: Can we assume that marketing mix elasticities are the same within EMs or do they differ across EMs?
+## RQ2: Can we assume that marketing mix elasticities are the same within EMs or do they differ across EMs?
 
 Regressing short- and long-term elasticities on country dummies, using brand- and category-fixed effects.
 95%-confidence bounds shown (+/- 1.96 * SE).
@@ -241,9 +241,9 @@ print(p)
 }
 ```
 
-# R3: When we look at the same markets and product categories, do western brands have the same marketing elasticities than non-western brands?
+## R3: When we look at the same markets and product categories, do western brands have the same marketing elasticities than non-western brands?
 
-## Western versus non-western brands
+### Western versus non-western brands
 
 Regressing short- and long-term elasticities on brand-dummy variable (western versus not), using market-level (product-category) fixed effects.
 
@@ -267,7 +267,7 @@ kable(out[type=='longterm'], caption = tab('Regression estimate for western bran
 
 ```
 
-## Country-of-origin effects
+### Country-of-origin effects
 
 Regressing short- and long-term elasticities on country-of-origin dummies, using brand- and category-fixed effects.
 95%-confidence bounds shown (+/- 1.96 * SE).
@@ -310,7 +310,7 @@ print(p)
 }
 ```
 
-## Local versus non-local brands
+### Local versus non-local brands
 
 Regressing short- and long-term elasticities on brand-dummy variable (local to the market, or not), using market-level (product-category) fixed effects.
 
@@ -334,9 +334,9 @@ kable(out[type=='longterm'], caption = tab('Regression estimate for local-to-mar
 
 ```
 
-# RQ4: Are product categories in different life cycle stages across EMs and DMs and what does this imply for marketing mix elasticities? 
+## RQ4: Are product categories in different life cycle stages across EMs and DMs and what does this imply for marketing mix elasticities? 
 
-## Average growth rates
+### Average growth rates
 
 ```{r rq4_growth, echo=FALSE}
 tmp=unique(elast, by = c('market_id')) # t-tests on growth rates
@@ -359,7 +359,7 @@ kable(out, caption = tab('Average category growth rates for high-income and low-
 
 ```
 
-## Implications of growth for marketing mix elasticities
+### Implications of growth for marketing mix elasticities
 
 regressing short- and long-term elasticities on category growth, with brand-, category-, and country-fixed effects.
 
@@ -383,7 +383,7 @@ kable(out[type=='longterm'], caption = tab('Regression estimate for average cate
 
 ```
 
-# R5: How does competition from unbranded products affect demand and marketing elasticities in EMs?
+## R5: How does competition from unbranded products affect demand and marketing elasticities in EMs?
 
 I am revising this question: how does competition from local/non-global brands affect marketing elasticities of global brands.
 
@@ -409,5 +409,84 @@ kable(out[type=='longterm'], caption = tab('Regression estimate for global brand
 
 ```
 
-#RQ6: What explains most variation in elasticities? Brands, categories, countries?!
+##RQ6: What explains most variation in elasticities for global brands? Brands, categories, countries?!
+
+Sample of global brands.
+
+### ANOVAs for short-term elasticities
+
+```{r anova, echo=FALSE,results='asis', warning=FALSE}
+.vars=c('llen','wpswdst','rwpspr','nov6sh')
+
+for (i in .vars) {
+  m<-aov(elast~brand+country+category, data=elast[globalbrand==T], subset=variable==i)
+  print(xtable(anova_stats(m), caption = tab(paste0("ANOVA for short-term marketing mix elasticity for ", i, ' in sample of global brands'))),type='html',caption.placement='top')
+}
+```
+
+### ANOVAs for long-term elasticities
+```{r anova2lt, echo=FALSE,results='asis', warning=FALSE}
+.vars=c('llen','wpswdst','rwpspr','nov6sh')
+
+for (i in .vars) {
+  m<-aov(elastlt~brand+country+category, data=elast[globalbrand==T], subset=variable==i)
+  print(xtable(anova_stats(m), caption = tab(paste0("ANOVA for long-term marketing mix elasticity for ", i, ' in sample of global brands'))),type='html',caption.placement='top')
+}
+```
+
+### Plots for short-term elasticities
+```{r plots_elast, echo=FALSE, fig.pos="H", include = TRUE,fig.width=8, fig.height=5,dpi=300}
+
+.vars=c('llen','wpswdst','rwpspr','nov6sh')
+
+for (i in .vars) {
+  par(mfrow=c(1,3))
+  # by country
+  tmp_bycntry=elast[!is.na(elast)&variable==i&globalbrand==T, list(w_elast = sum(elast/elast_se)/sum(1/elast_se)), by=c('variable','country')]
+	setorderv(tmp_bycntry, 'w_elast', ifelse(i=='rwpspr', 1,-1))
+	tmp_bycat=elast[!is.na(elast)&variable==i&globalbrand==T, list(w_elast = sum(elast/elast_se)/sum(1/elast_se)), by=c('variable','category')]
+	setorderv(tmp_bycat, 'w_elast', ifelse(i=='rwpspr', 1,-1))
+	tmp_bybrand=elast[!is.na(elast)&variable==i&globalbrand==T, list(w_elast = sum(elast/elast_se)/sum(1/elast_se)), by=c('variable','brand')]
+	setorderv(tmp_bybrand, 'w_elast', ifelse(i=='rwpspr', 1,-1))
+	
+	ymin = min(c(tmp_bycntry$w_elast, tmp_bycat$w_elast,tmp_bybrand$w_elast))
+	ymax = max(c(tmp_bycntry$w_elast, tmp_bycat$w_elast,tmp_bybrand$w_elast))
+	
+  cat(paste0('Variable: ', i, '\n'))
+  
+  barplot(tmp_bycntry$w_elast,names.arg=tmp_bycntry$country, las=2, cex.names=.8, main = fig(paste0(i, ', by countries')),cex.main=.8, ylim = c(ymin, ymax))
+	barplot(tmp_bycat$w_elast,names.arg=tmp_bycat$category, las=2, cex.names=.8, main = fig(paste0(i, ', by categories')),cex.main=.8, ylim = c(ymin, ymax))
+	barplot(tmp_bybrand$w_elast,names.arg=tmp_bybrand$brand, las=2, cex.names=.8, main = fig(paste0(i, ', by brands')),cex.main=.8, ylim = c(ymin, ymax))
+	 }
+
+
+
+```
+
+### Plots for long-term elasticities
+```{r plots_elastlt, echo=FALSE, fig.pos="H", include = TRUE,fig.width=8, fig.height=5,dpi=300}
+
+.vars=c('llen','wpswdst','rwpspr','nov6sh')
+
+for (i in .vars) {
+  par(mfrow=c(1,3))
+  # by country
+  tmp_bycntry=elast[!is.na(elastlt)&variable==i&globalbrand==T, list(w_elast = sum(elastlt/elastlt_se)/sum(1/elastlt_se)), by=c('variable','country')]
+	setorderv(tmp_bycntry, 'w_elast', ifelse(i=='rwpspr', 1,-1))
+	tmp_bycat=elast[!is.na(elastlt)&variable==i&globalbrand==T, list(w_elast = sum(elastlt/elastlt_se)/sum(1/elastlt_se)), by=c('variable','category')]
+	setorderv(tmp_bycat, 'w_elast', ifelse(i=='rwpspr', 1,-1))
+	tmp_bybrand=elast[!is.na(elastlt)&variable==i&globalbrand==T, list(w_elast = sum(elastlt/elastlt_se)/sum(1/elastlt_se)), by=c('variable','brand')]
+	setorderv(tmp_bybrand, 'w_elast', ifelse(i=='rwpspr', 1,-1))
+	
+	ymin = min(c(tmp_bycntry$w_elast, tmp_bycat$w_elast,tmp_bybrand$w_elast))
+	ymax = max(c(tmp_bycntry$w_elast, tmp_bycat$w_elast,tmp_bybrand$w_elast))
+	
+  cat(paste0('Variable: ', i, '\n'))
+  
+  barplot(tmp_bycntry$w_elast,names.arg=tmp_bycntry$country, las=2, cex.names=.8, main = fig(paste0(i, ', by countries')),cex.main=.8, ylim = c(ymin, ymax))
+	barplot(tmp_bycat$w_elast,names.arg=tmp_bycat$category, las=2, cex.names=.8, main = fig(paste0(i, ', by categories')),cex.main=.8, ylim = c(ymin, ymax))
+	barplot(tmp_bybrand$w_elast,names.arg=tmp_bybrand$brand, las=2, cex.names=.8, main = fig(paste0(i, ', by brands')),cex.main=.8, ylim = c(ymin, ymax))
+	 }
+
+```
 
