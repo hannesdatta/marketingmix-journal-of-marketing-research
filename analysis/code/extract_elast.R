@@ -13,6 +13,7 @@ library(marketingtools)
 
 # Load results
 load(file = c('../output/results.RData'))
+load(file = c('../temp/results_20180313.RData'))
 
 # load panel data
 brand_panel=fread('../temp/preclean.csv')
@@ -86,10 +87,19 @@ out = lapply(models, function(model_name) {
   elast[, local_to_market:=global_country==country]
   elast[, western_brand:=global_country%in%c('canada','finland','germany','italy','netherlands','sweden','usa')]
   
+  # add market growth rates
+  setkey(brand_panel, market_id)
+  setkey(elast, market_id)
+  elast[brand_panel, market_growth := i.market_growth]
+  
   return(list(checks=markets, elast=elast, model = model_name))
   })
 
 results <- out
+
+for (i in seq(along=out)) {
+ fwrite(out[[i]]$elast, file=paste0('../output/elast_', out[[i]]$model,'.csv'), row.names=F) 
+}
 
 sink('../output/elasticities.txt')
 cat('Finished building extract_elast.R at:\n')
@@ -97,6 +107,3 @@ print(Sys.time())
 cat('\n\n(File used to enable track changes by makefile).\n')
 sink()
 
-for (i in seq(along=out)) {
- fwrite(out[[i]]$elast, file=paste0('../output/elast_', out[[i]]$model,'.csv'), row.names=F) 
-}

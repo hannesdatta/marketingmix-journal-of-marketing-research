@@ -27,7 +27,59 @@ fig<-function(caption) {figureno<<-figureno+1;paste0('Figure ', figureno, ': ', 
 tab<-function(caption) {tableno<<-tableno+1;paste0('Table ', tableno, ': ', caption)}
 ```
 
-# Sample overview
+# Estimation sample
+## Overview
+
+Number of markets: `r length(unique(elast$market_id))`.
+Number of brands: `r nrow(elast[, .N, by = c('market_id', 'brand')])`.
+Number of unique brands: `r nrow(elast[, .N, by = c('brand')])`.
+
+```{r overview2, echo=FALSE, results='asis'}
+tmp = elast[, list(Nbrands = length(unique(brand))), by = c('market_id', 'category','country')]
+
+tabl = dcast(tmp, category~country, value.var=c('Nbrands'))
+print(xtable(tabl, caption = tab('Overview of categories and countries (with number of brands indicated for each market), in estimation data')), scalebox='0.6',type='html',caption.placement='top')
+```
+
+```{r brand_activity, echo=FALSE,results='asis'}
+tmp=elast[, list(ncountries=length(unique(country))), by = c('brand')]
+tmp=data.table(table(tmp$ncountries))
+setnames(tmp, c('number of countries', 'brands'))
+print(xtable(tmp,caption=tab('Brand activity across countries (estimation data)')),include.rownames=FALSE,type='html',longtable=T,caption.placement='top')
+
+```
+
+## Elasticities
+```{r elast_ov, echo = FALSE, results='asis'}
+  .vars=c('llen','wpswdst','rwpspr','nov6sh')
+	
+  zval=1.64
+	tmp=elast[!is.na(elast), list(median_elast = median(elast), 
+												  w_elast = sum(elast/elast_se)/sum(1/elast_se), 
+												  N_brands= .N, 
+												  perc_positive = length(which(elast/elast_se>=(zval)))/.N, 
+												  perc_null = length(which(abs(elast/elast_se)<zval))/.N, 
+												  perc_negative = length(which(elast/elast_se<=(-zval)))/.N), by=c('variable')]
+	kable(tmp[match(.vars, variable)], caption = tab('Short-term elasticities by variable for all brands (significance tested at p<.1 (z >= 1.64).'))
+	
+  tmp=elast[!is.na(elastlt), list(median_elast = median(elastlt), 
+												  w_elast = sum(elastlt/elastlt_se)/sum(1/elastlt_se), 
+												  N_brands= .N, 
+												  perc_positive = length(which(elastlt/elastlt_se>=(zval)))/.N, 
+												  perc_null = length(which(abs(elastlt/elastlt_se)<zval))/.N, 
+												  perc_negative = length(which(elastlt/elastlt_se<=(-zval)))/.N), by=c('variable')]
+	kable(tmp[match(.vars, variable)], caption = tab('Long-term elasticities by variable for all brands (significance tested at p<.1 (z >= 1.64).'))
+	
+
+```
+
+
+
+# Selected sample of global brands
+
+Global brands are brands active in at least three countries.
+
+## Overview
 
 ```{r sample_overview, echo=FALSE, results='asis'}
 
@@ -37,8 +89,7 @@ print(xtable(tmp, caption=tab('Overview of selected brands (need to be active in
 
 ```
 
-
-## Elasticities for brand selection
+## Elasticities for global brands
 ```{r elast_overall, echo = FALSE, results='asis'}
   .vars=c('llen','wpswdst','rwpspr','nov6sh')
 	
@@ -49,7 +100,7 @@ print(xtable(tmp, caption=tab('Overview of selected brands (need to be active in
 												  perc_positive = length(which(elast/elast_se>=(zval)))/.N, 
 												  perc_null = length(which(abs(elast/elast_se)<zval))/.N, 
 												  perc_negative = length(which(elast/elast_se<=(-zval)))/.N), by=c('variable')]
-	kable(tmp[match(.vars, variable)], caption = tab('Short-term elasticities by variable for all brands (significance tested at p<.1 (z >= 1.64).'))
+	kable(tmp[match(.vars, variable)], caption = tab('Short-term elasticities by variable for global brands (significance tested at p<.1 (z >= 1.64).'))
 	
   zval=1.64
 	tmp=elast[!is.na(elastlt)&globalbrand==T, list(median_elast = median(elastlt), 
@@ -58,10 +109,11 @@ print(xtable(tmp, caption=tab('Overview of selected brands (need to be active in
 												  perc_positive = length(which(elastlt/elastlt_se>=(zval)))/.N, 
 												  perc_null = length(which(abs(elastlt/elastlt_se)<zval))/.N, 
 												  perc_negative = length(which(elastlt/elastlt_se<=(-zval)))/.N), by=c('variable')]
-	kable(tmp[match(.vars, variable)], caption = tab('Long-term elasticities by variable for all brands (significance tested at p<.1 (z >= 1.64).'))
+	kable(tmp[match(.vars, variable)], caption = tab('Long-term elasticities by variable for global brands (significance tested at p<.1 (z >= 1.64).'))
 	
-
 ```
+
+# Research questions
 
 # RQ1: Are marketing elasticities really different in EMs versus developed markets?
 
@@ -282,36 +334,80 @@ kable(out[type=='longterm'], caption = tab('Regression estimate for local-to-mar
 
 ```
 
-# R4: Are product categories in different life cycle stages across EMs and DMs and what does this imply for marketing mix elasticities?
+# RQ4: Are product categories in different life cycle stages across EMs and DMs and what does this imply for marketing mix elasticities? 
 
-to be discussed
+## Average growth rates
 
-# R5: How does competition from unbranded produts affect demand and marketing elasticities in EMs?
+```{r rq4_growth, echo=FALSE}
+tmp=unique(elast, by = c('market_id')) # t-tests on growth rates
 
-to be discussed
+t_tests <- lapply(unique(elast$category), function(var) {
+    tmpdat = tmp[category == var]
+    teststat=t.test(tmpdat[country_class=='hinc']$market_growth, tmpdat[country_class=='linc']$market_growth)
+    
+    tabl = data.frame(country=var, mean1=teststat$estimate[1], mean2=teststat$estimate[2], t=teststat$statistic, p=teststat$p.value)
+                
+    return(list(summary=tabl))
+})
 
-# R6: Does the lack of infrastructure in EMs lead to stronger or weaker distribution elasticities? 
+out=rbindlist(lapply(t_tests, function(x) x$summary))
 
-# RQ7: Is it true that in EMs, greater standardization (less variety) leads to better financial performance? (line length elasticity smaller in EMs than in DMs?)
+setnames(out, 'mean1', 'high-income')
+setnames(out, 'mean2', 'low-income')
 
-```{r rq7, echo = FALSE}
-  var = 'llen'
+kable(out, caption = tab('Average category growth rates for high-income and low-income countries, and t-test for significance'))
 
-  cat('- SHORT TERM -\n')
-  print(t.test(elast[country_class=='hinc' & variable == var]$elast, elast[country_class=='linc' & variable == var]$elast))
-  cat('- LONG TERM -\n')
-  print(t.test(elast[country_class=='hinc' & variable == var]$elastlt, elast[country_class=='linc' & variable == var]$elastlt))
+```
+
+## Implications of growth for marketing mix elasticities
+
+regressing short- and long-term elasticities on category growth, with brand-, category-, and country-fixed effects.
+
+```{r rq4b, echo = FALSE}
+regs <- lapply(unique(elast$variable), function(var) {
+    tmpdat = elast[globalbrand==T & variable == var]
+    
+    st<-lm(elast~1+market_growth + as.factor(brand) + as.factor(category) + as.factor(country), data = tmpdat)
+    lt<-lm(elastlt~1+market_growth + as.factor(brand) + as.factor(category) + as.factor(country), data = tmpdat)
+    
+    tabl = rbind(data.frame(var=var, type='shortterm', coef = summary(st)$coefficients[2,1], p = summary(st)$coefficients[2,4]),
+    data.frame(var=var, type='longterm', coef = summary(lt)$coefficients[2,1], p = summary(lt)$coefficients[2,4]))
+    
+    return(list(summary=tabl, st=st, lt=lt))
+})
+
+out = rbindlist(lapply(regs, function(x) x$summary))
+
+kable(out[type=='shortterm'], caption = tab('Regression estimate for average category growth, using short-term elasticities; regression with fixed effects for brands, categories, and countries'))
+kable(out[type=='longterm'], caption = tab('Regression estimate for average category growth, using long-term elasticities; regression with fixed effects for brands, categories, and countries'))
 
 ```
 
-# RQ8: Is it true that in EMs, the novelty elasticity is relatively strong? 
+# R5: How does competition from unbranded products affect demand and marketing elasticities in EMs?
 
-```{r rq8, echo = FALSE}
-  var = 'nov6sh'
+I am revising this question: how does competition from local/non-global brands affect marketing elasticities of global brands.
 
-  cat('- SHORT TERM -\n')
-  print(t.test(elast[country_class=='hinc' & variable == var]$elast, elast[country_class=='linc' & variable == var]$elast))
-  cat('- LONG TERM -\n')
-  print(t.test(elast[country_class=='hinc' & variable == var]$elastlt, elast[country_class=='linc' & variable == var]$elastlt))
+Regressing elasticities on indicator for global brand, with category and country fixed effects.
+
+```{r rq5, echo = FALSE}
+regs <- lapply(unique(elast$variable), function(var) {
+    tmpdat = elast[variable == var]
+    
+    st<-lm(elast~1+I(globalbrand==T) + as.factor(category) + as.factor(country), data = tmpdat)
+    lt<-lm(elastlt~1+I(globalbrand==T) + as.factor(category) + as.factor(country), data = tmpdat)
+    
+    tabl = rbind(data.frame(var=var, type='shortterm', coef = summary(st)$coefficients[2,1], p = summary(st)$coefficients[2,4]),
+    data.frame(var=var, type='longterm', coef = summary(lt)$coefficients[2,1], p = summary(lt)$coefficients[2,4]))
+    
+    return(list(summary=tabl, st=st, lt=lt))
+})
+
+out = rbindlist(lapply(regs, function(x) x$summary))
+
+kable(out[type=='shortterm'], caption = tab('Regression estimate for global brands (versus local brands), using short-term elasticities; regression with fixed effects for categories, and countries'))
+kable(out[type=='longterm'], caption = tab('Regression estimate for global brands, using long-term elasticities; regression with fixed effects for categories, and countries'))
 
 ```
+
+#RQ6: What explains most variation in elasticities? Brands, categories, countries?!
+

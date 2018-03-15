@@ -34,12 +34,28 @@ require(data.table)
 
 	# lag variables
 	for (.var in c('rwpspr', 'wpswdst','llen','nov6sh', 'nov3sh')) {
-	  
 	  brand_panel[, paste0('lag', .var) := c(NA, get(.var)[-.N]), by = c('market_id', 'brand')]
-	  
 	}
 	
-	brand_panel <- brand_panel[selected==T]
+	# calculate growth rates in markets
+	growth = brand_panel[, list(sales=sum(usales,na.rm=T)), by = c('market_id', 'category', 'country', 'date')]
+	growth[, year:=year(date)]
+	growth[, months_with_sales:=length(which(sales>0)), by = c('market_id', 'year')]
+	# remove incomplete years
+	growth = growth[months_with_sales==12]
+	growth[, list(first=min(year), last=max(year)),by=c('market_id')]
+	tmp=growth[, list(sales_first=sum(sales[year==min(year)]),
+	              sales_last=sum(sales[year==max(year)]),
+	              nyears = max(year)-min(year)+1), by = c('market_id', 'category', 'country')]
+	tmp[, growth := (sales_last/sales_first)^(1/nyears)]
+	setorder(tmp, growth)
+	
+  setkey(tmp, market_id)
+  setkey(brand_panel, market_id)
+  brand_panel[tmp, market_growth := i.growth]
+  
+  # keep only selected brands
+  brand_panel <- brand_panel[selected==T]
 	
 	brand_panel[, usalessh := usales/sum(usales,na.rm=T), by=c('category', 'country', 'date')]
 	brand_panel[, vsalessh := vsales/sum(vsales,na.rm=T), by=c('category', 'country', 'date')]

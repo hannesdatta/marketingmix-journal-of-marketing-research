@@ -21,7 +21,7 @@ $(TEMP_DIR)/preclean.csv: preclean.R ../../derived/output/datasets.csv
 	"$(RBIN64)Rterm.exe" --vanilla --args "" < "preclean.R"
 
 # Run the model
-$(OUTPUT_DIR)/results.RData: analysis.R preclean.R proc_analysis.R
+$(OUTPUT_DIR)/results.RData: analysis.R $(TEMP_DIR)/preclean.csv preclean.R proc_analysis.R
 	"$(RBIN64)Rterm.exe" --vanilla --args "" < "analysis.R"
 
 # Produce overall statistics on estimated models (e.g., elasticities, carry-over parameters, sign. of copula terms)
