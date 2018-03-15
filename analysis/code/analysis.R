@@ -55,7 +55,6 @@ library(parallel)
 	run_manual=TRUE
 	run_cluster=FALSE
 	ncpu = 10 #4
-	fname = '../temp/results.RData'
 	
 ### Function to initialize all required functions (on a cluster)
 	init <- function() {
@@ -66,6 +65,8 @@ library(parallel)
 	# load model code
 	init()
 
+	fname = '../output/results.RData'
+	
 ######################
 ### Specify models ###
 ######################

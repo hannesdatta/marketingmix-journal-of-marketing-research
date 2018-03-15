@@ -12,7 +12,7 @@ library(data.table)
 library(marketingtools)
 
 # Load results
-load(file = c('../temp/results.RData'))
+load(file = c('../output/results.RData'))
 
 # load panel data
 brand_panel=fread('../temp/preclean.csv')
