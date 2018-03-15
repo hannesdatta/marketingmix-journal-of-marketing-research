@@ -9,15 +9,17 @@ date: "`r format(Sys.time(), '%d %B %Y')`"
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
-require(data.table)
+library(data.table)
 require(stargazer)
 library(knitr)
 require(xtable)
 require(texreg)
 library(sjstats)
+library(ggplot2)
 
 options(xtable.comment = FALSE)
 
+elast <- fread('../externals/elast_results_MCI_wlag_wotrend.csv')
 
 tableno<<-0
 figureno<<-0
@@ -26,9 +28,10 @@ tab<-function(caption) {tableno<<-tableno+1;paste0('Table ', tableno, ': ', capt
 ```
 
 # Sample overview
+
 ```{r sample_overview, echo=FALSE, results='asis'}
 
-tmp=elast[, list(ncountries=length(unique(country)), ncategories=length(unique(category))), by = c('brand')]
+tmp=elast[globalbrand==T, list(ncountries=length(unique(country)), ncategories=length(unique(category))), by = c('brand')]
 setorderv(tmp, c('ncountries','ncategories'),order=-1L)
 print(xtable(tmp, caption=tab('Overview of selected brands (need to be active in at least three countries)')), type='html',caption.placement='top')
 
@@ -36,12 +39,11 @@ print(xtable(tmp, caption=tab('Overview of selected brands (need to be active in
 
 
 ## Elasticities for brand selection
-
 ```{r elast_overall, echo = FALSE, results='asis'}
   .vars=c('llen','wpswdst','rwpspr','nov6sh')
 	
   zval=1.64
-	tmp=elast[!is.na(elast), list(median_elast = median(elast), 
+	tmp=elast[!is.na(elast)&globalbrand==T, list(median_elast = median(elast), 
 												  w_elast = sum(elast/elast_se)/sum(1/elast_se), 
 												  N_brands= .N, 
 												  perc_positive = length(which(elast/elast_se>=(zval)))/.N, 
@@ -50,7 +52,7 @@ print(xtable(tmp, caption=tab('Overview of selected brands (need to be active in
 	kable(tmp[match(.vars, variable)], caption = tab('Short-term elasticities by variable for all brands (significance tested at p<.1 (z >= 1.64).'))
 	
   zval=1.64
-	tmp=elast[!is.na(elastlt), list(median_elast = median(elastlt), 
+	tmp=elast[!is.na(elastlt)&globalbrand==T, list(median_elast = median(elastlt), 
 												  w_elast = sum(elastlt/elastlt_se)/sum(1/elastlt_se), 
 												  N_brands= .N, 
 												  perc_positive = length(which(elastlt/elastlt_se>=(zval)))/.N, 
@@ -61,64 +63,224 @@ print(xtable(tmp, caption=tab('Overview of selected brands (need to be active in
 
 ```
 
-# R1: Are marketing elasticities really different in EMs vs developed markets?
+# RQ1: Are marketing elasticities really different in EMs versus developed markets?
+
+## Simple t-tests
+
 ```{r rq1, echo = FALSE}
 ### ANALYSIS 1: elasticities different in high versus low
 
-for (var in unique(elast$variable)) {
-  cat(paste0('=====================================\n', var,'\n=====================================\n\n'))
-  
-  cat('- SHORT TERM -\n')
-  print(t.test(elast[country_class=='hinc' & variable == var]$elast, elast[country_class=='linc' & variable == var]$elast))
-  cat('- LONG TERM -\n')
-  print(t.test(elast[country_class=='hinc' & variable == var]$elastlt, elast[country_class=='linc' & variable == var]$elastlt))
-}
+t_tests <- lapply(unique(elast$variable), function(var) {
+    tmpdat = elast[globalbrand==T & variable == var]
+    # st
+    tmpdat[, metric:=elast]
+    st=t.test(tmpdat[country_class=='hinc']$metric, tmpdat[country_class=='linc']$metric)
+    #lt
+    tmpdat[, metric:=elastlt]
+    lt=t.test(tmpdat[country_class=='hinc']$metric, tmpdat[country_class=='linc']$metric)
+    
+    tabl = rbind(data.frame(var=var, type='shortterm', mean1=st$estimate[1], mean2=st$estimate[2], t=st$statistic, p=st$p.value),
+                 data.frame(var=var, type='longterm', mean1=lt$estimate[1], mean2=lt$estimate[2], t=lt$statistic, p=lt$p.value))
+                 
+    
+    return(list(summary=tabl, st=st, lt=lt))
+})
+
+out=rbindlist(lapply(t_tests, function(x) x$summary))
+setnames(out, 'mean1', 'high-income')
+setnames(out, 'mean2', 'low-income')
+
+kable(out[type=='shortterm'], caption = tab('T-tests on differences in short-term elasticities between high-income and low-income countries'))
+
+kable(out[type=='longterm'], caption = tab('T-tests on differences in long-term elasticities between high-income and low-income countries'))
+
 ```
 
-```{r rq1b, echo = FALSE}
+## Regression approach
 
-for (var in unique(elast$variable)) {
-  cat(paste0('=====================================\n', var,'\n=====================================\n\n'))
-  
-  m<-lm(elast~gdppercap + as.factor(category) + as.factor(brand), data = elast, subset = variable==var)
-  print(summary(m))
-  
-  # + long term
-}
- # cat('- SHORT TERM -\n')
-  #print(t.test(elast[country_class=='hinc' & variable == var]$elast, elast[country_class=='linc' & variable == var]$elast))
-  #cat('- LONG TERM -\n')
-  #print(t.test(elast[country_class=='hinc' & variable == var]$elastlt, elast[country_class=='linc' & #variable == var]$elastlt))
+with category- and brand-fixed effects.
+
+```{r rq1_regs, echo = FALSE}
+regs <- lapply(unique(elast$variable), function(var) {
+    tmpdat = elast[globalbrand==T & variable == var]
+    
+    st<-lm(elast~1+I(country_class=='linc') + as.factor(category) + as.factor(brand), data = tmpdat)
+    lt<-lm(elastlt~1+I(country_class=='linc') + as.factor(category) + as.factor(brand), data = tmpdat)
+    
+    tabl = rbind(data.frame(var=var, type='shortterm', coef = summary(st)$coefficients[2,1], p = summary(st)$coefficients[2,4]),
+    data.frame(var=var, type='longterm', coef = summary(lt)$coefficients[2,1], p = summary(lt)$coefficients[2,4]))
+    
+    return(list(summary=tabl, st=st, lt=lt))
+})
+
+out = rbindlist(lapply(regs, function(x) x$summary))
+
+kable(out[type=='shortterm'], caption = tab('Regression estimate for low-income country dummy (versus high-income), using short-term elasticities; regression with fixed effects for countries and brands'))
+kable(out[type=='longterm'], caption = tab('Regression estimate for low-income country dummy (versus high-income), using long-term elasticities; regression with fixed effects for countries and brands'))
+
 ```
 
+## Regression approach using GDP per capita (instead of dummy)
 
-# R2: Can we assume that marketing mix elasticities are the same within EMs or do they differ across EMs?
+with category- and brand-fixed effects.
 
-(intercepts are China)
+Note that signs reverse, compared to regression before (GDP per capita is reverse-coding for low-income dummy earlier).
+
+```{r rq1_regs_gdp, echo = FALSE}
+regs <- lapply(unique(elast$variable), function(var) {
+    tmpdat = elast[globalbrand==T & variable == var]
+    
+    st<-lm(elast~1+gdppercap + as.factor(category) + as.factor(brand), data = tmpdat)
+    lt<-lm(elastlt~1+gdppercap + as.factor(category) + as.factor(brand), data = tmpdat)
+    
+    tabl = rbind(data.frame(var=var, type='shortterm', coef = summary(st)$coefficients[2,1], p = summary(st)$coefficients[2,4]),
+    data.frame(var=var, type='longterm', coef = summary(lt)$coefficients[2,1], p = summary(lt)$coefficients[2,4]))
+    
+    return(list(summary=tabl, st=st, lt=lt))
+})
+
+out = rbindlist(lapply(regs, function(x) x$summary))
+
+kable(out[type=='shortterm'], caption = tab('Regression estimate for GDP per capita, using short-term elasticities; regression with fixed effects for countries and brands'))
+kable(out[type=='longterm'], caption = tab('Regression estimate for GDP per capita (versus high-income), using long-term elasticities; regression with fixed effects for countries and brands'))
+
+```
+
+# RQ2: Can we assume that marketing mix elasticities are the same within EMs or do they differ across EMs?
+
+Regressing short- and long-term elasticities on country dummies, using brand- and category-fixed effects.
+95%-confidence bounds shown (+/- 1.96 * SE).
 
 ```{r rq2, echo = FALSE}
 
-for (var in unique(elast$variable)) {
-  cat(paste0('=====================================\n', var,'\n=====================================\n\n'))
-  
-  cat('- SHORT TERM -\n')
-  m<-lm(elast~as.factor(country) + as.factor(category) + as.factor(brand), data=elast, subset=country_class=='linc'&variable==var)
-  res=data.table(summary(m)$coefficients)
-  res[, variable:=rownames(summary(m)$coefficients)]
-  print(res[grepl('country', variable)])
-  
-  cat('- LONG TERM -\n')
-  m<-lm(elastlt~as.factor(country)+ as.factor(category) + as.factor(brand), data=elast, subset=country_class=='linc'&variable==var)
-  res=data.table(summary(m)$coefficients)
-  res[, variable:=rownames(summary(m)$coefficients)]
-  print(res[grepl('country', variable)])
-  
+regs <- lapply(unique(elast$variable), function(var) {
+    tmpdat = elast[globalbrand==T & variable == var&country_class=='linc']
+    
+      st<-lm(elast~-1+as.factor(country) + as.factor(category) + as.factor(brand), data=tmpdat)
+      lt<-lm(elastlt~-1+as.factor(country) + as.factor(category) + as.factor(brand), data=tmpdat)
+      
+      res=rbindlist(lapply(c('st', 'lt'), function(m) {
+        modelname=m
+        m=eval(parse(text=m))
+        out=data.table(summary(m)$coefficients)
+        out[, variable:=rownames(summary(m)$coefficients)]
+        setnames(out, c('est', 'se', 't', 'p', 'variable'))
+        setcolorder(out, c('variable', 'est', 'se', 't', 'p'))
+        out=out[grepl('Intercept|country', variable)]
+        out[, variable:=gsub('.*country[)]', '', variable)]
+        out[, var:=var]
+        out[, type:=modelname]
+        return(out)
+      }))
+      
+    return(list(summary=res, st=st, lt=lt))
+})
+
+out = rbindlist(lapply(regs, function(x) x$summary))
+
+# boxplot
+for (.var in unique(elast$variable)) {
+p<-ggplot(out[var==.var], aes(x=variable, y=est, fill=type)) + 
+    geom_bar(position=position_dodge(), stat="identity") +
+    geom_errorbar(aes(ymin=est-1.96*se, ymax=est+1.96*se),
+                  width=.2,                    # Width of the error bars
+                  position=position_dodge(.9))+ggtitle(fig(.var))
+print(p)
 }
 ```
 
 # R3: When we look at the same markets and product categories, do western brands have the same marketing elasticities than non-western brands?
 
-not done yet
+## Western versus non-western brands
+
+Regressing short- and long-term elasticities on brand-dummy variable (western versus not), using market-level (product-category) fixed effects.
+
+```{r rq3, echo = FALSE}
+regs <- lapply(unique(elast$variable), function(var) {
+    tmpdat = elast[globalbrand==T & variable == var]
+    
+    st<-lm(elast~1+western_brand + as.factor(market_id), data = tmpdat)
+    lt<-lm(elastlt~1+western_brand + as.factor(market_id), data = tmpdat)
+    
+    tabl = rbind(data.frame(var=var, type='shortterm', coef = summary(st)$coefficients[2,1], p = summary(st)$coefficients[2,4]),
+    data.frame(var=var, type='longterm', coef = summary(lt)$coefficients[2,1], p = summary(lt)$coefficients[2,4]))
+    
+    return(list(summary=tabl, st=st, lt=lt))
+})
+
+out = rbindlist(lapply(regs, function(x) x$summary))
+
+kable(out[type=='shortterm'], caption = tab('Regression estimate for western brand dummy, using short-term elasticities; regression with fixed effects for countries and brands'))
+kable(out[type=='longterm'], caption = tab('Regression estimate for western brand dummy, using long-term elasticities; regression with fixed effects for countries and brands'))
+
+```
+
+## Country-of-origin effects
+
+Regressing short- and long-term elasticities on country-of-origin dummies, using brand- and category-fixed effects.
+95%-confidence bounds shown (+/- 1.96 * SE).
+
+```{r rq3b, echo = FALSE}
+
+regs <- lapply(unique(elast$variable), function(var) {
+    tmpdat = elast[globalbrand==T & variable == var]
+    
+      st<-lm(elast~-1+as.factor(global_country) + as.factor(market_id), data=tmpdat)
+      lt<-lm(elastlt~-1+as.factor(global_country) + as.factor(market_id), data=tmpdat)
+      
+      res=rbindlist(lapply(c('st', 'lt'), function(m) {
+        modelname=m
+        m=eval(parse(text=m))
+        out=data.table(summary(m)$coefficients)
+        out[, variable:=rownames(summary(m)$coefficients)]
+        setnames(out, c('est', 'se', 't', 'p', 'variable'))
+        setcolorder(out, c('variable', 'est', 'se', 't', 'p'))
+        out=out[grepl('global[_]country', variable)]
+        out[, variable:=gsub('.*country[)]', '', variable)]
+        out[, var:=var]
+        out[, type:=modelname]
+        return(out)
+      }))
+      
+    return(list(summary=res, st=st, lt=lt))
+})
+
+out = rbindlist(lapply(regs, function(x) x$summary))
+
+# boxplot
+for (.var in unique(elast$variable)) {
+p<-ggplot(out[var==.var], aes(x=variable, y=est, fill=type)) + 
+    geom_bar(position=position_dodge(), stat="identity") +
+    geom_errorbar(aes(ymin=est-1.96*se, ymax=est+1.96*se),
+                  width=.2,                    # Width of the error bars
+                  position=position_dodge(.9))+ggtitle(fig(.var))
+print(p)
+}
+```
+
+## Local versus non-local brands
+
+Regressing short- and long-term elasticities on brand-dummy variable (local to the market, or not), using market-level (product-category) fixed effects.
+
+```{r rq3c, echo = FALSE}
+regs <- lapply(unique(elast$variable), function(var) {
+    tmpdat = elast[globalbrand==T & variable == var]
+    
+    st<-lm(elast~1+local_to_market + as.factor(market_id), data = tmpdat)
+    lt<-lm(elastlt~1+local_to_market + as.factor(market_id), data = tmpdat)
+    
+    tabl = rbind(data.frame(var=var, type='shortterm', coef = summary(st)$coefficients[2,1], p = summary(st)$coefficients[2,4]),
+    data.frame(var=var, type='longterm', coef = summary(lt)$coefficients[2,1], p = summary(lt)$coefficients[2,4]))
+    
+    return(list(summary=tabl, st=st, lt=lt))
+})
+
+out = rbindlist(lapply(regs, function(x) x$summary))
+
+kable(out[type=='shortterm'], caption = tab('Regression estimate for local-to-market dummy, using short-term elasticities; regression with fixed effects for markets (product/country combinations)'))
+kable(out[type=='longterm'], caption = tab('Regression estimate for local-to-market dummy, using long-term elasticities; regression with fixed effects for markets (product/country combinations)'))
+
+```
 
 # R4: Are product categories in different life cycle stages across EMs and DMs and what does this imply for marketing mix elasticities?
 
