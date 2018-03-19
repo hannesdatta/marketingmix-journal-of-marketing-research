@@ -54,6 +54,21 @@ require(data.table)
   setkey(brand_panel, market_id)
   brand_panel[tmp, market_growth := i.growth]
   
+  # calculate (for the complete sample) market shares
+  overall_ms = brand_panel[, list(sumsales=sum(usales, na.rm=T)), by = c('market_id', 'brand')]
+  overall_ms[, overall_ms := sumsales/sum(sumsales,na.rm=T), by = c('market_id')]
+  setorderv(overall_ms, c('market_id', 'overall_ms'), order=-1L)
+  overall_ms[, rank_ms:=.N-rank(overall_ms)+1, by = c('market_id')]
+  setkey(brand_panel, market_id, brand)
+  setkey(overall_ms, market_id, brand)
+  
+  brand_panel[overall_ms, overall_ms:=i.overall_ms]
+  
+  concentration=overall_ms[, list(herf = sum(overall_ms^2), 
+                    c3=sum(overall_ms[rank_ms<=3])/sum(overall_ms),
+                    c5=sum(overall_ms[rank_ms<=5])/sum(overall_ms)), by = c('market_id')]
+  brand_panel <- merge(brand_panel, concentration, by = c('market_id'), all.x=T, all.y=F)
+  
   # keep only selected brands
   brand_panel <- brand_panel[selected==T]
 	
@@ -70,6 +85,10 @@ require(data.table)
 	brand_panel[grepl('desktoppc|laptop', category), cat_class := 'cp']
 	brand_panel[grepl('tv[_]|dvd', category), cat_class := 'tvdvd']
 	brand_panel[grepl('washing|cooling|microwave', category), cat_class := 'wte']
+	
+	brand_panel[, necessity:=0]
+	brand_panel[grepl('washing|cooling|microwave', category), necessity:=1]
+	
 	
 	brand_panel[country %in% c('australia', 'hong kong', 'japan', 'new zealand', 'singapore', 'south korea', 'taiwan'), country_class := 'hinc']
 	brand_panel[is.na(country_class), country_class := 'linc']

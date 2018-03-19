@@ -12,7 +12,7 @@ library(data.table)
 library(marketingtools)
 
 # Load results
-load(file = c('../output/results.RData'))
+#load(file = c('../output/results.RData'))
 load(file = c('../temp/results_20180313.RData'))
 
 # load panel data
@@ -49,6 +49,8 @@ out = lapply(models, function(model_name) {
   elast[, ncountries:=length(unique(country)), by = c('brand')]
   elast[, globalbrand:=ncountries>2 & !brand=='unbranded']
   
+  elast[, ncat_in_country:=length(unique(category)), by = c('brand','country')]
+  
   elast[, hedon := category %in% c('tablets', 'phones_smart', 'phones_mobile', 'camera_slr', 'camera_compact', 'dvd', 'tv_gen1_crtv', 'tv_gen2_lcd')]
   elast[, highms := mean_ms>=median(mean_ms), by = c('market_id', 'variable')]
   
@@ -57,13 +59,22 @@ out = lapply(models, function(model_name) {
   elast[gdp, gdppercap:=i.gdppercap]
 
   # merge country (high versus low income) and category class (camera, computer, phones, tv/dvd, white goods)
-  vars = c('cat_class', 'country_class')
-  tmp = brand_panel[, c('market_id', vars), with=F]
-  setkey(tmp, market_id)
-  tmp = unique(tmp)
-
-  elast = merge(elast, tmp, all.x=T, all.y=F, by = c('market_id'))
+    # by market ID
+    vars = c('cat_class', 'country_class', 'market_growth', 'herf', 'c3', 'c5', 'necessity')
+    tmp = brand_panel[, c('market_id', vars), with=F]
+    setkey(tmp, market_id)
+    tmp = unique(tmp)
   
+    elast = merge(elast, tmp, all.x=T, all.y=F, by = c('market_id'))
+    
+    # by brand/market_id
+    vars = c('overall_ms')
+    tmp = brand_panel[, c('market_id', 'brand', vars), with=F]
+    setkey(tmp, market_id,brand)
+    tmp = unique(tmp)
+    
+    elast = merge(elast, tmp, all.x=T, all.y=F, by = c('market_id', 'brand'))
+    
   # indicator for new categories
   elast[, new:=category%in%c('tablets', 'phones_smart')]
   
@@ -87,10 +98,11 @@ out = lapply(models, function(model_name) {
   elast[, local_to_market:=global_country==country]
   elast[, western_brand:=global_country%in%c('canada','finland','germany','italy','netherlands','sweden','usa')]
   
-  # add market growth rates
-  setkey(brand_panel, market_id)
-  setkey(elast, market_id)
-  elast[brand_panel, market_growth := i.market_growth]
+  # country-of-origin
+  elast[globalbrand==T, country_of_origin := 'asian_other']
+  elast[globalbrand==T & global_country==country, country_of_origin := 'local']
+  elast[globalbrand==T & global_country%in%c('finland','germany','italy','netherlands','sweden'), country_of_origin := 'europe']
+  elast[globalbrand==T & global_country%in%c('canada','usa'), country_of_origin := 'northamerica']
   
   return(list(checks=markets, elast=elast, model = model_name))
   })
