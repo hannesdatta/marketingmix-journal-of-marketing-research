@@ -37,6 +37,7 @@ regmodel <- function(formula=~1+I(country_class=='linc') + as.factor(category) +
 names(regs) <- unique(dat$variable)
 return(regs)
 }
+
 printout = function(x, type='st', omit='category|brand', title='') {
   if (type=='st') res = lapply(out, function(m) m$st)
   if (type=='lt') res = lapply(out, function(m) m$lt)
@@ -46,15 +47,48 @@ printout = function(x, type='st', omit='category|brand', title='') {
 
 }
 
+printres <- function(x, omit) {
+  
+  printout(x, 'st', omit=omit, title = tab('short-term'))
+  printout(x, 'lt', omit=omit, title = tab('long-term'))
 
-### keep global brands, >2 countries >3 countries
-elast[, ln_gdppercap:=log(gdppercap)]
+}
+
+# load extra variables
+hdi <- fread('../temp/hdi.csv')
+
+# change taiwan
+hdi[, hdi2010:=ifelse(country=='taiwan', mean(hdi2010[country%in%c('thailand', 'china')]), hdi2010)]
+
+gdp <- fread('../temp/gdp.csv')
+
+setkey(hdi, country)
+setkey(elast, country)
+elast[hdi, hdi2010:=i.hdi2010]
+setkey(gdp, country)
+elast[gdp, gdppercap2010:=i.gdppercap2010]
+
+
+# log of variables
+for (var in c('herf','c3','c5','market_growth','hdi2010','gdppercap2010', 'ncat_in_country', 'ncountry_in_category')) {
+  elast[, (paste0('ln_', var)):=log(get(var))]
+  
+}
+
+# dummies
+# local_to_market
+# western (versus asian)
+
+# issue: drop overall_ms from code
+
 elast[, worldbank := '']
 elast[country%in%c('india','indonesia', 'vietnam', 'philippines'), worldbank:='lowermid']
 elast[country%in%c('china', 'malaysia','thailand'), worldbank:='uppermid']
 elast[worldbank=='', worldbank:='high']
 
-#elast=elast[globalbrand==T]
+
+### keep global brands, >2 countries >3 countries
+elast=elast[globalbrand==T]
 #elast=elast[ncountries>=2]
 
 
@@ -72,21 +106,46 @@ print(xtable(tmp, caption=tab('Overview of selected brands (need to be active in
 
 ```
 
+# degree of development
+
+- GDP per capita in 2010
+- Human Development Index in 2010 (imputed for Taiwan as mean of China and Thailand)
+
+```{r devel, echo = FALSE}
+tmp=unique(elast, by='country')[, c('country','gdppercap2010','hdi2010'),with=F]
+setorderv(tmp, c('gdppercap2010'), order=-1L)
+kable(tmp, caption=tab('Development indicators for countries in sample'))
+```
+
 # investigate emerging country variable
 
 ## continuous, log GDP per cap
 
 ```{r rq1_regs, echo = FALSE, results='asis'}
 
-out=regmodel(formula=~1+ln_gdppercap + as.factor(category) + as.factor(brand), 
-                     dat=elast)
+out=regmodel(formula=~1+ln_gdppercap2010 + as.factor(category) + as.factor(brand), 
+                     dat=elast, mc = ~ln_gdppercap)
 
-printout(out, 'st', omit='brand|category', title = tab('short-term'))
-printout(out, 'lt', omit='brand|category', title = tab('long-term'))
+# build mean center feature
+
+printres(out, omit='brand|category')
+
+
+# log of variables
+for (var in c('herf','c3','c5','market_growth','hdi2010','gdppercap2010', 'ncat_in_country', 'ncountry_in_category')) {
+  elast[, (paste0('ln_', var)):=log(get(var))]
+  
+}
+
+# dummies
+# local_to_market
+# western (versus asian)
+
+
 
 ```
 
-## HDI (data not available)
+## HDIxxx
 
 ## 2 classes: Taiwan as high-income
 
