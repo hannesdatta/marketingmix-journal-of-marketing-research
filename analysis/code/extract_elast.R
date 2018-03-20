@@ -50,6 +50,7 @@ out = lapply(models, function(model_name) {
   elast[, globalbrand:=ncountries>2 & !brand=='unbranded']
   
   elast[, ncat_in_country:=length(unique(category)), by = c('brand','country')]
+  elast[, ncountry_in_category:=length(unique(country)), by = c('brand','category')]
   
   elast[, hedon := category %in% c('tablets', 'phones_smart', 'phones_mobile', 'camera_slr', 'camera_compact', 'dvd', 'tv_gen1_crtv', 'tv_gen2_lcd')]
   elast[, highms := mean_ms>=median(mean_ms), by = c('market_id', 'variable')]
