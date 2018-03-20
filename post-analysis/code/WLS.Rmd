@@ -9,15 +9,17 @@ date: "`r format(Sys.time(), '%d %B %Y')`"
 knitr::opts_chunk$set(echo = TRUE)
 
 library(data.table)
-require(stargazer)
+library(stargazer)
 library(knitr)
-require(xtable)
-require(texreg)
+#require(xtable)
+#require(texreg)
+library(lme4)
 
 options(xtable.comment = FALSE)
 
 # Load data
   elast <- fread('../externals/elast_results_MCI_wlag_wotrend.csv')
+  #elast <- fread('../externals/elast_results_MCI_wolag_trend.csv')
 
 # Load auxilary functions
   source('proc_auxilary.R')
@@ -88,8 +90,19 @@ tmp=unique(elast, by='country')[, c('country','gdppercap2010','hdi2010'),with=F]
 setorderv(tmp, c('gdppercap2010'), order=-1L)
 kable(tmp, caption=tab('Development indicators for countries in sample'))
 ```
+# Descriptives
+
+(to be done)
+
+# Combined analysis
+
+Using WLS, with random effects for countries, categories, and brands.
+
+(to be done)
 
 # investigate different versions of an emerging country variable
+
+Following regressions are all estimated by OLS, using brand and category fixed effects (not shown in regression tables).
 
 ## log GDP per cap
 
@@ -161,7 +174,9 @@ printres(out, omit='brand|category')
 
 # interaction analysis (continuing with log GDP)
 
-Note: interaction terms displayed with : instead of *.
+Following regressions are all estimated by OLS, using brand and category fixed effects (not shown in regression tables). Continuous variables logged. All terms entering in interactions have been grand-mean centered. 
+
+Note: Interaction terms displayed with : instead of *. 
 
 # 1. local versus foreign brands
 
