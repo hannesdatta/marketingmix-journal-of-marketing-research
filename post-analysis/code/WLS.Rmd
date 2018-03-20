@@ -16,71 +16,35 @@ require(texreg)
 
 options(xtable.comment = FALSE)
 
-elast <- fread('../externals/elast_results_MCI_wlag_wotrend.csv')
+# Load data
+  elast <- fread('../externals/elast_results_MCI_wlag_wotrend.csv')
 
-tableno<<-0
-figureno<<-0
-fig<-function(caption) {figureno<<-figureno+1;paste0('Figure ', figureno, ': ', caption)}
-tab<-function(caption) {tableno<<-tableno+1;paste0('Table ', tableno, ': ', caption)}
-
-regmodel <- function(formula=~1+I(country_class=='linc') + as.factor(category) + as.factor(brand), 
-                     dat) {
-
-  regs <- lapply(unique(dat$variable), function(varname) {
-      st<-lm(update(formula, elast ~ .), data = data.table(dat[variable==varname]), weights=1/elast_se)
-      lt<-lm(update(formula, elastlt ~ .), data = data.table(dat[variable==varname]), weights=1/elastlt_se)
-      
-      return(list(variable=varname, st=st, lt=lt))
-      
-  })
-  
-names(regs) <- unique(dat$variable)
-return(regs)
-}
-
-printout = function(x, type='st', omit='category|brand', title='') {
-  if (type=='st') res = lapply(out, function(m) m$st)
-  if (type=='lt') res = lapply(out, function(m) m$lt)
-  
-  stargazer(res, type = 'html', omit=omit, title = title, column.labels=names(out),
-            notes=c(paste0('ommited fixed effects for: ', gsub('[|]', ', ', omit))))
-
-}
-
-printres <- function(x, omit) {
-  
-  printout(x, 'st', omit=omit, title = tab('short-term'))
-  printout(x, 'lt', omit=omit, title = tab('long-term'))
-
-}
+# Load auxilary functions
+  source('proc_auxilary.R')
 
 # load extra variables
-hdi <- fread('../temp/hdi.csv')
+  hdi <- fread('../temp/hdi.csv')
+# change taiwan (reported value from China is not reliable)
+  hdi[, hdi2010:=ifelse(country=='taiwan', mean(hdi2010[country%in%c('thailand', 'china')]), hdi2010)]
+# Load GDP
+  gdp <- fread('../temp/gdp.csv')
+# Merge
+  setkey(hdi, country)
+  setkey(elast, country)
+  elast[hdi, hdi2010:=i.hdi2010]
+  setkey(gdp, country)
+  elast[gdp, gdppercap2010:=i.gdppercap2010]
 
-# change taiwan
-hdi[, hdi2010:=ifelse(country=='taiwan', mean(hdi2010[country%in%c('thailand', 'china')]), hdi2010)]
 
-gdp <- fread('../temp/gdp.csv')
-
-setkey(hdi, country)
-setkey(elast, country)
-elast[hdi, hdi2010:=i.hdi2010]
-setkey(gdp, country)
-elast[gdp, gdppercap2010:=i.gdppercap2010]
-
-
-# log of variables
+# take natural log of variables
 for (var in c('herf','c3','c5','market_growth','hdi2010','gdppercap2010', 'ncat_in_country', 'ncountry_in_category')) {
   elast[, (paste0('ln_', var)):=log(get(var))]
   
 }
 
-# dummies
-# local_to_market
-# western (versus asian)
+# focal dummies: local_to_market, western (versus asian)
 
-# issue: drop overall_ms from code
-
+#
 elast[, worldbank := '']
 elast[country%in%c('india','indonesia', 'vietnam', 'philippines'), worldbank:='lowermid']
 elast[country%in%c('china', 'malaysia','thailand'), worldbank:='uppermid']
@@ -124,7 +88,9 @@ kable(tmp, caption=tab('Development indicators for countries in sample'))
 ```{r rq1_regs, echo = FALSE, results='asis'}
 
 out=regmodel(formula=~1+ln_gdppercap2010 + as.factor(category) + as.factor(brand), 
-                     dat=elast, mc = ~ln_gdppercap)
+                     dat=elast)
+
+, mc = ~ln_gdppercap)
 
 # build mean center feature
 
