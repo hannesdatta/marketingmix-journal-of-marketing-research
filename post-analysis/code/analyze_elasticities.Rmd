@@ -1,4 +1,4 @@
- ---
+---
 title: "GfK Singapore - RQs"
 output:
   html_document: default
@@ -200,7 +200,7 @@ kable(out[type=='longterm'], caption = tab('Regression estimate for GDP per capi
 
 ## RQ2: Can we assume that marketing mix elasticities are the same within EMs or do they differ across EMs?
 
-Regressing short- and long-term elasticities on country dummies, using brand- and category-fixed effects.
+Regressing short- and long-term elasticities on country dummies (China is intercept), using brand- and category-fixed effects.
 95%-confidence bounds shown (+/- 1.96 * SE).
 
 ```{r rq2, echo = FALSE}
@@ -208,8 +208,8 @@ Regressing short- and long-term elasticities on country dummies, using brand- an
 regs <- lapply(unique(elast$variable), function(var) {
     tmpdat = elast[globalbrand==T & variable == var&country_class=='linc']
     
-      st<-lm(elast~-1+as.factor(country) + as.factor(category) + as.factor(brand), data=tmpdat)
-      lt<-lm(elastlt~-1+as.factor(country) + as.factor(category) + as.factor(brand), data=tmpdat)
+      st<-lm(elast~1+as.factor(country) + as.factor(category) + as.factor(brand), data=tmpdat)
+      lt<-lm(elastlt~1+as.factor(country) + as.factor(category) + as.factor(brand), data=tmpdat)
       
       res=rbindlist(lapply(c('st', 'lt'), function(m) {
         modelname=m

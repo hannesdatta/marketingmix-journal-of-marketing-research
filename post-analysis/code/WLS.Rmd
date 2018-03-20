@@ -1,0 +1,312 @@
+---
+title: "GfK Singapore - WLS"
+output:
+  html_document: default
+date: "`r format(Sys.time(), '%d %B %Y')`"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(data.table)
+require(stargazer)
+library(knitr)
+require(xtable)
+require(texreg)
+
+options(xtable.comment = FALSE)
+
+elast <- fread('../externals/elast_results_MCI_wlag_wotrend.csv')
+
+tableno<<-0
+figureno<<-0
+fig<-function(caption) {figureno<<-figureno+1;paste0('Figure ', figureno, ': ', caption)}
+tab<-function(caption) {tableno<<-tableno+1;paste0('Table ', tableno, ': ', caption)}
+
+regmodel <- function(formula=~1+I(country_class=='linc') + as.factor(category) + as.factor(brand), 
+                     dat) {
+
+  regs <- lapply(unique(dat$variable), function(varname) {
+      st<-lm(update(formula, elast ~ .), data = data.table(dat[variable==varname]), weights=1/elast_se)
+      lt<-lm(update(formula, elastlt ~ .), data = data.table(dat[variable==varname]), weights=1/elastlt_se)
+      
+      return(list(variable=varname, st=st, lt=lt))
+      
+  })
+  
+names(regs) <- unique(dat$variable)
+return(regs)
+}
+printout = function(x, type='st', omit='category|brand', title='') {
+  if (type=='st') res = lapply(out, function(m) m$st)
+  if (type=='lt') res = lapply(out, function(m) m$lt)
+  
+  stargazer(res, type = 'html', omit=omit, title = title, column.labels=names(out),
+            notes=c(paste0('ommited fixed effects for: ', gsub('[|]', ', ', omit))))
+
+}
+
+
+### keep global brands, >2 countries >3 countries
+elast[, ln_gdppercap:=log(gdppercap)]
+elast[, worldbank := '']
+elast[country%in%c('india','indonesia', 'vietnam', 'philippines'), worldbank:='lowermid']
+elast[country%in%c('china', 'malaysia','thailand'), worldbank:='uppermid']
+elast[worldbank=='', worldbank:='high']
+
+#elast=elast[globalbrand==T]
+#elast=elast[ncountries>=2]
+
+
+```
+
+all analyses conducted with WLS, whereby weights correspond to inverse standard errors of estimated short- or long-term elasticities. no clustered SEs used (yet).
+
+# sample overview
+
+```{r sample_overview, echo=FALSE, results='asis'}
+
+tmp=elast[, list(ncountries=length(unique(country)), ncategories=length(unique(category))), by = c('brand')]
+setorderv(tmp, c('ncountries','ncategories'),order=-1L)
+print(xtable(tmp, caption=tab('Overview of selected brands (need to be active in at least three countries)')), type='html',caption.placement='top')
+
+```
+
+# investigate emerging country variable
+
+## continuous, log GDP per cap
+
+```{r rq1_regs, echo = FALSE, results='asis'}
+
+out=regmodel(formula=~1+ln_gdppercap + as.factor(category) + as.factor(brand), 
+                     dat=elast)
+
+printout(out, 'st', omit='brand|category', title = tab('short-term'))
+printout(out, 'lt', omit='brand|category', title = tab('long-term'))
+
+```
+
+## HDI (data not available)
+
+## 2 classes: Taiwan as high-income
+
+```{r rq2, echo = FALSE}
+tmp=elast[, list(.N, gdp_per_cap=mean(gdppercap)), by = c('country_class','country')][, N:=NULL]
+#print(tmp)
+setorderv(tmp, 'gdp_per_cap', order=-1L)
+kable(tmp, caption=tab('Country classification: IMF'))
+```
+
+```{r twoclasses, echo = FALSE, results='asis'}
+
+out=regmodel(formula=~1+I(country_class=='linc') + as.factor(category) + as.factor(brand), 
+                     dat=elast)
+
+printout(out, 'st', omit='brand|category', title = tab('short-term'))
+printout(out, 'lt', omit='brand|category', title = tab('long-term'))
+
+```
+
+## 2 classes: Taiwan as low-income
+
+```{r twoclasses2, echo = FALSE, results='asis'}
+elast[,linc_recode:=ifelse(country_class=='linc'|country=='taiwan', 1,0)]
+
+out=regmodel(formula=~1+linc_recode + as.factor(category) + as.factor(brand), 
+                     dat=elast)
+
+printout(out, 'st', omit='brand|category', title = tab('short-term'))
+printout(out, 'lt', omit='brand|category', title = tab('long-term'))
+
+```
+
+
+## 3 classes by worldbank
+
+```{r rq2bb, echo = FALSE}
+tmp=elast[, list(.N, gdp_per_cap=mean(gdppercap)), by = c('worldbank','country')][, N:=NULL]
+#print(tmp)
+setorderv(tmp, 'gdp_per_cap', order=-1L)
+kable(tmp, caption=tab('Country classification: Worldbank'))
+```
+
+```{r threeclass, echo = FALSE, results='asis'}
+
+out=regmodel(formula=~1+worldbank + as.factor(category) + as.factor(brand), 
+                     dat=elast)
+
+printout(out, 'st', omit='brand|category', title = tab('short-term'))
+printout(out, 'lt', omit='brand|category', title = tab('long-term'))
+
+```
+
+## 3 classes by worldbank, with Taiwan as lowermid instead of high
+```{r threeclass2, echo = FALSE, results='asis'}
+elast[, worldbank_recode:=worldbank]
+elast[country=='taiwan', worldbank_recode:='uppermid']
+
+out=regmodel(formula=~1+worldbank_recode + as.factor(category) + as.factor(brand), 
+                     dat=elast)
+
+printout(out, 'st', omit='brand|category', title = tab('short-term'))
+printout(out, 'lt', omit='brand|category', title = tab('long-term'))
+
+```
+
+
+# interaction analysis (continuing with log GDP)
+
+Note: interaction terms indicated with : instead of *.
+
+## 1a. country of origin (four groups)
+
+Displays unique brands (summing to 53) and corresponding country-of-origin categories.
+
+Read: 33 unique brands are either classified as asian other or local. 4 are exclusively classified as asian other, etc.
+
+```{r cootable, echo = FALSE}
+tmp=elast[globalbrand==T, list(coo=paste0(unique(country_of_origin)[order(unique(country_of_origin))], collapse=', ')), by = c('brand')][, list(N_brands=.N), by = c('coo')]
+kable(tmp, caption=tab('Unique brand/country of origin combinations'))
+```
+
+Baseline is asia other.
+
+```{r r1a, echo = FALSE, results='asis'}
+
+out=regmodel(formula=~1+ln_gdppercap*country_of_origin + as.factor(category) + as.factor(brand), 
+                     dat=elast)
+
+printout(out, 'st', omit='brand|category', title = tab('short-term'))
+printout(out, 'lt', omit='brand|category', title = tab('long-term'))
+
+```
+
+## 1b. country of origin (three groups)
+
+combined north america and europe.
+baseline is asia other.
+
+```{r r1b, echo = FALSE, results='asis'}
+elast[,coo_recoded := country_of_origin]
+
+elast[coo_recoded%in%c('europe', 'northamerica'), coo_recoded:='eur_northameric']
+
+out=regmodel(formula=~1+ln_gdppercap*coo_recoded + as.factor(category) + as.factor(brand), 
+                     dat=elast)
+
+printout(out, 'st', omit='brand|category', title = tab('short-term'))
+printout(out, 'lt', omit='brand|category', title = tab('long-term'))
+
+```
+
+## 2. cross-country presence
+
+X = number of unique countries a brand is active in.
+
+```{r r2, echo = FALSE, results='asis'}
+out=regmodel(formula=~1+ln_gdppercap*ncountries + as.factor(category) + as.factor(brand), 
+                     dat=elast)
+
+printout(out, 'st', omit='brand|category', title = tab('short-term'))
+printout(out, 'lt', omit='brand|category', title = tab('long-term'))
+
+```
+## 3. within-country representation
+
+X = number of categories a brand is active in a focal country.
+
+```{r r3, echo = FALSE, results='asis'}
+out=regmodel(formula=~1+ln_gdppercap*ncat_in_country + as.factor(category) + as.factor(brand), 
+                     dat=elast)
+
+printout(out, 'st', omit='brand|category', title = tab('short-term'))
+printout(out, 'lt', omit='brand|category', title = tab('long-term'))
+
+```
+
+## 4. market share in category
+
+X = market share of focal brand in market (over all years, summing to 1 over all brands).
+
+```{r r4ms, echo = FALSE, results='asis'}
+elast[, lnms := log(100*overall_ms)]
+out=regmodel(formula=~1+ln_gdppercap*lnms + as.factor(category) + as.factor(brand), 
+                     dat=elast)
+
+printout(out, 'st', omit='brand|category', title = tab('short-term'))
+printout(out, 'lt', omit='brand|category', title = tab('long-term'))
+
+```
+
+## 5. growth rate
+
+X = log of growth rate (e.g., .8, 1.03), not multiplied by 100 before logging
+
+```{r r5growth, echo = FALSE, results='asis'}
+
+out=regmodel(formula=~1+ln_gdppercap*log(market_growth) + as.factor(category) + as.factor(brand), 
+                     dat=elast)
+
+printout(out, 'st', omit='brand|category', title = tab('short-term'))
+printout(out, 'lt', omit='brand|category', title = tab('long-term'))
+
+```
+
+## 6. concentration
+
+### 6a. Herfindahl
+
+Herfindahl is between 0 and 1.
+
+```{r r5aherf, echo = FALSE, results='asis'}
+
+out=regmodel(formula=~1+ln_gdppercap*herf + as.factor(category) + as.factor(brand), 
+                     dat=elast)
+
+printout(out, 'st', omit='brand|category', title = tab('short-term'))
+printout(out, 'lt', omit='brand|category', title = tab('long-term'))
+
+```
+
+### 6b. C3
+
+C3 scaled between 0 and 100. Logged.
+
+```{r r4ac3, echo = FALSE, results='asis'}
+
+out=regmodel(formula=~1+ln_gdppercap*log(c3*100) + as.factor(category) + as.factor(brand), 
+                     dat=elast)
+
+printout(out, 'st', omit='brand|category', title = tab('short-term'))
+printout(out, 'lt', omit='brand|category', title = tab('long-term'))
+
+```
+
+### 6c. C5
+
+C5 scaled between 0 and 100. Logged.
+
+```{r r4ac5, echo = FALSE, results='asis'}
+
+out=regmodel(formula=~1+ln_gdppercap*log(c5*100) + as.factor(category) + as.factor(brand), 
+                     dat=elast)
+
+printout(out, 'st', omit='brand|category', title = tab('short-term'))
+printout(out, 'lt', omit='brand|category', title = tab('long-term'))
+
+```
+
+### 7. Necessity
+
+X = Necessity dummy, equaling 1 for washing, microwave and cooling.
+
+```{r r7, echo = FALSE, results='asis'}
+
+out=regmodel(formula=~1+ln_gdppercap*necessity + as.factor(category) + as.factor(brand), 
+                     dat=elast)
+
+printout(out, 'st', omit='brand|category', title = tab('short-term'))
+printout(out, 'lt', omit='brand|category', title = tab('long-term'))
+
+```
+
