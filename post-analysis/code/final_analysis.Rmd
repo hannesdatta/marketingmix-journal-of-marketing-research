@@ -14,6 +14,7 @@ library(knitr)
 require(xtable)
 #require(texreg)
 library(lme4)
+library(car)
 
 options(xtable.comment = FALSE)
 
@@ -38,6 +39,11 @@ options(xtable.comment = FALSE)
   elast[gdp, gdppercap2010:=i.gdppercap2010]
 
   elast[, country_of_origin_recode := ifelse(country_of_origin%in%c('local','asian_other'), 'asian', country_of_origin)]
+  
+  # elast asian devel vs. not
+  elast[, region_of_origin:=country_of_origin_recode]
+  elast[region_of_origin=='asian'& country_class=='hinc', region_of_origin := 'asian-high']
+  elast[region_of_origin=='asian'& country_class=='linc', region_of_origin := 'asian-low']
   
   
 # take natural log of variables
@@ -127,61 +133,109 @@ kable(tmp, caption=tab('Development indicators for countries in sample'))
 
 ## random effects for countries, categories, and brands.
 
-## Using WLS, without any fixed effects
-
 ### with Western brand
 
 ```{r randomcombined1, echo = FALSE, results='asis'}
 
-basemodel = ~1+ln_gdppercap2010_mc + (1|brand) + (1|category) + (1|country)
-category_factors=. ~ . + necessity + ln_market_growth_mc + ln_herf_mc
-brand_factors=. ~ . + local_to_market + western_brand + ln_ncat_in_country_mc + ln_ncountry_in_category_mc
+m1 = ~1+ln_gdppercap2010_mc + (1|brand) + (1|category) + (1|country)+ necessity + ln_market_growth_mc + ln_herf_mc + local_to_market + western_brand + ln_ncat_in_country_mc + ln_ncountry_in_category_mc
+
 interact1 = . ~ . + necessity*ln_gdppercap2010_mc + ln_market_growth_mc*ln_gdppercap2010_mc +
   local_to_market*ln_gdppercap2010_mc + western_brand*ln_gdppercap2010_mc
-interact2 = . ~ . + necessity*ln_gdppercap2010_mc + ln_market_growth_mc*ln_gdppercap2010_mc + ln_herf_mc*ln_gdppercap2010_mc +
-  local_to_market*ln_gdppercap2010_mc + western_brand*ln_gdppercap2010_mc + ln_ncat_in_country_mc*ln_gdppercap2010_mc + ln_ncountry_in_category_mc*ln_gdppercap2010_mc
 
-m2=update(basemodel, category_factors)
-m3=update(m2, brand_factors)
-m4=update(m3, interact1)
-m5=update(m4, interact2)
+m2=update(m1, interact1)
 
-models = list(m1=basemodel, m2, m3, m4, m5)
+out1=regmodel(formula=m1, dat=elast, model='lmer')
 
-out=regmodel(formula=models,
-                     dat=elast, model='lmer')
+printout(out1, 'lt', omit=NULL, title = tab('long-term'), vars=NULL)
 
-printres(out, omit=NULL, vars=c('llen'),title='line length with random effects', pagebreak=T)
-printres(out, omit=NULL, vars=c('nov6sh'),title='novelty with random effects', pagebreak=T)
-printres(out, omit=NULL, vars=c('rwpspr'),title='price with random effects', pagebreak=T)
-printres(out, omit=NULL, vars=c('wpswdst'),title='distribution with random effects', pagebreak=T)
+cat("<P style='page-break-before: always'>")
+out2=regmodel(formula=m2, dat=elast, model='lmer')
+printout(out2, 'lt', omit=NULL, title = tab('long-term, with interactions'), vars=NULL)
+
+
 ```
 
-### with Europe/US brand
+### with North America/Europe split
 
 ```{r randomcombined2, echo = FALSE, results='asis'}
 
-basemodel = ~1+ln_gdppercap2010_mc + (1|brand) + (1|category) + (1|country)
-category_factors=. ~ . + necessity + ln_market_growth_mc + ln_herf_mc
-brand_factors=. ~ . + local_to_market + country_of_origin_recode + ln_ncat_in_country_mc + ln_ncountry_in_category_mc
+m1 = ~1+ln_gdppercap2010_mc + (1|brand) + (1|category) + (1|country)+ necessity + ln_market_growth_mc + ln_herf_mc + local_to_market + country_of_origin_recode + ln_ncat_in_country_mc + ln_ncountry_in_category_mc
+
 interact1 = . ~ . + necessity*ln_gdppercap2010_mc + ln_market_growth_mc*ln_gdppercap2010_mc +
   local_to_market*ln_gdppercap2010_mc + country_of_origin_recode*ln_gdppercap2010_mc
-interact2 = . ~ . + necessity*ln_gdppercap2010_mc + ln_market_growth_mc*ln_gdppercap2010_mc + ln_herf_mc*ln_gdppercap2010_mc +
-  local_to_market*ln_gdppercap2010_mc + country_of_origin_recode*ln_gdppercap2010_mc + ln_ncat_in_country_mc*ln_gdppercap2010_mc + ln_ncountry_in_category_mc*ln_gdppercap2010_mc
 
-m2=update(basemodel, category_factors)
-m3=update(m2, brand_factors)
-m4=update(m3, interact1)
-m5=update(m4, interact2)
+m2=update(m1, interact1)
 
-models = list(m1=basemodel, m2, m3, m4, m5)
+out1=regmodel(formula=m1, dat=elast, model='lmer')
 
-out=regmodel(formula=models,
-                     dat=elast, model='lmer')
+cat("<P style='page-break-before: always'>")
+printout(out1, 'lt', omit=NULL, title = tab('long-term'), vars=NULL)
 
-printres(out, omit=NULL, vars=c('llen'),title='line length with random effects', pagebreak=T)
-printres(out, omit=NULL, vars=c('nov6sh'),title='novelty with random effects', pagebreak=T)
-printres(out, omit=NULL, vars=c('rwpspr'),title='price with random effects', pagebreak=T)
-printres(out, omit=NULL, vars=c('wpswdst'),title='distribution with random effects', pagebreak=T)
+cat("<P style='page-break-before: always'>")
+out2=regmodel(formula=m2, dat=elast, model='lmer')
+printout(out2, 'lt', omit=NULL, title = tab('long-term, with interactions'), vars=NULL)
+
+
 ```
 
+### with North America/Europe/Asian high-low split
+
+```{r randomcombined3, echo = FALSE, results='asis'}
+
+m1 = ~1+ln_gdppercap2010_mc + (1|brand) + (1|category) + (1|country)+ necessity + ln_market_growth_mc + ln_herf_mc + local_to_market + region_of_origin + ln_ncat_in_country_mc + ln_ncountry_in_category_mc
+
+interact1 = . ~ . + necessity*ln_gdppercap2010_mc + ln_market_growth_mc*ln_gdppercap2010_mc +
+  local_to_market*ln_gdppercap2010_mc + region_of_origin*ln_gdppercap2010_mc
+
+m2=update(m1, interact1)
+
+out1=regmodel(formula=m1, dat=elast, model='lmer')
+
+cat("<P style='page-break-before: always'>")
+printout(out1, 'lt', omit=NULL, title = tab('long-term'), vars=NULL)
+
+cat("<P style='page-break-before: always'>")
+out2=regmodel(formula=m2, dat=elast, model='lmer')
+printout(out2, 'lt', omit=NULL, title = tab('long-term, with interactions'), vars=NULL)
+
+```
+
+# VIFs
+
+estimating an auxilary regression (elast for llen on variables, without brand/category/country effects), then computing VIFs.
+
+```{r VIFS, echo=FALSE}
+m1 = ~1+ln_gdppercap2010_mc + necessity + ln_market_growth_mc + ln_herf_mc + local_to_market + western_brand + ln_ncat_in_country_mc + ln_ncountry_in_category_mc
+
+interact1 = . ~ . + necessity*ln_gdppercap2010_mc + ln_market_growth_mc*ln_gdppercap2010_mc +
+  local_to_market*ln_gdppercap2010_mc + western_brand*ln_gdppercap2010_mc
+
+m2=update(m1, interact1)
+
+m<-lm(update(elast~., m1), data=elast[variable=='llen'])
+m2<-lm(update(elast~., m2), data=elast[variable=='llen'])
+
+kable(data.frame(vif(m)), caption = 'VIFs without interactions')
+kable(data.frame(vif(m2)), caption = 'VIFs with interactions')
+
+
+```
+
+
+## RQ2: country differences
+
+random effects for brand/category, fixed effects for countries.
+
+### with Western brand
+
+```{r randomcombined4, echo = FALSE, results='asis'}
+
+m1 = ~1+ (1|brand) + (1|category) + as.factor(country) + necessity + ln_market_growth_mc + ln_herf_mc + local_to_market + western_brand + ln_ncat_in_country_mc + ln_ncountry_in_category_mc
+
+out1=regmodel(formula=m1, dat=elast, model='lmer')
+
+cat("<P style='page-break-before: always'>")
+printout(out1, 'lt', omit=NULL, title = tab('long-term'), vars=NULL)
+
+
+```
