@@ -1,0 +1,187 @@
+---
+title: "GfK Singapore - WLS"
+output:
+  html_document: default
+date: "`r format(Sys.time(), '%d %B %Y')`"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(data.table)
+library(stargazer)
+library(knitr)
+require(xtable)
+#require(texreg)
+library(lme4)
+
+options(xtable.comment = FALSE)
+
+# Load data
+  #elast <- fread('../externals/elast_results_MCI_wlag_wotrend.csv')
+  elast <- fread('../externals/elast_results_MCI_wolag_trend.csv')
+
+# Load auxilary functions
+  source('proc_auxilary.R')
+
+# load extra variables
+  hdi <- fread('../temp/hdi.csv')
+# change taiwan (reported value from China is not reliable)
+  hdi[, hdi2010:=ifelse(country=='taiwan', mean(hdi2010[country%in%c('thailand', 'china')]), hdi2010)]
+# Load GDP
+  gdp <- fread('../temp/gdp.csv')
+# Merge
+  setkey(hdi, country)
+  setkey(elast, country)
+  elast[hdi, hdi2010:=i.hdi2010]
+  setkey(gdp, country)
+  elast[gdp, gdppercap2010:=i.gdppercap2010]
+
+  elast[, country_of_origin_recode := ifelse(country_of_origin%in%c('local','asian_other'), 'asian', country_of_origin)]
+  
+  
+# take natural log of variables
+vars=c('herf','c3','c5','market_growth','hdi2010','gdppercap2010', 'ncat_in_country', 'ncountry_in_category')
+
+for (var in vars) {
+  elast[, (paste0('ln_', var)):=log(get(var))]
+  
+}
+
+# grand-mean centering by variable (llen, etc.) for all explanatory (continuous) variables
+for (var in unique(drop(unlist(lapply(vars, grep, colnames(elast), value=T))))) {
+  elast[, (paste0(var, '_mc')):=get(var)-mean(get(var)), by = c('variable')]
+  }
+  
+# focal dummies: local_to_market, western (versus asian)
+
+#
+elast[, worldbank := '']
+elast[country%in%c('india','indonesia', 'vietnam', 'philippines'), worldbank:='lowermid']
+elast[country%in%c('china', 'malaysia','thailand'), worldbank:='uppermid']
+elast[worldbank=='', worldbank:='high']
+
+
+### brand selection for analysis
+elast=elast[globalbrand==T] # global brands (active in >=3 countries) only
+
+#elast=elast[ncountries>=2]
+
+```
+
+# Sample
+
+## Selected brands
+
+```{r sample_overview, echo=FALSE, results='asis'}
+
+tmp=elast[, list(ncountries=length(unique(country)), ncategories=length(unique(category))), by = c('brand')]
+setorderv(tmp, c('ncountries','ncategories'),order=-1L)
+print(xtable(tmp, caption=tab('Overview of selected brands')), type='html',caption.placement='top')
+
+```
+
+## Elasticities for selected brands
+
+Significance tested at p<.1 (|z| >= 1.64)
+
+```{r elast_ov, echo = FALSE, results='asis'}
+  .vars=c('llen','wpswdst','rwpspr','nov6sh')
+	
+  zval=qnorm(.95)
+  
+	tmp=elast[!is.na(elast), list(median_elast = median(elast), 
+												  w_elast = sum(elast/elast_se)/sum(1/elast_se), 
+												  N_brands= .N, 
+												  perc_positive = length(which(elast/elast_se>=(zval)))/.N, 
+												  perc_null = length(which(abs(elast/elast_se)<zval))/.N, 
+												  perc_negative = length(which(elast/elast_se<=(-zval)))/.N), by=c('variable')]
+	kable(tmp[match(.vars, variable)], caption = tab('Short-term elasticities by variable'))
+	
+  tmp=elast[!is.na(elastlt), list(median_elast = median(elastlt), 
+												  w_elast = sum(elastlt/elastlt_se)/sum(1/elastlt_se), 
+												  N_brands= .N, 
+												  perc_positive = length(which(elastlt/elastlt_se>=(zval)))/.N, 
+												  perc_null = length(which(abs(elastlt/elastlt_se)<zval))/.N, 
+												  perc_negative = length(which(elastlt/elastlt_se<=(-zval)))/.N), by=c('variable')]
+	kable(tmp[match(.vars, variable)], caption = tab('Long-term elasticities by variable'))
+
+```
+
+
+# degree of development
+
+- GDP per capita in 2010, in USD
+- Human Development Index in 2010 (imputed for Taiwan as mean of China and Thailand)
+
+```{r devel, echo = FALSE}
+tmp=unique(elast, by='country')[, c('country','gdppercap2010','hdi2010'),with=F]
+setorderv(tmp, c('gdppercap2010'), order=-1L)
+kable(tmp, caption=tab('Development indicators for countries in sample'))
+```
+
+# Descriptives
+
+(to be done)
+
+
+## random effects for countries, categories, and brands.
+
+## Using WLS, without any fixed effects
+
+### with Western brand
+
+```{r randomcombined1, echo = FALSE, results='asis'}
+
+basemodel = ~1+ln_gdppercap2010_mc + (1|brand) + (1|category) + (1|country)
+category_factors=. ~ . + necessity + ln_market_growth_mc + ln_herf_mc
+brand_factors=. ~ . + local_to_market + western_brand + ln_ncat_in_country_mc + ln_ncountry_in_category_mc
+interact1 = . ~ . + necessity*ln_gdppercap2010_mc + ln_market_growth_mc*ln_gdppercap2010_mc +
+  local_to_market*ln_gdppercap2010_mc + western_brand*ln_gdppercap2010_mc
+interact2 = . ~ . + necessity*ln_gdppercap2010_mc + ln_market_growth_mc*ln_gdppercap2010_mc + ln_herf_mc*ln_gdppercap2010_mc +
+  local_to_market*ln_gdppercap2010_mc + western_brand*ln_gdppercap2010_mc + ln_ncat_in_country_mc*ln_gdppercap2010_mc + ln_ncountry_in_category_mc*ln_gdppercap2010_mc
+
+m2=update(basemodel, category_factors)
+m3=update(m2, brand_factors)
+m4=update(m3, interact1)
+m5=update(m4, interact2)
+
+models = list(m1=basemodel, m2, m3, m4, m5)
+
+out=regmodel(formula=models,
+                     dat=elast, model='lmer')
+
+printres(out, omit=NULL, vars=c('llen'),title='line length with random effects', pagebreak=T)
+printres(out, omit=NULL, vars=c('nov6sh'),title='novelty with random effects', pagebreak=T)
+printres(out, omit=NULL, vars=c('rwpspr'),title='price with random effects', pagebreak=T)
+printres(out, omit=NULL, vars=c('wpswdst'),title='distribution with random effects', pagebreak=T)
+```
+
+### with Europe/US brand
+
+```{r randomcombined2, echo = FALSE, results='asis'}
+
+basemodel = ~1+ln_gdppercap2010_mc + (1|brand) + (1|category) + (1|country)
+category_factors=. ~ . + necessity + ln_market_growth_mc + ln_herf_mc
+brand_factors=. ~ . + local_to_market + country_of_origin_recode + ln_ncat_in_country_mc + ln_ncountry_in_category_mc
+interact1 = . ~ . + necessity*ln_gdppercap2010_mc + ln_market_growth_mc*ln_gdppercap2010_mc +
+  local_to_market*ln_gdppercap2010_mc + country_of_origin_recode*ln_gdppercap2010_mc
+interact2 = . ~ . + necessity*ln_gdppercap2010_mc + ln_market_growth_mc*ln_gdppercap2010_mc + ln_herf_mc*ln_gdppercap2010_mc +
+  local_to_market*ln_gdppercap2010_mc + country_of_origin_recode*ln_gdppercap2010_mc + ln_ncat_in_country_mc*ln_gdppercap2010_mc + ln_ncountry_in_category_mc*ln_gdppercap2010_mc
+
+m2=update(basemodel, category_factors)
+m3=update(m2, brand_factors)
+m4=update(m3, interact1)
+m5=update(m4, interact2)
+
+models = list(m1=basemodel, m2, m3, m4, m5)
+
+out=regmodel(formula=models,
+                     dat=elast, model='lmer')
+
+printres(out, omit=NULL, vars=c('llen'),title='line length with random effects', pagebreak=T)
+printres(out, omit=NULL, vars=c('nov6sh'),title='novelty with random effects', pagebreak=T)
+printres(out, omit=NULL, vars=c('rwpspr'),title='price with random effects', pagebreak=T)
+printres(out, omit=NULL, vars=c('wpswdst'),title='distribution with random effects', pagebreak=T)
+```
+
