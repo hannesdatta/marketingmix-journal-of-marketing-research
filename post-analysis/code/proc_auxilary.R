@@ -1,13 +1,19 @@
 # Function to run regression model (#mmix, with spec formula)
 regmodel <- function(formula=list(~1+I(country_class=='linc') + as.factor(category) + as.factor(brand)), 
-                     dat) {
+                     dat, model = 'lm') {
   
   if (class(formula)=='formula') formula=list(formula)
   
   regs <- lapply(unique(dat$variable), function(varname) {
-    st = lapply(formula, function(form) lm(update(form, elast ~ .), data = data.table(dat[variable==varname&!is.na(elast)]), weights=1/elast_se))
-    lt = lapply(formula, function(form) lm(update(form, elastlt ~ .), data = data.table(dat[variable==varname&!is.na(elastlt)]), weights=1/elastlt_se))
-
+    if (model=='lm') {
+      st = lapply(formula, function(form) lm(update(form, elast ~ .), data = data.table(dat[variable==varname&!is.na(elast)]), weights=1/elast_se))
+      lt = lapply(formula, function(form) lm(update(form, elastlt ~ .), data = data.table(dat[variable==varname&!is.na(elastlt)]), weights=1/elastlt_se))
+    }
+    if (model=='lmer') {
+      st = lapply(formula, function(form) lmer(update(form, elast ~ .), data = data.table(dat[variable==varname&!is.na(elast)]), weights=1/elast_se))
+      lt = lapply(formula, function(form) lmer(update(form, elastlt ~ .), data = data.table(dat[variable==varname&!is.na(elastlt)]), weights=1/elastlt_se))
+      
+      }
     return(list(variable=varname, st=st, lt=lt))
       
   })
@@ -15,6 +21,15 @@ regmodel <- function(formula=list(~1+I(country_class=='linc') + as.factor(catego
 names(regs) <- unique(dat$variable)
 return(regs)
 }
+
+# test
+#~1+I(country_class=='linc')
+#m<-lmer(elast ~ 1 + ln_gdppercap2010_mc + (1 | category) + (1 | country) + (1|brand) + necessity, data = data.table(dat[variable=='llen'&!is.na(elast)]), weights=1/elast_se)
+
+#require(blme)
+#m<-blmer(elast ~ 1 + ln_gdppercap2010_mc + (1 | category) + necessity, data = data.table(dat[variable=='llen'&!is.na(elast)]), weights=1/elast_se)
+#stargazer(m, type='text')
+
 
 # Function to plot model results (next to each other)
 printout = function(x, type='st', vars=NULL, omit='category|brand', title='',printtype='html') {
