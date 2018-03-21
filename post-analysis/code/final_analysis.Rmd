@@ -1,5 +1,5 @@
 ---
-title: "GfK Singapore - WLS"
+title: "GfK Singapore - Results"
 output:
   html_document: default
 date: "`r format(Sys.time(), '%d %B %Y')`"
@@ -131,16 +131,18 @@ kable(tmp, caption=tab('Development indicators for countries in sample'))
 (to be done)
 
 
-## random effects for countries, categories, and brands.
+# Random effects for countries, categories, and brands.
 
-### with Western brand
+with weights equal to 1/elast_se.
+
 
 ```{r randomcombined1, echo = FALSE, results='asis'}
 
 m1 = ~1+ln_gdppercap2010_mc + (1|brand) + (1|category) + (1|country)+ necessity + ln_market_growth_mc + ln_herf_mc + local_to_market + western_brand + ln_ncat_in_country_mc + ln_ncountry_in_category_mc
 
 interact1 = . ~ . + necessity*ln_gdppercap2010_mc + ln_market_growth_mc*ln_gdppercap2010_mc +
-  local_to_market*ln_gdppercap2010_mc + western_brand*ln_gdppercap2010_mc
+  local_to_market*ln_gdppercap2010_mc + western_brand*ln_gdppercap2010_mc +
+  ln_herf_mc*ln_gdppercap2010_mc + ln_ncat_in_country_mc*ln_gdppercap2010_mc + ln_ncountry_in_category_mc*ln_gdppercap2010_mc
 
 m2=update(m1, interact1)
 
@@ -155,52 +157,26 @@ printout(out2, 'lt', omit=NULL, title = tab('long-term, with interactions'), var
 
 ```
 
-### with North America/Europe split
 
-```{r randomcombined2, echo = FALSE, results='asis'}
+## RQ2: country differences
 
-m1 = ~1+ln_gdppercap2010_mc + (1|brand) + (1|category) + (1|country)+ necessity + ln_market_growth_mc + ln_herf_mc + local_to_market + country_of_origin_recode + ln_ncat_in_country_mc + ln_ncountry_in_category_mc
+random effects for brand/category, fixed effects for countries.
 
-interact1 = . ~ . + necessity*ln_gdppercap2010_mc + ln_market_growth_mc*ln_gdppercap2010_mc +
-  local_to_market*ln_gdppercap2010_mc + country_of_origin_recode*ln_gdppercap2010_mc
+```{r randomcombined4, echo = FALSE, results='asis'}
 
-m2=update(m1, interact1)
+m1 = ~1+ (1|brand) + (1|category) + as.factor(country) + necessity + ln_market_growth_mc + ln_herf_mc + local_to_market + western_brand + ln_ncat_in_country_mc + ln_ncountry_in_category_mc
 
 out1=regmodel(formula=m1, dat=elast, model='lmer')
 
 cat("<P style='page-break-before: always'>")
 printout(out1, 'lt', omit=NULL, title = tab('long-term'), vars=NULL)
 
-cat("<P style='page-break-before: always'>")
-out2=regmodel(formula=m2, dat=elast, model='lmer')
-printout(out2, 'lt', omit=NULL, title = tab('long-term, with interactions'), vars=NULL)
-
 
 ```
 
-### with North America/Europe/Asian high-low split
+# Appendix
 
-```{r randomcombined3, echo = FALSE, results='asis'}
-
-m1 = ~1+ln_gdppercap2010_mc + (1|brand) + (1|category) + (1|country)+ necessity + ln_market_growth_mc + ln_herf_mc + local_to_market + region_of_origin + ln_ncat_in_country_mc + ln_ncountry_in_category_mc
-
-interact1 = . ~ . + necessity*ln_gdppercap2010_mc + ln_market_growth_mc*ln_gdppercap2010_mc +
-  local_to_market*ln_gdppercap2010_mc + region_of_origin*ln_gdppercap2010_mc
-
-m2=update(m1, interact1)
-
-out1=regmodel(formula=m1, dat=elast, model='lmer')
-
-cat("<P style='page-break-before: always'>")
-printout(out1, 'lt', omit=NULL, title = tab('long-term'), vars=NULL)
-
-cat("<P style='page-break-before: always'>")
-out2=regmodel(formula=m2, dat=elast, model='lmer')
-printout(out2, 'lt', omit=NULL, title = tab('long-term, with interactions'), vars=NULL)
-
-```
-
-# VIFs
+## VIFs
 
 estimating an auxilary regression (elast for llen on variables, without brand/category/country effects), then computing VIFs.
 
@@ -221,21 +197,17 @@ kable(data.frame(vif(m2)), caption = 'VIFs with interactions')
 
 ```
 
-
-## RQ2: country differences
-
-random effects for brand/category, fixed effects for countries.
-
-### with Western brand
-
-```{r randomcombined4, echo = FALSE, results='asis'}
-
-m1 = ~1+ (1|brand) + (1|category) + as.factor(country) + necessity + ln_market_growth_mc + ln_herf_mc + local_to_market + western_brand + ln_ncat_in_country_mc + ln_ncountry_in_category_mc
-
-out1=regmodel(formula=m1, dat=elast, model='lmer')
-
-cat("<P style='page-break-before: always'>")
-printout(out1, 'lt', omit=NULL, title = tab('long-term'), vars=NULL)
-
-
-```
+## Short-term elasticities
+```{r shorterm, echo=F}
+  .vars=c('llen','wpswdst','rwpspr','nov6sh')
+	
+  zval=qnorm(.95)
+  
+	tmp=elast[!is.na(elast), list(median_elast = median(elast), 
+												  w_elast = sum(elast/elast_se)/sum(1/elast_se), 
+												  N_brands= .N, 
+												  perc_positive = length(which(elast/elast_se>=(zval)))/.N, 
+												  perc_null = length(which(abs(elast/elast_se)<zval))/.N, 
+												  perc_negative = length(which(elast/elast_se<=(-zval)))/.N), by=c('variable')]
+	kable(tmp[match(.vars, variable)], caption = tab('Short-term elasticities by variable'))
+```	
