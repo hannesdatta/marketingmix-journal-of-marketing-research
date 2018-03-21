@@ -11,15 +11,15 @@ knitr::opts_chunk$set(echo = TRUE)
 library(data.table)
 library(stargazer)
 library(knitr)
-#require(xtable)
+require(xtable)
 #require(texreg)
 library(lme4)
 
 options(xtable.comment = FALSE)
 
 # Load data
-  elast <- fread('../externals/elast_results_MCI_wlag_wotrend.csv')
-  #elast <- fread('../externals/elast_results_MCI_wolag_trend.csv')
+  #elast <- fread('../externals/elast_results_MCI_wlag_wotrend.csv')
+  elast <- fread('../externals/elast_results_MCI_wolag_trend.csv')
 
 # Load auxilary functions
   source('proc_auxilary.R')
@@ -37,7 +37,9 @@ options(xtable.comment = FALSE)
   setkey(gdp, country)
   elast[gdp, gdppercap2010:=i.gdppercap2010]
 
-
+  elast[, country_of_origin_recode := ifelse(country_of_origin%in%c('local','asian_other'), 'asian', country_of_origin)]
+  
+  
 # take natural log of variables
 vars=c('herf','c3','c5','market_growth','hdi2010','gdppercap2010', 'ncat_in_country', 'ncountry_in_category')
 
@@ -60,17 +62,19 @@ elast[country%in%c('china', 'malaysia','thailand'), worldbank:='uppermid']
 elast[worldbank=='', worldbank:='high']
 
 
-### keep global brands, >2 countries >3 countries
-elast=elast[globalbrand==T]
-#elast=elast[ncountries>=2]
+### brand selection for analysis
+elast=elast[globalbrand==T] # global brands (active in >=3 countries) only
 
+#elast=elast[ncountries>=2]
 
 ```
 
 - all analyses conducted with WLS, whereby weights correspond to inverse standard errors of estimated short- or long-term elasticities.
 - all continuous variables are logged (and mean-centered when entering as interactions)
 
-# sample overview
+# Sample
+
+## Selected brands
 
 ```{r sample_overview, echo=FALSE, results='asis'}
 
@@ -79,6 +83,34 @@ setorderv(tmp, c('ncountries','ncategories'),order=-1L)
 print(xtable(tmp, caption=tab('Overview of selected brands')), type='html',caption.placement='top')
 
 ```
+
+## Elasticities for selected brands
+
+Significance tested at p<.1 (|z| >= 1.64)
+
+```{r elast_ov, echo = FALSE, results='asis'}
+  .vars=c('llen','wpswdst','rwpspr','nov6sh')
+	
+  zval=qnorm(.95)
+  
+	tmp=elast[!is.na(elast), list(median_elast = median(elast), 
+												  w_elast = sum(elast/elast_se)/sum(1/elast_se), 
+												  N_brands= .N, 
+												  perc_positive = length(which(elast/elast_se>=(zval)))/.N, 
+												  perc_null = length(which(abs(elast/elast_se)<zval))/.N, 
+												  perc_negative = length(which(elast/elast_se<=(-zval)))/.N), by=c('variable')]
+	kable(tmp[match(.vars, variable)], caption = tab('Short-term elasticities by variable'))
+	
+  tmp=elast[!is.na(elastlt), list(median_elast = median(elastlt), 
+												  w_elast = sum(elastlt/elastlt_se)/sum(1/elastlt_se), 
+												  N_brands= .N, 
+												  perc_positive = length(which(elastlt/elastlt_se>=(zval)))/.N, 
+												  perc_null = length(which(abs(elastlt/elastlt_se)<zval))/.N, 
+												  perc_negative = length(which(elastlt/elastlt_se<=(-zval)))/.N), by=c('variable')]
+	kable(tmp[match(.vars, variable)], caption = tab('Long-term elasticities by variable'))
+
+```
+
 
 # degree of development
 
@@ -90,17 +122,12 @@ tmp=unique(elast, by='country')[, c('country','gdppercap2010','hdi2010'),with=F]
 setorderv(tmp, c('gdppercap2010'), order=-1L)
 kable(tmp, caption=tab('Development indicators for countries in sample'))
 ```
+
 # Descriptives
 
 (to be done)
 
-# Combined analysis
-
-Using WLS, with random effects for countries, categories, and brands.
-
-(to be done)
-
-# investigate different versions of an emerging country variable
+# Investigate different versions of an emerging country variable (GDP versus HDI)
 
 Following regressions are all estimated by OLS, using brand and category fixed effects (not shown in regression tables).
 
@@ -114,7 +141,10 @@ out=regmodel(formula=~1+ln_gdppercap2010 + as.factor(category) + as.factor(brand
 printres(out, omit='brand|category')
 ```
 
-## Human Development Index
+## Human Development Index (HDI)
+
+@JB: is HDI used much in the literature?
+
 ```{r hdireg, echo = FALSE, results='asis'}
 
 out=regmodel(formula=~1+ln_hdi2010 + as.factor(category) + as.factor(brand), 
@@ -122,55 +152,6 @@ out=regmodel(formula=~1+ln_hdi2010 + as.factor(category) + as.factor(brand),
 
 printres(out, omit='brand|category')
 ```
-
-## 2 classes: Taiwan as high-income
-```{r twoclasses, echo = FALSE, results='asis'}
-
-out=regmodel(formula=~1+I(country_class=='linc') + as.factor(category) + as.factor(brand), 
-                     dat=elast)
-
-printres(out, omit='brand|category')
-```
-
-## 2 classes: Taiwan as low-income
-
-```{r twoclasses2, echo = FALSE, results='asis'}
-elast[,linc_recode:=ifelse(country_class=='linc'|country=='taiwan', 1,0)]
-
-out=regmodel(formula=~1+linc_recode + as.factor(category) + as.factor(brand), 
-                     dat=elast)
-
-printres(out, omit='brand|category')
-```
-
-
-## 3 classes by worldbank
-
-```{r rq2bb, echo = FALSE}
-tmp=elast[, list(.N, gdp_per_cap=mean(gdppercap2010), hdi=mean(hdi2010)), by = c('worldbank','country')][, N:=NULL]
-setorderv(tmp, 'gdp_per_cap', order=-1L)
-kable(tmp, caption=tab('Country classification: Worldbank'))
-```
-
-```{r threeclass, echo = FALSE, results='asis'}
-
-out=regmodel(formula=~1+worldbank + as.factor(category) + as.factor(brand), 
-                     dat=elast)
-
-printres(out, omit='brand|category')
-```
-
-## 3 classes by worldbank, with Taiwan as lowermid instead of high
-```{r threeclass2, echo = FALSE, results='asis'}
-elast[, worldbank_recode:=worldbank]
-elast[country=='taiwan', worldbank_recode:='uppermid']
-
-out=regmodel(formula=~1+worldbank_recode + as.factor(category) + as.factor(brand), 
-                     dat=elast)
-
-printres(out, omit='brand|category')
-```
-
 
 # interaction analysis (continuing with log GDP)
 
@@ -199,18 +180,33 @@ kable(tmp, caption=tab('Markets with local and foreign brands'))
 
 ```{r r1a, echo = FALSE, results='asis'}
 
-out=regmodel(formula=~1+ln_gdppercap2010_mc*local_to_market + as.factor(category) + as.factor(brand), 
+out=regmodel(formula=list(m1=~1+ln_gdppercap2010_mc+local_to_market + as.factor(category) + as.factor(brand),
+                          m2=~1+ln_gdppercap2010_mc*local_to_market + as.factor(category) + as.factor(brand)), 
                      dat=elast)
 
 printres(out, omit='brand|category')
-
 ```
 
-## 2. country of origin (Asia versus Western)
+## 2. country of origin
+
+# 2a. Western versus Asia
 
 ```{r r1b, echo = FALSE, results='asis'}
 
-out=regmodel(formula=~1+ln_gdppercap2010_mc*western_brand + as.factor(category) + as.factor(brand), 
+out=regmodel(formula=list(m1=~1+ln_gdppercap2010_mc+western_brand + as.factor(category) + as.factor(brand),
+                          m2=~1+ln_gdppercap2010_mc*western_brand + as.factor(category) + as.factor(brand)), 
+                     dat=elast)
+
+printres(out, omit='[(]brand|category')
+
+```
+
+# 2b. US versus Europe, versus Asia (baseline)
+
+```{r r1b2, echo = FALSE, results='asis'}
+
+out=regmodel(formula=list(m1=~1+ln_gdppercap2010_mc+country_of_origin_recode + as.factor(category) + as.factor(brand),
+                          m2=~1+ln_gdppercap2010_mc*country_of_origin_recode + as.factor(category) + as.factor(brand)), 
                      dat=elast)
 
 printres(out, omit='[(]brand|category')
@@ -222,9 +218,10 @@ printres(out, omit='[(]brand|category')
 X = number of countries a brand is active in a focal category
 
 ```{r r2, echo = FALSE, results='asis'}
-out=regmodel(formula=~1+ln_gdppercap2010_mc*ln_ncountry_in_category_mc + as.factor(category) + as.factor(brand), dat=elast)
+out=regmodel(formula=list(m1=~1+ln_gdppercap2010_mc+ln_ncountry_in_category_mc + as.factor(category) + as.factor(brand), 
+                          m2=~1+ln_gdppercap2010_mc*ln_ncountry_in_category_mc + as.factor(category) + as.factor(brand)), dat=elast)
 
-printres(out, omit='brand|category')
+printres(out, omit='brand|[(]category')
 
 ```
 ## 4. within-country representation
@@ -232,7 +229,8 @@ printres(out, omit='brand|category')
 X = number of categories a brand is active in a focal country.
 
 ```{r r3, echo = FALSE, results='asis'}
-out=regmodel(formula=~1+ln_gdppercap2010_mc*ln_ncat_in_country_mc + as.factor(category) + as.factor(brand), 
+out=regmodel(formula=list(m1=~1+ln_gdppercap2010_mc+ln_ncat_in_country_mc + as.factor(category) + as.factor(brand),
+                          m2=~1+ln_gdppercap2010_mc*ln_ncat_in_country_mc + as.factor(category) + as.factor(brand)),
                      dat=elast)
 
 printres(out, omit='brand|category')
@@ -244,7 +242,8 @@ X = growth rate
 
 ```{r r5growth, echo = FALSE, results='asis'}
 
-out=regmodel(formula=~1+ln_gdppercap2010_mc*ln_market_growth_mc + as.factor(category) + as.factor(brand), 
+out=regmodel(formula=list(m1=~1+ln_gdppercap2010_mc+ln_market_growth_mc + as.factor(category) + as.factor(brand),
+                          m2=~1+ln_gdppercap2010_mc*ln_market_growth_mc + as.factor(category) + as.factor(brand)),
                      dat=elast)
 
 printres(out, omit='brand|category')
@@ -256,29 +255,21 @@ printres(out, omit='brand|category')
 
 ```{r r5aherf, echo = FALSE, results='asis'}
 
-out=regmodel(formula=~1+ln_gdppercap2010_mc*ln_herf_mc + as.factor(category) + as.factor(brand), 
+out=regmodel(formula=list(m1=~1+ln_gdppercap2010_mc+ln_herf_mc + as.factor(category) + as.factor(brand),
+                          m2=~1+ln_gdppercap2010_mc*ln_herf_mc + as.factor(category) + as.factor(brand)),
                      dat=elast)
 
 printres(out, omit='brand|category')
 ```
 
-### 6b. C3
-
-```{r r4ac3, echo = FALSE, results='asis'}
-
-out=regmodel(formula=~1+ln_gdppercap2010_mc*ln_c3_mc + as.factor(category) + as.factor(brand), 
-                     dat=elast)
-
-printres(out, omit='brand|category')
-```
-
-### 6c. C5
+### 6b. C5
 
 C5 scaled between 0 and 100. Logged.
 
 ```{r r4ac5, echo = FALSE, results='asis'}
 
-out=regmodel(formula=~1+ln_gdppercap2010_mc*ln_c5_mc + as.factor(category) + as.factor(brand), 
+out=regmodel(formula=list(m1=~1+ln_gdppercap2010_mc+ln_c5_mc + as.factor(category) + as.factor(brand), 
+                          m2=~1+ln_gdppercap2010_mc*ln_c5_mc + as.factor(category) + as.factor(brand)),
                      dat=elast)
 
 printres(out, omit='brand|category')
@@ -288,11 +279,48 @@ printres(out, omit='brand|category')
 
 X = Necessity dummy, equaling 1 for washing, microwave and cooling.
 
+@JB: do you have an idea how to obtain a continous measure for necessity? Alternatively, can you come up with other interesting category-level variables that are worth including? 
+
 ```{r r7, echo = FALSE, results='asis'}
 
-out=regmodel(formula=~1+ln_gdppercap2010_mc*necessity + as.factor(category) + as.factor(brand), 
+out=regmodel(formula=list(m1=~1+ln_gdppercap2010_mc+necessity + as.factor(category) + as.factor(brand), 
+                          m2=~1+ln_gdppercap2010_mc*necessity + as.factor(category) + as.factor(brand)),
                      dat=elast)
 
 printres(out, omit='brand|category')
 ```
 
+
+# Combined analysis
+
+## Using WLS, with fixed effects for categories and brands.
+
+```{r combined1, echo = FALSE, results='asis'}
+
+basemodel = ~1+ln_gdppercap2010_mc + as.factor(category) + as.factor(brand)
+category_factors=. ~ . + necessity + ln_market_growth_mc + ln_herf_mc
+brand_factors=. ~ . + local_to_market + western_brand + ln_ncat_in_country_mc + ln_ncountry_in_category_mc
+interact1 = . ~ . + necessity*ln_gdppercap2010_mc + ln_market_growth_mc*ln_gdppercap2010_mc +
+  local_to_market*ln_gdppercap2010_mc + western_brand*ln_gdppercap2010_mc
+interact2 = . ~ . + necessity*ln_gdppercap2010_mc + ln_market_growth_mc*ln_gdppercap2010_mc + ln_herf_mc*ln_gdppercap2010_mc +
+  local_to_market*ln_gdppercap2010_mc + western_brand*ln_gdppercap2010_mc + ln_ncat_in_country_mc*ln_gdppercap2010_mc + ln_ncountry_in_category_mc*ln_gdppercap2010_mc
+
+m2=update(basemodel, category_factors)
+m3=update(m2, brand_factors)
+m4=update(m3, interact1)
+m5=update(m4, interact2)
+
+models = list(m1=basemodel, m2, m3, m4, m5)
+
+out=regmodel(formula=models,
+                     dat=elast)
+
+printres(out, omit='[(]brand|[(]category', vars=c('llen'),title='line length')
+printres(out, omit='[(]brand|[(]category', vars=c('nov6sh'),title='novelty')
+printres(out, omit='[(]brand|[(]category', vars=c('rwpspr'),title='price')
+printres(out, omit='[(]brand|[(]category', vars=c('wpswdst'),title='distribution')
+```
+
+## random effects for countries, categories, and brands.
+
+(to be done)
