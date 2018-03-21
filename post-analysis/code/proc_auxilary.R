@@ -23,18 +23,22 @@ printout = function(x, type='st', vars=NULL, omit='category|brand', title='',pri
   if (type=='st') res = do.call('c', lapply(x[vars], function(m) m$st))
   if (type=='lt') res = do.call('c', lapply(x[vars], function(m) m$lt))
   
-  keep_alpha <- function(x) gsub("[^[:alnum:][:space:]]","",x)
+  keep_alpha <- function(x) gsub("[^[:alnum:][:space:][,]]","",x)
+  
+  if (!is.null(omit)) note_text = c(paste0('model includes fixed effects for: ', keep_alpha(gsub('[|]', ', ', omit))))
+  if (is.null(omit)) note_text = 'model does not contain fixed effects'
   
   stargazer(res, type = printtype, omit=omit, title = title, column.labels=names(res), dep.var.caption=NULL, initial.zero=FALSE,
             notes.align='l',
-            notes=c(paste0('model includes fixed effects for: ', keep_alpha(gsub('[|]', ', ', omit)))))
+            notes=note_text)
 
 }
 
 # Function to produce model results for short- and long-term elasticities
-printres <- function(x, omit, title='', vars= NULL) {
-  
+printres <- function(x, omit, title='', vars= NULL, pagebreak=F) {
+  if(pagebreak==T) cat("<P style='page-break-before: always'>")
   printout(x, 'st', omit=omit, title = tab(ifelse(title=='', 'short-term', paste0(title, ', short-term'))), vars=vars)
+  if(pagebreak==T) cat("<P style='page-break-before: always'>")
   printout(x, 'lt', omit=omit, title = tab(ifelse(title=='', 'long-term', paste0(title, ', long-term'))), vars=vars)
 
 }
