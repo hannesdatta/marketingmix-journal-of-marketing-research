@@ -25,5 +25,5 @@ $(OUTPUT_DIR)/results.RData: analysis.R $(TEMP_DIR)/preclean.csv preclean.R proc
 	"$(RBIN64)Rterm.exe" --vanilla --args "" < "analysis.R"
 
 # Produce overall statistics on estimated models (e.g., elasticities, carry-over parameters, sign. of copula terms)
-$(OUTPUT_DIR)/elasticities.txt: extract_elast.R $(OUTPUT_DIR)/results.RData
+$(OUTPUT_DIR)/elasticities.txt: extract_elast.R $(OUTPUT_DIR)/results.RData sbbe.R
 	"$(RBIN64)Rterm.exe" --vanilla --args "" < "extract_elast.R"

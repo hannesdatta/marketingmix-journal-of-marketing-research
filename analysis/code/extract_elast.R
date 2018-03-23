@@ -32,6 +32,9 @@ setkey(brands_countries, brand)
 lscall=ls(envir=.GlobalEnv)
 models <- setdiff(c(grep('results[_]', lscall, value=T)),'results_brands')
 
+# load code to calculate SBBE
+source('sbbe.R')
+
 # Extract elasticities
 out = lapply(models, function(model_name) {
   
@@ -44,7 +47,16 @@ out = lapply(models, function(model_name) {
   
   # elasticities
   elast <- rbindlist(lapply(results_brands[!checks=='try-error'], function(x) x$elast))
-
+  
+  # obtain SBBE
+  sbbe <- rbindlist(lapply(results_brands[!checks=='try-error'], calc_sbbe))
+  
+  # standardize SBBE by category
+  sbbe[,':=' (sbbe_std = (sbbe-mean(sbbe))/sd(sbbe)), by = c('market_id')]
+  
+  # merge to elasticities
+  elast=merge(elast, sbbe, by = c('market_id', 'brand'),all.x=T)
+  
   # tag global versus local brand
   elast[, ncountries:=length(unique(country)), by = c('brand')]
   elast[, globalbrand:=ncountries>2 & !brand=='unbranded']
