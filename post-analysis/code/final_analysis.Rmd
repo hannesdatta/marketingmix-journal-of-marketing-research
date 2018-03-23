@@ -16,6 +16,7 @@ library(lme4)
 library(car)
 library(kableExtra)
 library(stringi)
+library(ggplot2)
 
 
 options(xtable.comment = FALSE)
@@ -91,7 +92,9 @@ tmp=unique(elast, by='country')[, c('country','gdppercap2010','hdi2010'),with=F]
 setorderv(tmp, c('gdppercap2010'), order=-1L)
 
 kable(tmp, format='html', caption=tab('Development indicators for countries in sample')) %>%
-        kable_styling() %>% footnote(general='Countries ranked by GDP per capita.', alphabet=c("GDP per capita in current USD, 2010 data. Provided by World Bank (NY.GDP.PCAP.CD) for all countries except Taiwan. Data for Taiwan obtained from Datastream (WGDPPEAA~USD).", "Human Development Index (HDI), 2010 data. Taiwan's HDI has been imputed as the mean HDI of Thailand and China."))
+        kable_styling() %>% footnote(general='Countries ranked by GDP per capita.', alphabet=c("GDP per capita in current USD, 2010 data. Provided by World Bank (NY.GDP.PCAP.CD) for all countries except Taiwan. Data for Taiwan obtained from Datastream (WGDPPEAA~USD).", "Human Development Index (HDI), 2010 data. Taiwan's HDI has been imputed as the mean HDI of Thailand and China.")) %>%
+  group_rows("Developed economies", 1, 6) %>%
+  group_rows("Emerging economies", 7, 14)
 
 ```
 
@@ -111,7 +114,7 @@ tmp=tmp[brand_include==T, list(cattype=ifelse(unique(appliance)==1, 'Appliance',
 setorder(tmp, category)
 
 kable(tmp, format='html', caption=tab('Category overview')) %>%
-        kable_styling() %>% footnote(general='Categories ranked by alphabet. Exemplary brand names displayed for Top 5 brands in terms of average market share across countries, in alphabetic order.')
+        kable_styling() %>% footnote(general='Categories shown in alphabetical order. Exemplary brand names are given for the top 5 brands in terms of average market share across countries.')
 
 ```
 
@@ -122,18 +125,7 @@ kable(tmp, caption=tab('Variable operationalization for market share attraction 
 
 ```
 
-(still to be completed)
-
-```{r elast_means, echo = FALSE, results='asis'}
-
-m1 = ~1
-m2 = ~-1+as.factor(country_class)
-out1=regmodel(formula=list(m1,m2), dat=elast, model='lm')
-
-printout(out1, 'lt', omit=NULL, title = tab('long-term elasticities'), vars=NULL)
-
-```
-## Elasticities
+*(still to be completed)*
 
 ```{r elast_ov, echo = FALSE, results='asis'}
   .vars=c('llen','wpswdst','rwpspr','nov6sh')
@@ -150,6 +142,7 @@ printout(out1, 'lt', omit=NULL, title = tab('long-term elasticities'), vars=NULL
 	kable(tmp[match(.vars, variable)], digits=3, caption = tab('Long-term elasticities by variable, significance tested at p<.1 (|z| >= 1.64)'))
 
 ```
+
 ```{r elast_hist, echo=F}
 
 elast[, obs_rank:=rank(elastlt), by = c('variable', 'developed')]
@@ -160,33 +153,29 @@ elast[, group:=cut(ptile, breaks=c(0,.25, .5, .75,1), labels=c('Q1', 'Q2', 'Q3',
 tmp=elast[, list(qmeans=mean(elastlt)),by=c('variable', 'developed','group')]
 
 for (.var in unique(elast$variable)){
-p<-ggplot(tmp[variable==.var], aes(x=group, y=qmeans, fill=ifelse(developed==1, 'developed', 'emerging'))) + theme_bw() + geom_bar(position=position_dodge(), stat="identity") +ggtitle(fig('.var')) +scale_fill_grey() + labs(title = paste0("Mean long-term ", rename.fkt(.var), " elasticities per quartile"))+guides(fill=guide_legend("Development status")) +xlab("Quartiles") + 
+p<-ggplot(tmp[variable==.var], aes(x=group, y=qmeans, fill=ifelse(developed==1, 'developed', 'emerging'))) + theme_bw() + geom_bar(position=position_dodge(), stat="identity") +ggtitle(fig('.var')) +scale_fill_grey() + labs(title = fig(paste0("Mean long-term ", rename.fkt(.var), " elasticities per quartile")))+guides(fill=guide_legend("Development status")) +xlab("Quartiles") + 
            ylab("Elasticity")
 print(p)
 }
 
 ```
 
-## Variable operationalization
+##### `r tab("Variable operationalization")`
 
-Variable name             | Construct                  | Operationalization
-------------------------- | -------------------------- | ------------------------------------------------------------
-ln_gdppercap2010          | Degree of development      | Log of GDP per capita, measured in 2010
-necessity                 | Necessary goods            | Dummy for 'necessary' goods, equaling 1 for washing machines, microwaves and refridgerators
+Variable name             | Construct                  | Operationalization                                          | References
+------------------------- | ------------------- | ---------------------------------------------|----------
+necessity                 | Appliance (vs. electronics)| Dummy, equaling 1 for appliances (washing machines, microwaves and refridgerators), 0 if not.
 ln_market_growth          | Category growth rate       | Log of a market's average growth rate in the observation period (geometric average)
 ln_herf                   | Category concentration     | Log of Herfindahl index
 local_to_market           | Local versus foreign brand | Dummy, equaling 1 if brand is local to a market, or not (0 = foreign)
 western_brand             | Western versus Asian brand | Dummy variable, equaling 1 if brand is headquartered in North America or Europe (0 for Asia).
-ln_ncat_in_country        | Cross-country presence     | Number of categories a brand is active in, within a specific category
-ln_ncountry_in_category   | Cross-category presence    | Number of categories a brand is active in, within a specific country
+sbbe                      | Brand equity               | Sales-based brand equity, obtained from intercept from market share attraction model    | Datta, Ailawadi, and van Heerde (2017)
 
 All continuous variables are mean-centered before model estimation.
 
 
 
-```{r continue, echo=FALSE}
-elast=elast[globalbrand==T] # global brands (active in >=3 countries) only
-```
+```{r continue, echo=FALSE}```
 
 # Analysis sample
 
@@ -366,5 +355,17 @@ out[, category:=as.character(category)]
 setorder(out, category)
 
 kable(out, caption = tab('Average category growth rates for high-income and low-income countries, and t-test for significance'),digits=3)
+
+```
+
+## Elasticities
+
+```{r elast_means, echo = FALSE, results='asis'}
+
+m1 = ~1
+m2 = ~-1+as.factor(country_class)
+out1=regmodel(formula=list(m1,m2), dat=elast, model='lm')
+
+printout(out1, 'lt', omit=NULL, title = tab('long-term elasticities'), vars=NULL)
 
 ```
