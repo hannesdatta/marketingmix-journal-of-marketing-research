@@ -32,7 +32,7 @@ return(regs)
 
 
 # Function to plot model results (next to each other)
-printout = function(x, type='st', vars=NULL, omit='category|brand', title='',printtype='html') {
+printout = function(x, type='st', vars=NULL, omit='category|brand', title='',printtype='html', notes=NULL) {
   if (is.null(vars)) vars=seq(along=x)
   
   if (type=='st') res = do.call('c', lapply(x[vars], function(m) m$st))
@@ -42,6 +42,8 @@ printout = function(x, type='st', vars=NULL, omit='category|brand', title='',pri
   
   if (!is.null(omit)) note_text = c(paste0('model includes fixed effects for: ', keep_alpha(gsub('[|]', ', ', omit))))
   if (is.null(omit)) note_text = 'model does not contain fixed effects'
+  
+  if (!is.null(notes)) note_text=notes
   
   stargazer(res, type = printtype, omit=omit, title = title, column.labels=names(res), dep.var.caption=NULL, initial.zero=FALSE,
             notes.align='l',

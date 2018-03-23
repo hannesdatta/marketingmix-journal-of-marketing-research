@@ -160,7 +160,7 @@ print(p)
 
 ```
 
-##### `r tab("Variable operationalization")`
+`r tab("Variable operationalization")`
 
 Variable name             | Construct                  | Operationalization                                          | References
 ------------------------- | ------------------- | ---------------------------------------------|----------
@@ -173,67 +173,56 @@ sbbe                      | Brand equity               | Sales-based brand equit
 
 All continuous variables are mean-centered before model estimation.
 
+# Analysis
 
-
-```{r continue, echo=FALSE}```
-
-# Analysis sample
-
-We continue our analysis with global brands (`r length(unique(elast$brand))` unique brands) that are active in at least 3 out of the 14 countries in our data. Later on, we can revisit this decision (depends on input of RA who is coding headquarter locations for the complete set of brands).
-
-```{r sample_overview, echo=FALSE, results='asis'}
-
-tmp=elast[, list(active_in_countries=length(unique(country)), active_in_categories=length(unique(category)), headquarter_location=unique(global_country), headquarter_region=unique(country_of_origin_recode)), by = c('brand')]
-setorderv(tmp, c('active_in_countries','active_in_categories'),order=-1L)
-kable(tmp, caption = tab('Overview of selected brands, ordered by the number of countries and categories it is active in'))
+```{r continue_with_selection, echo=FALSE}
+elast=elast[globalbrand==T]
 ```
 
+On sample of "global" brands (`r length(unique(elast$brand))` unique brands), active in at least three countries (to be revisited once country-of-origin coding is complete)
 
-
-# Results
-
-## with log GDP
-
-Model with weights (equal to the inverse of an elasticity's standard error), and random effects for countries, categories, and brands.
-
-- First model with main effects only
-- Second model with interactions between economic development (log GDP), and the remaining variables.
 
 ```{r randomcombined1, echo = FALSE, results='asis'}
+m1 = ~1+ (1|brand) + (1|category) + (1|country) + necessity + ln_market_growth_mc + ln_herf_mc + local_to_market + western_brand + sbbe_std
 
-m1 = ~1+ln_gdppercap2010_mc + (1|brand) + (1|category) + (1|country)+ necessity + ln_market_growth_mc + ln_herf_mc + local_to_market + western_brand + ln_ncat_in_country_mc + ln_ncountry_in_category_mc
+#interact1 = . ~ . + necessity*ln_gdppercap2010_mc + ln_market_growth_mc*ln_gdppercap2010_mc +
+#  local_to_market*ln_gdppercap2010_mc + western_brand*ln_gdppercap2010_mc +
+#  ln_herf_mc*ln_gdppercap2010_mc + ln_ncat_in_country_mc*ln_gdppercap2010_mc + ln_ncountry_in_category_mc*ln_gdppercap2010_mc
 
-interact1 = . ~ . + necessity*ln_gdppercap2010_mc + ln_market_growth_mc*ln_gdppercap2010_mc +
-  local_to_market*ln_gdppercap2010_mc + western_brand*ln_gdppercap2010_mc +
-  ln_herf_mc*ln_gdppercap2010_mc + ln_ncat_in_country_mc*ln_gdppercap2010_mc + ln_ncountry_in_category_mc*ln_gdppercap2010_mc
-
-m2=update(m1, interact1)
+#m2=update(m1, interact1)
 
 out1=regmodel(formula=m1, dat=elast, model='lmer')
+notes_base = "Regression of long-term elasticities on explanatory variables and three random effects for brands, categories, and countries. Weights are equal to the inverse of the elasticities' standard error."
 
 cat("<P style='page-break-before: always'>")
-printout(out1, 'lt', omit=NULL, title = tab('DV: long-term elasticities'), vars=NULL)
+printout(out1, 'lt', omit=NULL, title = tab('DV: long-term elasticities, pooled sample of developed and emerging countries'), vars=NULL,notes=notes_base)
 
 cat("<P style='page-break-before: always'>")
-out2=regmodel(formula=m2, dat=elast, model='lmer')
-printout(out2, 'lt', omit=NULL, title = tab('DV: long-term elasticities, with interactions'), vars=NULL)
+out2=regmodel(formula=m1, dat=elast[developed==1], model='lmer')
+printout(out2, 'lt', omit=NULL, title = tab('DV: long-term elasticities, sample of developed countries'), vars=NULL, notes=paste0(notes_base, ' Model estimated on sample of developed countries only.'))
+
+cat("<P style='page-break-before: always'>")
+out3=regmodel(formula=m1, dat=elast[developed==0], model='lmer')
+printout(out3, 'lt', omit=NULL, title = tab('DV: long-term elasticities, sample of emerging countries'), vars=NULL, notes=paste0(notes_base, ' Model estimated on sample of emerging countries only.'))
+
+# interaction model
+m2 = ~1+ (1|brand) + (1|category) + (1|country) + necessity*developed + ln_market_growth_mc*developed + ln_herf_mc*developed + local_to_market*developed + western_brand*developed + sbbe_std*developed
+cat("<P style='page-break-before: always'>")
+out4=regmodel(formula=m2, dat=elast, model='lmer')
+printout(out4, 'lt', omit=NULL, title = tab('DV: long-term elasticities, pooled sample of developed and emerging countries with interactions'), vars=NULL, notes=paste0(notes_base))
 
 ```
-
-
-## with country dummies
 
 Drop random effects for countries, replace by dummy variables.
 
 ```{r randomcombined4, echo = FALSE, results='asis'}
 
-m1 = ~1+ (1|brand) + (1|category) + as.factor(country) + necessity + ln_market_growth_mc + ln_herf_mc + local_to_market + western_brand + ln_ncat_in_country_mc + ln_ncountry_in_category_mc
-
-out1=regmodel(formula=m1, dat=elast, model='lmer')
+m1 = ~1+ (1|brand) + (1|category) + as.factor(country) + necessity + ln_market_growth_mc + ln_herf_mc + local_to_market + western_brand + sbbe_std
+#ln_ncat_in_country_mc + ln_ncountry_in_category_mc
 
 cat("<P style='page-break-before: always'>")
-printout(out1, 'lt', omit=NULL, title = tab('long-term elasticities'), vars=NULL)
-
+out5=regmodel(formula=m1, dat=elast, model='lmer')
+printout(out5, 'lt', omit=NULL, title = tab('DV: long-term elasticities, with country-fixed effects'), vars=NULL, notes="Regression of long-term elasticities on explanatory variables, fixed effects for countries, and two random effects for categories and countries. Weights are equal to the inverse of the elasticities' standard error.")
 
 ```
 
@@ -357,6 +346,14 @@ setorder(out, category)
 kable(out, caption = tab('Average category growth rates for high-income and low-income countries, and t-test for significance'),digits=3)
 
 ```
+
+```{r sample_overview, echo=FALSE, results='asis'}
+
+tmp=elast[, list(active_in_countries=length(unique(country)), active_in_categories=length(unique(category)), headquarter_location=unique(global_country), headquarter_region=unique(country_of_origin_recode)), by = c('brand')]
+setorderv(tmp, c('active_in_countries','active_in_categories'),order=-1L)
+kable(tmp, caption = tab('Overview of selected brands, ordered by the number of countries and categories it is active in'))
+```
+
 
 ## Elasticities
 
