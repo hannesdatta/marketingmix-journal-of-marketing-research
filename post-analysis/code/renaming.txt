@@ -1,0 +1,13 @@
+source	target	type
+australia	Australia	gsub
+singapore	Singapore	gsub
+japan	Japan	gsub
+new zealand	New Zealand	gsub
+country	Country	gsub
+gdppercap2010	GDP per capita	gsub
+hdi2010	Human Development Index	gsub
+llen	line length	gsub
+wpswdst	distribution	gsub
+rwpspr	price	gsub
+nov6sh	new product activity	gsub
+
