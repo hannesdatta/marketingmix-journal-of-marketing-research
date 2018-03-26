@@ -32,7 +32,7 @@ return(regs)
 
 
 # Function to plot model results (next to each other)
-printout = function(x, type='st', vars=NULL, omit='category|brand', title='',printtype='html', notes=NULL) {
+printout = function(x, type='st', vars=NULL, omit='category|brand', title='',printtype='html', notes=NULL,covlabels=NULL) {
   if (is.null(vars)) vars=seq(along=x)
   
   if (type=='st') res = do.call('c', lapply(x[vars], function(m) m$st))
@@ -45,11 +45,27 @@ printout = function(x, type='st', vars=NULL, omit='category|brand', title='',pri
   
   if (!is.null(notes)) note_text=notes
   
-  stargazer(res, type = printtype, omit=omit, title = title, column.labels=names(res), dep.var.caption=NULL, initial.zero=FALSE,
-            notes.align='l',
+  if (!is.null(vars)) collabels=names(vars) else collabels=names(res)
+  
+  stargazer(res, type = printtype, omit=omit, title = title, column.labels=collabels, dep.var.caption=NULL, initial.zero=FALSE,
+            notes.align='l',dep.var.labels.include = FALSE, covariate.labels=covlabels,
             notes=note_text)
 
 }
+
+#title='title'
+#
+#sink('../temp/test.html')
+#stargazer(res, type = printtype, omit=omit, title = title, dep.var.caption=NULL, initial.zero=FALSE,
+#          notes.align='l',dep.var.labels.include = FALSE, covariate.labels=covlabels,
+#          notes=note_text, column.labels=names(res))
+#
+#sink()
+#
+#names(res) <- paste0(unlist(sanitize_table(data.frame(names(res)))), ' elasticity')
+
+
+
 
 # Function to produce model results for short- and long-term elasticities
 printres <- function(x, omit, title='', vars= NULL, pagebreak=F) {

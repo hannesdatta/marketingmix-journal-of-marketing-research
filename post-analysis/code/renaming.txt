@@ -3,6 +3,16 @@ australia	Australia	gsub
 singapore	Singapore	gsub
 japan	Japan	gsub
 new zealand	New Zealand	gsub
+hong kong	Hong Kong	gsub
+south korea	South Korea	gsub
+malaysia	Malaysia	gsub
+thailand	Thailand	gsub
+taiwan	Taiwan	gsub
+china	China	gsub
+indonesia	Indonesia	gsub
+philippines	Philippines	gsub
+india	India	gsub
+vietnam	Vietnam	gsub
 country	Country	gsub
 gdppercap2010	GDP per capita	gsub
 hdi2010	Human Development Index	gsub
@@ -10,4 +20,40 @@ llen	line length	gsub
 wpswdst	distribution	gsub
 rwpspr	price	gsub
 nov6sh	new product activity	gsub
-
+^fe	Country fixed effect	gsub
+airqual	Quality of air transport infrastructure	gsub
+electricityqual	Quality of electricity supply	gsub
+fixedphone	Number of fixed telephone lines (per 100 population)	gsub
+mobilephone	Number of mobile cell phone subscriptions (per 100 population)	gsub
+overall_infra	Quality of overall infrastructure	gsub
+portqual	Quality port infrastructure	gsub
+railroadqual	Quality of railroad infrastructure	gsub
+roadqual	Quality of roads	gsub
+washing	Washing machines	gsub
+tv_gen2_lcd	LCD TV	gsub
+tv_gen1_crtv	Regular TV	gsub
+tablets	Tablets	gsub
+phones_smart	Smart phones	gsub
+phones_mobile	Mobile phones	gsub
+microwave	Microwaves	gsub
+laptop	Laptop computers	gsub
+dvd	DVD players and recorders	gsub
+desktoppc	Desktop computers	gsub
+cooling	Refrigerators	gsub
+camera_slr	SLR cameras	gsub
+camera_compact	Compact cameras	gsub
+category	Category	gsub
+cattype	Category type	gsub
+ncountries	Number of countries with data	gsub
+exemplary_brand_names	Exemplary brand names	gsub
+welast	weighted elasticity	grepl
+[_]z	Meta-analytic z	grepl
+mmixinstr	Marketing-mix instrument	gsub
+Neffects	Number of estimates	grepl
+.*[_]sig	sig.	gsub
+necessity	Appliance (versus electronics)	gsub
+ln_market_growth_mc	Log of category growth	gsub
+ln_herf_mc	Log of category concentration	gsub
+local_to_market	Domestic brand (versus foreign brand)	grepl
+western_brand	Western brand (versus Asian brand)	grepl
+sbbe_std_mc	Brand equity	gsub

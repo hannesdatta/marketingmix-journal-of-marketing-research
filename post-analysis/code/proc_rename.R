@@ -1,5 +1,5 @@
 
-rename.fkt <- function(x, textbreak=F) {
+rename.fkt <- function(x, textbreak=T) {
 	renaming <- read.table('renaming.txt', sep='\t',header=T)
 	as.character(sapply(x, function(x) {
 		x=x
@@ -24,22 +24,17 @@ rename.fkt.break = function(x) rename.fkt(x, textbreak=T)
 
 sanitize_table <- function(x) {
   res=x
+  # check factor or character columns
+  for (col in seq(along=res)) {
+    colclass=unlist(lapply(res,class))[col]
+    
+    if (colclass%in%c('character', 'factor')) {
+      coln=colnames(res)[col]
+      eval(parse(text=paste0('res$', coln, '=rename.fkt(res$', coln,')')))
+    }
+  }
   if (!is.null(colnames(res))) colnames(res)<-rename.fkt(colnames(res))
   if (!is.null(rownames(res))) rownames(res)<-rename.fkt(rownames(res))
   
-  # check factor or character columns
-  lapply(res, function(x) x)
-  
-  for (col in seq(along=res)) {
-    print(as.numeric(col))
-    print(unlist(lapply(res[, as.numeric(col)],class)))
-    if (unlist(lapply(res[, as.numeric(col)],class))%in%c('character', 'factor')) {
-      print('coln')
-      coln=colnames(res)[col]
-      print(coln)
-      # eval(parse(text=paste0('res$', coln, ':=rename_fkt(res$', coln,')')))
-    }
+  res
   }
-  
-  
-}
