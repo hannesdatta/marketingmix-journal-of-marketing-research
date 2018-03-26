@@ -17,7 +17,6 @@ library(car)
 library(kableExtra)
 library(stringi)
 library(ggplot2)
-library(piecewiseSEM)
 
 options(xtable.comment = FALSE)
 
@@ -52,7 +51,7 @@ options(xtable.comment = FALSE)
   
   
   elast[, developed:=0]
-  elast[country%in%c('australia', 'singapore', 'japan', 'new zealand', 'hong kong', 'south korea'), developed := 1]
+  elast[country%in%c('australia', 'singapore', 'japan', 'new zealand', 'hong kong', 'south korea', 'taiwan'), developed := 1]
 
 
 # take natural log of variables
@@ -103,7 +102,7 @@ elast[!is.na(elastlt), weightslt := (1/elastlt_se)/sum(1/elastlt_se), by = c('va
 tmp=unique(elast, by='country')[, c('country','gdppercap2010','hdi2010'),with=F]
 setorderv(tmp, c('gdppercap2010'), order=-1L)
 kable(sanitize_table(tmp), format='html', initial.zero = FALSE, caption=tab('Development indicators for countries in sample')) %>%
-        kable_styling() %>% footnote(general='Countries ranked by GDP per capita.', alphabet=c("GDP per capita in current USD, 2010 data. Provided by World Bank (https://data.worldbank.org/indicator/NY.GDP.PCAP.CD) for all countries except Taiwan. Data for Taiwan obtained from Thomson Reuters Datastream (symbol: TWGDPPEAA).", "Human Development Index (HDI), 2010 data. Taiwan's HDI has been imputed as the mean HDI of Thailand and China.")) %>%
+        kable_styling() %>% footnote(general='Countries ranked by GDP per capita.', alphabet=c("GDP per capita in current USD, 2010 data, provided by World Bank (https://data.worldbank.org/indicator/NY.GDP.PCAP.CD) for all countries except Taiwan. Data for Taiwan obtained from Thomson Reuters Datastream (symbol: TWGDPPEAA).", "Human Development Index (HDI), 2010 data, obtained from UN Development Programme (http://hdr.undp.org/en/content/human-development-index-hdi). Taiwan's HDI has been imputed as the mean HDI of Thailand and China.")) %>%
   group_rows("Developed economies", 1, 6) %>%
   group_rows("Emerging economies", 7, 14)
 
@@ -140,10 +139,10 @@ kable(tmp, format='html', caption=tab('Category overview')) %>%
 Variable             | Operationalization
 -------------------- | ------------------------------------------------------------------
 Market share         | Unit sales for brand *i* in period *t*, devided by total unit sales in period *t* in a market
-Price                | Sales-weighted^1^ average of each SKU's price sold by brand *i* in period *t*, expressed in local currencies and adjusted by a country's consumer price index^2^
+Price                | Sales-weighted^1^ average of each SKU's price sold by brand *i* in period *t*, expressed in local currency and adjusted by a country's consumer price index^2^
 Distribution         | Sales-weighted^1^ distribution of each of brand *i*'s SKUs' weighted distribution in period *t* (0 = no market coverage, 100 = full market coverage)
 Line length          | Number of unique SKUs sold by brand *i* in period *t*
-New product activity | Number of SKUs introduced by brand *i* in the most recent quarter (*t-2*, *t-1*, *t*), expressed as a share of total unique SKUs sold by brand *i* over the same period
+New product activity | Number of SKUs introduced by brand *i* in a rolling window of 6 months (*t-5*, *t-4*, *...*, *t*), expressed as a share of total unique SKUs sold by brand *i* over the same period
 
 Notes:
 
@@ -227,7 +226,7 @@ Construct                  | Operationalization                                 
 Appliance (vs. electronics)| Dummy, equaling 1 for appliances (washing machines, microwaves and refridgerators), 0 if not.
 Category growth rate       | Log of a market's average growth rate in the observation period (geometric average)
 Category concentration     | Log of Herfindahl index
-Local versus foreign brand | Dummy, equaling 1 if brand is local to a market, or not (0 = foreign)
+Domestic versus foreign brand | Dummy, equaling 1 if a brand's headquarter is located in the focal country; 0 if not.
 Western versus Asian brand | Dummy variable, equaling 1 if brand is headquartered in North America or Europe (0 for Asia).
 Brand equity               | Sales-based brand equity, obtained as a transformation of the brand-specific intercept from the market share attraction model, standardized by category    | Datta, Ailawadi, and van Heerde (2017)
 
@@ -458,7 +457,7 @@ zval=qnorm(1-.1/2) # 10%-level
 												  perc_null = length(which(abs(elast/elast_se)<zval))/.N, 
 												  perc_negative = length(which(elast/elast_se<=(-zval)))/.N), by=c('variable')]
 	tmp=sanitize_table(tmp[match(ordered_vars, variable)])
-	kable(tmp, format='html',digits=3, caption = tab('Short-term elasticities by variable', prefix='A')) %>% kable_styling() %>% footnote(general=paste0('Note: Table reports short-term elasticities. Significance tested at p<.1.'))
+	kable(tmp, format='html',digits=3, caption = tab('Short-term elasticities by variable', prefix='A')) %>% kable_styling() %>% footnote(general=paste0('Note: Table reports short-term elasticities. Weights, if used, are equal to inverse standard errors of estimated elasticities. Significance tested at p<.1.'))
 ```	
 
 ```{r elast_lt, echo = FALSE, results='asis'}
@@ -473,7 +472,7 @@ zval=qnorm(1-.1/2) # 10%-level
 												  perc_negative = length(which(elastlt/elastlt_se<=(-zval)))/.N), by=c('variable')]
 	tmp=sanitize_table(tmp[match(ordered_vars, variable)])
 	
-	kable(tmp, format='html',digits=3, caption = tab('Long-term elasticities by variable', prefix='A')) %>% kable_styling() %>% footnote(general=paste0('Note: Table reports short-term elasticities. Significance tested at p<.1.'))
+	kable(tmp, format='html',digits=3, caption = tab('Long-term elasticities by variable', prefix='A')) %>% kable_styling() %>% footnote(general=paste0('Note: Table reports long-term elasticities. Weights, if used, are equal to inverse standard errors of estimated elasticities. Significance tested at p<.1.'))
 
 ```
 
@@ -509,7 +508,8 @@ tmp = elast_all[, list(Nbrands = length(unique(brand))), by = c('market_id', 'ca
 
 tabl = dcast(tmp, category~country, value.var=c('Nbrands'))
 #print(xtable(tabl, caption = tab('Overview of categories and countries (with number of brands indicated for each market), in estimation data')), scalebox='0.6',type='html',caption.placement='top')
-
+tabl=sanitize_table(tabl)
+setorder(tabl, Category)
 kable(tabl, caption = tab('Overview of categories and countries (with number of brands indicated for each market), in estimation data', prefix='A'))
 
 ```
