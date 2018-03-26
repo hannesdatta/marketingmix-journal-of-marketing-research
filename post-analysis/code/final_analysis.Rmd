@@ -87,6 +87,9 @@ source('proc_rename.R')
 
 ```
 
+Note: relabeling (e.g., variable names), and capitalization (e.g,. Australia instead of australia) still pending.
+
+
 ```{r devel, echo = FALSE}
 tmp=unique(elast, by='country')[, c('country','gdppercap2010','hdi2010'),with=F]
 setorderv(tmp, c('gdppercap2010'), order=-1L)
@@ -125,7 +128,7 @@ kable(tmp, caption=tab('Variable operationalization for market share attraction 
 
 ```
 
-*(still to be completed)*
+*(still to be completed!)*
 
 ```{r elast_ov, echo = FALSE, results='asis'}
   .vars=c('llen','wpswdst','rwpspr','nov6sh')
@@ -226,7 +229,7 @@ printout(out5, 'lt', omit=NULL, title = tab('DV: long-term elasticities, with co
 
 ```
 
-# Appendix
+# Appendix (legacy tables)
 
 ## VIFs
 
@@ -242,7 +245,6 @@ m2=update(m1, interact1)
 
 m<-lm(update(elast~., m1), data=elast[variable=='llen'])
 m2<-lm(update(elast~., m2), data=elast[variable=='llen'])
-cat("<P style='page-break-before: always'>")
 
 kable(data.frame(vif(m)), caption = tab('VIFs in a model without interactions'))
 kable(data.frame(vif(m2)), caption = tab('VIFs in a model with interactions'))
@@ -264,7 +266,7 @@ kable(data.frame(vif(m2)), caption = tab('VIFs in a model with interactions'))
 												  perc_positive = length(which(elast/elast_se>=(zval)))/.N, 
 												  perc_null = length(which(abs(elast/elast_se)<zval))/.N, 
 												  perc_negative = length(which(elast/elast_se<=(-zval)))/.N), by=c('variable')]
-	kable(tmp[match(.vars, variable)], caption = tab('Short-term elasticities by variable'))
+	kable(tmp[match(.vars, variable)], digits=3, caption = tab('Short-term elasticities by variable, significance tested at p<.1 (|z| >= 1.64)'))
 ```	
 
 ## Long-term
@@ -284,7 +286,7 @@ kable(data.frame(vif(m2)), caption = tab('VIFs in a model with interactions'))
 ```
 
 
-Estimated using a market share attraction model (MCI), with
+Elasticities estimated using a market share attraction model (MCI), with
 
 * four marketing mix instruments:
      + llen = line length (number of SKUs)
@@ -352,17 +354,4 @@ kable(out, caption = tab('Average category growth rates for high-income and low-
 tmp=elast[, list(active_in_countries=length(unique(country)), active_in_categories=length(unique(category)), headquarter_location=unique(global_country), headquarter_region=unique(country_of_origin_recode)), by = c('brand')]
 setorderv(tmp, c('active_in_countries','active_in_categories'),order=-1L)
 kable(tmp, caption = tab('Overview of selected brands, ordered by the number of countries and categories it is active in'))
-```
-
-
-## Elasticities
-
-```{r elast_means, echo = FALSE, results='asis'}
-
-m1 = ~1
-m2 = ~-1+as.factor(country_class)
-out1=regmodel(formula=list(m1,m2), dat=elast, model='lm')
-
-printout(out1, 'lt', omit=NULL, title = tab('long-term elasticities'), vars=NULL)
-
 ```
