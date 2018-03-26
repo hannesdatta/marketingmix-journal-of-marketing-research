@@ -1,18 +1,21 @@
 source	target	type
-australia	Australia	gsub
-singapore	Singapore	gsub
-japan	Japan	gsub
-new zealand	New Zealand	gsub
-hong kong	Hong Kong	gsub
-south korea	South Korea	gsub
-malaysia	Malaysia	gsub
-thailand	Thailand	gsub
-taiwan	Taiwan	gsub
-china	China	gsub
-indonesia	Indonesia	gsub
-philippines	Philippines	gsub
-india	India	gsub
-vietnam	Vietnam	gsub
+australia	Australia	grepl
+singapore	Singapore	grepl
+japan	Japan	grepl
+new zealand	New Zealand	grepl
+hong kong	Hong Kong	grepl
+south korea	South Korea	grepl
+malaysia	Malaysia	grepl
+thailand	Thailand	grepl
+taiwan	Taiwan	grepl
+china	China	grepl
+indonesia	Indonesia	grepl
+philippines	Philippines	grepl
+india	India	grepl
+vietnam	Vietnam	grepl
+netherlands	The Netherlands	gsub
+^usa	USA	gsub
+Usa	USA	gsub
 country	Country	gsub
 gdppercap2010	GDP per capita	gsub
 hdi2010	Human Development Index	gsub
@@ -51,9 +54,23 @@ welast	weighted elasticity	grepl
 mmixinstr	Marketing-mix instrument	gsub
 Neffects	Number of estimates	grepl
 .*[_]sig	sig.	gsub
+[*] developed	   x developed country	grepl
 necessity	Appliance (versus electronics)	gsub
 ln_market_growth_mc	Log of category growth	gsub
 ln_herf_mc	Log of category concentration	gsub
 local_to_market	Domestic brand (versus foreign brand)	grepl
 western_brand	Western brand (versus Asian brand)	grepl
 sbbe_std_mc	Brand equity	gsub
+active_in_countries	Number of countries active in	gsub
+active_in_categories	Number of categories active in 	gsub
+headquarter_location	Location of headquarter	gsub
+headquarter_region	Region of headquarter	gsub
+median_elast	Median elasticity	gsub
+w_elast	Weighted elasticity	gsub
+N_brands	Number of effects	gsub
+perc_positive	%-positive and significant	gsub
+perc_negative	%-negative and significant	gsub
+perc_null	%-insignificant	gsub
+Northamerica	North America	gsub
+
+

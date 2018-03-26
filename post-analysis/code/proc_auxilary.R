@@ -5,22 +5,25 @@ regmodel <- function(formula=list(~1+I(country_class=='linc') + as.factor(catego
   if (class(formula)=='formula') formula=list(formula)
   
   regs <- lapply(unique(dat$variable), function(varname) {
+    fit=NULL
     if (model=='lm') {
-      st = lapply(formula, function(form) lm(update(form, elast ~ .), data = data.table(dat[variable==varname&!is.na(elast)]), weights=1/elast_se))
-      lt = lapply(formula, function(form) lm(update(form, elastlt ~ .), data = data.table(dat[variable==varname&!is.na(elastlt)]), weights=1/elastlt_se))
-    }
-    if (model=='lmer') {
-      st = lapply(formula, function(form) lmer(update(form, elast ~ .), data = data.table(dat[variable==varname&!is.na(elast)]), weights=1/elast_se))
-      lt = lapply(formula, function(form) lmer(update(form, elastlt ~ .), data = data.table(dat[variable==varname&!is.na(elastlt)]), weights=1/elastlt_se))
-      
+      st = lapply(formula, function(form) lm(update(form, elast ~ .), data = data.table(dat[variable==varname&!is.na(elast)]), weights=weightsst))
+      lt = lapply(formula, function(form) lm(update(form, elastlt ~ .), data = data.table(dat[variable==varname&!is.na(elastlt)]), weights=weightslt))
+      fit=NULL
       }
-    return(list(variable=varname, st=st, lt=lt))
+    if (model=='lmer') {
+      st = lapply(formula, function(form) lmer(update(form, elast ~ .), data = data.table(dat[variable==varname&!is.na(elast)]), weights=weightsst))
+      lt = lapply(formula, function(form) lmer(update(form, elastlt ~ .), data = data.table(dat[variable==varname&!is.na(elastlt)]), weights=weightslt))
+      fit= NULL #sem.model.fits(list(st,lt))
+      }
+    return(list(variable=varname, st=st, lt=lt, fit = fit))
       
   })
   
 names(regs) <- unique(dat$variable)
 return(regs)
 }
+
 
 # test
 #~1+I(country_class=='linc')
@@ -49,7 +52,7 @@ printout = function(x, type='st', vars=NULL, omit='category|brand', title='',pri
   
   stargazer(res, type = printtype, omit=omit, title = title, column.labels=collabels, dep.var.caption=NULL, initial.zero=FALSE,
             notes.align='l',dep.var.labels.include = FALSE, covariate.labels=covlabels,
-            notes=note_text)
+            notes=note_text, omit.stat=c('aic','bic'))
 
 }
 
@@ -77,10 +80,59 @@ printres <- function(x, omit, title='', vars= NULL, pagebreak=F) {
 }
 
 # Numbering of figures and tables
-fig<-function(caption) {figureno<<-figureno+1;paste0('Figure ', figureno, ': ', caption)}
-tab<-function(caption) {tableno<<-tableno+1;paste0('Table ', tableno, ': ', caption)}
+fig<-function(caption,prefix='') {figureno<<-figureno+1;paste0('Figure ', prefix, figureno, ': ', caption)}
+tab<-function(caption,prefix='') {tableno<<-tableno+1;paste0('Table ', prefix, tableno, ': ', caption)}
 
 # initialize numbering
 tableno<<-0
 figureno<<-0
 
+library(Hmisc)
+
+# x is a matrix containing the data
+# method : correlation method. "pearson"" or "spearman"" is supported
+# removeTriangle : remove upper or lower triangle
+# results :  if "html" or "latex"
+# the results will be displayed in html or latex format
+corstars <-function(x, method=c("pearson", "spearman"), removeTriangle=c("upper", "lower"),
+                    result=c("none", "html", "latex")){
+  #Compute correlation matrix
+  x <- as.matrix(x)
+  correlation_matrix<-rcorr(x, type=method[1])
+  R <- correlation_matrix$r # Matrix of correlation coeficients
+  p <- correlation_matrix$P # Matrix of p-value 
+  
+  ## Define notions for significance levels; spacing is important.
+  mystars <- ifelse(p < .001, "****", ifelse(p < .01, "*** ", ifelse(p < .05, "**  ", ifelse(p < .1, "*   ", "    "))))
+  
+  ## trunctuate the correlation matrix to two decimal
+  R <- format(round(cbind(rep(-1.11, ncol(x)), R), 2))[,-1]
+  
+  ## build a new matrix that includes the correlations with their apropriate stars
+  Rnew <- matrix(paste(R, mystars, sep=""), ncol=ncol(x))
+  diag(Rnew) <- paste(diag(R), " ", sep="")
+  rownames(Rnew) <- colnames(x)
+  colnames(Rnew) <- paste(colnames(x), "", sep="")
+  
+  ### remove upper triangle of correlation matrix
+  if(removeTriangle[1]=="upper"){
+    Rnew <- as.matrix(Rnew)
+    Rnew[upper.tri(Rnew, diag = TRUE)]# <- ""
+    Rnew <- as.data.frame(Rnew)
+  }
+  
+  ## remove lower triangle of correlation matrix
+  else if(removeTriangle[1]=="lower"){
+    Rnew <- as.matrix(Rnew)
+    Rnew[lower.tri(Rnew, diag = TRUE)]# <- ""
+    Rnew <- as.data.frame(Rnew)
+  }
+  
+  ## remove last column and return the correlation matrix
+  Rnew <- cbind(Rnew[1:length(Rnew)-1])
+  if (result[1]=="none") return(Rnew)
+  else{
+    if(result[1]=="html") print(xtable(Rnew), type="html")
+    else print(xtable(Rnew), type="latex") 
+  }
+} 
