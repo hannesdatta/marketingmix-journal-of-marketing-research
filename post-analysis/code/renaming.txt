@@ -72,5 +72,5 @@ perc_positive	%-positive and significant	gsub
 perc_negative	%-negative and significant	gsub
 perc_null	%-insignificant	gsub
 Northamerica	North America	gsub
-
+nbrands	Number of brands	gsub
 

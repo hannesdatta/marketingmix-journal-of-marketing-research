@@ -120,7 +120,7 @@ tmp[, brand_include:= rank%in%1:5]
 
 sort_alpha <- function(x) return(x[order(x)])
 
-tmp=tmp[brand_include==T, list(cattype=ifelse(unique(appliance)==1, 'Appliance', 'Electronics'), ncountries=unique(ncountries), exemplary_brand_names=paste0(sort_alpha(stri_trans_totitle(unique(brand))), collapse=', ')), by='category']
+tmp=tmp[, list(cattype=ifelse(unique(appliance)==1, 'Appliance', 'Electronics'), ncountries=unique(ncountries), nbrands=length(unique(brand)), exemplary_brand_names=paste0(sort_alpha(stri_trans_totitle(unique(brand[brand_include==T]))), collapse=', ')), by='category']
 tmp=sanitize_table(tmp)
 
 try(setorder(tmp, Category),silent=T)
@@ -293,7 +293,7 @@ cat("<P style='page-break-before: always'>")
 out5=regmodel(formula=m1, dat=elast, model='lmer')
 covlabels=unlist(sanitize_table(data.frame(colnames(out5[[1]]$lt[[1]]@pp$X))))
 covlabels=c(covlabels[-which(covlabels=='(Intercept)')], 'Constant')
-printout(out5, 'lt', omit=NULL, title = tab('DV: long-term elasticities, with country-fixed effects'), vars=NULL, notes="Regression of long-term elasticities on country fixed-effects (baseline: Australia), explanatory variables and two random effects for brands and categories. Estimated using a linear mixed-effects model, with weights equal to the inverse of the elasticities' standard error, normalized to sum up to 1. Two-sided signifiance levels reported.", covlabels=covlabels)
+printout(out5, 'lt', omit=NULL, title = tab('DV: long-term elasticities, with country-fixed effects'),vars=ordered_vars, notes="Regression of long-term elasticities on country fixed-effects (baseline: Australia), explanatory variables and two random effects for brands and categories. Estimated using a linear mixed-effects model, with weights equal to the inverse of the elasticities' standard error, normalized to sum up to 1. Two-sided signifiance levels reported.", covlabels=covlabels)
 
 ```
 
