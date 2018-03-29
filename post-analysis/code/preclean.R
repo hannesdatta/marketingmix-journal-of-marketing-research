@@ -36,7 +36,7 @@ for (var in vars) {
 }
 
 # grand-mean centering by variable (llen, etc.) for all explanatory (continuous) variables
-for (var in unique(drop(unlist(lapply(vars, grep, colnames(elast), value=T))))) {
+for (var in unique(drop(unlist(lapply(c(vars, 'sbbe_std'), grep, colnames(elast), value=T))))) {
   elast[, (paste0(var, '_mc')):=get(var)-mean(get(var)), by = c('variable')]
 }
 

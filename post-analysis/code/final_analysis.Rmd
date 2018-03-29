@@ -126,22 +126,54 @@ for (iter in iters) {
 
 ```{r elast_hist, echo=F}
 
+# calculate quartiles for elasticities for each variable
 elast[, obs_rank:=rank(elastlt), by = c('variable', 'developed')]
 setorder(elast,variable, developed, obs_rank)
 elast[, ptile := obs_rank/max(obs_rank), by = c('variable', 'developed')]
 elast[, group:=cut(ptile, breaks=c(0,.25, .5, .75,1), labels=c('Q1', 'Q2', 'Q3', 'Q4'))]
 
-tmp=elast[, list(qmeans=mean(elastlt)),by=c('variable', 'developed','group')]
-tmp2=elast[, list(qmeans=mean(elastlt)),by=c('variable', 'developed')]
+# calculate means and weighted means, per group
+#  out = lapply(list(st=c('elast', 'elast_se'), lt = c('elastlt','elastlt_se')), function(obj) {
+
+tmp=elast[, list(qmeans=mean(elastlt),
+                 qwmeans=sum(elastlt/elastlt_se)/sum(1/elastlt_se)),
+          by=c('variable', 'developed','group')]
+
+tmp2=elast[, list(qmeans=mean(elastlt),
+                  qwmeans=sum(elastlt/elastlt_se)/sum(1/elastlt_se)),
+          by=c('variable', 'developed')]
 tmp2[, group:='Total']
 setcolorder(tmp2, colnames(tmp))
+
 tmp=rbind(tmp,tmp2)
 
 for (.var in ordered_vars){
-p<-ggplot(tmp[variable==.var], aes(x=group, y=qmeans, fill=ifelse(developed==1, 'developed', 'emerging'))) + theme_bw() + geom_bar(position=position_dodge(), stat="identity") +ggtitle(fig('.var')) +scale_fill_grey() + labs(title = fig(paste0("Mean long-term ", rename.fkt(.var), " elasticities per quartile")))+guides(fill=guide_legend("Development status")) +xlab("Quartiles") + 
-           ylab("Elasticity")
+p<-ggplot(tmp[variable==.var], aes(x=group, y=qmeans, fill=ifelse(developed==1, 'developed', 'emerging'))) + 
+  theme_bw() + 
+  geom_bar(position=position_dodge(), stat="identity") + 
+  ggtitle(fig('.var')) +
+  scale_fill_grey() + 
+  labs(title = fig(paste0("Mean long-term ", rename.fkt(.var), " elasticities per quartile"))) + 
+  guides(fill=guide_legend("Development status")) +
+  xlab("Quartiles") + 
+  ylab("Elasticity")
 print(p)
 }
+
+
+for (.var in ordered_vars){
+p<-ggplot(tmp[variable==.var], aes(x=group, y=qwmeans, fill=ifelse(developed==1, 'developed', 'emerging'))) + 
+  theme_bw() + 
+  geom_bar(position=position_dodge(), stat="identity") + 
+  ggtitle(fig('.var')) +
+  scale_fill_grey() + 
+  labs(title = fig(paste0("Mean long-term ", rename.fkt(.var), " elasticities (weighted) per quartile"))) + 
+  guides(fill=guide_legend("Development status")) +
+  xlab("Quartiles") + 
+  ylab("Elasticity")
+print(p)
+}
+
 
 ```
 
