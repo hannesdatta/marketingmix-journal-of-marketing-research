@@ -7,7 +7,9 @@ gci[, row:=1:.N]
 gci=melt(gci, id.vars='row')
 
 gci[, rank:=as.numeric(unlist(lapply(strsplit(value, ' ',fixed=T), function(x) x[1])))]
-gci[, score:=str_extract(substr(gsub('[,]', '', value),4,100), "\\d+\\.*\\d*")]
+
+gci[, score:=gsub('[0-9][.][.]','', value)]
+gci[, score:=str_extract(substr(gsub('[,]', '', score),4,100), "\\d+\\.*\\d*")]
 
 # clean countries
 gci[, country:=sapply(value, function(x) strsplit(x, '[.]')[[1]][1])]
@@ -40,8 +42,9 @@ gci[country=='taiwan, china', country :='taiwan']
 
 # drop unnecessary variables
 gci[, ':=' (row=NULL, value=NULL, variable=NULL)]
+gci[, scorenum := as.numeric(score)]
 
-gci_save=dcast(gci, country~construct, value.var='score')
+gci_save=dcast(gci, country~construct, value.var='scorenum')
 
 fwrite(gci_save,'../temp/gci.csv')
 

@@ -1,6 +1,6 @@
 
-rename.fkt <- function(x, textbreak=T) {
-	renaming <- read.table('renaming.txt', sep='\t',header=T)
+rename.fkt <- function(x, textbreak=T, dictionary = 'renaming.txt') {
+	renaming <- read.table(dictionary, sep='\t',header=T)
 	as.character(sapply(x, function(x) {
 		x=x
 		for (i in 1:nrow(renaming)) {
@@ -22,7 +22,7 @@ rename.fkt.break = function(x) rename.fkt(x, textbreak=T)
 
 
 
-sanitize_table <- function(x) {
+sanitize_table <- function(x, dictionary='renaming.txt') {
   res=x
   # check factor or character columns
   for (col in seq(along=res)) {
@@ -30,7 +30,7 @@ sanitize_table <- function(x) {
     
     if (colclass%in%c('character', 'factor')) {
       coln=colnames(res)[col]
-      eval(parse(text=paste0('res$', coln, '=rename.fkt(res$', coln,')')))
+      eval(parse(text=paste0('res$', coln, '=rename.fkt(res$', coln,', dictionary=dictionary)')))
     }
   }
   if (!is.null(colnames(res))) colnames(res)<-rename.fkt(colnames(res))

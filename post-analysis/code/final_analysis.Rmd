@@ -147,7 +147,7 @@ setcolorder(tmp2, colnames(tmp))
 tmp=rbind(tmp,tmp2)
 
 for (.var in ordered_vars){
-  -ggplot(tmp[variable==.var], aes(x=group, y=qmeans, fill=ifelse(developed==1, 'developed', 'emerging'))) + 
+p<-  ggplot(tmp[variable==.var], aes(x=group, y=qmeans, fill=ifelse(developed==1, 'developed', 'emerging'))) + 
   theme_bw() + 
   geom_bar(position=position_dodge(), stat="identity") + 
   scale_fill_grey() + 
@@ -260,6 +260,7 @@ printout(out5, 'lt', omit=NULL, title = tab('DV: long-term elasticities, with co
 m1 = ~1+ (1|brand) + (1|category) + as.factor(country) + appliance + ln_market_growth_mc + ln_herf_mc + local_to_market + western_brand + sbbe_std_mc
 out5=regmodel(formula=m1, dat=elast, model='lmer')
 
+# collect fixed effects
 res=rbindlist(lapply(seq(along=out5), function(x) {
  varname=names(out5)[x]
  coefs=data.frame(coef(summary(out5[[x]]$lt[[1]])))
@@ -273,23 +274,25 @@ res=rbindlist(lapply(seq(along=out5), function(x) {
 fixedeffects=dcast(res,country~varname, value.var='fe')
 
 tmp <- merge(fixedeffects, gci, by = c('country'))
-tmp[, ':=' (airseatkm=NULL, country=NULL)]
-
-setcolorder(tmp, c(ordered_vars, 'overall_infra', 'roadqual','railroadqual','portqual','airqual','electricityqual','fixedphone','mobilephone'))
+tmp[, ':=' (country=NULL)]
 
 out=corstars(as.matrix(tmp))
 
 out=data.frame(corstars(as.matrix(tmp)))
 out=out[-c(1:4),c(1:4)]
 
-tmp=sanitize_table(out)
-colnames(tmp)[1:4]<-paste0(colnames(tmp)[1:4], c(' fixed-effect'))
 
+tmp = out
+tmp$variable=sapply(rownames(tmp), rename.fkt, dictionary='renaming_gci.txt')
+tmp = tmp[, c('variable', ordered_vars)]
+rownames(tmp)<-NULL
+colnames(tmp)<-sapply(colnames(tmp), rename.fkt)
+colnames(tmp)[2:5]<-paste0(colnames(tmp)[2:5], c(' fixed-effect'))
 cat("<P style='page-break-before: always'>")
 
-kable(tmp, caption = tab('Correlations of infrastructure pillars with marketing-mix elasticities'),
+kable(tmp, caption = tab('Correlations of global competitiveness report items with marketing-mix elasticities'),
       format='html', initial.zero = FALSE) %>%
-        kable_styling() %>% footnote(general=paste0('Note: Table reports, for each marketing mix instrument, the correlations between the infrastructure pillar of the Global Competititveness Report (2010/2011 data, see https://www.weforum.org/reports/global-competitiveness-report-2010-2011), and the country-fixed effects reported in Table ', tableno-1, '. Significance levels: *p<.1, **p<.05, ***p<.01, ****p<.001.'))
+        kable_styling() %>% footnote(general=paste0('Note: Table reports, for each marketing mix instrument, the correlations between the items of the Global Competititveness Report (2010/2011 data, see https://www.weforum.org/reports/global-competitiveness-report-2010-2011), and the country-fixed effects reported in Table ', tableno-1, '. N = ', nrow(fixedeffects), '. Significance levels: *p<.1, **p<.05, ***p<.01, ****p<.001.'))
 
 ```
 
