@@ -116,10 +116,9 @@ Notes:
   
 iters = list(st=c('st', 'Short-term'), lt=c('lt', 'Long-term'))
 for (iter in iters) {
-  pr<-kable(sanitize_table(out[[iter[1]]]), digits=3, format='html', 
+  kable(sanitize_table(out[[iter[1]]]), digits=3, format='html', 
         caption=tab(paste0(iter[2], ' elasticities by marketing mix instrument'))) %>% kable_styling() %>% 
         footnote(general='*p*<.001 (two-sided).') %>% add_header_above(c(" " = 1, "All countries" = 4, "Developed countries" = 4, "Emerging countries" = 4))
-  print(pr)
 }
 
 ```
@@ -134,7 +133,6 @@ elast[, group:=cut(ptile, breaks=c(0,.25, .5, .75,1), labels=c('Q1', 'Q2', 'Q3',
 
 # calculate means and weighted means, per group
 #  out = lapply(list(st=c('elast', 'elast_se'), lt = c('elastlt','elastlt_se')), function(obj) {
-
 tmp=elast[, list(qmeans=mean(elastlt),
                  qwmeans=sum(elastlt/elastlt_se)/sum(1/elastlt_se)),
           by=c('variable', 'developed','group')]
@@ -142,16 +140,16 @@ tmp=elast[, list(qmeans=mean(elastlt),
 tmp2=elast[, list(qmeans=mean(elastlt),
                   qwmeans=sum(elastlt/elastlt_se)/sum(1/elastlt_se)),
           by=c('variable', 'developed')]
+
 tmp2[, group:='Total']
 setcolorder(tmp2, colnames(tmp))
 
 tmp=rbind(tmp,tmp2)
 
 for (.var in ordered_vars){
-p<-ggplot(tmp[variable==.var], aes(x=group, y=qmeans, fill=ifelse(developed==1, 'developed', 'emerging'))) + 
+  -ggplot(tmp[variable==.var], aes(x=group, y=qmeans, fill=ifelse(developed==1, 'developed', 'emerging'))) + 
   theme_bw() + 
   geom_bar(position=position_dodge(), stat="identity") + 
-  ggtitle(fig('.var')) +
   scale_fill_grey() + 
   labs(title = fig(paste0("Mean long-term ", rename.fkt(.var), " elasticities per quartile"))) + 
   guides(fill=guide_legend("Development status")) +

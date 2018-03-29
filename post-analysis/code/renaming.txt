@@ -56,6 +56,7 @@ Neffects	Number of estimates	grepl
 .*[_]sig	sig.	gsub
 [*] developed	   x developed country	grepl
 necessity	Appliance (versus electronics)	gsub
+appliance	Appliance (versus electronics)	gsub
 ln_market_growth_mc	Log of category growth	gsub
 ln_herf_mc	Log of category concentration	gsub
 local_to_market	Domestic brand (versus foreign brand)	grepl
