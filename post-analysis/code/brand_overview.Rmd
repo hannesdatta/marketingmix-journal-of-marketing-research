@@ -1,0 +1,41 @@
+---
+title: "Brand overview"
+output:
+  html_document: default
+date: "`r format(Sys.time(), '%d %B %Y')`"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(data.table)
+library(stargazer)
+library(knitr)
+require(xtable)
+library(lme4)
+library(car)
+library(kableExtra)
+library(stringi)
+library(ggplot2)
+
+options(xtable.comment = FALSE)
+
+# Load data
+  #elast <- fread('../externals/elast_results_MCI_wlag_wotrend.csv')
+  elast <- fread('../externals/elast_results_MCI_wolag_trend.csv')
+
+source('proc_auxilary.R')
+source('proc_rename.R')
+
+```
+
+
+```{r sample_overview, echo=FALSE, results='asis'}
+
+tmp=elast[, list(active_in_countries=length(unique(country)), active_in_categories=paste0(unlist(sanitize_table(data.frame(unique(category)))),collapse=', '), active_in_countries=paste0(unlist(sanitize_table(data.frame(unique(country)))),collapse=', ')), by = c('brand')]
+setorder(tmp, brand)
+
+#tmp[, brand:=stri_trans_totitle(brand)]
+
+kable(tmp, caption = tab('Overview of brands', prefix =''))
+```
