@@ -52,7 +52,7 @@ printout = function(x, type='st', vars=NULL, omit='category|brand', title='',pri
   
   stargazer(res, type = printtype, omit=omit, title = title, column.labels=collabels, dep.var.caption=NULL, initial.zero=FALSE,
             notes.align='l',dep.var.labels.include = FALSE, covariate.labels=covlabels,
-            notes=note_text, omit.stat=c('aic','bic'))
+            notes=note_text, omit.stat=c('aic','bic'), single.row=T)
 
 }
 
