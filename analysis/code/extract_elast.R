@@ -19,11 +19,6 @@ load(file = c('../temp/results_20180313.RData'))
 brand_panel=fread('../temp/preclean.csv')
 brand_panel[, ':=' (date = as.Date(date))]
 
-# Load GDP per cap data
-load('..\\..\\derived\\temp\\gdppercap.RData')
-gdp = gdppercap[, list(gdppercap=mean(gdppercap,na.rm=T)), by = c('country')]
-setkey(gdp, country)
-
 # Load brand-country classifications
 brands_countries <- fread('../../../../data/brands_countries/brands_countries.tsv')
 setkey(brands_countries, brand)
@@ -67,10 +62,7 @@ out = lapply(models, function(model_name) {
   elast[, hedon := category %in% c('tablets', 'phones_smart', 'phones_mobile', 'camera_slr', 'camera_compact', 'dvd', 'tv_gen1_crtv', 'tv_gen2_lcd')]
   elast[, highms := mean_ms>=median(mean_ms), by = c('market_id', 'variable')]
   
-  # merge GDP per cap
-  setkey(elast, country)
-  elast[gdp, gdppercap:=i.gdppercap]
-
+  
   # merge country (high versus low income) and category class (camera, computer, phones, tv/dvd, white goods)
     # by market ID
     vars = c('cat_class', 'country_class', 'market_growth', 'herf', 'c3', 'c5', 'necessity')
