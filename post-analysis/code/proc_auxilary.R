@@ -138,8 +138,8 @@ corstars <-function(x, method=c("pearson", "spearman"), removeTriangle=c("upper"
 } 
 
 
-
-signstars <- function(zscore) { # converts a z-score into a signifance asteriks
+# convert z-score into a signifance asteriks
+signstars <- function(zscore) { 
   if (length(zscore)==0) return("   ")
   if (is.nan(zscore) | !is.numeric(zscore) | is.na(zscore)) return("   ")
   ret <- "ns."
@@ -148,3 +148,6 @@ signstars <- function(zscore) { # converts a z-score into a signifance asteriks
   if (abs(zscore)>qnorm(1-(0.01/2))) ret <- c("***")
   return(ret)
 }
+
+# sort x alphabetically
+sort_alpha <- function(x) return(x[order(x)])

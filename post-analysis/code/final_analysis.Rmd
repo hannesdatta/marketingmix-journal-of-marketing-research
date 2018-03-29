@@ -36,7 +36,7 @@ ordered_vars = c('rwpspr', 'wpswdst','llen','nov6sh')
 
 # Data
 
-```{r devel, echo = FALSE}
+```{r table1_countries, echo = FALSE}
 tmp=unique(elast, by='country')[, c('country','gdppercap2010','hdi2010'),with=F]
 setorderv(tmp, c('gdppercap2010'), order=-1L)
 kable(sanitize_table(tmp), format='html', initial.zero = FALSE, caption=tab('Development indicators for countries in sample')) %>%
@@ -45,7 +45,6 @@ kable(sanitize_table(tmp), format='html', initial.zero = FALSE, caption=tab('Dev
   group_rows("Emerging economies", 7, 14)
 
 ```
-
 
 ```{r table2_category_overview, echo = FALSE}
 tmp=data.table(elast)
@@ -56,8 +55,6 @@ tmp=tmp[, list(overall_ms=mean(overall_ms), ncountries=mean(ncountries)), by = c
 setorderv(tmp, c('category', 'appliance', 'overall_ms'), order=-1L)
 tmp[!brand%in%c('unbranded','local'), rank:=1:.N, by = c('category')]
 tmp[, brand_include:= rank%in%1:5]
-
-sort_alpha <- function(x) return(x[order(x)])
 
 tmp=tmp[, list(cattype=ifelse(unique(appliance)==1, 'Appliance', 'Electronics'), ncountries=unique(ncountries), nbrands=length(unique(brand)), exemplary_brand_names=paste0(sort_alpha(stri_trans_totitle(unique(brand[brand_include==T]))), collapse=', ')), by='category']
 tmp=sanitize_table(tmp)
@@ -78,7 +75,7 @@ Variable             | Operationalization
 -------------------- | ------------------------------------------------------------------
 Market share         | Unit sales for brand *i* in period *t*, devided by total unit sales in period *t* in a market
 Price                | Sales-weighted^1^ average of each SKU's price sold by brand *i* in period *t*, expressed in local currency and adjusted by a country's consumer price index^2^
-Distribution         | Sales-weighted^1^ distribution of each of brand *i*'s SKUs' weighted distribution in period *t* (0 = no market coverage, 100 = full market coverage)
+Distribution         | Sales-weighted^1^ distribution of each of brand *i*'s SKUs' store-weighted distribution in period *t* (0 = no market coverage, 100 = full market coverage)
 Line length          | Number of unique SKUs sold by brand *i* in period *t*
 New product activity | Number of SKUs introduced by brand *i* in a rolling window of 6 months (*t-5*, *t-4*, *...*, *t*), expressed as a share of total unique SKUs sold by brand *i* over the same period
 
@@ -88,13 +85,13 @@ Notes:
 
 ^2^ Consumer price index obtained from [...].
 
-```{r elast_ov, echo = FALSE, results='asis'}
+```{r elasticities_overview, echo = FALSE, results='asis'}
   sigvalue = .1 # .1-level of significance
   zval = qnorm(1-sigvalue/2)
 
   out = lapply(list(st=c('elast', 'elast_se'), lt = c('elastlt','elastlt_se')), function(obj) {
                
-    tmp = elast[!is.na(get(obj[1]))][, ':=' c(val=get(obj[1]), val_se=get(obj[2]))]
+    tmp = elast[!is.na(get(obj[1]))][, ':=' (val=get(obj[1]), val_se=get(obj[2]))]
     
     tmp=tmp[, list(Neffects= .N, 
                    all_welast = sum(val/val_se)/sum(1/val_se),
@@ -117,7 +114,13 @@ Notes:
   return(tmp)
   })
   
-kable(sanitize_table(tmp), digits=3,format='html', caption=tab('Long-term elasticities by marketing mix instrument')) %>% kable_styling() %>% footnote(general='*p*<.001 (two-sided).') %>% add_header_above(c(" " = 1, "All countries" = 4, "Developed countries" = 4, "Emerging countries" = 4))
+iters = list(st=c('st', 'Short-term'), lt=c('lt', 'Long-term'))
+for (iter in iters) {
+  pr<-kable(sanitize_table(out[[iter[1]]]), digits=3, format='html', 
+        caption=tab(paste0(iter[2], ' elasticities by marketing mix instrument'))) %>% kable_styling() %>% 
+        footnote(general='*p*<.001 (two-sided).') %>% add_header_above(c(" " = 1, "All countries" = 4, "Developed countries" = 4, "Emerging countries" = 4))
+  print(pr)
+}
 
 ```
 
@@ -168,9 +171,9 @@ On sample of global brands (`r length(unique(elast$brand))` unique brands), acti
 
 
 ```{r randomcombined1, echo = FALSE, results='asis'}
-m1 = ~1+ (1|brand) + (1|category) + (1|country) + necessity + ln_market_growth_mc + ln_herf_mc + local_to_market + western_brand + sbbe_std_mc
+m1 = ~1+ (1|brand) + (1|category) + (1|country) + appliance + ln_market_growth_mc + ln_herf_mc + local_to_market + western_brand + sbbe_std_mc
 
-#interact1 = . ~ . + necessity*ln_gdppercap2010_mc + ln_market_growth_mc*ln_gdppercap2010_mc +
+#interact1 = . ~ . + appliance*ln_gdppercap2010_mc + ln_market_growth_mc*ln_gdppercap2010_mc +
 #  local_to_market*ln_gdppercap2010_mc + western_brand*ln_gdppercap2010_mc +
 #  ln_herf_mc*ln_gdppercap2010_mc + ln_ncat_in_country_mc*ln_gdppercap2010_mc + ln_ncountry_in_category_mc*ln_gdppercap2010_mc
 
@@ -198,7 +201,7 @@ out3=regmodel(formula=m1, dat=elast[developed==0], model='lmer')
 printout(out3, 'lt', omit=NULL, title = tab('DV: long-term elasticities, sample of emerging countries'), vars=ordered_vars, notes=paste0(notes_base, ' Model estimated on sample of emerging countries only.'), covlabels=covlabels)
 
 # interaction model
-m2 = ~1+ (1|brand) + (1|category) + (1|country) + developed + necessity + I(necessity*developed) + ln_market_growth_mc + I(ln_market_growth_mc*developed) + ln_herf_mc + I(ln_herf_mc*developed) + local_to_market + I(local_to_market*developed) + western_brand + I(western_brand*developed) + sbbe_std_mc + I(sbbe_std_mc*developed)
+m2 = ~1+ (1|brand) + (1|category) + (1|country) + developed + appliance + I(appliance*developed) + ln_market_growth_mc + I(ln_market_growth_mc*developed) + ln_herf_mc + I(ln_herf_mc*developed) + local_to_market + I(local_to_market*developed) + western_brand + I(western_brand*developed) + sbbe_std_mc + I(sbbe_std_mc*developed)
 cat("<P style='page-break-before: always'>")
 out4=regmodel(formula=m2, dat=elast, model='lmer')
 
@@ -211,7 +214,7 @@ printout(out4, 'lt', omit=NULL, title = tab('DV: long-term elasticities, pooled 
 
 ```{r randomcombined4, echo = FALSE, results='asis'}
 
-m1 = ~1+ (1|brand) + (1|category) + as.factor(country) + necessity + ln_market_growth_mc + ln_herf_mc + local_to_market + western_brand + sbbe_std_mc
+m1 = ~1+ (1|brand) + (1|category) + as.factor(country) + appliance + ln_market_growth_mc + ln_herf_mc + local_to_market + western_brand + sbbe_std_mc
 #ln_ncat_in_country_mc + ln_ncountry_in_category_mc
 
 cat("<P style='page-break-before: always'>")
@@ -224,7 +227,7 @@ printout(out5, 'lt', omit=NULL, title = tab('DV: long-term elasticities, with co
 
 ```{r correltabinfra, echo=FALSE, results='asis'}
 
-m1 = ~1+ (1|brand) + (1|category) + as.factor(country) + necessity + ln_market_growth_mc + ln_herf_mc + local_to_market + western_brand + sbbe_std_mc
+m1 = ~1+ (1|brand) + (1|category) + as.factor(country) + appliance + ln_market_growth_mc + ln_herf_mc + local_to_market + western_brand + sbbe_std_mc
 out5=regmodel(formula=m1, dat=elast, model='lmer')
 
 res=rbindlist(lapply(seq(along=out5), function(x) {
@@ -339,9 +342,9 @@ kable(out, format='html',caption = tab('Average category growth rates for develo
 ```
 
 ```{r VIFS, echo=FALSE,results='asis'}
-m1 = ~1+ necessity + ln_market_growth_mc + ln_herf_mc + local_to_market + western_brand + sbbe_std_mc
+m1 = ~1+ appliance + ln_market_growth_mc + ln_herf_mc + local_to_market + western_brand + sbbe_std_mc
 
-interact1 = . ~ . + necessity*ln_gdppercap2010_mc + ln_market_growth_mc*ln_gdppercap2010_mc +
+interact1 = . ~ . + appliance*ln_gdppercap2010_mc + ln_market_growth_mc*ln_gdppercap2010_mc +
   local_to_market*ln_gdppercap2010_mc + western_brand*ln_gdppercap2010_mc
 
 m2=update(m1, interact1)
