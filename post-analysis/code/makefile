@@ -10,8 +10,7 @@ OUTPUT_DIR = ../output
 
 ###### BUILD COMMANDS ######
 
-hdidat: $(TEMP_DIR)/hdi.csv
-gdpdat: $(TEMP_DIR)/gdp.csv
+all: $(TEMP_DIR)/hdi.csv $(TEMP_DIR)/gdp.csv $(TEMP_DIR)/gci.csv
 
 ###### Build parts ######
 
@@ -22,3 +21,7 @@ $(TEMP_DIR)/hdi.csv: hdi.R
 # Prepare GDP data
 $(TEMP_DIR)/gdp.csv: gdp.R
 	"$(RBIN64)Rterm.exe" --vanilla --args "" < "gdp.R"
+
+# Prepare GCI (Global Competitiveness Index data)
+$(TEMP_DIR)/gci.csv: gci.R
+	"$(RBIN64)Rterm.exe" --vanilla --args "" < "gci.R"
