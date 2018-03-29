@@ -40,17 +40,15 @@ out = lapply(models, function(model_name) {
   
   markets=data.table(market_id=analysis_markets)[, ':=' (i=1:.N, available=!checks=='try-error')]
   
-  # elasticities
+  # extract elasticities
   elast <- rbindlist(lapply(results_brands[!checks=='try-error'], function(x) x$elast))
   
-  # obtain SBBE
-  sbbe <- rbindlist(lapply(results_brands[!checks=='try-error'], calc_sbbe))
-  
-  # standardize SBBE by category
-  sbbe[,':=' (sbbe_std = (sbbe-mean(sbbe))/sd(sbbe)), by = c('market_id')]
-  
-  # merge to elasticities
-  elast=merge(elast, sbbe, by = c('market_id', 'brand'),all.x=T)
+  # extract and merge SBBE
+    sbbe <- rbindlist(lapply(results_brands[!checks=='try-error'], calc_sbbe))
+    # standardize SBBE by category
+    sbbe[,':=' (sbbe_std = (sbbe-mean(sbbe))/sd(sbbe)), by = c('market_id')]
+    # merge to elasticities
+    elast=merge(elast, sbbe, by = c('market_id', 'brand'),all.x=T)
   
   # tag global versus local brand
   elast[, ncountries:=length(unique(country)), by = c('brand')]
@@ -60,12 +58,13 @@ out = lapply(models, function(model_name) {
   elast[, ncountry_in_category:=length(unique(country)), by = c('brand','category')]
   
   elast[, hedon := category %in% c('tablets', 'phones_smart', 'phones_mobile', 'camera_slr', 'camera_compact', 'dvd', 'tv_gen1_crtv', 'tv_gen2_lcd')]
-  elast[, highms := mean_ms>=median(mean_ms), by = c('market_id', 'variable')]
   
+  elast[, appliance:=0]
+  elast[grepl('washing|cooling|microwave', category), appliance:=1]
   
   # merge country (high versus low income) and category class (camera, computer, phones, tv/dvd, white goods)
     # by market ID
-    vars = c('cat_class', 'country_class', 'market_growth', 'herf', 'c3', 'c5', 'necessity')
+    vars = c('cat_class', 'country_class', 'market_growth', 'herf', 'c3', 'c5')
     tmp = brand_panel[, c('market_id', vars), with=F]
     setkey(tmp, market_id)
     tmp = unique(tmp)
@@ -80,14 +79,9 @@ out = lapply(models, function(model_name) {
     
     elast = merge(elast, tmp, all.x=T, all.y=F, by = c('market_id', 'brand'))
     
-  # indicator for new categories
-  elast[, new:=category%in%c('tablets', 'phones_smart')]
-  
   # add world bank classifications
   elast[, wb_lowermid:=country%in%c('india','indonesia', 'vietnam', 'philippines')]
   elast[, wb_uppermid:=country%in%c('china', 'malaysia','thailand')]
-
-  elast[, low := wb_lowermid+wb_uppermid]
   
   # merge country of origins for top brands
   global_brands=elast[globalbrand==T, list(.N), by = c('brand')]
@@ -104,8 +98,7 @@ out = lapply(models, function(model_name) {
   elast[, western_brand:=global_country%in%c('canada','finland','germany','italy','netherlands','sweden','usa')]
   
   # country-of-origin
-  elast[globalbrand==T, country_of_origin := 'asian_other']
-  elast[globalbrand==T & global_country==country, country_of_origin := 'local']
+  elast[globalbrand==T, country_of_origin := 'asian']
   elast[globalbrand==T & global_country%in%c('finland','germany','italy','netherlands','sweden'), country_of_origin := 'europe']
   elast[globalbrand==T & global_country%in%c('canada','usa'), country_of_origin := 'northamerica']
   

@@ -86,10 +86,6 @@ require(data.table)
 	brand_panel[grepl('tv[_]|dvd', category), cat_class := 'tvdvd']
 	brand_panel[grepl('washing|cooling|microwave', category), cat_class := 'wte']
 	
-	brand_panel[, necessity:=0]
-	brand_panel[grepl('washing|cooling|microwave', category), necessity:=1]
-	
-	
 	brand_panel[country %in% c('australia', 'hong kong', 'japan', 'new zealand', 'singapore', 'south korea', 'taiwan'), country_class := 'hinc']
 	brand_panel[is.na(country_class), country_class := 'linc']
 	

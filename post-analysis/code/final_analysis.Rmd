@@ -26,13 +26,17 @@ options(xtable.comment = FALSE)
 
 # Load auxilary functions
   source('proc_auxilary.R')
-
-# load extra variables
+  source('proc_rename.R')
+  
+# load data for extra variables
   hdi <- fread('../temp/hdi.csv')
+
 # change taiwan (reported value from China is not reliable)
   hdi[, hdi2010:=ifelse(country=='taiwan', mean(hdi2010[country%in%c('thailand', 'china')]), hdi2010)]
+
 # Load GDP
   gdp <- fread('../temp/gdp.csv')
+
 # Merge
   setkey(hdi, country)
   setkey(elast, country)
@@ -40,15 +44,10 @@ options(xtable.comment = FALSE)
   setkey(gdp, country)
   elast[gdp, gdppercap2010:=i.gdppercap2010]
 
-  elast[, country_of_origin_recode := ifelse(country_of_origin%in%c('local','asian_other'), 'asia', country_of_origin)]
-  
   # elast asian devel vs. not
   elast[, region_of_origin:=country_of_origin_recode]
   elast[region_of_origin=='asian'& country_class=='hinc', region_of_origin := 'asian-high']
   elast[region_of_origin=='asian'& country_class=='linc', region_of_origin := 'asian-low']
-  
-  elast[, appliance:=necessity]
-  
   
   elast[, developed:=0]
   elast[country%in%c('australia', 'singapore', 'japan', 'new zealand', 'hong kong', 'south korea', 'taiwan'), developed := 1]
@@ -346,7 +345,7 @@ cat("<P style='page-break-before: always'>")
 
 ```{r sample_overview, echo=FALSE, results='asis'}
 
-tmp=elast[, list(active_in_countries=length(unique(country)), active_in_categories=length(unique(category)), headquarter_location=unique(global_country), headquarter_region=unique(country_of_origin_recode)), by = c('brand')]
+tmp=elast[, list(active_in_countries=length(unique(country)), active_in_categories=length(unique(category)), headquarter_location=unique(global_country), headquarter_region=unique(country_of_origin)), by = c('brand')]
 setorderv(tmp, c('active_in_countries','active_in_categories'),order=-1L)
 
 tmp[, ':=' (brand=stri_trans_totitle(brand), headquarter_location=stri_trans_totitle(headquarter_location), headquarter_region=stri_trans_totitle(headquarter_region))]
