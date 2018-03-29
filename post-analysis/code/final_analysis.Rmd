@@ -217,7 +217,7 @@ covlabels=c(covlabels[-which(covlabels=='(Intercept)')], 'Constant')
 #r2s = sem.model.fits(lapply(out1, function(x) x$lt[[1]]))
 
 
-notes_base = "Regression of long-term elasticities on explanatory variables and three random effects, for brands, categories, and countries, respectively. Estimated using a linear mixed-effects model, with weights equal to the inverse of the elasticities' standard error, normalized to sum up to 1. Two-sided significance levels reported."
+notes_base = "Regression of long-term elasticities on explanatory variables and three random effects, for brands, categories, and countries, respectively. Estimated using a linear mixed-effects model, with weights equal to the inverse of the elasticities' standard error, normalized to sum up to 1. Two-sided significance levels reported. Standard errors in parentheses."
 
 cat("<P style='page-break-before: always'>")
 printout(out1, 'lt', omit=NULL, title = tab('DV: long-term elasticities, pooled sample of developed and emerging countries'), vars=ordered_vars,notes=notes_base, covlabels=covlabels)
@@ -251,7 +251,7 @@ cat("<P style='page-break-before: always'>")
 out5=regmodel(formula=m1, dat=elast, model='lmer')
 covlabels=unlist(sanitize_table(data.frame(colnames(out5[[1]]$lt[[1]]@pp$X))))
 covlabels=c(covlabels[-which(covlabels=='(Intercept)')], 'Constant')
-printout(out5, 'lt', omit=NULL, title = tab('DV: long-term elasticities, with country-fixed effects'),vars=ordered_vars, notes="Regression of long-term elasticities on country fixed-effects (baseline: Australia), explanatory variables and two random effects for brands and categories. Estimated using a linear mixed-effects model, with weights equal to the inverse of the elasticities' standard error, normalized to sum up to 1. Two-sided signifiance levels reported.", covlabels=covlabels)
+printout(out5, 'lt', omit=NULL, title = tab('DV: long-term elasticities, with country-fixed effects'),vars=ordered_vars, notes="Regression of long-term elasticities on country fixed-effects (baseline: Australia), explanatory variables and two random effects for brands and categories. Estimated using a linear mixed-effects model, with weights equal to the inverse of the elasticities' standard error, normalized to sum up to 1. Two-sided signifiance levels reported. Standard errors in parentheses.", covlabels=covlabels)
 
 ```
 

@@ -2,7 +2,42 @@
 library(data.table)
 library(stringr)
 
+# Load and clean individual items of GCI data
 gci <- fread('../../../../Data/gci/gci_data.tsv',header=T)
+gci[, row:=1:.N]
+gci=melt(gci, id.vars='row')
+
+gci[, rank:=as.numeric(unlist(lapply(strsplit(value, ' ',fixed=T), function(x) x[1])))]
+
+gci[, score:=gsub('[0-9][.][.]','', value)]
+gci[, score:=str_extract(substr(gsub('[,]', '', score),4,100), "\\d+\\.*\\d*")]
+
+# clean countries
+gci[, country:=sapply(value, function(x) strsplit(x, '[.]')[[1]][1])]
+gci[, country:=gsub('n/a', '' , country,fixed=T)]
+gci[, country:=str_trim(gsub('[0-9]', '', country))]
+gci <- gci[!grepl('RANK COUNTRY', country)]
+
+# Load and clean combined pillars of GCI data
+pillars <- fread('../../../../Data/gci/gci_pillars.tsv',header=T)
+
+# apply by column
+col1=pillars[,3,with=F]
+
+# determine how many items
+nitems=as.numeric(rev(strsplit(colnames(col1)[1], '[ ]')[[1]])[1])
+
+    
+    datfkt<-function(x) paste0(rev(rev(strsplit(as.character(x), '[ ]')[[1]])[1:(2*nitems)]),collapse='\t')
+    cntrf<-function(x) gsub('[ ][0-9].*','', x)
+    
+ setnames(col1, 'col')
+    col1[, new:=sapply(col, datfkt)]
+    col1[, cntr:=sapply(col, cntrf)]
+    
+write.table(col1$new, 'clipboard',row.names=F)
+write.table(col1$cntr, 'clipboard',row.names=F)
+
 gci[, row:=1:.N]
 gci=melt(gci, id.vars='row')
 
