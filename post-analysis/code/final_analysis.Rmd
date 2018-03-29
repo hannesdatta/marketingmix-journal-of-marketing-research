@@ -8,17 +8,11 @@ date: "`r format(Sys.time(), '%d %B %Y')`"
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
-library(data.table)
-library(stargazer)
-library(knitr)
-require(xtable)
-library(lme4)
-library(car)
-library(kableExtra)
-library(stringi)
-library(ggplot2)
+libs_to_load <- c('data.table', 'stargazer', 'knitr', 'xtable', 'lme4', 'car', 'kableExtra', 'stringi', 'ggplot2')
+for (lib in libs_to_load) eval(parse(text=paste('library(', lib, ')')))
 
 options(xtable.comment = FALSE)
+options(knitr.kable.NA = '')
 
 # Load data
   #elast <- fread('../externals/elast_results_MCI_wlag_wotrend.csv')
@@ -27,71 +21,16 @@ options(xtable.comment = FALSE)
 # Load auxilary functions
   source('proc_auxilary.R')
   source('proc_rename.R')
+
+# Preclean data
+  source('preclean.R')
   
-# load data for extra variables
-  hdi <- fread('../temp/hdi.csv')
-
-# change taiwan (reported value from China is not reliable)
-  hdi[, hdi2010:=ifelse(country=='taiwan', mean(hdi2010[country%in%c('thailand', 'china')]), hdi2010)]
-
-# Load GDP
-  gdp <- fread('../temp/gdp.csv')
-
-# Merge
-  setkey(hdi, country)
-  setkey(elast, country)
-  elast[hdi, hdi2010:=i.hdi2010]
-  setkey(gdp, country)
-  elast[gdp, gdppercap2010:=i.gdppercap2010]
-
-  # elast asian devel vs. not
-  elast[, region_of_origin:=country_of_origin_recode]
-  elast[region_of_origin=='asian'& country_class=='hinc', region_of_origin := 'asian-high']
-  elast[region_of_origin=='asian'& country_class=='linc', region_of_origin := 'asian-low']
-  
-  elast[, developed:=0]
-  elast[country%in%c('australia', 'singapore', 'japan', 'new zealand', 'hong kong', 'south korea', 'taiwan'), developed := 1]
-
-
-# take natural log of variables
-vars=c('herf','c3','c5','market_growth','hdi2010','gdppercap2010', 'ncat_in_country', 'ncountry_in_category', 'sbbe_std')
-
-for (var in vars) {
-  elast[, (paste0('ln_', var)):=log(get(var))]
-  
-}
-
-# grand-mean centering by variable (llen, etc.) for all explanatory (continuous) variables
-for (var in unique(drop(unlist(lapply(vars, grep, colnames(elast), value=T))))) {
-  elast[, (paste0(var, '_mc')):=get(var)-mean(get(var)), by = c('variable')]
-  }
-  
-# focal dummies: local_to_market, western (versus asian)
-
-#
-elast[, worldbank := '']
-elast[country%in%c('india','indonesia', 'vietnam', 'philippines'), worldbank:='lowermid']
-elast[country%in%c('china', 'malaysia','thailand'), worldbank:='uppermid']
-elast[worldbank=='', worldbank:='high']
-
-options(knitr.kable.NA = '')
-
 ### brand selection for analysis
 #elast=elast[globalbrand==T] # global brands (active in >=3 countries) only
-
 #elast=elast[ncountries>=2]
 
-source('proc_rename.R')
-
-# Load GCI infrastructure data
-gci <- fread('../temp/gci.csv')
-
-elast=merge(elast, gci, by = c('country'),all.x=T)
-
+# set order of variables to appear in figures and tables
 ordered_vars = c('rwpspr', 'wpswdst','llen','nov6sh')
-
-elast[!is.na(elast), weightsst := (1/elast_se)/sum(1/elast_se), by = c('variable')]
-elast[!is.na(elastlt), weightslt := (1/elastlt_se)/sum(1/elastlt_se), by = c('variable')]
 
 ```
 
@@ -106,6 +45,7 @@ kable(sanitize_table(tmp), format='html', initial.zero = FALSE, caption=tab('Dev
   group_rows("Emerging economies", 7, 14)
 
 ```
+
 
 ```{r table2_category_overview, echo = FALSE}
 tmp=data.table(elast)
@@ -123,7 +63,6 @@ tmp=tmp[, list(cattype=ifelse(unique(appliance)==1, 'Appliance', 'Electronics'),
 tmp=sanitize_table(tmp)
 
 try(setorder(tmp, Category),silent=T)
-
 
 kable(tmp, format='html', caption=tab('Category overview')) %>%
         kable_styling() %>% footnote(general='Categories shown in alphabetical order. Exemplary brand names are given for the top 5 brands in terms of average volume share across countries.')
@@ -150,47 +89,34 @@ Notes:
 ^2^ Consumer price index obtained from [...].
 
 ```{r elast_ov, echo = FALSE, results='asis'}
-  .vars=c('llen','wpswdst','rwpspr','nov6sh')
-	
-  zval=qnorm(.95) # zval for .1-level of significance
+  sigvalue = .1 # .1-level of significance
+  zval = qnorm(1-sigvalue/2)
 
-  sigvalue = .1
-  sigtest = qnorm(1-sigvalue/2)
-
-	signstars <- function(zscore) { # converts a z-score into a signifance asteriks
-	  if (length(zscore)==0) return("   ")
-	  if (is.nan(zscore) | !is.numeric(zscore) | is.na(zscore)) return("   ")
-	  ret <- "ns."
-	  #if (abs(zscore)>qnorm(1-(0.1))) ret <- c(paste("  ", rawToChar(as.raw(134)), sep=''))
-	  
-	  if (abs(zscore)>qnorm(1-(0.1/2))) ret <- c("  *")
-	  if (abs(zscore)>qnorm(1-(0.05/2))) ret <- c(" **")
-	  if (abs(zscore)>qnorm(1-(0.01/2))) ret <- c("***")
-	  return(ret)
-	  }
-
-#	all_p = signstars(sum(elast/elast_se,na.rm=T)/sqrt(length(unique(id[!is.na(elast)])))),
-
-	
-  tmp=elast[!is.na(elastlt), list(Neffects= .N, 
-                          all_welast = sum(elastlt/elastlt_se)/sum(1/elastlt_se),
-												  all_z = sum(elastlt/elastlt_se,na.rm=T)/sqrt(length(which(!is.na(elastlt)))),
-												  all_sig = signstars(sum(elastlt/elastlt_se,na.rm=T)/sqrt(length(which(!is.na(elastlt))))),
+  out = lapply(list(st=c('elast', 'elast_se'), lt = c('elastlt','elastlt_se')), function(obj) {
+               
+    tmp = elast[!is.na(get(obj[1]))][, ':=' c(val=get(obj[1]), val_se=get(obj[2]))]
+    
+    tmp=tmp[, list(Neffects= .N, 
+                   all_welast = sum(val/val_se)/sum(1/val_se),
+						 		   all_z = sum(val/val_se,na.rm=T)/sqrt(.N),
+									 all_sig = signstars(sum(val/val_se,na.rm=T)/sqrt(.N)),
 												  
-												  dev_Neffects= length(which(!is.na(elastlt[developed==1]))),
-				                  dev_welast =sum(elastlt[developed==1]/elastlt_se[developed==1])/sum(1/elastlt_se[developed==1]),
-												  dev_z = sum(elastlt[developed==1]/elastlt_se[developed==1],na.rm=T)/sqrt(length(which(!is.na(elastlt[developed==1])))),
-												  dev_sig = signstars(sum(elastlt[developed==1]/elastlt_se[developed==1],na.rm=T)/sqrt(length(which(!is.na(elastlt[developed==1]))))),
-												  em_Neffects= length(which(!is.na(elastlt[developed==0]))),
-				                  em_welast =sum(elastlt[developed==0]/elastlt_se[developed==0])/sum(1/elastlt_se[developed==0]),
-												  em_z = sum(elastlt[developed==0]/elastlt_se[developed==0],na.rm=T)/sqrt(length(which(!is.na(elastlt[developed==0])))),
-												  all_sig = signstars(sum(elastlt[developed==0]/elastlt_se[developed==0],na.rm=T)/sqrt(length(which(!is.na(elastlt[developed==0])))))), by=c('variable')]
+									 dev_Neffects= length(which(!is.na(val[developed==1]))),
+				           dev_welast = sum(val[developed==1]/val_se[developed==1])/sum(1/val_se[developed==1]),
+									 dev_z = sum(val[developed==1]/val_se[developed==1])/sqrt(length(which(!is.na(val[developed==1])))),
+									 dev_sig = signstars(sum(val[developed==1]/val_se[developed==1])/sqrt(length(which(!is.na(val[developed==1]))))),
+									 
+									 em_Neffects= length(which(!is.na(val[developed==0]))),
+				           em_welast = sum(val[developed==0]/val_se[developed==0])/sum(1/val_se[developed==0]),
+									 em_z = sum(val[developed==0]/val_se[developed==0])/sqrt(length(which(!is.na(val[developed==0])))),
+									 em_sig = signstars(sum(val[developed==0]/val_se[developed==0])/sqrt(length(which(!is.na(val[developed==0])))))
+									 ), by=c('variable')]
 
-#	kable(tmp, digits=3, caption = tab('Long-term elasticities by variable'))
-#stargazer(tmp,type='html')
-tmp=tmp[match(ordered_vars, variable)]
-setnames(tmp, 'variable', 'mmixinstr')
-
+  tmp=tmp[match(ordered_vars, variable)]
+  setnames(tmp, 'variable', 'mmixinstr')
+  return(tmp)
+  })
+  
 kable(sanitize_table(tmp), digits=3,format='html', caption=tab('Long-term elasticities by marketing mix instrument')) %>% kable_styling() %>% footnote(general='*p*<.001 (two-sided).') %>% add_header_above(c(" " = 1, "All countries" = 4, "Developed countries" = 4, "Emerging countries" = 4))
 
 ```

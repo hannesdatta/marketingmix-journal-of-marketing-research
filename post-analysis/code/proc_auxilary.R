@@ -136,3 +136,15 @@ corstars <-function(x, method=c("pearson", "spearman"), removeTriangle=c("upper"
     else print(xtable(Rnew), type="latex") 
   }
 } 
+
+
+
+signstars <- function(zscore) { # converts a z-score into a signifance asteriks
+  if (length(zscore)==0) return("   ")
+  if (is.nan(zscore) | !is.numeric(zscore) | is.na(zscore)) return("   ")
+  ret <- "ns."
+  if (abs(zscore)>qnorm(1-(0.1/2))) ret <- c("  *")
+  if (abs(zscore)>qnorm(1-(0.05/2))) ret <- c(" **")
+  if (abs(zscore)>qnorm(1-(0.01/2))) ret <- c("***")
+  return(ret)
+}
