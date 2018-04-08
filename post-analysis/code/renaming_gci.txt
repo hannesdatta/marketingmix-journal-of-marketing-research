@@ -1,119 +1,136 @@
 source	target	type
-gci00[.]01[_]gdp	00.01 GDP	gsub
-gci00[.]02[_]population	00.02 Population	gsub
-gci00[.]03[_]gdppercap	00.03 GDP per capita 	gsub
-gci00[.]04[_]gdpworldshare	00.04 GDP as a share of world GDP	gsub
-gci01[.]01[_]propertyrights	01.01 Property rights	gsub
-gci01[.]02[_]propertyprotect	01.02 Intellectual property protection 	gsub
-gci01[.]03[_]diversionoffunds	01.03 Diversion of public funds 	gsub
-gci01[.]04[_]politiciantrust	01.04 Public trust of politicians 	gsub
-gci01[.]05[_]bribes	01.05 Irregular payments and bribes 	gsub
-gci01[.]06[_]judicialindependence	01.06 Judicial independence	gsub
-gci01[.]07[_]favorism	01.07 Favoritism in decisions of government officials	gsub
-gci01[.]08[_]wasteexpenses	01.08 Wastefulness of government spending	gsub
-gci01[.]09[_]regulationburden	01.09 Burden of government regulation 	gsub
-gci01[.]10[_]legalefficiencydisputes	01.10 Efficiency of legal framework in settling disputes 	gsub
-gci01[.]11[_]legalefficienciesregulations	01.11 Efficiency of legal framework in challenging regulations	gsub
-gci01[.]12[_]transparentpolicymaking	01.12 Transparency of government policymaking	gsub
-gci01[.]13[_]terrorismbusinesscost	01.13 Business costs of terrorism 	gsub
-gci01[.]14[_]crimebusinesscost	01.14 Business costs of crime and violence 	gsub
-gci01[.]15[_]organizedcrime	01.15 Organized crime 	gsub
-gci01[.]16[_]policyreliability	01.16 Reliability of police services 	gsub
-gci01[.]17[_]firmethicalbehavior	01.17 Ethical behavior of firms 	gsub
-gci01[.]18[_]auditingstandard	01.18 Strength of auditing and reporting standards 	gsub
-gci01[.]19[_]boardefficacy	01.19 Efficacy of corporate boards 	gsub
-gci01[.]20[_]minorityshareprotection	01.20 Protection of minority shareholders’ interests	gsub
-gci01[.]21[_]investorprotection	01.21 Strength of investor protection 	gsub
-gci02[.]01[_]overallinfrastruct	02.01 Quality of overall infrastructure 	gsub
-gci02[.]02[_]roadqual	02.02 Quality of roads 	gsub
-gci02[.]03[_]railqual	02.03 Quality of railroad infrastructure	gsub
-gci02[.]04[_]portqual	02.04 Quality of port infrastructure 	gsub
-gci02[.]05[_]airqual	02.05 Quality of air transport infrastructure 	gsub
-gci02[.]06[_]airlinekm	02.06 Available airline seat kilometers 	gsub
-gci02[.]07[_]electricityqual	02.07 Quality of electricity supply	gsub
-gci02[.]08[_]fixedphones	02.08 Fixed telephone lines 	gsub
-gci02[.]09[_]mobilephones	02.09 Mobile telephone subscriptions 	gsub
-gci03[.]01[_]budgetbalance	03.01 Government budget balance	gsub
-gci03[.]02[_]nationalsaving	03.02 National savings rate 	gsub
-gci03[.]03[_]inflation	03.03 Inflation	gsub
-gci03[.]04[_]interestspread	03.04 Interest rate spread	gsub
-gci03[.]05[_]governmentdebt	03.05 Government debt 	gsub
-gci03[.]06[_]countrycreditrating	03.06 Country credit rating	gsub
-gci04[.]01[_]malariaimpact	04.01 Business impact of malaria 	gsub
-gci04[.]02[_]malariaincidence	04.02 Malaria incidence 	gsub
-gci04[.]03[_]tuberculosisimpact	04.03 Business impact of tuberculosis 	gsub
-gci04[.]04[_]tuberculosisincidence	04.04 Tuberculosis incidence 	gsub
-gci04[.]05[_]hivimpact	04.05 Business impact of HIV/AIDS 	gsub
-gci04[.]06[_]hivprevalence	04.06 HIV prevalence 	gsub
-gci04[.]07[_]infantmortality	04.07 Infant mortality 	gsub
-gci04[.]08[_]lifeexpectancy	04.08 Life expectancy 	gsub
-gci04[.]09[_]primaryschoolqual	04.09 Quality of primary education 	gsub
-gci04[.]10[_]primaryschoolenrollment	04.10 Primary education enrollment rate 	gsub
-gci05[.]01[_]secondaryschoolenrollment	05.01 Secondary education enrollment rate 	gsub
-gci05[.]02[_]tertiaryenrollment	05.02 Tertiary education enrollment rate 	gsub
-gci05[.]03[_]educationqual	05.03 Quality of the educational system 	gsub
-gci05[.]04[_]mathsciencequal	05.04 Quality of math and science education	gsub
-gci05[.]05[_]managementschoolqual	05.05 Quality of management schools 	gsub
-gci05[.]06[_]internetinschools	05.06 Internet access in schools 	gsub
-gci05[.]07[_]researchtraining	05.07 Local availability of specialized research and training services 	gsub
-gci05[.]08[_]stafftraining	05.08 Extent of staff training 	gsub
-gci06[.]01[_]localcompetition	06.01 Intensity of local competition	gsub
-gci06[.]02[_]marketdominance	06.02 Extent of market dominance	gsub
-gci06[.]03[_]antimonopoly	06.03 Effectiveness of anti-monopoly policy 	gsub
-gci06[.]04[_]taxationextent	06.04 Extent and effect of taxation	gsub
-gci06[.]05[_]taxrate	06.05 Total tax rate	gsub
-gci06[.]06[_]businessstartprocess	06.06 Number of procedures required to start a business	gsub
-gci06[.]07[_]businessstarttime	06.07 Time required to start a business	gsub
-gci06[.]08[_]agricost	06.08 Agricultural policy costs 	gsub
-gci06[.]09[_]tradebarriers	06.09 Prevalence of trade barriers 	gsub
-gci06[.]10[_]tradetariffs	06.10 Trade tariffs 	gsub
-gci06[.]11[_]foreignownership	06.11 Prevalence of foreign ownership 	gsub
-gci06[.]12[_]rulesfdi	06.12 Business impact of rules on FDI	gsub
-gci06[.]13[_]customsburden	06.13 Burden of customs procedures 	gsub
-gci06[.]14[_]customerorientation	06.14 Degree of customer orientation	gsub
-gci06[.]15[_]buyersophistication	06.15 Buyer sophistication	gsub
-gci07[.]01[_]laboremployerrelation	07.01 Cooperation in labor-employer relations	gsub
-gci07[.]02[_]wageflexibility	07.02 Flexibility of wage determination 	gsub
-gci07[.]03[_]employmentrigidity	07.03 Rigidity of employment	gsub
-gci07[.]04[_]hirefire	07.04 Hiring and firing practices 	gsub
-gci07[.]05[_]redundancycost	07.05 Redundancy costs	gsub
-gci07[.]06[_]payproductivity	07.06 Pay and productivity 	gsub
-gci07[.]07[_]femalelabor	07.07 Reliance on professional management	gsub
-gci07[.]07[_]mngmtreliance	07.08 Brain drain 	gsub
-gci07[.]08[_]braindrain	07.09 Female participation in labor force 	gsub
-gci08[.]01[_]financialservices	08.01 Availability of financial services 	gsub
-gci08[.]02[_]finservaffordability	08.02 Affordability of financial services 	gsub
-gci08[.]03[_]localequity	08.03 Financing through local equity market 	gsub
-gci08[.]04[_]loanaccess	08.04 Ease of access to loans 	gsub
-gci08[.]05[_]venturecapital	08.05 Venture capital availability 	gsub
-gci08[.]06[_]capitalrestrictions	08.06 Restriction on capital flows	gsub
-gci08[.]07[_]banksoundness	08.07 Soundness of banks	gsub
-gci08[.]08[_]exchangeregulation	08.08 Regulation of securities exchanges 	gsub
-gci08[.]09[_]legalrights	08.09 Legal rights index 	gsub
-gci09[.]01[_]techavailability	09.01 Availability of latest technologies 	gsub
-gci09[.]02[_]techabsorption	09.02 Firm-level technology absorption 	gsub
-gci09[.]03[_]fditechtransfer	09.03 FDI and technology transfer	gsub
-gci09[.]04[_]internetusers	09.04 Internet users	gsub
-gci09[.]05[_]broadband	09.05 Broadband Internet subscriptions 	gsub
-gci09[.]06[_]bandwith	09.06 Internet bandwidth	gsub
-gci10[.]01[_]domesticmarket	10.01 Domestic market size index	gsub
-gci10[.]02[_]foreignmarket	10.02 Foreign market size index 	gsub
-gci10[.]03[_]gdpppp	10.03 GDP (PPP) 	gsub
-gci10[.]04[_]importsgdpshare	10.04 Imports as a percentage of GDP 	gsub
-gci10[.]05[_]exportsgdpshare	10.05 Exports as a percentage of GDP	gsub
-gci11[.]01[_]localsupplierquantity	11.01 Local supplier quantity 	gsub
-gci11[.]02[_]localsupplierquality	11.02 Local supplier quality	gsub
-gci11[.]03[_]clusterdevel	11.03 State of cluster development	gsub
-gci11[.]04[_]competitiveadvantage	11.04 Nature of competitive advantage	gsub
-gci11[.]05[_]valuechainbreadth	11.05 Value chain breadth 	gsub
-gci11[.]06[_]intdistributioncontrol	11.06 Control of international distribution 	gsub
-gci11[.]07[_]productprocess	11.07 Production process sophistication 	gsub
-gci11[.]08[_]marketingextent	11.08 Extent of marketing	gsub
-gci11[.]09[_]delegateauthority	11.09 Willingness to delegate authority	gsub
-gci12[.]01[_]innovation	12.01 Capacity for innovation	gsub
-gci12[.]02[_]scientificresearch	12.02 Quality of scientific research institutions 	gsub
-gci12[.]03[_]rndspent	12.03 Company spending on R&D	gsub
-gci12[.]04[_]sciencefirmcollab	12.04 University-industry collaboration in R&D	gsub
-gci12[.]05[_]governmenttech	12.05 Government procurement of advanced technology products	gsub
-gci12[.]06[_]scientistavailability	12.06 Availability of scientists and engineers 	gsub
-gci12[.]07[_]utilitypatents	12.07 Utility patents per million population	gsub
+gci[_]00.01[_]gdp	00.01 GDP	grepl
+gci[_]00.02[_]population	00.02 Population	grepl
+gci[_]00.03[_]gdppercap	00.03 GDP per capita 	grepl
+gci[_]00.04[_]gdpworldshare	00.04 GDP as a share of world GDP	grepl
+gci[_]01.01[_]propertyrights	01.01 Property rights	grepl
+gci[_]01.02[_]propertyprotect	01.02 Intellectual property protection 	grepl
+gci[_]01.03[_]diversionoffunds	01.03 Diversion of public funds 	grepl
+gci[_]01.04[_]politiciantrust	01.04 Public trust of politicians 	grepl
+gci[_]01.05[_]bribes	01.05 Irregular payments and bribes 	grepl
+gci[_]01.06[_]judicialindependence	01.06 Judicial independence	grepl
+gci[_]01.07[_]favorism	01.07 Favoritism in decisions of government officials	grepl
+gci[_]01.08[_]wasteexpenses	01.08 Wastefulness of government spending	grepl
+gci[_]01.09[_]regulationburden	01.09 Burden of government regulation 	grepl
+gci[_]01.10[_]legalefficiencydisputes	01.10 Efficiency of legal framework in settling disputes 	grepl
+gci[_]01.11[_]legalefficienciesregulations	01.11 Efficiency of legal framework in challenging regulations	grepl
+gci[_]01.12[_]transparentpolicymaking	01.12 Transparency of government policymaking	grepl
+gci[_]01.13[_]terrorismbusinesscost	01.13 Business costs of terrorism 	grepl
+gci[_]01.14[_]crimebusinesscost	01.14 Business costs of crime and violence 	grepl
+gci[_]01.15[_]organizedcrime	01.15 Organized crime 	grepl
+gci[_]01.16[_]policyreliability	01.16 Reliability of police services 	grepl
+gci[_]01.17[_]firmethicalbehavior	01.17 Ethical behavior of firms 	grepl
+gci[_]01.18[_]auditingstandard	01.18 Strength of auditing and reporting standards 	grepl
+gci[_]01.19[_]boardefficacy	01.19 Efficacy of corporate boards 	grepl
+gci[_]01.20[_]minorityshareprotection	01.20 Protection of minority shareholders’ interests	grepl
+gci[_]01.21[_]investorprotection	01.21 Strength of investor protection 	grepl
+gci[_]02.01[_]overallinfrastruct	02.01 Quality of overall infrastructure 	grepl
+gci[_]02.02[_]roadqual	02.02 Quality of roads 	grepl
+gci[_]02.03[_]railqual	02.03 Quality of railroad infrastructure	grepl
+gci[_]02.04[_]portqual	02.04 Quality of port infrastructure 	grepl
+gci[_]02.05[_]airqual	02.05 Quality of air transport infrastructure 	grepl
+gci[_]02.06[_]airlinekm	02.06 Available airline seat kilometers 	grepl
+gci[_]02.07[_]electricityqual	02.07 Quality of electricity supply	grepl
+gci[_]02.08[_]fixedphones	02.08 Fixed telephone lines 	grepl
+gci[_]02.09[_]mobilephones	02.09 Mobile telephone subscriptions 	grepl
+gci[_]03.01[_]budgetbalance	03.01 Government budget balance	grepl
+gci[_]03.02[_]nationalsaving	03.02 National savings rate 	grepl
+gci[_]03.03[_]inflation	03.03 Inflation	grepl
+gci[_]03.04[_]interestspread	03.04 Interest rate spread	grepl
+gci[_]03.05[_]governmentdebt	03.05 Government debt 	grepl
+gci[_]03.06[_]countrycreditrating	03.06 Country credit rating	grepl
+gci[_]04.01[_]malariaimpact	04.01 Business impact of malaria 	grepl
+gci[_]04.02[_]malariaincidence	04.02 Malaria incidence 	grepl
+gci[_]04.03[_]tuberculosisimpact	04.03 Business impact of tuberculosis 	grepl
+gci[_]04.04[_]tuberculosisincidence	04.04 Tuberculosis incidence 	grepl
+gci[_]04.05[_]hivimpact	04.05 Business impact of HIV/AIDS 	grepl
+gci[_]04.06[_]hivprevalence	04.06 HIV prevalence 	grepl
+gci[_]04.07[_]infantmortality	04.07 Infant mortality 	grepl
+gci[_]04.08[_]lifeexpectancy	04.08 Life expectancy 	grepl
+gci[_]04.09[_]primaryschoolqual	04.09 Quality of primary education 	grepl
+gci[_]04.10[_]primaryschoolenrollment	04.10 Primary education enrollment rate 	grepl
+gci[_]05.01[_]secondaryschoolenrollment	05.01 Secondary education enrollment rate 	grepl
+gci[_]05.02[_]tertiaryenrollment	05.02 Tertiary education enrollment rate 	grepl
+gci[_]05.03[_]educationqual	05.03 Quality of the educational system 	grepl
+gci[_]05.04[_]mathsciencequal	05.04 Quality of math and science education	grepl
+gci[_]05.05[_]managementschoolqual	05.05 Quality of management schools 	grepl
+gci[_]05.06[_]internetinschools	05.06 Internet access in schools 	grepl
+gci[_]05.07[_]researchtraining	05.07 Local availability of specialized research and training services 	grepl
+gci[_]05.08[_]stafftraining	05.08 Extent of staff training 	grepl
+gci[_]06.01[_]localcompetition	06.01 Intensity of local competition	grepl
+gci[_]06.02[_]marketdominance	06.02 Extent of market dominance	grepl
+gci[_]06.03[_]antimonopoly	06.03 Effectiveness of anti-monopoly policy 	grepl
+gci[_]06.04[_]taxationextent	06.04 Extent and effect of taxation	grepl
+gci[_]06.05[_]taxrate	06.05 Total tax rate	grepl
+gci[_]06.06[_]businessstartprocess	06.06 Number of procedures required to start a business	grepl
+gci[_]06.07[_]businessstarttime	06.07 Time required to start a business	grepl
+gci[_]06.08[_]agricost	06.08 Agricultural policy costs 	grepl
+gci[_]06.09[_]tradebarriers	06.09 Prevalence of trade barriers 	grepl
+gci[_]06.10[_]tradetariffs	06.10 Trade tariffs 	grepl
+gci[_]06.11[_]foreignownership	06.11 Prevalence of foreign ownership 	grepl
+gci[_]06.12[_]rulesfdi	06.12 Business impact of rules on FDI	grepl
+gci[_]06.13[_]customsburden	06.13 Burden of customs procedures 	grepl
+gci[_]06.14[_]customerorientation	06.14 Degree of customer orientation	grepl
+gci[_]06.15[_]buyersophistication	06.15 Buyer sophistication	grepl
+gci[_]07.01[_]laboremployerrelation	07.01 Cooperation in labor-employer relations	grepl
+gci[_]07.02[_]wageflexibility	07.02 Flexibility of wage determination 	grepl
+gci[_]07.03[_]employmentrigidity	07.03 Rigidity of employment	grepl
+gci[_]07.04[_]hirefire	07.04 Hiring and firing practices 	grepl
+gci[_]07.05[_]redundancycost	07.05 Redundancy costs	grepl
+gci[_]07.06[_]payproductivity	07.06 Pay and productivity 	grepl
+gci[_]07.07[_]femalelabor	07.07 Reliance on professional management	grepl
+gci[_]07.07[_]mngmtreliance	07.08 Brain drain 	grepl
+gci[_]07.08[_]braindrain	07.09 Female participation in labor force 	grepl
+gci[_]08.01[_]financialservices	08.01 Availability of financial services 	grepl
+gci[_]08.02[_]finservaffordability	08.02 Affordability of financial services 	grepl
+gci[_]08.03[_]localequity	08.03 Financing through local equity market 	grepl
+gci[_]08.04[_]loanaccess	08.04 Ease of access to loans 	grepl
+gci[_]08.05[_]venturecapital	08.05 Venture capital availability 	grepl
+gci[_]08.06[_]capitalrestrictions	08.06 Restriction on capital flows	grepl
+gci[_]08.07[_]banksoundness	08.07 Soundness of banks	grepl
+gci[_]08.08[_]exchangeregulation	08.08 Regulation of securities exchanges 	grepl
+gci[_]08.09[_]legalrights	08.09 Legal rights index 	grepl
+gci[_]09.01[_]techavailability	09.01 Availability of latest technologies 	grepl
+gci[_]09.02[_]techabsorption	09.02 Firm-level technology absorption 	grepl
+gci[_]09.03[_]fditechtransfer	09.03 FDI and technology transfer	grepl
+gci[_]09.04[_]internetusers	09.04 Internet users	grepl
+gci[_]09.05[_]broadband	09.05 Broadband Internet subscriptions 	grepl
+gci[_]09.06[_]bandwith	09.06 Internet bandwidth	grepl
+gci[_]10.01[_]domesticmarket	10.01 Domestic market size index	grepl
+gci[_]10.02[_]foreignmarket	10.02 Foreign market size index 	grepl
+gci[_]10.03[_]gdpppp	10.03 GDP (PPP) 	grepl
+gci[_]10.04[_]importsgdpshare	10.04 Imports as a percentage of GDP 	grepl
+gci[_]10.05[_]exportsgdpshare	10.05 Exports as a percentage of GDP	grepl
+gci[_]11.01[_]localsupplierquantity	11.01 Local supplier quantity 	grepl
+gci[_]11.02[_]localsupplierquality	11.02 Local supplier quality	grepl
+gci[_]11.03[_]clusterdevel	11.03 State of cluster development	grepl
+gci[_]11.04[_]competitiveadvantage	11.04 Nature of competitive advantage	grepl
+gci[_]11.05[_]valuechainbreadth	11.05 Value chain breadth 	grepl
+gci[_]11.06[_]intdistributioncontrol	11.06 Control of international distribution 	grepl
+gci[_]11.07[_]productprocess	11.07 Production process sophistication 	grepl
+gci[_]11.08[_]marketingextent	11.08 Extent of marketing	grepl
+gci[_]11.09[_]delegateauthority	11.09 Willingness to delegate authority	grepl
+gci[_]12.01[_]innovation	12.01 Capacity for innovation	grepl
+gci[_]12.02[_]scientificresearch	12.02 Quality of scientific research institutions 	grepl
+gci[_]12.03[_]rndspent	12.03 Company spending on R&D	grepl
+gci[_]12.04[_]sciencefirmcollab	12.04 University-industry collaboration in R&D	grepl
+gci[_]12.05[_]governmenttech	12.05 Government procurement of advanced technology products	grepl
+gci[_]12.06[_]scientistavailability	12.06 Availability of scientists and engineers 	grepl
+gci[_]12.07[_]utilitypatents	12.07 Utility patents per million population	grepl
+variable_renamed	Variable	gsub
+gci[_]overall	Global competitiveness index (overall)	grepl
+gci[_]sub[_]basicrequire	Subindex basic requirements	grepl
+gci[_]sub[_]efficiencyenhance	Subindex efficiency enhancers	grepl
+gci[_]sub[_]innovation	Innovation and sophistication factors	grepl
+p01[_]institutions	Pillar 1: Institutions	grepl
+p02[_]infrastructure	Pillar 2: Infrastructure	grepl
+p03[_]macro	Pillar 3: Macroeconomic environment	grepl
+p04[_]healthprimary	Pillar 4: Health and primary education	grepl
+p05[_]highered	Pillar 5: Higher education and training	grepl
+p06[_]goods	Pillar 6: Goods market efficiency	grepl
+p07[_]labormarket	Pillar 7: Labor market efficiency	grepl
+p08[_]financial	Pillar 8: Financial market development	grepl
+p09[_]tech	Pillar 9: Technological readiness	grepl
+p10[_]marketsize	Pillar 10: Market size	grepl
+p11[_]businessophist	Pillar 11: Business sophistication	grepl
+p12[_]innovation	Pillar 12: Innovation	grepl

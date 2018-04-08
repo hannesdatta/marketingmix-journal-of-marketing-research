@@ -283,16 +283,25 @@ out=out[-c(1:4),c(1:4)]
 
 
 tmp = out
-tmp$variable=sapply(rownames(tmp), rename.fkt, dictionary='renaming_gci.txt')
-tmp = tmp[, c('variable', ordered_vars)]
+tmp$variable<-rownames(tmp)
+tmp$variable_renamed=sapply(rownames(tmp), rename.fkt, dictionary='renaming_gci.txt')
+tmp = tmp[, c('variable', 'variable_renamed', ordered_vars)]
 rownames(tmp)<-NULL
 colnames(tmp)<-sapply(colnames(tmp), rename.fkt)
-colnames(tmp)[2:5]<-paste0(colnames(tmp)[2:5], c(' fixed-effect'))
-cat("<P style='page-break-before: always'>")
+colnames(tmp)[3:6]<-paste0(colnames(tmp)[3:6], c(' fixed-effect'))
+tmp=data.table(tmp)[grepl('[_]s$', variable)]
 
-kable(tmp, caption = tab('Correlations of global competitiveness report items with marketing-mix elasticities'),
+filters <- list(c(regex='overall[_]|sub[_]', name='summarized pillars in global competitiveness report'),
+                c(regex='gci[_]p[0-9]', name='12 pillars in global competitiveness report'),
+                c(regex='gci[_][0-9]', name='individual items in global competitiveness report'))
+
+for (filt in filters) {                
+  cat("<P style='page-break-before: always'>")
+
+print(kable(tmp[grepl(filt["regex"], variable),][, variable:=NULL], caption = tab(paste0('Correlations of ', filt["name"], ' (scores) with marketing-mix elasticities')),
       format='html', initial.zero = FALSE) %>%
-        kable_styling() %>% footnote(general=paste0('Note: Table reports, for each marketing mix instrument, the correlations between the items of the Global Competititveness Report (2010/2011 data, see https://www.weforum.org/reports/global-competitiveness-report-2010-2011), and the country-fixed effects reported in Table ', tableno-1, '. N = ', nrow(fixedeffects), '. Significance levels: *p<.1, **p<.05, ***p<.01, ****p<.001.'))
+        kable_styling() %>% footnote(general=paste0('Note: Table reports, for each marketing mix instrument, the correlations between the scores of ', filt["name"], ' (2010/2011 data, see https://www.weforum.org/reports/global-competitiveness-report-2010-2011), and the country-fixed effects reported in Table ', tableno-1, '. N = ', nrow(fixedeffects), '. Significance levels: *p<.1, **p<.05, ***p<.01, ****p<.001.')))
+}
 
 ```
 
