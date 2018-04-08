@@ -3,55 +3,35 @@ library(data.table)
 library(stringr)
 
 # Load and clean individual items of GCI data
-gci <- fread('../../../../Data/gci/gci_data.tsv',header=T)
-gci[, row:=1:.N]
-gci=melt(gci, id.vars='row')
+items <- fread('../../../../Data/gci/gci_items.tsv',header=T)
+items[, row:=1:.N]
+items=melt(items, id.vars='row')
 
-gci[, rank:=as.numeric(unlist(lapply(strsplit(value, ' ',fixed=T), function(x) x[1])))]
+suppressWarnings({items[, rank:=as.numeric(unlist(lapply(strsplit(value, ' ',fixed=T), function(x) x[1])))]})
 
-gci[, score:=gsub('[0-9][.][.]','', value)]
-gci[, score:=str_extract(substr(gsub('[,]', '', score),4,100), "\\d+\\.*\\d*")]
+items[, score:=gsub('[0-9][.][.]','', value)]
+items[, score:=str_extract(substr(gsub('[,]', '', score),4,100), "\\d+\\.*\\d*")]
+items[, score := as.numeric(score)]
 
-# clean countries
-gci[, country:=sapply(value, function(x) strsplit(x, '[.]')[[1]][1])]
-gci[, country:=gsub('n/a', '' , country,fixed=T)]
-gci[, country:=str_trim(gsub('[0-9]', '', country))]
-gci <- gci[!grepl('RANK COUNTRY', country)]
+items[, country:=sapply(value, function(x) strsplit(x, '[.]')[[1]][1])]
+items[, country:=gsub('n/a', '' , country,fixed=T)]
+items[, country:=str_trim(gsub('[0-9]', '', country))]
+items <- items[!grepl('RANK COUNTRY', country)]
 
-# Load and clean combined pillars of GCI data
-pillars <- fread('../../../../Data/gci/gci_pillars.tsv',header=T)
+items = items[, c('country', 'variable', 'rank', 'score'),with=F]
+setnames(items, 'variable', 'measure')
 
-# apply by column
-col1=pillars[,3,with=F]
+# Load and append combined pillars ("overall"), and subdimensions ("subdimensions") of GCI data
+dimensions=rbindlist(lapply(c(overall='gci_overall.tsv',subdimensions='gci_subdimensions.tsv'), function(fn) { 
+  tmp <- fread(paste0('../../../../Data/gci/', fn), header=T)
+  suppressWarnings({tmp=melt(tmp, id.var=c('country'))})
+  tmp[, type_var:=ifelse(grepl('[_]r', variable),'rank', 'score')]
+  tmp[, measure:=gsub('[_]s|[_]r','', variable)]
+  tmp[, country:=gsub('[.]', '', str_trim(country))]
+  return(dcast(tmp, country+measure~type_var, value.var='value'))
+  }))
 
-# determine how many items
-nitems=as.numeric(rev(strsplit(colnames(col1)[1], '[ ]')[[1]])[1])
-
-    
-    datfkt<-function(x) paste0(rev(rev(strsplit(as.character(x), '[ ]')[[1]])[1:(2*nitems)]),collapse='\t')
-    cntrf<-function(x) gsub('[ ][0-9].*','', x)
-    
- setnames(col1, 'col')
-    col1[, new:=sapply(col, datfkt)]
-    col1[, cntr:=sapply(col, cntrf)]
-    
-write.table(col1$new, 'clipboard',row.names=F)
-write.table(col1$cntr, 'clipboard',row.names=F)
-
-gci[, row:=1:.N]
-gci=melt(gci, id.vars='row')
-
-gci[, rank:=as.numeric(unlist(lapply(strsplit(value, ' ',fixed=T), function(x) x[1])))]
-
-gci[, score:=gsub('[0-9][.][.]','', value)]
-gci[, score:=str_extract(substr(gsub('[,]', '', score),4,100), "\\d+\\.*\\d*")]
-
-# clean countries
-gci[, country:=sapply(value, function(x) strsplit(x, '[.]')[[1]][1])]
-gci[, country:=gsub('n/a', '' , country,fixed=T)]
-gci[, country:=str_trim(gsub('[0-9]', '', country))]
-gci <- gci[!grepl('RANK COUNTRY', country)]
-
+gci = rbindlist(list(items, dimensions))
 
 # keep focal countries
 countries <- c('Australia', 'Singapore', 'Japan', 'New Zealand', 'Hong Kong SAR', 'Korea, Rep',
@@ -67,7 +47,7 @@ length(table(gci[country%in%countries]$country))
 gci <- gci[country%in%countries]
 
 # label contructs
-gci[, construct:=paste0('gci', variable)]
+gci[, measure_label:=paste0('gci_', measure)]
 
 # relabel countries
 gci[, country :=tolower(country)]
@@ -75,11 +55,11 @@ gci[country=='hong kong sar', country :='hong kong']
 gci[country=='korea, rep', country :='south korea']
 gci[country=='taiwan, china', country :='taiwan']
 
-# drop unnecessary variables
-gci[, ':=' (row=NULL, value=NULL, variable=NULL)]
-gci[, scorenum := as.numeric(score)]
+# save
+tmp=melt(gci, id.vars=c('country', 'measure', 'measure_label'))
+tmp[, type:=ifelse(variable=='rank', 'r', 's')]
 
-gci_save=dcast(gci, country~construct, value.var='scorenum')
+gci_save=dcast(tmp, country~measure_label+type, value.var='value')
 
 fwrite(gci_save,'../temp/gci.csv')
 
