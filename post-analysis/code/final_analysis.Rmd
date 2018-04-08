@@ -116,9 +116,9 @@ Notes:
   
 iters = list(st=c('st', 'Short-term'), lt=c('lt', 'Long-term'))
 for (iter in iters) {
-  kable(sanitize_table(out[[iter[1]]]), digits=3, format='html', 
+  print(kable(sanitize_table(out[[iter[1]]]), digits=3, format='html', 
         caption=tab(paste0(iter[2], ' elasticities by marketing mix instrument'))) %>% kable_styling() %>% 
-        footnote(general='*p*<.001 (two-sided).') %>% add_header_above(c(" " = 1, "All countries" = 4, "Developed countries" = 4, "Emerging countries" = 4))
+        footnote(general='*p*<.001 (two-sided).') %>% add_header_above(c(" " = 1, "All countries" = 4, "Developed countries" = 4, "Emerging countries" = 4)))
 }
 
 ```
