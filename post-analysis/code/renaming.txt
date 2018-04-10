@@ -53,8 +53,10 @@ welast	weighted elasticity	grepl
 [_]z	Meta-analytic z	grepl
 mmixinstr	Marketing-mix instrument	gsub
 Neffects	Number of estimates	grepl
+emerging	Emerging country indicator	gsub
 .*[_]sig	sig.	gsub
 [*] developed	   x developed country	grepl
+[*] emerging	   x emerging country	grepl
 necessity	Appliance (versus electronics)	gsub
 appliance	Appliance (versus electronics)	gsub
 ln_market_growth_mc	Log of category growth	gsub
@@ -74,4 +76,3 @@ perc_negative	%-negative and significant	gsub
 perc_null	%-insignificant	gsub
 Northamerica	North America	gsub
 nbrands	Number of brands	gsub
-

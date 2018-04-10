@@ -203,23 +203,20 @@ On sample of global brands (`r length(unique(elast$brand))` unique brands), acti
 ```{r randomcombined1, echo = FALSE, results='asis'}
 m1 = ~1+ (1|brand) + (1|category) + (1|country) + appliance + ln_market_growth_mc + ln_herf_mc + local_to_market + western_brand + sbbe_std_mc
 
-#interact1 = . ~ . + appliance*ln_gdppercap2010_mc + ln_market_growth_mc*ln_gdppercap2010_mc +
-#  local_to_market*ln_gdppercap2010_mc + western_brand*ln_gdppercap2010_mc +
-#  ln_herf_mc*ln_gdppercap2010_mc + ln_ncat_in_country_mc*ln_gdppercap2010_mc + ln_ncountry_in_category_mc*ln_gdppercap2010_mc
-
-#m2=update(m1, interact1)
 names(ordered_vars) <- paste0(unlist(sanitize_table(data.frame(ordered_vars))), ' elasticity')
 
 out1=regmodel(formula=m1, dat=elast, model='lmer')
 covlabels=unlist(sanitize_table(data.frame(colnames(out1[[1]]$lt[[1]]@pp$X))))
 covlabels=c(covlabels[-which(covlabels=='(Intercept)')], 'Constant')
 
-#r2s = sem.model.fits(lapply(out1, function(x) x$lt[[1]]))
-
-
 notes_base = "Regression of long-term elasticities on explanatory variables and three random effects, for brands, categories, and countries, respectively. Estimated using a linear mixed-effects model, with weights equal to the inverse of the elasticities' standard error, normalized to sum up to 1. Two-sided significance levels reported. Standard errors in parentheses."
 
 cat("<P style='page-break-before: always'>")
+
+printout(out1, 'st', omit=NULL, title = tab('DV: short-term elasticities, pooled sample of developed and emerging countries'), vars=ordered_vars,notes=gsub('long[-]term', 'short-term', notes_base), covlabels=covlabels)
+
+cat("<P style='page-break-before: always'>")
+
 printout(out1, 'lt', omit=NULL, title = tab('DV: long-term elasticities, pooled sample of developed and emerging countries'), vars=ordered_vars,notes=notes_base, covlabels=covlabels)
 
 cat("<P style='page-break-before: always'>")
@@ -231,7 +228,9 @@ out3=regmodel(formula=m1, dat=elast[developed==0], model='lmer')
 printout(out3, 'lt', omit=NULL, title = tab('DV: long-term elasticities, sample of emerging countries'), vars=ordered_vars, notes=paste0(notes_base, ' Model estimated on sample of emerging countries only.'), covlabels=covlabels)
 
 # interaction model
-m2 = ~1+ (1|brand) + (1|category) + (1|country) + developed + appliance + I(appliance*developed) + ln_market_growth_mc + I(ln_market_growth_mc*developed) + ln_herf_mc + I(ln_herf_mc*developed) + local_to_market + I(local_to_market*developed) + western_brand + I(western_brand*developed) + sbbe_std_mc + I(sbbe_std_mc*developed)
+elast[, emerging:=1-developed]
+m2 = ~1+ (1|brand) + (1|category) + (1|country) + emerging + appliance + I(appliance*emerging) + ln_market_growth_mc + I(ln_market_growth_mc*emerging) + ln_herf_mc + I(ln_herf_mc*emerging) + local_to_market + I(local_to_market*emerging) + western_brand + I(western_brand*emerging) + sbbe_std_mc + I(sbbe_std_mc*emerging)
+
 cat("<P style='page-break-before: always'>")
 out4=regmodel(formula=m2, dat=elast, model='lmer')
 
@@ -415,34 +414,34 @@ kable(frame2, format='html',caption = tab('VIFs in a model with interactions', p
 
 ```
 
-```{r shorterm, echo=F,results='asis'}
+```{r elasts_full, echo=F,results='asis'}
 
 cat("<P style='page-break-before: always'>")
-zval=qnorm(1-.1/2) # 10%-level
-  
-	tmp=elast[!is.na(elast), list(median_elast = median(elast), 
-												  w_elast = sum(elast/elast_se)/sum(1/elast_se), 
-												  N_brands= .N, 
-												  perc_positive = length(which(elast/elast_se>=(zval)))/.N, 
-												  perc_null = length(which(abs(elast/elast_se)<zval))/.N, 
-												  perc_negative = length(which(elast/elast_se<=(-zval)))/.N), by=c('variable')]
-	tmp=sanitize_table(tmp[match(ordered_vars, variable)])
-	kable(tmp, format='html',digits=3, caption = tab('Short-term elasticities by variable', prefix='A')) %>% kable_styling() %>% footnote(general=paste0('Note: Table reports short-term elasticities. Weights, if used, are equal to inverse standard errors of estimated elasticities. Significance tested at p<.1.'))
-```	
 
-```{r elast_lt, echo = FALSE, results='asis'}
+  sigvalue = .1 # .1-level of significance
+  zval = qnorm(1-sigvalue/2)
+
+  out = lapply(list(st=c('elast', 'elast_se'), lt = c('elastlt','elastlt_se')), function(obj) {
+               
+    tmp = elast[!is.na(get(obj[1]))][, ':=' (val=get(obj[1]), val_se=get(obj[2]))]
+    
+    tmp=tmp[, list(Neffects=.N, median_elast = median(val), 
+												  w_elast = sum(val/val_se)/sum(1/val_se), 
+												  perc_positive = length(which(val/val_se>=(zval)))/.N, 
+												  perc_null = length(which(abs(val/val_se)<zval))/.N, 
+												  perc_negative = length(which(val/val_se<=(-zval)))/.N), by=c('variable')]
+    
+  tmp=tmp[match(ordered_vars, variable)]
+  setnames(tmp, 'variable', 'mmixinstr')
+  return(tmp)
+  })
   
-  zval=qnorm(1-.1/2) # 10%-level
- 
-  tmp=elast[!is.na(elastlt), list(median_elast = median(elastlt), 
-												  w_elast = sum(elastlt/elastlt_se)/sum(1/elastlt_se), 
-												  N_brands= .N, 
-												  perc_positive = length(which(elastlt/elastlt_se>=(zval)))/.N, 
-												  perc_null = length(which(abs(elastlt/elastlt_se)<zval))/.N, 
-												  perc_negative = length(which(elastlt/elastlt_se<=(-zval)))/.N), by=c('variable')]
-	tmp=sanitize_table(tmp[match(ordered_vars, variable)])
-	
-	kable(tmp, format='html',digits=3, caption = tab('Long-term elasticities by variable', prefix='A')) %>% kable_styling() %>% footnote(general=paste0('Note: Table reports long-term elasticities. Weights, if used, are equal to inverse standard errors of estimated elasticities. Significance tested at p<.1.'))
+iters = list(st=c('st', 'Short-term'), lt=c('lt', 'Long-term'))
+for (iter in iters) {
+  print(kable(sanitize_table(out[[iter[1]]]), digits=3, format='html', 
+        caption=tab(paste0(iter[2], ' elasticities by marketing mix instrument'),prefix='A')) %>% kable_styling() %>% 
+        footnote(general=paste0('Note: Table reports ', tolower(iter[2]), ' elasticities. Weights, if used, are equal to inverse standard errors of estimated elasticities. Significance tested at p<',sigvalue, '.')))
+}
 
 ```
 
