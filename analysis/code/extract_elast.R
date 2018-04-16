@@ -83,24 +83,27 @@ out = lapply(models, function(model_name) {
   elast[, wb_lowermid:=country%in%c('india','indonesia', 'vietnam', 'philippines')]
   elast[, wb_uppermid:=country%in%c('china', 'malaysia','thailand')]
   
-  # merge country of origins for top brands
-  global_brands=elast[globalbrand==T, list(.N), by = c('brand')]
-  setkey(global_brands, brand)
-  setkey(brands_countries, brand)
-  global_brands[brands_countries, brand_country := i.country_cleaned]
+  # merge country of origins for brands
+  brands_countries <- brands_countries[!brand=='']
+  brands_countries[country_cleaned=='', country_cleaned:=NA]
   
-  setkey(global_brands, brand)
   setkey(elast, brand)
-  elast[global_brands, global_country:=i.brand_country]
+  setkey(brands_countries, brand)
   
+  elast[brands_countries, country_of_origin:=i.country_cleaned]
+
   # country classifications
-  elast[, local_to_market:=global_country==country]
-  elast[, western_brand:=global_country%in%c('canada','finland','germany','italy','netherlands','sweden','usa')]
+  western=c('australia', 'canada','finland','france', 'germany','great britain', 
+            'italy','luxembourg', 'netherlands','new zealand', 'panama', 'spain', 'sweden',
+            'switzerland', 'turkey', 'usa', 'virgin islands')
+
+  elast[, local_to_market:=country_of_origin==country]
+  elast[, western_brand:=country_of_origin%in%western]
   
-  # country-of-origin
-  elast[globalbrand==T, country_of_origin := 'asian']
-  elast[globalbrand==T & global_country%in%c('finland','germany','italy','netherlands','sweden'), country_of_origin := 'europe']
-  elast[globalbrand==T & global_country%in%c('canada','usa'), country_of_origin := 'northamerica']
+  # region-of-origin
+  #elast[!is.na(country_of_origin), region_of_origin := 'asian']
+  #elast[country_of_origin%in%c('finland','france', 'germany','italy','netherlands','sweden'), region_of_origin := 'europe']
+  #elast[globalbrand==T & country_of_origin%in%c('canada','usa'), region_of_origin := 'northamerica']
   
   return(list(checks=markets, elast=elast, model = model_name))
   })

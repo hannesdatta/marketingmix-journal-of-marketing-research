@@ -28,7 +28,7 @@ elast[country%in%c('australia', 'singapore', 'japan', 'new zealand', 'hong kong'
 
 
 # take natural log of variables
-vars=c('herf','c3','c5','market_growth','hdi2010','gdppercap2010', 'ncat_in_country', 'ncountry_in_category')
+vars=c('herf','c3','c5','market_growth','hdi2010','gdppercap2010', 'ncat_in_country', 'ncountry_in_category','overall_ms')
 
 for (var in vars) {
   elast[, (paste0('ln_', var)):=log(get(var))]
@@ -36,7 +36,7 @@ for (var in vars) {
 }
 
 # grand-mean centering by variable (llen, etc.) for all explanatory (continuous) variables
-for (var in unique(drop(unlist(lapply(c(vars, 'sbbe_std'), grep, colnames(elast), value=T))))) {
+for (var in unique(drop(unlist(lapply(c(vars, 'sbbe_std', 'sbbe'), grep, colnames(elast), value=T))))) {
   elast[, (paste0(var, '_mc')):=get(var)-mean(get(var)), by = c('variable')]
 }
 

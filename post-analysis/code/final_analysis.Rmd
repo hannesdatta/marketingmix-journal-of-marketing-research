@@ -193,11 +193,14 @@ Brand equity               | Sales-based brand equity, obtained as a transformat
 
 ```{r continue_with_selection, echo=FALSE}
 elast_all=data.table(elast)
-elast=elast[globalbrand==T]
+elast=elast[!is.na(country_of_origin)&!brand%in%c('unbranded')]
+#elast=elast[globalbrand==T&!brand%in%c('unbranded')]
+
 ```
 
-On sample of global brands (`r length(unique(elast$brand))` unique brands), active in at least three countries (to be revisited once country-of-origin coding is complete)
+On sample of (`r length(unique(elast$brand))` unique brands.
 
+## with standardized SBBE
 
 ```{r randomcombined1, echo = FALSE, results='asis'}
 m1 = ~1+ (1|brand) + (1|category) + (1|country) + appliance + ln_market_growth_mc + ln_herf_mc + local_to_market + western_brand + sbbe_std_mc
@@ -239,6 +242,95 @@ covlabels=c(covlabels[-which(covlabels=='(Intercept)')], 'Constant')
 printout(out4, 'lt', omit=NULL, title = tab('DV: long-term elasticities, pooled sample of developed and emerging countries with interactions'), vars=ordered_vars, notes=paste0(notes_base), covlabels=covlabels)
 
 ```
+
+## with SBBE (not standardized)
+
+```{r randomcombined1bb, echo = FALSE, results='asis'}
+m1 = ~1+ (1|brand) + (1|category) + (1|country) + appliance + ln_market_growth_mc + ln_herf_mc + local_to_market + western_brand + sbbe_mc
+
+names(ordered_vars) <- paste0(unlist(sanitize_table(data.frame(ordered_vars))), ' elasticity')
+
+out1=regmodel(formula=m1, dat=elast, model='lmer')
+covlabels=unlist(sanitize_table(data.frame(colnames(out1[[1]]$lt[[1]]@pp$X))))
+covlabels=c(covlabels[-which(covlabels=='(Intercept)')], 'Constant')
+
+notes_base = "Regression of long-term elasticities on explanatory variables and three random effects, for brands, categories, and countries, respectively. Estimated using a linear mixed-effects model, with weights equal to the inverse of the elasticities' standard error, normalized to sum up to 1. Two-sided significance levels reported. Standard errors in parentheses."
+
+cat("<P style='page-break-before: always'>")
+
+printout(out1, 'st', omit=NULL, title = tab('DV: short-term elasticities, pooled sample of developed and emerging countries'), vars=ordered_vars,notes=gsub('long[-]term', 'short-term', notes_base), covlabels=covlabels)
+
+cat("<P style='page-break-before: always'>")
+
+printout(out1, 'lt', omit=NULL, title = tab('DV: long-term elasticities, pooled sample of developed and emerging countries'), vars=ordered_vars,notes=notes_base, covlabels=covlabels)
+
+cat("<P style='page-break-before: always'>")
+out2=regmodel(formula=m1, dat=elast[developed==1], model='lmer')
+printout(out2, 'lt', omit=NULL, title = tab('DV: long-term elasticities, sample of developed countries'), vars=ordered_vars, notes=paste0(notes_base, ' Model estimated on sample of developed countries only.'), covlabels=covlabels)
+
+cat("<P style='page-break-before: always'>")
+out3=regmodel(formula=m1, dat=elast[developed==0], model='lmer')
+printout(out3, 'lt', omit=NULL, title = tab('DV: long-term elasticities, sample of emerging countries'), vars=ordered_vars, notes=paste0(notes_base, ' Model estimated on sample of emerging countries only.'), covlabels=covlabels)
+
+# interaction model
+elast[, emerging:=1-developed]
+m2 = ~1+ (1|brand) + (1|category) + (1|country) + emerging + appliance + I(appliance*emerging) + ln_market_growth_mc + I(ln_market_growth_mc*emerging) + ln_herf_mc + I(ln_herf_mc*emerging) + local_to_market + I(local_to_market*emerging) + western_brand + I(western_brand*emerging) + sbbe_mc + I(sbbe_mc*emerging)
+
+cat("<P style='page-break-before: always'>")
+out4=regmodel(formula=m2, dat=elast, model='lmer')
+
+covlabels=unlist(sanitize_table(data.frame(colnames(out4[[1]]$lt[[1]]@pp$X))))
+covlabels=c(covlabels[-which(covlabels=='(Intercept)')], 'Constant')
+
+printout(out4, 'lt', omit=NULL, title = tab('DV: long-term elasticities, pooled sample of developed and emerging countries with interactions'), vars=ordered_vars, notes=paste0(notes_base), covlabels=covlabels)
+
+```
+
+
+## with log market share
+
+```{r randomcombined1cc, echo = FALSE, results='asis'}
+m1 = ~1+ (1|brand) + (1|category) + (1|country) + appliance + ln_market_growth_mc + ln_herf_mc + local_to_market + western_brand + ln_overall_ms_mc
+
+names(ordered_vars) <- paste0(unlist(sanitize_table(data.frame(ordered_vars))), ' elasticity')
+
+out1=regmodel(formula=m1, dat=elast, model='lmer')
+covlabels=unlist(sanitize_table(data.frame(colnames(out1[[1]]$lt[[1]]@pp$X))))
+covlabels=c(covlabels[-which(covlabels=='(Intercept)')], 'Constant')
+
+notes_base = "Regression of long-term elasticities on explanatory variables and three random effects, for brands, categories, and countries, respectively. Estimated using a linear mixed-effects model, with weights equal to the inverse of the elasticities' standard error, normalized to sum up to 1. Two-sided significance levels reported. Standard errors in parentheses."
+
+cat("<P style='page-break-before: always'>")
+
+printout(out1, 'st', omit=NULL, title = tab('DV: short-term elasticities, pooled sample of developed and emerging countries'), vars=ordered_vars,notes=gsub('long[-]term', 'short-term', notes_base), covlabels=covlabels)
+
+cat("<P style='page-break-before: always'>")
+
+printout(out1, 'lt', omit=NULL, title = tab('DV: long-term elasticities, pooled sample of developed and emerging countries'), vars=ordered_vars,notes=notes_base, covlabels=covlabels)
+
+cat("<P style='page-break-before: always'>")
+out2=regmodel(formula=m1, dat=elast[developed==1], model='lmer')
+printout(out2, 'lt', omit=NULL, title = tab('DV: long-term elasticities, sample of developed countries'), vars=ordered_vars, notes=paste0(notes_base, ' Model estimated on sample of developed countries only.'), covlabels=covlabels)
+
+cat("<P style='page-break-before: always'>")
+out3=regmodel(formula=m1, dat=elast[developed==0], model='lmer')
+printout(out3, 'lt', omit=NULL, title = tab('DV: long-term elasticities, sample of emerging countries'), vars=ordered_vars, notes=paste0(notes_base, ' Model estimated on sample of emerging countries only.'), covlabels=covlabels)
+
+# interaction model
+elast[, emerging:=1-developed]
+m2 = ~1+ (1|brand) + (1|category) + (1|country) + emerging + appliance + I(appliance*emerging) + ln_market_growth_mc + I(ln_market_growth_mc*emerging) + ln_herf_mc + I(ln_herf_mc*emerging) + local_to_market + I(local_to_market*emerging) + western_brand + I(western_brand*emerging) + ln_overall_ms_mc + I(ln_overall_ms_mc*emerging)
+
+cat("<P style='page-break-before: always'>")
+out4=regmodel(formula=m2, dat=elast, model='lmer')
+
+covlabels=unlist(sanitize_table(data.frame(colnames(out4[[1]]$lt[[1]]@pp$X))))
+covlabels=c(covlabels[-which(covlabels=='(Intercept)')], 'Constant')
+
+printout(out4, 'lt', omit=NULL, title = tab('DV: long-term elasticities, pooled sample of developed and emerging countries with interactions'), vars=ordered_vars, notes=paste0(notes_base), covlabels=covlabels)
+
+```
+
+## continuing with standardized SBBE
 
 ```{r randomcombined4, echo = FALSE, results='asis'}
 
@@ -313,11 +405,11 @@ cat("<P style='page-break-before: always'>")
 ```
 
 ```{r sample_overview, echo=FALSE, results='asis'}
-
-tmp=elast[, list(active_in_countries=length(unique(country)), active_in_categories=length(unique(category)), headquarter_location=unique(global_country), headquarter_region=unique(country_of_origin)), by = c('brand')]
+#, headquarter_region=unique(country_of_origin)
+tmp=elast[, list(active_in_countries=length(unique(country)), active_in_categories=length(unique(category)), headquarter_location=unique(country_of_origin)), by = c('brand')]
 setorderv(tmp, c('active_in_countries','active_in_categories'),order=-1L)
 
-tmp[, ':=' (brand=stri_trans_totitle(brand), headquarter_location=stri_trans_totitle(headquarter_location), headquarter_region=stri_trans_totitle(headquarter_region))]
+tmp[, ':=' (brand=stri_trans_totitle(brand), headquarter_location=stri_trans_totitle(headquarter_location))]#, #headquarter_region=stri_trans_totitle(headquarter_region))]
 tmp=sanitize_table(tmp)
 
 

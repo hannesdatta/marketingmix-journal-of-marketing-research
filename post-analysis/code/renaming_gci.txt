@@ -117,7 +117,7 @@ gci[_]12.04[_]sciencefirmcollab	12.04 University-industry collaboration in R&D	g
 gci[_]12.05[_]governmenttech	12.05 Government procurement of advanced technology products	grepl
 gci[_]12.06[_]scientistavailability	12.06 Availability of scientists and engineers 	grepl
 gci[_]12.07[_]utilitypatents	12.07 Utility patents per million population	grepl
-variable_renamed	Variable	gsub
+variable[_]renamed	Variable	gsub
 gci[_]overall	Global competitiveness index (overall)	grepl
 gci[_]sub[_]basicrequire	Subindex basic requirements	grepl
 gci[_]sub[_]efficiencyenhance	Subindex efficiency enhancers	grepl
