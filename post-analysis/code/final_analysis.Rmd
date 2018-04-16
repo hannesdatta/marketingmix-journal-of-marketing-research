@@ -163,7 +163,6 @@ for (.var in ordered_vars){
 p<-ggplot(tmp[variable==.var], aes(x=group, y=qwmeans, fill=ifelse(developed==1, 'developed', 'emerging'))) + 
   theme_bw() + 
   geom_bar(position=position_dodge(), stat="identity") + 
-  ggtitle(fig('.var')) +
   scale_fill_grey() + 
   labs(title = fig(paste0("Mean long-term ", rename.fkt(.var), " elasticities (weighted) per quartile"))) + 
   guides(fill=guide_legend("Development status")) +
