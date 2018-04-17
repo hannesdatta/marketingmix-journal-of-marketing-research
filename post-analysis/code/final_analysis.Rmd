@@ -189,7 +189,9 @@ Appliance (vs. electronics)| Dummy, equaling 1 for appliances (washing machines,
 Category growth rate       | Log of a market's average growth rate in the observation period (geometric average)
 Category concentration     | Log of Herfindahl index
 Domestic versus foreign brand | Dummy, equaling 1 if a brand's headquarter is located in the focal country; 0 if not.
-Western versus Asian brand | Dummy variable, equaling 1 if brand is headquartered in North America or Europe (0 for Asia).
+Western brand | Dummy variable, equaling 1 if brand is headquartered in Western countries, 0 if not.
+Other brand | Dummy variable, equaling 1 if brand is not headquartered in Western countries or Asia.
+Asian brand | Baseline
 Brand equity               | Sales-based brand equity, obtained as a transformation of the brand-specific intercept from the market share attraction model, standardized by category    | Datta, Ailawadi, and van Heerde (2017)
 
 *Note:* All continuous variables are logged and mean-centered before model estimation (except brand equity, which is only mean-centered as this variable can take on negative values).
@@ -216,7 +218,7 @@ m3 = ~1+ (1|brand) + (1|category) + (1|country) + appliance + ln_market_growth_m
 
 m4 = ~1+ (1|brand) + (1|category) + (1|country) + appliance + ln_market_growth_mc + ln_herf_mc + local_to_market + western_brand + ln_gci_overall_s
 
-m5 = ~1+ (1|brand) + (1|category) + (1|country) + appliance + ln_market_growth_mc + ln_herf_mc + local_to_market + western_brand + ln_gci_sub_basicrequire_s + ln_gci_sub_efficiencyenhance_s + ln_gci_sub_innovation_s
+m5 = ~1+ (1|brand) + (1|category) + (1|country) + appliance + ln_market_growth_mc + ln_herf_mc + local_to_market + western_brand + othercountry + ln_gci_sub_basicrequire_s + ln_gci_sub_efficiencyenhance_s + ln_gci_sub_innovation_s
 
 out1=regmodel(formula=c(m1,m2,m3, m4, m5), dat=elast, model='lmer')
 
@@ -240,7 +242,7 @@ sink()
 ## continuing full analysis with standardized brand equity
 
 ```{r randomcombined1, echo = FALSE, results='asis'}
-m1 = ~1+ (1|brand) + (1|category) + (1|country) + appliance + ln_market_growth_mc + ln_herf_mc + local_to_market + western_brand + sbbe_std_mc
+m1 = ~1+ (1|brand) + (1|category) + (1|country) + appliance + ln_market_growth_mc + ln_herf_mc + local_to_market + western_brand + othercountry + sbbe_std_mc
 
 names(ordered_vars) <- paste0(unlist(sanitize_table(data.frame(ordered_vars))), ' elasticity')
 
@@ -268,7 +270,7 @@ printout(out3, 'lt', omit=NULL, title = tab('DV: long-term elasticities, sample 
 
 # interaction model
 elast[, emerging:=1-developed]
-m2 = ~1+ (1|brand) + (1|category) + (1|country) + emerging + appliance + I(appliance*emerging) + ln_market_growth_mc + I(ln_market_growth_mc*emerging) + ln_herf_mc + I(ln_herf_mc*emerging) + local_to_market + I(local_to_market*emerging) + western_brand + I(western_brand*emerging) + sbbe_std_mc + I(sbbe_std_mc*emerging)
+m2 = ~1+ (1|brand) + (1|category) + (1|country) + emerging + appliance + I(appliance*emerging) + ln_market_growth_mc + I(ln_market_growth_mc*emerging) + ln_herf_mc + I(ln_herf_mc*emerging) + local_to_market + I(local_to_market*emerging) + western_brand + I(western_brand*emerging) + sbbe_std_mc + I(sbbe_std_mc*emerging) + othercountry + I(othercountry*emerging)
 
 cat("<P style='page-break-before: always'>")
 out4=regmodel(formula=m2, dat=elast, model='lmer')
@@ -282,7 +284,7 @@ printout(out4, 'lt', omit=NULL, title = tab('DV: long-term elasticities, pooled 
 
 ```{r randomcombined4, echo = FALSE, results='asis'}
 
-m1 = ~1+ (1|brand) + (1|category) + as.factor(country) + appliance + ln_market_growth_mc + ln_herf_mc + local_to_market + western_brand + sbbe_std_mc
+m1 = ~1+ (1|brand) + (1|category) + as.factor(country) + appliance + ln_market_growth_mc + ln_herf_mc + local_to_market + western_brand + othercountry + sbbe_std_mc
 #ln_ncat_in_country_mc + ln_ncountry_in_category_mc
 
 cat("<P style='page-break-before: always'>")
@@ -295,7 +297,7 @@ printout(out5, 'lt', omit=NULL, title = tab('DV: long-term elasticities, with co
 
 ```{r correltabinfra, echo=FALSE, results='asis'}
 
-m1 = ~1+ (1|brand) + (1|category) + as.factor(country) + appliance + ln_market_growth_mc + ln_herf_mc + local_to_market + western_brand + sbbe_std_mc
+m1 = ~1+ (1|brand) + (1|category) + as.factor(country) + appliance + ln_market_growth_mc + ln_herf_mc + local_to_market + western_brand + otherbrand + sbbe_std_mc
 out5=regmodel(formula=m1, dat=elast, model='lmer')
 
 # collect fixed effects
@@ -422,7 +424,7 @@ kable(out, format='html',caption = tab('Average category growth rates for develo
 ```
 
 ```{r VIFS, echo=FALSE,results='asis'}
-m1 = ~1+ appliance + ln_market_growth_mc + ln_herf_mc + local_to_market + western_brand + sbbe_std_mc
+m1 = ~1+ appliance + ln_market_growth_mc + ln_herf_mc + local_to_market + western_brand + otherbrand + sbbe_std_mc
 
 interact1 = . ~ . + appliance*ln_gdppercap2010_mc + ln_market_growth_mc*ln_gdppercap2010_mc +
   local_to_market*ln_gdppercap2010_mc + western_brand*ln_gdppercap2010_mc
