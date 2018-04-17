@@ -297,7 +297,7 @@ printout(out5, 'lt', omit=NULL, title = tab('DV: long-term elasticities, with co
 
 ```{r correltabinfra, echo=FALSE, results='asis'}
 
-m1 = ~1+ (1|brand) + (1|category) + as.factor(country) + appliance + ln_market_growth_mc + ln_herf_mc + local_to_market + western_brand + otherbrand + sbbe_std_mc
+m1 = ~1+ (1|brand) + (1|category) + as.factor(country) + appliance + ln_market_growth_mc + ln_herf_mc + local_to_market + western_brand + othercountry + sbbe_std_mc
 out5=regmodel(formula=m1, dat=elast, model='lmer')
 
 # collect fixed effects
@@ -424,7 +424,7 @@ kable(out, format='html',caption = tab('Average category growth rates for develo
 ```
 
 ```{r VIFS, echo=FALSE,results='asis'}
-m1 = ~1+ appliance + ln_market_growth_mc + ln_herf_mc + local_to_market + western_brand + otherbrand + sbbe_std_mc
+m1 = ~1+ appliance + ln_market_growth_mc + ln_herf_mc + local_to_market + western_brand + othercountry + sbbe_std_mc
 
 interact1 = . ~ . + appliance*ln_gdppercap2010_mc + ln_market_growth_mc*ln_gdppercap2010_mc +
   local_to_market*ln_gdppercap2010_mc + western_brand*ln_gdppercap2010_mc
