@@ -159,7 +159,7 @@ pl<-lapply(c(qmeans='qmeans',qwmeans='qwmeans'), function(varplot) {
     geom_bar(position=position_dodge(), stat="identity") + 
     scale_fill_grey() + 
     #labs(title = fig(paste0("Mean long-term ", rename.fkt(.var), " elasticities per quartile"))) + 
-    labs(title = fig(paste0("", rename.fkt(.var), ifelse(varplot=='qwmeans', ' (weighted)', ''), ""))) + 
+    labs(title = fig(paste0("", rename.fkt(.var), ifelse(varplot=='qwmeans', ' (weighted)', ''), " elasticity"))) + 
     guides(fill=guide_legend("Development status")) +
     xlab("Quartiles") + 
     ylab("Elasticity")+ theme(plot.title = element_text(size=10))
@@ -171,11 +171,13 @@ pl<-lapply(c(qmeans='qmeans',qwmeans='qwmeans'), function(varplot) {
 ```{r elast_plot1, echo=F}
 ggarrange(plotlist=pl$qmeans, common.legend=TRUE, legend='bottom')
 ```
+
 Notes: Figure shows mean long-term elasticities per quartile.
 
 ```{r elast_plot2, echo=F}
 ggarrange(plotlist=pl$qwmeans, common.legend=TRUE, legend='bottom')
 ```
+
 Notes: Figure shows mean long-term elasticities (weighted by inverse standard errors) per quartile.
 
 
@@ -243,25 +245,33 @@ printout(out1, 'lt', omit=NULL, title = tab('Model selection: regression with lo
 
 ```{r randomcombined1, echo = FALSE, results='asis'}
 m1 = ~1+ (1|brand) + (1|category) + (1|country) + appliance + ln_market_growth_mc + ln_herf_mc + local_to_market + western_brand + othercountry + sbbe_std_mc
+m1b = ~1+ (1|brand) + (1|category) + (1|country) + appliance + ln_market_growth_mc + ln_herf_mc + local_to_market + western_brand + sbbe_std_mc
 
 names(ordered_vars) <- paste0(unlist(sanitize_table(data.frame(ordered_vars))), ' elasticity')
 
 out1=regmodel(formula=m1, dat=elast, model='lmer')
-covlabels=unlist(sanitize_table(data.frame(colnames(out1[[1]]$lt[[1]]@pp$X))))
-covlabels=c(covlabels[-which(covlabels=='(Intercept)')], 'Constant')
 
 notes_base = "Regression of long-term elasticities on explanatory variables and three random effects, for brands, categories, and countries, respectively. Estimated using a linear mixed-effects model, with weights equal to the inverse of the elasticities' standard error, normalized to sum up to 1. Two-sided significance levels reported. Standard errors in parentheses."
 
 cat("<P style='page-break-before: always'>")
 
+covlabels=unlist(sanitize_table(data.frame(colnames(out1[[1]]$lt[[1]]@pp$X))))
+covlabels=c(covlabels[-which(covlabels=='(Intercept)')], 'Constant')
+
 printout(out1, 'st', omit=NULL, title = tab('DV: short-term elasticities, pooled sample of developed and emerging countries'), vars=ordered_vars,notes=gsub('long[-]term', 'short-term', notes_base), covlabels=covlabels)
 
 cat("<P style='page-break-before: always'>")
 
+covlabels=unlist(sanitize_table(data.frame(colnames(out1[[1]]$lt[[1]]@pp$X))))
+covlabels=c(covlabels[-which(covlabels=='(Intercept)')], 'Constant')
+
 printout(out1, 'lt', omit=NULL, title = tab('DV: long-term elasticities, pooled sample of developed and emerging countries'), vars=ordered_vars,notes=notes_base, covlabels=covlabels)
 
 cat("<P style='page-break-before: always'>")
-out2=regmodel(formula=m1, dat=elast[developed==1], model='lmer')
+out2=regmodel(formula=m1b, dat=elast[developed==1], model='lmer')
+covlabels=unlist(sanitize_table(data.frame(colnames(out2[[1]]$lt[[1]]@pp$X))))
+covlabels=c(covlabels[-which(covlabels=='(Intercept)')], 'Constant')
+
 printout(out2, 'lt', omit=NULL, title = tab('DV: long-term elasticities, sample of developed countries'), vars=ordered_vars, notes=paste0(notes_base, ' Model estimated on sample of developed countries only.'), covlabels=covlabels)
 
 cat("<P style='page-break-before: always'>")
@@ -270,7 +280,7 @@ printout(out3, 'lt', omit=NULL, title = tab('DV: long-term elasticities, sample 
 
 # interaction model
 elast[, emerging:=1-developed]
-m2 = ~1+ (1|brand) + (1|category) + (1|country) + emerging + appliance + I(appliance*emerging) + ln_market_growth_mc + I(ln_market_growth_mc*emerging) + ln_herf_mc + I(ln_herf_mc*emerging) + local_to_market + I(local_to_market*emerging) + western_brand + I(western_brand*emerging) + sbbe_std_mc + I(sbbe_std_mc*emerging) + othercountry + I(othercountry*emerging)
+m2 = ~1+ (1|brand) + (1|category) + (1|country) + emerging + appliance + I(appliance*emerging) + ln_market_growth_mc + I(ln_market_growth_mc*emerging) + ln_herf_mc + I(ln_herf_mc*emerging) + local_to_market + I(local_to_market*emerging) + western_brand + I(western_brand*emerging) + sbbe_std_mc + I(sbbe_std_mc*emerging) + othercountry
 
 cat("<P style='page-break-before: always'>")
 out4=regmodel(formula=m2, dat=elast, model='lmer')
@@ -357,7 +367,7 @@ cat("<P style='page-break-before: always'>")
 ```{r sample_overview, echo=FALSE, results='asis'}
 #, headquarter_region=unique(country_of_origin)
 tmp=elast[, list(active_in_countries=length(unique(country)), active_in_categories=length(unique(category)), headquarter_location=unique(country_of_origin)), by = c('brand')]
-setorderv(tmp, c('active_in_countries','active_in_categories'),order=-1L)
+setorderv(tmp, c('active_in_countries','active_in_categories', 'brand'),order=-1L)
 
 tmp[, ':=' (brand=stri_trans_totitle(brand), headquarter_location=stri_trans_totitle(headquarter_location))]#, #headquarter_region=stri_trans_totitle(headquarter_region))]
 tmp=sanitize_table(tmp)
@@ -365,6 +375,25 @@ tmp=sanitize_table(tmp)
 
 kable(tmp, caption = tab('Overview of selected brands, ordered by the number of countries and categories it is active in', prefix ='A'))
 ```
+
+```{r sample_origin, echo=FALSE, results='asis'}
+tmp = elast[, list(.N), by = c('brand', 'country_of_origin', 'western_brand', 'asian_country')]
+tmp = tmp[, list(nbrands=length(unique(brand)), all_brands=paste(stri_trans_totitle(brand), collapse=', ')), by = c('country_of_origin', 'western_brand', 'asian_country')]
+tmp[country_of_origin==''|is.na(country_of_origin), country_of_origin := 'Country not available']
+tmp[, country_of_origin:=stri_trans_totitle(country_of_origin)]
+tmp[, other_country:=ifelse(western_brand==FALSE&asian_country==0, 'yes', NA)]
+tmp[, western_brand:=as.character(ifelse(western_brand==T, 'yes', NA))]
+tmp[, asian_country:=as.character(ifelse(asian_country==1, 'yes', NA))]
+setorderv(tmp, 'nbrands', order=-1L)
+setcolorder(tmp, c('country_of_origin', 'nbrands', 'western_brand', 'asian_country', 'other_country', 'all_brands'))
+
+tmp=sanitize_table(tmp)
+
+kable(tmp, caption = tab('Country-of-origins for brands in sample, ordered by the number of brands from a given country', prefix ='A'))
+```
+
+
+
 
 ```{r elast_by_category, echo=F,results='asis'}
   tmp=elast[!is.na(elastlt), list(elast = sum(elastlt/elastlt_se)/sum(1/elastlt_se)), by=c('variable', 'category')]

@@ -47,8 +47,12 @@ for (var in unique(drop(unlist(lapply(c(vars, 'sbbe_std', 'sbbe'), grep, colname
 }
 
 # focal dummies: local_to_market, western (versus asian)
+elast[, asian_country:=0]
+elast[country_of_origin%in%c('south korea', 'japan','taiwan', 'thailand', 'indonesia', 'philippines',
+                              'india', 'singapore', 'malaysia', 'vietnam', 'cambodja', 'pakistan', 
+                              'hong kong'), asian_country:=1]
 
-#
+
 elast[, worldbank := '']
 elast[country%in%c('india','indonesia', 'vietnam', 'philippines'), worldbank:='lowermid']
 elast[country%in%c('china', 'malaysia','thailand'), worldbank:='uppermid']
