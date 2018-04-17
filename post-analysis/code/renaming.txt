@@ -62,8 +62,8 @@ ln_market_growth_mc	Log of category growth	gsub
 ln_herf_mc	Log of category concentration	gsub
 ln_overall_ms_mc	Log of brand-level market share	gsub
 local_to_market	Domestic brand (versus foreign brand)	grepl
-western_brand	Western brand	grepl 
-othercountry	Non western- or Asian brand	grepl
+western[_]brand	Western brand	grepl 
+othercountry	Non western or Asian brand	grepl
 sbbe_std_mc	Brand equity (standardized)	gsub
 sbbe_mc	Brand equity	gsub
 active_in_countries	Number of countries active in	gsub

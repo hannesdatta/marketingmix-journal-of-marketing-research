@@ -210,13 +210,13 @@ On sample of `r length(unique(elast$brand))` unique brands (excluding one 'unbra
 ## Model selection 
 
 ```{r modelselection, echo = FALSE, results='asis'}
-m1 = ~1+ (1|brand) + (1|category) + (1|country) + appliance + ln_market_growth_mc + ln_herf_mc + local_to_market + western_brand + sbbe_std_mc
+m1 = ~1+ (1|brand) + (1|category) + (1|country) + appliance + ln_market_growth_mc + ln_herf_mc + local_to_market + western_brand + othercountry + sbbe_std_mc
 
-m2 = ~1+ (1|brand) + (1|category) + (1|country) + appliance + ln_market_growth_mc + ln_herf_mc + local_to_market + western_brand + sbbe_mc
+m2 = ~1+ (1|brand) + (1|category) + (1|country) + appliance + ln_market_growth_mc + ln_herf_mc + local_to_market + western_brand + othercountry + sbbe_mc
 
-m3 = ~1+ (1|brand) + (1|category) + (1|country) + appliance + ln_market_growth_mc + ln_herf_mc + local_to_market + western_brand + ln_overall_ms_mc
+m3 = ~1+ (1|brand) + (1|category) + (1|country) + appliance + ln_market_growth_mc + ln_herf_mc + local_to_market + western_brand + othercountry + ln_overall_ms_mc
 
-m4 = ~1+ (1|brand) + (1|category) + (1|country) + appliance + ln_market_growth_mc + ln_herf_mc + local_to_market + western_brand + ln_gci_overall_s
+m4 = ~1+ (1|brand) + (1|category) + (1|country) + appliance + ln_market_growth_mc + ln_herf_mc + local_to_market + western_brand + othercountry + ln_gci_overall_s
 
 m5 = ~1+ (1|brand) + (1|category) + (1|country) + appliance + ln_market_growth_mc + ln_herf_mc + local_to_market + western_brand + othercountry + ln_gci_sub_basicrequire_s + ln_gci_sub_efficiencyenhance_s + ln_gci_sub_innovation_s
 
@@ -232,11 +232,11 @@ names(varsord) <- paste0(unlist(sanitize_table(data.frame(varsord))), ' elastici
 
 notes_base = "Regression of long-term elasticities on explanatory variables and three random effects, for brands, categories, and countries, respectively. Estimated using a linear mixed-effects model, with weights equal to the inverse of the elasticities' standard error, normalized to sum up to 1. Two-sided significance levels reported. Standard errors in parentheses."
 
-sink('../temp/test.html')
+#sink('../temp/test.html')
 #cat("<P style='page-break-before: always'>")
 printout(out1, 'lt', omit=NULL, title = tab('Model selection: regression with long-term elasticities in a pooled sample of developed and emerging countries'), vars=varsord, notes=notes_base, covlabels=covlabels, column.separate=c(5,5,5,5))
 
-sink()
+#sink()
 ```
 
 ## continuing full analysis with standardized brand equity

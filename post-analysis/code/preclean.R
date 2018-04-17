@@ -66,4 +66,4 @@ ordered_vars = c('rwpspr', 'wpswdst','llen','nov6sh')
 elast[!is.na(elast), weightsst := (1/elast_se)/sum(1/elast_se), by = c('variable')]
 elast[!is.na(elastlt), weightslt := (1/elastlt_se)/sum(1/elastlt_se), by = c('variable')]
 elast[, othercountry:=0]
-elast[country%in%c('','egypt', 'unit arab emirates'), othercountry:=1]
+elast[country_of_origin%in%c('','egypt', 'united arab emirates'), othercountry:=1]
