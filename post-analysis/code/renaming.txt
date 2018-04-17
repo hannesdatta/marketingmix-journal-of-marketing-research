@@ -16,7 +16,8 @@ vietnam	Vietnam	grepl
 netherlands	The Netherlands	gsub
 ^usa	USA	gsub
 Usa	USA	gsub
-country	Country	gsub
+othercountry	Other country	gsub
+^country	Country	gsub
 gdppercap2010	GDP per capita	gsub
 hdi2010	Human Development Index	gsub
 llen	line length	gsub
@@ -58,12 +59,11 @@ Neffects	Number of estimates	grepl
 [*] emerging	   x emerging country	grepl
 necessity	Appliance (versus electronics)	gsub
 appliance	Appliance (versus electronics)	gsub
+western[_]brand	Western brand	grepl
 ln_market_growth_mc	Log of category growth	gsub
 ln_herf_mc	Log of category concentration	gsub
 ln_overall_ms_mc	Log of brand-level market share	gsub
 local_to_market	Domestic brand (versus foreign brand)	grepl
-western[_]brand	Western brand	grepl 
-othercountry	Non western or Asian brand	grepl
 sbbe_std_mc	Brand equity (standardized)	gsub
 sbbe_mc	Brand equity	gsub
 active_in_countries	Number of countries active in	gsub
