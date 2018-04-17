@@ -121,7 +121,7 @@ variable[_]renamed	Variable	gsub
 gci[_]overall	Global competitiveness index (overall)	grepl
 gci[_]sub[_]basicrequire	Subindex basic requirements	grepl
 gci[_]sub[_]efficiencyenhance	Subindex efficiency enhancers	grepl
-gci[_]sub[_]innovation	Innovation and sophistication factors	grepl
+gci[_]sub[_]innovation	Subindex innovation and sophistication factors	grepl
 p01[_]institutions	Pillar 1: Institutions	grepl
 p02[_]infrastructure	Pillar 2: Infrastructure	grepl
 p03[_]macro	Pillar 3: Macroeconomic environment	grepl

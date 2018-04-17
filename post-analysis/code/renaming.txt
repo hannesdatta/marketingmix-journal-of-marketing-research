@@ -78,3 +78,7 @@ perc_null	%-insignificant	gsub
 Northamerica	North America	gsub
 nbrands	Number of brands	gsub
 emerging	Emerging country indicator	gsub
+gci[_]overall	Global competitiveness index (overall)	grepl
+gci[_]sub[_]basicrequire	Subindex basic requirements	grepl
+gci[_]sub[_]efficiencyenhance	Subindex efficiency enhancers	grepl
+gci[_]sub[_]innovation	Subindex innovation and sophistication factors	grepl

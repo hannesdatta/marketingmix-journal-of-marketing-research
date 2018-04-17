@@ -35,11 +35,11 @@ return(regs)
 
 
 # Function to plot model results (next to each other)
-printout = function(x, type='st', vars=NULL, omit='category|brand', title='',printtype='html', notes=NULL,covlabels=NULL) {
+printout = function(x, type='st', vars=NULL, omit='category|brand', title='',printtype='html', notes=NULL,covlabels=NULL, ...) {
   if (is.null(vars)) vars=seq(along=x)
   
-  if (type=='st') res = do.call('c', lapply(x[vars], function(m) m$st))
-  if (type=='lt') res = do.call('c', lapply(x[vars], function(m) m$lt))
+  if (type=='st') res = do.call('c', lapply(x[unique(vars)], function(m) m$st))
+  if (type=='lt') res = do.call('c', lapply(x[unique(vars)], function(m) m$lt))
   
   keep_alpha <- function(x) gsub("[^[:alnum:][:space:][,]]","",x)
   
@@ -52,7 +52,7 @@ printout = function(x, type='st', vars=NULL, omit='category|brand', title='',pri
   
   stargazer(res, type = printtype, omit=omit, title = title, column.labels=collabels, dep.var.caption=NULL, initial.zero=FALSE,
             notes.align='l',dep.var.labels.include = FALSE, covariate.labels=covlabels,
-            notes=note_text, omit.stat=c('aic','bic'), single.row=T)
+            notes=note_text, omit.stat=c('aic','bic'), single.row=T, ...)
 
 }
 
