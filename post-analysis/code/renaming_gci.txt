@@ -78,9 +78,9 @@ gci[_]07.03[_]employmentrigidity	07.03 Rigidity of employment	grepl
 gci[_]07.04[_]hirefire	07.04 Hiring and firing practices 	grepl
 gci[_]07.05[_]redundancycost	07.05 Redundancy costs	grepl
 gci[_]07.06[_]payproductivity	07.06 Pay and productivity 	grepl
-gci[_]07.07[_]femalelabor	07.07 Reliance on professional management	grepl
-gci[_]07.07[_]mngmtreliance	07.08 Brain drain 	grepl
-gci[_]07.08[_]braindrain	07.09 Female participation in labor force 	grepl
+gci[_]07.07[_]mngmtreliance	07.07 Reliance on professional management	grepl
+gci[_]07.08[_]braindrain	07.08 Brain drain 	grepl
+gci[_]07.09[_]femalelabor	07.09 Female participation in labor force 	grepl
 gci[_]08.01[_]financialservices	08.01 Availability of financial services 	grepl
 gci[_]08.02[_]finservaffordability	08.02 Affordability of financial services 	grepl
 gci[_]08.03[_]localequity	08.03 Financing through local equity market 	grepl
