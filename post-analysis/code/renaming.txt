@@ -61,11 +61,14 @@ necessity	Appliance (versus electronics)	gsub
 appliance	Appliance (versus electronics)	gsub
 western[_]brand	Western brand	grepl
 ln_market_growth_mc	Log of category growth	gsub
+^market_growth	Category growth	gsub
 ln_herf_mc	Log of category concentration	gsub
+^herf	Category concentration	gsub
 ln_overall_ms_mc	Log of brand-level market share	gsub
+^overall_ms	Brand-level market share	grepl
 local_to_market	Domestic brand (versus foreign brand)	grepl
-sbbe_std_mc	Brand equity (standardized)	gsub
-sbbe_mc	Brand equity	gsub
+sbbe[_]std|sbbe[_]std[_]mc	Brand equity (standardized)	gsub
+sbbe|sbbe[_]mc	Brand equity (not standardized)	gsub
 active_in_countries	Number of countries active in	gsub
 active_in_categories	Number of categories active in 	gsub
 headquarter_location	Location of headquarter	gsub
@@ -81,10 +84,10 @@ nbrands	Number of brands	gsub
 emerging	Emerging country indicator	gsub
 country[_]of[_]origin	Country of origin	gsub
 Country[_]of[_]origin	Country of origin	gsub
-asian[_]country	Asian brand	gsub
+asian[_]brand	Asian brand	gsub
 gci[_]overall	Global competitiveness index (overall)	grepl
 gci[_]sub[_]basicrequire	Subindex basic requirements	grepl
 gci[_]sub[_]efficiencyenhance	Subindex efficiency enhancers	grepl
 gci[_]sub[_]innovation	Subindex innovation and sophistication factors	grepl
 all[_]brands	List of brands	gsub
-other[_]country	Other country	gsub
+other[_]brand	Brand from other country	gsub

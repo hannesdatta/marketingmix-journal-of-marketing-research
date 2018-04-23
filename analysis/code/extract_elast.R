@@ -92,14 +92,6 @@ out = lapply(models, function(model_name) {
   
   elast[brands_countries, country_of_origin:=i.country_cleaned]
 
-  # country classifications
-  western=c('australia', 'canada','finland','france', 'germany','great britain', 
-            'italy','luxembourg', 'netherlands','new zealand', 'panama', 'spain', 'sweden',
-            'switzerland', 'turkey', 'usa', 'virgin islands')
-
-  elast[, local_to_market:=country_of_origin==country]
-  elast[, western_brand:=country_of_origin%in%western]
-  
   # region-of-origin
   #elast[!is.na(country_of_origin), region_of_origin := 'asian']
   #elast[country_of_origin%in%c('finland','france', 'germany','italy','netherlands','sweden'), region_of_origin := 'europe']

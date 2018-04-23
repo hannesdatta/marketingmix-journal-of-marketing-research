@@ -47,11 +47,20 @@ for (var in unique(drop(unlist(lapply(c(vars, 'sbbe_std', 'sbbe'), grep, colname
 }
 
 # focal dummies: local_to_market, western (versus asian)
-elast[, asian_country:=0]
+elast[, local_to_market:=country_of_origin==country]
+
+elast[, asian_brand:=0]
 elast[country_of_origin%in%c('south korea', 'japan','taiwan', 'thailand', 'indonesia', 'philippines',
                               'india', 'singapore', 'malaysia', 'vietnam', 'cambodja', 'pakistan', 
-                              'hong kong'), asian_country:=1]
+                              'hong kong'), asian_brand:=1]
 
+
+# country classifications
+western=c('australia', 'canada','finland','france', 'germany','great britain', 
+          'italy','luxembourg', 'netherlands','new zealand', 'spain', 'sweden',
+          'switzerland', 'turkey', 'usa')
+
+elast[, western_brand:=as.numeric(country_of_origin%in%western)]
 
 elast[, worldbank := '']
 elast[country%in%c('india','indonesia', 'vietnam', 'philippines'), worldbank:='lowermid']
@@ -69,5 +78,10 @@ ordered_vars = c('rwpspr', 'wpswdst','llen','nov6sh')
 
 elast[!is.na(elast), weightsst := (1/elast_se)/sum(1/elast_se), by = c('variable')]
 elast[!is.na(elastlt), weightslt := (1/elastlt_se)/sum(1/elastlt_se), by = c('variable')]
-elast[, othercountry:=0]
-elast[country_of_origin%in%c('','egypt', 'united arab emirates'), othercountry:=1]
+elast[, other_brand:=1-asian_brand-western_brand]
+
+#elast[country_of_origin%in%c('','egypt', 'united arab emirates'), other_brand:=1]
+elast[, emerging:=1-developed]
+
+elast <- elast[country=='india', ':=' (elastlt=NA, elastlt_se=NA, elast=NA, elast_se=NA)]
+
