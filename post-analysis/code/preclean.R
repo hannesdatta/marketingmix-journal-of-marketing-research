@@ -83,5 +83,5 @@ elast[, other_brand:=1-asian_brand-western_brand]
 #elast[country_of_origin%in%c('','egypt', 'united arab emirates'), other_brand:=1]
 elast[, emerging:=1-developed]
 
-elast <- elast[country=='india', ':=' (elastlt=NA, elastlt_se=NA, elast=NA, elast_se=NA)]
+#elast <- elast[country=='india', ':=' (elastlt=NA, elastlt_se=NA, elast=NA, elast_se=NA)]
 
