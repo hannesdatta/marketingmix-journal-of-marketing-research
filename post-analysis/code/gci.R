@@ -36,14 +36,18 @@ gci = rbindlist(list(items, dimensions))
 # relabel countries
 gci[, country :=tolower(country)]
 
+gci[country=='hong kong sar', country :='hong kong']
+gci[country=='korea, rep', country :='south korea']
+gci[country=='taiwan, china', country :='taiwan']
+
 # label contructs
 gci[, measure_label:=paste0('gci_', measure)]
 
 ## derive 1: list of countries X metrics
 # metrics:
 #
-#00.01, 03
-#02.01-05, 07-09
+#00.03
+#02.01-02, 04-05, 07-09
 #03.03
 #04.09-10
 #05.01, 02, 03
@@ -54,8 +58,8 @@ gci[, measure_label:=paste0('gci_', measure)]
 #11.01, 02, 04, 05, 08
 #12.01
 
-gci[, selected:=grepl(paste0('00.01|00.03|02.01|02.02|02.03|02.04|02.05|02.07|02.08|02.09|',
-                                                '03.03|04.09|04.10|05.01|05.02|05.03|06.01|06.02|06.09|06.14|06.15|',
+gci[, selected:=grepl(paste0('00.03|02.01|02.02|02.04|02.05|02.07|02.08|02.09|',
+                                                '03.03|04.09|05.01|05.02|05.03|06.01|06.02|06.09|06.14|06.15|',
                                                 '07.07|08.01|08.02|10.01|11.01|11.02|11.04|11.05|11.08|12.01'), measure)]
 
 
@@ -66,19 +70,15 @@ fwrite(gci_pca,'../temp/gci_pca.csv',row.names=F)
 # derive 2: data set only with countries that are actually being used in analysis
 
 # keep focal countries
-countries <- tolower(c('Australia', 'Singapore', 'Japan', 'New Zealand', 'Hong Kong SAR', 'Korea, Rep',
+countries <- tolower(c('Australia', 'Singapore', 'Japan', 'New Zealand', 'Hong Kong', 'South Korea',
                'Malaysia', 'Thailand', 
-               'Taiwan, China',
+               'Taiwan',
                'China',
                'Indonesia',
                'Philippines', 'India', 'Vietnam'))
 
 table(gci[country%in%countries]$country)
 length(table(gci[country%in%countries]$country))
-
-gci[country=='hong kong sar', country :='hong kong']
-gci[country=='korea, rep', country :='south korea']
-gci[country=='taiwan, china', country :='taiwan']
 
 # save
 tmp=melt(gci[country%in%countries], id.vars=c('country', 'measure', 'measure_label', 'selected'))

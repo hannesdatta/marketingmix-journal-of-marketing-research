@@ -11,9 +11,9 @@ ds <- fread('../temp/gci_pca.csv')
 
 vars = setdiff(colnames(ds), 'country')
 
-sink('../temp/pca.txt')
+sink('../output/pca.txt')
 
-for (nfactors in 1:5) {
+for (nfactors in 1:1) {
     
     cat('\n\n===============================================================================\n')
     cat(paste0('Principal Component Analysis on the GCI data with ', nfactors, ' components to be extracted\n'))
@@ -39,17 +39,9 @@ for (nfactors in 1:5) {
     print(fit)
     
     # Test: standardize scores
-    #mydata[, score1:=fit$scores[,1]]
-    #mydata[, score2:=fit$scores[,2]]
+    mydata[, score1:=fit$scores[,1]]
     
-    # standardize by cat
-    #mydata[, score1_STD := (score1-mean(score1))/sd(score1), by = c('cat_name')]
-    #mydata[, score2_STD := (score2-mean(score2))/sd(score2), by = c('cat_name')]
-    
-    # convert to factor scores
-    
-    # first input matrix is standardized
-    #scale(as.matrix(mydata[, vars, with=F]))%*%fit$weights
+    # yields the same as: scale(as.matrix(mydata[, vars, with=F]))%*%fit$weights
     
     cat('\n\nInitial Eigenvalues:\n')
     eig <- data.table(eigen(cor(mydata[, vars, with=F]))$values)
@@ -64,10 +56,23 @@ for (nfactors in 1:5) {
     
     fit_scores <- cbind(mydata[, keys,with=F], fit$scores)
     setkeyv(fit_scores, keys)
+    setkeyv(ds, keys)
     
-    #for (nf in 1:nfactors) eval(parse(text=paste0(ds, '[fit_scores, F', nfactors,'_PC', nf, ':=i.PC', nf,']')))
+    cat('\n\nStandardized component scores:\n')
+    print(data.frame(fit_scores), row.names=F)
     
-    #if (ds == 'equity') equity[, var_name:='none']
+    cat('\n\nStandardized component scores for country selection:\n')
+    countries<-tolower(c('Australia', 'Singapore', 'Japan', 'New Zealand', 'Hong Kong', 'South Korea',
+                                      'Malaysia', 'Thailand',
+                                      'Taiwan',
+                                      'China',
+                                      'Indonesia',
+                                      'Philippines', 'India', 'Vietnam'))
+    
+    print(data.frame(fit_scores[country%in%countries]), row.names=F)
+    
+    for (nf in 1:nfactors) eval(parse(text=paste0('ds[fit_scores, F', nfactors,'_PC', nf, ':=i.PC', nf,']')))
+    
     
   }
 
