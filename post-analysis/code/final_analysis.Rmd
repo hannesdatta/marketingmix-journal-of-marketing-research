@@ -9,6 +9,7 @@ date: "`r format(Sys.time(), '%d %B %Y')`"
 knitr::opts_chunk$set(echo = TRUE)
 library(ggpubr)
 library(plyr)
+library(psych)
 
 libs_to_load <- c('data.table', 'stargazer', 'knitr', 'xtable', 'lme4', 'car', 'kableExtra', 'stringi', 'ggplot2')
 for (lib in libs_to_load) eval(parse(text=paste('library(', lib, ')')))
@@ -448,6 +449,34 @@ kable(tmp, caption = tab('Country-of-origins for brands in sample, ordered by th
   
 ```	
 
+```{r elast_by_category_win, echo=F,results='asis'}
+  tmp=elast[!is.na(elastlt), list(elast = mean(winsor(elastlt, trim=.01))), by=c('variable', 'category')]
+
+  tmp=dcast(tmp,category~variable,value.var='elast')
+  setcolorder(tmp, c('category', ordered_vars))
+  
+  tmp=sanitize_table(tmp)
+  setorder(tmp, Category)
+  cat("<P style='page-break-before: always'>")
+  kable(tmp, digits=3, caption = tab('Long-term elasticities (by category, winsorized)', prefix='A'), format='html', initial.zero = FALSE) %>%
+        kable_styling() %>% footnote(general=paste0('Note: Table reports winsorized long-term elasticities. Categories ordered alphabetically.'))
+  
+```	
+
+```{r elast_by_country_win, echo=F,results='asis'}
+  tmp=elast[!is.na(elastlt), list(elast = mean(winsor(elastlt, trim=.01))), by=c('variable', 'country')]
+
+  tmp=dcast(tmp,country~variable,value.var='elast')
+  setcolorder(tmp, c('country', ordered_vars))
+  
+  tmp=sanitize_table(tmp)
+  setorder(tmp, Country)
+  cat("<P style='page-break-before: always'>")
+  kable(tmp, digits=3, caption = tab('Long-term elasticities (by country, winsorized)', prefix='A'), format='html', initial.zero = FALSE) %>%
+        kable_styling() %>% footnote(general=paste0('Note: Table reports winsorized long-term elasticities. Countries ordered alphabetically.'))
+  
+```	
+
 ```{r rq4_growth, echo=FALSE,results='asis'}
 tmp=unique(elast, by = c('market_id')) # t-tests on growth rates
 
@@ -521,7 +550,9 @@ cat("<P style='page-break-before: always'>")
     tmp = elast[!is.na(get(obj[1]))][, ':=' (val=get(obj[1]), val_se=get(obj[2]))]
     
     tmp=tmp[, list(Neffects=.N, median_elast = median(val), 
-												  w_elast = sum(val/val_se)/sum(1/val_se), 
+												  w_elast = sum(val/val_se)/sum(1/val_se),
+												  win1_elast = mean(winsor(val, trim=.01)),
+												  win5_elast = mean(winsor(val, trim=.05)),
 												  perc_positive = length(which(val/val_se>=(zval)))/.N, 
 												  perc_null = length(which(abs(val/val_se)<zval))/.N, 
 												  perc_negative = length(which(val/val_se<=(-zval)))/.N), by=c('variable')]

@@ -75,6 +75,8 @@ headquarter_location	Location of headquarter	gsub
 headquarter_region	Region of headquarter	gsub
 median_elast	Median elasticity	gsub
 w_elast	Weighted elasticity	gsub
+win1_elast	Winsorized elasticity (1 percent)	gsub
+win5_elast	Winsorized elasticity (5 percent)	gsub
 N_brands	Number of effects	gsub
 perc_positive	%-positive and significant	gsub
 perc_negative	%-negative and significant	gsub
