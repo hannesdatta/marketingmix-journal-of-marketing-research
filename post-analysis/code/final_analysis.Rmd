@@ -188,8 +188,8 @@ Category concentration     | Log of Herfindahl index
 Domestic versus foreign brand | Dummy, equaling 1 if a brand's headquarter is located in the focal country; 0 if not.
 Western brand | Dummy variable, equaling 1 if brand is headquartered in Western countries, 0 if not.
 Brand equity               | Sales-based brand equity, obtained as a transformation of the brand-specific intercept from the market share attraction model, standardized by category    | Datta, Ailawadi, and van Heerde (2017)
-Brand-level market share  | Average market share of brand in 2010 [check!]
-Price index | Sales value of a brand (deflated), devided by the brand's sales volume over the whole sample period; indexed by a market's maximum of this value
+Brand-level market share  | Average market share of brand in the observation period
+Price index | A brand's average price (deflated sales value devided by the brand's sales volume over the observation period), indexed by the maximum price in a given category and country
 Global competitiveness index (overall) | ...
 Subindex basic requirements | ...
 Subindex efficiency enhancers | ...
