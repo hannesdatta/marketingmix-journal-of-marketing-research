@@ -176,13 +176,6 @@ ggarrange(plotlist=pl$qmeans, common.legend=TRUE, legend='bottom')
 
 Notes: Figure shows mean long-term elasticities per quartile.
 
-```{r elast_plot2, echo=F}
-ggarrange(plotlist=pl$qwmeans, common.legend=TRUE, legend='bottom')
-```
-
-Notes: Figure shows mean long-term elasticities (weighted by inverse standard errors) per quartile.
-
-
 # Second-stage analysis
 
 `r tab("Variable operationalization")`
@@ -194,8 +187,6 @@ Category growth       | Log of a market's average growth rate in the observation
 Category concentration     | Log of Herfindahl index
 Domestic versus foreign brand | Dummy, equaling 1 if a brand's headquarter is located in the focal country; 0 if not.
 Western brand | Dummy variable, equaling 1 if brand is headquartered in Western countries, 0 if not.
-Other brand | Dummy variable, equaling 1 if brand is not headquartered in Western countries or Asia.
-Asian brand | Baseline
 Brand equity               | Sales-based brand equity, obtained as a transformation of the brand-specific intercept from the market share attraction model, standardized by category    | Datta, Ailawadi, and van Heerde (2017)
 Brand-level market share  | Average market share of brand in 2010
 Global competitiveness index (overall) | ...
@@ -207,20 +198,31 @@ Subindex innovation and sophistication factors | ...
 
 ```{r summarystats, echo=FALSE}
 
-covars <- c('appliance', 'market_growth', 'herf', 'local_to_market', 'western_brand', 'other_brand', 'sbbe_std', 'sbbe', 'overall_ms', 'gci_overall_s', 'gci_sub_basicrequire_s', 'gci_sub_efficiencyenhance_s', 'gci_sub_innovation_s')
+covars <- c('appliance', 'market_growth', 'herf', 'local_to_market', 'western_brand', 'sbbe_std', 'sbbe', 'overall_ms', 'gci_overall_s', 'gci_sub_basicrequire_s', 'gci_sub_efficiencyenhance_s', 'gci_sub_innovation_s')
 
 tmp=data.table(elast)
-tmp = unique(tmp, by = c('market_id','brand'))
-tmp = tmp[, covars, with=F]
+tmp = unique(tmp, by = c('market_id','brand', 'emerging'))
+
+tmp=tmp[, lapply(.SD, function(x) c(min=min(x), max=max(x), mean=mean(x),sd=sd(x))), by = c('emerging'), .SDcols=c(covars)]
+tmp[, var:=rep(c('min', 'max','mean', 'sd'),2)]
+tmp=melt(tmp, id.var=c('emerging', 'var'))
+tmp[, emerging_label:=ifelse(emerging==1, 'emerging', 'developed')]
+
+dtf=dcast(tmp, variable~emerging_label+var)
+setcolorder(dtf, c('variable', paste0(rep(c('emerging_', 'developed_'), each=4), rep(c('min', 'max', 'mean', 'sd'),2))))
+
+setnames(dtf, gsub('emerging_', '', colnames(dtf)))
+setnames(dtf, gsub('developed_', '', colnames(dtf)))
 
 # to b de done.
-dtf = t(sapply(tmp, each(min,max,mean, sd)))
+
 dtf=sanitize_table(dtf)
+
 kable(dtf, digits=3,caption = tab(paste0('Summary statistics for covariates in second-stage analysis')),
       format='html', initial.zero = FALSE) %>%
-        kable_styling() %>% footnote(general=paste0('Note: Summary statistics computed on a sample of ', nrow(tmp), ' category-country-brand observations.'))
-
-
+        kable_styling() %>% footnote(general=paste0('Note: Summary statistics computed on a sample of ', nrow(tmp), ' category-country-brand observations.')) %>%
+  add_header_above(c(" " = 1, "Emerging countries" = 4, "Developed countries" = 4))
+#c("striped", 'bordered')
 ```
 
 # Analysis
@@ -289,18 +291,6 @@ cat("<P style='page-break-before: always'>")
 
 printout(out1, 'lt', omit=NULL, title = tab('DV: long-term elasticities, pooled sample of developed and emerging countries'), vars=ordered_vars,notes=notes_base, covlabels=covlabels,
          column.separate=c(2,2,2,2))
-
-
-cat("<P style='page-break-before: always'>")
-out2=regmodel(formula=m1, dat=elast[developed==1], model='lmer')
-covlabels=unlist(sanitize_table(data.frame(unique(unlist(lapply(out2[[1]]$lt, function(x) colnames(x@pp$X)))))))
-covlabels=c(covlabels[-which(covlabels=='(Intercept)')], 'Constant')
-
-printout(out2, 'lt', omit=NULL, title = tab('DV: long-term elasticities, sample of developed countries'), vars=ordered_vars, notes=paste0(notes_base, ' Model estimated on sample of developed countries only.'), covlabels=covlabels)
-
-cat("<P style='page-break-before: always'>")
-out3=regmodel(formula=m1, dat=elast[developed==0], model='lmer')
-printout(out3, 'lt', omit=NULL, title = tab('DV: long-term elasticities, sample of emerging countries'), vars=ordered_vars, notes=paste0(notes_base, ' Model estimated on sample of emerging countries only.'), covlabels=covlabels)
 
 # interaction model
 m2 = ~1+ (1|brand) + (1|category) + (1|country) + emerging + appliance + I(appliance*emerging) + ln_market_growth_mc + I(ln_market_growth_mc*emerging) + ln_herf_mc + I(ln_herf_mc*emerging) + local_to_market + I(local_to_market*emerging) + western_brand + I(western_brand*emerging) + sbbe_std_mc + I(sbbe_std_mc*emerging)
@@ -507,7 +497,7 @@ kable(out, format='html',caption = tab('Average category growth rates for develo
 ```
 
 ```{r VIFS, echo=FALSE,results='asis'}
-m1 = ~1+ appliance + ln_market_growth_mc + ln_herf_mc + local_to_market + western_brand + other_brand + sbbe_std_mc
+m1 = ~1+ appliance + ln_market_growth_mc + ln_herf_mc + local_to_market + western_brand + sbbe_std_mc
 
 interact1 = . ~ . + appliance*ln_gdppercap2010_mc + ln_market_growth_mc*ln_gdppercap2010_mc +
   local_to_market*ln_gdppercap2010_mc + western_brand*ln_gdppercap2010_mc
