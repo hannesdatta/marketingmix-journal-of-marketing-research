@@ -72,7 +72,7 @@ out = lapply(models, function(model_name) {
     elast = merge(elast, tmp, all.x=T, all.y=F, by = c('market_id'))
     
     # by brand/market_id
-    vars = c('overall_ms')
+    vars = c('overall_ms', 'overall_prindex')
     tmp = brand_panel[, c('market_id', 'brand', vars), with=F]
     setkey(tmp, market_id,brand)
     tmp = unique(tmp)

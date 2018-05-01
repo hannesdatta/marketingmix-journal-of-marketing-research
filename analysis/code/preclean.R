@@ -54,17 +54,24 @@ require(data.table)
   setkey(brand_panel, market_id)
   brand_panel[tmp, market_growth := i.growth]
   
-  # calculate (for the complete sample) market shares
-  overall_ms = brand_panel[, list(sumsales=sum(usales, na.rm=T)), by = c('market_id', 'brand')]
-  overall_ms[, overall_ms := sumsales/sum(sumsales,na.rm=T), by = c('market_id')]
-  setorderv(overall_ms, c('market_id', 'overall_ms'), order=-1L)
-  overall_ms[, rank_ms:=.N-rank(overall_ms)+1, by = c('market_id')]
+  # calculate (for the complete sample) market shares and price indices
+  overall_metrics = brand_panel[, list(sumunits=sum(usales, na.rm=T),
+                                       sumvalue=sum(rvsales, na.rm=T)), by = c('market_id', 'brand')]
+  overall_metrics[, ':=' (overall_ms = sumunits/sum(sumunits,na.rm=T),
+                          overall_avglocalrpr = sumvalue/sumunits), by = c('market_id')]
+  # rank market shares
+  setorderv(overall_metrics, c('market_id', 'overall_ms'), order=-1L)
+  overall_metrics[, rank_ms:=.N-rank(overall_ms)+1, by = c('market_id')]
+  
+  # compute price indices (devided by mean)
+  overall_metrics[, overall_rprindex := overall_avglocalrpr/max(overall_avglocalrpr), by = c('market_id')]
+  
   setkey(brand_panel, market_id, brand)
-  setkey(overall_ms, market_id, brand)
+  setkey(overall_metrics, market_id, brand)
   
-  brand_panel[overall_ms, overall_ms:=i.overall_ms]
+  brand_panel[overall_metrics, ':=' (overall_ms=i.overall_ms, overall_prindex = i.overall_rprindex)]
   
-  concentration=overall_ms[, list(herf = sum(overall_ms^2), 
+  concentration=overall_metrics[, list(herf = sum(overall_ms^2), 
                     c3=sum(overall_ms[rank_ms<=3])/sum(overall_ms),
                     c5=sum(overall_ms[rank_ms<=5])/sum(overall_ms)), by = c('market_id')]
   brand_panel <- merge(brand_panel, concentration, by = c('market_id'), all.x=T, all.y=F)
