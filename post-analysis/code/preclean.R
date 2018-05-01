@@ -34,7 +34,7 @@ elast=merge(elast, gci, by = c('country'),all.x=T)
 
 # take natural log of variables
 vars=c('herf','c3','c5','market_growth','hdi2010','gdppercap2010', 'ncat_in_country', 'ncountry_in_category',
-       'overall_ms', 'gci_sub_basicrequire_s','gci_sub_efficiencyenhance_s','gci_sub_innovation_s', 'gci_overall_s')
+       'overall_ms', 'overall_prindex', 'gci_sub_basicrequire_s','gci_sub_efficiencyenhance_s','gci_sub_innovation_s', 'gci_overall_s')
  
 for (var in vars) {
   elast[, (paste0('ln_', var)):=log(get(var))]

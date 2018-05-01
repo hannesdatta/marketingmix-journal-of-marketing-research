@@ -188,7 +188,8 @@ Category concentration     | Log of Herfindahl index
 Domestic versus foreign brand | Dummy, equaling 1 if a brand's headquarter is located in the focal country; 0 if not.
 Western brand | Dummy variable, equaling 1 if brand is headquartered in Western countries, 0 if not.
 Brand equity               | Sales-based brand equity, obtained as a transformation of the brand-specific intercept from the market share attraction model, standardized by category    | Datta, Ailawadi, and van Heerde (2017)
-Brand-level market share  | Average market share of brand in 2010
+Brand-level market share  | Average market share of brand in 2010 [check!]
+Price index | Sales value of a brand (deflated), devided by the brand's sales volume over the whole sample period; indexed by a market's maximum of this value
 Global competitiveness index (overall) | ...
 Subindex basic requirements | ...
 Subindex efficiency enhancers | ...
@@ -198,7 +199,7 @@ Subindex innovation and sophistication factors | ...
 
 ```{r summarystats, echo=FALSE}
 
-covars <- c('appliance', 'market_growth', 'herf', 'local_to_market', 'western_brand', 'sbbe_std', 'sbbe', 'overall_ms', 'gci_overall_s', 'gci_sub_basicrequire_s', 'gci_sub_efficiencyenhance_s', 'gci_sub_innovation_s')
+covars <- c('appliance', 'market_growth', 'herf', 'local_to_market', 'western_brand', 'sbbe_std', 'sbbe', 'overall_ms', 'overall_prindex', 'gci_overall_s', 'gci_sub_basicrequire_s', 'gci_sub_efficiencyenhance_s', 'gci_sub_innovation_s')
 
 tmp=data.table(elast)
 tmp = unique(tmp, by = c('market_id','brand', 'emerging'))
@@ -245,11 +246,13 @@ m2 = ~1+ (1|brand) + (1|category) + (1|country) + appliance + ln_market_growth_m
 
 m3 = ~1+ (1|brand) + (1|category) + (1|country) + appliance + ln_market_growth_mc + ln_herf_mc + local_to_market + western_brand + ln_overall_ms_mc
 
-m4 = ~1+ (1|brand) + (1|category) + (1|country) + appliance + ln_market_growth_mc + ln_herf_mc + local_to_market + western_brand + ln_gci_overall_s
+m4 = ~1+ (1|brand) + (1|category) + (1|country) + appliance + ln_market_growth_mc + ln_herf_mc + local_to_market + western_brand + ln_overall_prindex_mc
 
-m5 = ~1+ (1|brand) + (1|category) + (1|country) + appliance + ln_market_growth_mc + ln_herf_mc + local_to_market + western_brand + ln_gci_sub_basicrequire_s + ln_gci_sub_efficiencyenhance_s + ln_gci_sub_innovation_s
+#m4 = ~1+ (1|brand) + (1|category) + (1|country) + appliance + ln_market_growth_mc + ln_herf_mc + local_to_market + western_brand + ln_gci_overall_s
 
-out1=regmodel(formula=c(m1,m2,m3, m4, m5), dat=elast, model='lmer')
+#m5 = ~1+ (1|brand) + (1|category) + (1|country) + appliance + ln_market_growth_mc + ln_herf_mc + local_to_market + western_brand + ln_gci_sub_basicrequire_s + ln_gci_sub_efficiencyenhance_s + ln_gci_sub_innovation_s
+
+out1=regmodel(formula=c(m1,m2,m3, m4), dat=elast, model='lmer')
 
 # assemble all variables
 
@@ -263,7 +266,7 @@ notes_base = "Regression of long-term elasticities on explanatory variables and 
 
 #sink('../temp/test.html')
 #cat("<P style='page-break-before: always'>")
-printout(out1, 'lt', omit=NULL, title = tab('Model selection: regression with long-term elasticities in a pooled sample of developed and emerging countries'), vars=varsord, notes=notes_base, covlabels=covlabels, column.separate=c(5,5,5,5))
+printout(out1, 'lt', omit=NULL, title = tab('Model selection: regression with long-term elasticities in a pooled sample of developed and emerging countries'), vars=varsord, notes=notes_base, covlabels=covlabels, column.separate=c(4,4,4,4))
 
 #sink()
 ```
