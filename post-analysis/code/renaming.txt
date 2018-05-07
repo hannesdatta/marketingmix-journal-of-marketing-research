@@ -95,3 +95,4 @@ gci[_]sub[_]efficiencyenhance	Subindex efficiency enhancers	grepl
 gci[_]sub[_]innovation	Subindex innovation and sophistication factors	grepl
 all[_]brands	List of brands	gsub
 other[_]brand	Brand from other country	gsub
+brandz	BrandZ listing	gsub

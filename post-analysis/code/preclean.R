@@ -83,5 +83,9 @@ elast[, other_brand:=1-asian_brand-western_brand]
 #elast[country_of_origin%in%c('','egypt', 'united arab emirates'), other_brand:=1]
 elast[, emerging:=1-developed]
 
+elast[, brandz:=0]
+brandz_brands<-c('samsung', 'sony', 'apple', 'hp', 'nokia', 'dell','blackberry', 'ge', 'siemens', 'ibm','vodafone','lenovo', 'haier', 'midea', 'hisense')
+elast[brand%in%brandz_brands, brandz:=1]
+
 #elast <- elast[country=='india', ':=' (elastlt=NA, elastlt_se=NA, elast=NA, elast_se=NA)]
 
