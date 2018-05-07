@@ -290,13 +290,13 @@ covlabels=unlist(sanitize_table(data.frame(unique(unlist(lapply(out1[[1]]$lt, fu
 covlabels=c(covlabels[-which(covlabels=='(Intercept)')], 'Constant')
 
 printout(out1, 'st', omit=NULL, title = tab('DV: short-term elasticities, pooled sample of developed and emerging countries'), vars=ordered_vars,notes=gsub('long[-]term', 'short-term', notes_base), covlabels=covlabels,
-         column.separate=unlist(lapply(out1, length)))
+         column.separate=unlist(lapply(out1, function(x) length(x$lt))))
 
 
 cat("<P style='page-break-before: always'>")
 
 printout(out1, 'lt', omit=NULL, title = tab('DV: long-term elasticities, pooled sample of developed and emerging countries'), vars=ordered_vars,notes=notes_base, covlabels=covlabels,
-         column.separate=unlist(lapply(out1, length)))
+         column.separate=unlist(lapply(out1, function(x) length(x$lt))))
 
 # interaction model
 m2 = ~1+ (1|brand) + (1|category) + (1|country) + emerging + appliance + I(appliance*emerging) + ln_market_growth_mc + I(ln_market_growth_mc*emerging) + ln_herf_mc + I(ln_herf_mc*emerging) + local_to_market + I(local_to_market*emerging) + western_brand + I(western_brand*emerging) + sbbe_std_mc + I(sbbe_std_mc*emerging)
