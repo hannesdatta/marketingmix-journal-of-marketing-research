@@ -50,6 +50,15 @@ out = lapply(models, function(model_name) {
     # merge to elasticities
     elast=merge(elast, sbbe, by = c('market_id', 'brand'),all.x=T)
   
+  # extract lagged market share coefficient
+  lambdas = rbindlist(lapply(results_brands[!checks=='try-error'], function(x) x$model@coefficients[unique(x$elast$index_lagms),]))
+  setkey(lambdas, market_id)
+  setkey(elast, market_id)
+  elast[lambdas, lagged_ms_coef := i.coef]
+  elast[is.na(lagged_ms_coef), lagged_ms_coef:=0]
+  
+  elast[, ':=' (sbbelt = sbbe/(1-lagged_ms_coef))]
+  
   # tag global versus local brand
   elast[, ncountries:=length(unique(country)), by = c('brand')]
   elast[, globalbrand:=ncountries>2 & !brand=='unbranded']
