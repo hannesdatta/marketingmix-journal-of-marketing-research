@@ -198,7 +198,7 @@ Category growth       | Log of a market's average growth rate in the observation
 Category concentration     | Log of Herfindahl index
 Domestic versus foreign brand | Dummy, equaling 1 if a brand's headquarter is located in the focal country; 0 if not.
 Western brand | Dummy variable, equaling 1 if brand is headquartered in Western countries, 0 if not.
-Brand equity               | Sales-based brand equity, obtained as a transformation of the brand-specific intercept from the market share attraction model, standardized by category    | Datta, Ailawadi, and van Heerde (2017)
+Brand equity               | Sales-based brand equity, obtained as a transformation of the brand-specific intercept from the market share attraction model (can be standardized by category)    | Datta, Ailawadi, and van Heerde (2017)
 Brand-level market share  | Average market share of brand in the observation period
 Price index | A brand's average price (deflated sales value devided by the brand's sales volume over the observation period), indexed by the maximum price in a given category and country
 Global brand (BrandZ) | Dummy, equaling 1 if a brand is listed in BrandZ's *Top 100 Most Valuable global brands (2010)*, or *Top 50 Most Valuable Chinese Brands (2011)* | ...
@@ -254,7 +254,7 @@ On sample of `r length(unique(elast$brand))` unique brands (excluding one 'unbra
 ```{r modelselection, echo = FALSE, results='asis'}
 
 modellist = lapply(c('sbbe_std_mc', 'sbbe_mc', 'ln_overall_ms_mc', 'ln_overall_prindex_mc', 'brandz'), 
-                   function(x) update.formula(form_modelbasis, as.formula(paste0('.~. +', x))))
+                   function(x) update.formula(update.formula(form_modelbasis, .~.+emerging), as.formula(paste0('.~. +', x))))
 
 out1=regmodel(formula=modellist, dat=elast, model='lmer')
 
@@ -280,7 +280,8 @@ m1b = update.formula(m1, .~.+emerging)
 
 names(ordered_vars) <- paste0(unlist(sanitize_table(data.frame(ordered_vars))), ' elasticity')
 
-out1=regmodel(formula=list(m1,m1b), dat=elast, model='lmer')
+out1=regmodel(formula=list(m1b), dat=elast, model='lmer')
+carry_forward_model_for_plotting = out1
 
 notes_base = "Regression of long-term elasticities on explanatory variables and three random effects, for brands, categories, and countries, respectively. Estimated using a linear mixed-effects model, with weights equal to the inverse of the elasticities' standard error, normalized to sum up to 1. Two-sided significance levels reported. Standard errors in parentheses."
 
@@ -310,6 +311,44 @@ covlabels=c(covlabels[-which(covlabels=='(Intercept)')], 'Constant')
 printout(out4, 'lt', omit=NULL, title = tab('DV: long-term elasticities, pooled sample of developed and emerging countries with interactions'), vars=ordered_vars, notes=paste0(notes_base), covlabels=covlabels)
 
 ```
+
+```{r ploteffects, echo = FALSE, include = FALSE}
+names(carry_forward_model_for_plotting)
+j=1
+
+outmod=lapply(seq(along=carry_forward_model_for_plotting), function(mod) {
+  
+  predmodel = carry_forward_model_for_plotting[[mod]]$lt[[j]]
+  preddat = data.table(predmodel@frame)
+  preddat[, predicted:=predict(predmodel)]
+  tmp=preddat[, list(meanpred=mean(predicted), sd=sd(predicted)),by=c('emerging')]
+  tmp[, variable:=names(carry_forward_model_for_plotting)[mod]]
+  return(tmp)
+})
+
+outmod=rbindlist(outmod)
+
+pl<-lapply(ordered_vars, function(.var) {
+  tmp=outmod[variable==.var]
+  ggplot(tmp, aes(x=ifelse(emerging==1, 'developed', 'emerging'), y=meanpred, fill=ifelse(emerging==1, 'developed', 'emerging'))) + 
+    theme_bw() + 
+    geom_bar(position=position_dodge(), stat="identity") + 
+    scale_fill_grey() + 
+    labs(title = fig(paste0("", rename.fkt(.var)," elasticity"))) + 
+    guides(fill=guide_legend("Development status")) +
+    xlab("Development status") + 
+    ylab("Elasticity")+ theme(plot.title = element_text(size=10)) +
+    geom_errorbar(aes(ymin=meanpred-sd, ymax=meanpred+sd),
+                  width=.2,                    # Width of the error bars
+                  position=position_dodge(.9))
+
+  })
+
+ggarrange(plotlist=pl, common.legend=TRUE, legend='bottom')
+
+
+```
+
 
 ```{r randomcombined4, echo = FALSE, results='asis'}
 
