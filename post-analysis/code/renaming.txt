@@ -69,8 +69,9 @@ ln_overall[_]ms[_]mc	Log of brand-level market share	gsub
 ln_overall[_]prindex[_]mc	Log of brand-level price index	gsub
 ^overall[_]prindex	Brand-level price index	grepl
 local_to_market	Domestic brand (versus foreign brand)	grepl
+sbbelt|sbbelt[_]mc	Brand equity (long-term)	gsub
 sbbe[_]std|sbbe[_]std[_]mc	Brand equity (standardized)	gsub
-sbbe|sbbe[_]mc	Brand equity (not standardized)	gsub
+sbbe|sbbe[_]mc	Brand equity (short-term)	gsub
 active_in_countries	Number of countries active in	gsub
 active_in_categories	Number of categories active in 	gsub
 headquarter_location	Location of headquarter	gsub
@@ -96,3 +97,4 @@ gci[_]sub[_]innovation	Subindex innovation and sophistication factors	grepl
 all[_]brands	List of brands	gsub
 other[_]brand	Brand from other country	gsub
 brandz	BrandZ listing	gsub
+gcifactor	GCI component (score from PCA)	gsub

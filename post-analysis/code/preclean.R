@@ -89,3 +89,9 @@ elast[brand%in%brandz_brands, brandz:=1]
 
 #elast <- elast[country=='india', ':=' (elastlt=NA, elastlt_se=NA, elast=NA, elast_se=NA)]
 
+# PCA
+pca <- fread('../temp/gci_pca_out.csv')
+setkey(pca, country)
+setkey(elast, country)
+elast[pca, gcifactor := i.F1_PC1]
+

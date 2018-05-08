@@ -39,11 +39,13 @@ ordered_vars = c('rwpspr', 'wpswdst','llen','nov6sh')
 # fix 'standard' covariates
 form_random_component = .~1+ (1|brand) + (1|category) + (1|country)
 form_random_component_FE = .~1+ (1|brand) + (1|category) + as.factor(country)
-form_std = .~. + appliance + ln_market_growth_mc + ln_herf_mc + local_to_market + western_brand
+form_std = .~. + appliance + ln_market_growth_mc + ln_herf_mc + local_to_market + western_brand + ln_overall_prindex_mc
+form_interact = ~1+ (1|brand) + (1|category) + (1|country) + emerging + appliance + I(appliance*emerging) + ln_market_growth_mc + I(ln_market_growth_mc*emerging) + ln_herf_mc + I(ln_herf_mc*emerging) + local_to_market + I(local_to_market*emerging) + western_brand + I(western_brand*emerging) + ln_overall_prindex_mc + I(ln_overall_prindex_mc*emerging) + sbbe_std_mc + I(sbbe_std_mc*emerging)
+
 
 # choice for main 'brand strength' variable
 form_modelbasis = update.formula(form_random_component, form_std)
-form_extraregressor = .~.+sbbe_std_mc
+form_extraregressor = .~. + sbbe_std_mc
 
 
 ```
@@ -198,9 +200,9 @@ Category growth       | Log of a market's average growth rate in the observation
 Category concentration     | Log of Herfindahl index
 Domestic versus foreign brand | Dummy, equaling 1 if a brand's headquarter is located in the focal country; 0 if not.
 Western brand | Dummy variable, equaling 1 if brand is headquartered in Western countries, 0 if not.
-Brand equity               | Sales-based brand equity, obtained as a transformation of the brand-specific intercept from the market share attraction model (can be standardized by category)    | Datta, Ailawadi, and van Heerde (2017)
-Brand-level market share  | Average market share of brand in the observation period
-Price index | A brand's average price (deflated sales value devided by the brand's sales volume over the observation period), indexed by the maximum price in a given category and country
+Brand equity               | Sales-based brand equity, obtained as a transformation of the brand-specific intercept from the market share attraction model (short-term, long-term, and standardized by category)    | Datta, Ailawadi, and van Heerde (2017)
+Brand-level market share  | Log of average market share of brand in the observation period
+Price index | Log of a brand's average price (deflated sales value devided by the brand's sales volume over the observation period, indexed by the maximum price in a given category and country)
 Global brand (BrandZ) | Dummy, equaling 1 if a brand is listed in BrandZ's *Top 100 Most Valuable global brands (2010)*, or *Top 50 Most Valuable Chinese Brands (2011)* | ...
 Global competitiveness index (overall) | ...
 Subindex basic requirements | ...
@@ -211,7 +213,7 @@ Subindex innovation and sophistication factors | ...
 
 ```{r summarystats, echo=FALSE}
 
-covars <- c('appliance', 'market_growth', 'herf', 'local_to_market', 'western_brand', 'sbbe_std', 'sbbe', 'overall_ms', 'overall_prindex', 'brandz', 'gci_overall_s', 'gci_sub_basicrequire_s', 'gci_sub_efficiencyenhance_s', 'gci_sub_innovation_s')
+covars <- c('appliance', 'market_growth', 'herf', 'local_to_market', 'western_brand', 'sbbe_std', 'sbbe', 'sbbelt', 'overall_ms', 'overall_prindex', 'brandz', 'gci_overall_s', 'gci_sub_basicrequire_s', 'gci_sub_efficiencyenhance_s', 'gci_sub_innovation_s')
 
 tmp=data.table(elast)
 tmp = unique(tmp, by = c('market_id','brand', 'emerging'))
@@ -253,7 +255,7 @@ On sample of `r length(unique(elast$brand))` unique brands (excluding one 'unbra
 
 ```{r modelselection, echo = FALSE, results='asis'}
 
-modellist = lapply(c('sbbe_std_mc', 'sbbe_mc', 'ln_overall_ms_mc', 'ln_overall_prindex_mc', 'brandz'), 
+modellist = lapply(c('sbbe_std_mc', 'sbbe_mc', 'sbbelt_mc', 'ln_overall_ms_mc', 'brandz'), 
                    function(x) update.formula(update.formula(form_modelbasis, .~.+emerging), as.formula(paste0('.~. +', x))))
 
 out1=regmodel(formula=modellist, dat=elast, model='lmer')
@@ -300,7 +302,7 @@ printout(out1, 'lt', omit=NULL, title = tab('DV: long-term elasticities, pooled 
          column.separate=unlist(lapply(out1, function(x) length(x$lt))))
 
 # interaction model
-m2 = ~1+ (1|brand) + (1|category) + (1|country) + emerging + appliance + I(appliance*emerging) + ln_market_growth_mc + I(ln_market_growth_mc*emerging) + ln_herf_mc + I(ln_herf_mc*emerging) + local_to_market + I(local_to_market*emerging) + western_brand + I(western_brand*emerging) + sbbe_std_mc + I(sbbe_std_mc*emerging)
+m2 = form_interact
 
 cat("<P style='page-break-before: always'>")
 out4=regmodel(formula=m2, dat=elast, model='lmer')
@@ -412,6 +414,39 @@ print(kable(tmp[grepl(filt["regex"], variable),][, variable:=NULL], caption = ta
 }
 
 ```
+
+```{r randomcombined_factorscore, echo = FALSE, results='asis'}
+m1 = update.formula(form_modelbasis, form_extraregressor)
+m1b = update.formula(m1, .~.+gcifactor)
+
+names(ordered_vars) <- paste0(unlist(sanitize_table(data.frame(ordered_vars))), ' elasticity')
+
+out1=regmodel(formula=list(m1b), dat=elast, model='lmer')
+carry_forward_model_for_plotting = out1
+
+notes_base = "Regression of long-term elasticities on explanatory variables and three random effects, for brands, categories, and countries, respectively. Estimated using a linear mixed-effects model, with weights equal to the inverse of the elasticities' standard error, normalized to sum up to 1. Two-sided significance levels reported. Standard errors in parentheses."
+
+cat("<P style='page-break-before: always'>")
+
+covlabels=unlist(sanitize_table(data.frame(unique(unlist(lapply(out1[[1]]$lt, function(x) colnames(x@pp$X)))))))
+covlabels=c(covlabels[-which(covlabels=='(Intercept)')], 'Constant')
+
+printout(out1, 'lt', omit=NULL, title = tab('DV: long-term elasticities, pooled sample of developed and emerging countries, with GCI component score'), vars=ordered_vars,notes=notes_base, covlabels=covlabels,
+         column.separate=unlist(lapply(out1, function(x) length(x$lt))))
+
+# interaction model
+m2 = form_interact
+
+cat("<P style='page-break-before: always'>")
+out4=regmodel(formula=m2, dat=elast, model='lmer')
+
+covlabels=unlist(sanitize_table(data.frame(colnames(out4[[1]]$lt[[1]]@pp$X))))
+covlabels=c(covlabels[-which(covlabels=='(Intercept)')], 'Constant')
+
+printout(out4, 'lt', omit=NULL, title = tab('DV: long-term elasticities, pooled sample of developed and emerging countries with interactions'), vars=ordered_vars, notes=paste0(notes_base), covlabels=covlabels)
+
+```
+
 
 # Appendix
 

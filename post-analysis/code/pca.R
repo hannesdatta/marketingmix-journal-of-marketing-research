@@ -77,3 +77,4 @@ for (nfactors in 1:1) {
   }
 
 sink()
+fwrite(ds, file = '../temp/gci_pca_out.csv')
