@@ -47,7 +47,7 @@ for (var in unique(drop(unlist(lapply(c(vars, 'sbbe_std', 'sbbe'), grep, colname
 }
 
 # focal dummies: local_to_market, western (versus asian)
-elast[, local_to_market:=country_of_origin==country]
+elast[, local_to_market:=as.numeric(country_of_origin==country)]
 
 elast[, asian_brand:=0]
 elast[country_of_origin%in%c('south korea', 'japan','taiwan', 'thailand', 'indonesia', 'philippines',
