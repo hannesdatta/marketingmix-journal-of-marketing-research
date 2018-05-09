@@ -32,6 +32,12 @@ gci <- fread('../temp/gci.csv')
 
 elast=merge(elast, gci, by = c('country'),all.x=T)
 
+# add PCA scores
+pca <- fread('../temp/gci_pca_out.csv')
+setkey(pca, country)
+setkey(elast, country)
+elast[pca, gcifactor := i.F1_PC1]
+
 # take natural log of variables
 vars=c('herf','c3','c5','market_growth','hdi2010','gdppercap2010', 'ncat_in_country', 'ncountry_in_category',
        'overall_ms', 'overall_prindex', 'gci_sub_basicrequire_s','gci_sub_efficiencyenhance_s','gci_sub_innovation_s', 'gci_overall_s')
@@ -42,7 +48,7 @@ for (var in vars) {
 }
 
 # grand-mean centering by variable (llen, etc.) for all explanatory (continuous) variables
-for (var in unique(drop(unlist(lapply(c(vars, 'sbbe_std', 'sbbe'), grep, colnames(elast), value=T))))) {
+for (var in unique(drop(unlist(lapply(c(vars, 'sbbe_std', 'sbbe', 'sbbelt', 'gcifactor'), grep, colnames(elast), value=T))))) {
   elast[, (paste0(var, '_mc')):=get(var)-mean(get(var)), by = c('variable')]
 }
 
@@ -88,10 +94,3 @@ brandz_brands<-c('samsung', 'sony', 'apple', 'hp', 'nokia', 'dell','blackberry',
 elast[brand%in%brandz_brands, brandz:=1]
 
 #elast <- elast[country=='india', ':=' (elastlt=NA, elastlt_se=NA, elast=NA, elast_se=NA)]
-
-# PCA
-pca <- fread('../temp/gci_pca_out.csv')
-setkey(pca, country)
-setkey(elast, country)
-elast[pca, gcifactor := i.F1_PC1]
-

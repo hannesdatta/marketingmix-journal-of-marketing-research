@@ -57,6 +57,7 @@ Neffects	Number of estimates	grepl
 .*[_]sig	sig.	gsub
 [*] developed	   x developed country	grepl
 [*] emerging	   x emerging country	grepl
+[*] gcifactor	   x GCI component score	grepl
 necessity	Appliance (versus electronics)	gsub
 appliance	Appliance (versus electronics)	gsub
 western[_]brand	Western brand	grepl
@@ -97,4 +98,4 @@ gci[_]sub[_]innovation	Subindex innovation and sophistication factors	grepl
 all[_]brands	List of brands	gsub
 other[_]brand	Brand from other country	gsub
 brandz	BrandZ listing	gsub
-gcifactor	GCI component (score from PCA)	gsub
+gcifactor[_]mc|gcifactor	GCI component (score from PCA)	grepl

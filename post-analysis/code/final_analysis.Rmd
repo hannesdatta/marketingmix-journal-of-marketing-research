@@ -40,7 +40,10 @@ ordered_vars = c('rwpspr', 'wpswdst','llen','nov6sh')
 form_random_component = .~1+ (1|brand) + (1|category) + (1|country)
 form_random_component_FE = .~1+ (1|brand) + (1|category) + as.factor(country)
 form_std = .~. + appliance + ln_market_growth_mc + ln_herf_mc + local_to_market + western_brand + ln_overall_prindex_mc
+
 form_interact = ~1+ (1|brand) + (1|category) + (1|country) + emerging + appliance + I(appliance*emerging) + ln_market_growth_mc + I(ln_market_growth_mc*emerging) + ln_herf_mc + I(ln_herf_mc*emerging) + local_to_market + I(local_to_market*emerging) + western_brand + I(western_brand*emerging) + ln_overall_prindex_mc + I(ln_overall_prindex_mc*emerging) + sbbe_std_mc + I(sbbe_std_mc*emerging)
+
+form_interact_gci = ~1+ (1|brand) + (1|category) + (1|country) + gcifactor_mc + appliance + I(appliance*gcifactor_mc) + ln_market_growth_mc + I(ln_market_growth_mc*gcifactor_mc) + ln_herf_mc + I(ln_herf_mc*gcifactor_mc) + local_to_market + I(local_to_market*gcifactor_mc) + western_brand + I(western_brand*gcifactor_mc) + ln_overall_prindex_mc + I(ln_overall_prindex_mc*gcifactor_mc) + sbbe_std_mc + I(sbbe_std_mc*gcifactor_mc)
 
 
 # choice for main 'brand strength' variable
@@ -76,7 +79,14 @@ setorderv(tmp, c('category', 'appliance', 'overall_ms'), order=-1L)
 tmp[!brand%in%c('unbranded','local'), rank:=1:.N, by = c('category')]
 tmp[, brand_include:= rank%in%1:5]
 
-tmp=tmp[, list(cattype=ifelse(unique(appliance)==1, 'Appliance', 'Electronics'), ncountries=unique(ncountries), nbrands=length(unique(brand)), exemplary_brand_names=paste0(sort_alpha(stri_trans_totitle(unique(brand[brand_include==T]))), collapse=', ')), by='category']
+my_capitalize <- function(x) {
+  sapply(stri_trans_totitle(x), function(y) {
+    if (nchar(y)<=3) return(toupper(y)) else return(y)
+    
+  })
+}
+
+tmp=tmp[, list(cattype=ifelse(unique(appliance)==1, 'Appliance', 'Electronics'), ncountries=unique(ncountries), nbrands=length(unique(brand)), exemplary_brand_names=paste0(sort_alpha(my_capitalize(unique(brand[brand_include==T]))), collapse=', ')), by='category']
 tmp=sanitize_table(tmp)
 
 try(setorder(tmp, Category),silent=T)
@@ -402,22 +412,23 @@ colnames(tmp)[3:6]<-paste0(colnames(tmp)[3:6], c(' fixed-effect'))
 tmp=data.table(tmp)[grepl('[_]s$', variable)]
 
 filters <- list(c(regex='overall[_]|sub[_]', name='summarized pillars in global competitiveness report'),
-                c(regex='gci[_]p[0-9]', name='12 pillars in global competitiveness report'),
-                c(regex='gci[_][0-9]', name='individual items in global competitiveness report'))
+                c(regex='gci[_]p[0-9]', name='12 pillars in global competitiveness report'))#,
+                #c(regex='gci[_][0-9]', name='individual items in global competitiveness report'))
 
+tableno_fixed = tableno-1
 for (filt in filters) {                
   cat("<P style='page-break-before: always'>")
 
 print(kable(tmp[grepl(filt["regex"], variable),][, variable:=NULL], caption = tab(paste0('Correlations of ', filt["name"], ' (scores) with marketing-mix elasticities')),
       format='html', initial.zero = FALSE) %>%
-        kable_styling() %>% footnote(general=paste0('Note: Table reports, for each marketing mix instrument, the correlations between the scores of ', filt["name"], ' (2010/2011 data, see https://www.weforum.org/reports/global-competitiveness-report-2010-2011), and the country-fixed effects reported in Table ', tableno-1, '. N = ', nrow(fixedeffects), '. Significance levels: *p<.1, **p<.05, ***p<.01, ****p<.001.')))
+        kable_styling() %>% footnote(general=paste0('Note: Table reports, for each marketing mix instrument, the correlations between the scores of ', filt["name"], ' (2010/2011 data, see https://www.weforum.org/reports/global-competitiveness-report-2010-2011), and the country-fixed effects reported in Table ', tableno_fixed, '. N = ', nrow(fixedeffects), '. Significance levels: *p<.1, **p<.05, ***p<.01, ****p<.001.')))
 }
 
 ```
 
 ```{r randomcombined_factorscore, echo = FALSE, results='asis'}
 m1 = update.formula(form_modelbasis, form_extraregressor)
-m1b = update.formula(m1, .~.+gcifactor)
+m1b = update.formula(m1, .~.+gcifactor_mc)
 
 names(ordered_vars) <- paste0(unlist(sanitize_table(data.frame(ordered_vars))), ' elasticity')
 
@@ -435,15 +446,13 @@ printout(out1, 'lt', omit=NULL, title = tab('DV: long-term elasticities, pooled 
          column.separate=unlist(lapply(out1, function(x) length(x$lt))))
 
 # interaction model
-m2 = form_interact
-
 cat("<P style='page-break-before: always'>")
-out4=regmodel(formula=m2, dat=elast, model='lmer')
+out4=regmodel(formula=form_interact_gci, dat=elast, model='lmer')
 
 covlabels=unlist(sanitize_table(data.frame(colnames(out4[[1]]$lt[[1]]@pp$X))))
 covlabels=c(covlabels[-which(covlabels=='(Intercept)')], 'Constant')
 
-printout(out4, 'lt', omit=NULL, title = tab('DV: long-term elasticities, pooled sample of developed and emerging countries with interactions'), vars=ordered_vars, notes=paste0(notes_base), covlabels=covlabels)
+printout(out4, 'lt', omit=NULL, title = tab('DV: long-term elasticities, pooled sample of developed and emerging countries, using interactions with the GCI component score'), vars=ordered_vars, notes=paste0(notes_base), covlabels=covlabels)
 
 ```
 
