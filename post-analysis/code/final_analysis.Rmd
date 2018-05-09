@@ -176,7 +176,7 @@ setcolorder(tmp2, colnames(tmp))
 
 tmp=rbind(tmp,tmp2)
 
-pl<-lapply(c(qmeans='qmeans',qwmeans='qwmeans'), function(varplot) {
+pl<-lapply(c(qmeans='qmeans'), function(varplot) {
   lapply(ordered_vars, function(.var) {
   tmp[, pltv:=get(varplot)]
   ggplot(tmp[variable==.var], aes(x=group, y=pltv, fill=ifelse(developed==1, 'developed', 'emerging'))) + 
@@ -255,11 +255,55 @@ kable(dtf, digits=3,caption = tab(paste0('Summary statistics for covariates in s
 ```{r continue_with_selection, echo=FALSE}
 elast_all=data.table(elast)
 elast=elast[!is.na(country_of_origin)&!brand%in%c('unbranded')]
-#elast=elast[globalbrand==T&!brand%in%c('unbranded')]
+excluded_brands=setdiff(unique(elast_all$brand), unique(elast$brand))
 
 ```
 
-On sample of `r length(unique(elast$brand))` unique brands (excluding one 'unbranded' brand).
+On sample of `r length(unique(elast$brand))` unique brands (excluding `r paste0(my_capitalize(excluded_brands), collapse=', ')`).
+
+## Plots
+
+```{r elast_hist_by_emerging, echo=F}
+
+# define median split variables
+covars <- c('appliance', 'market_growth', 'herf', 'local_to_market', 'western_brand', 'sbbe_std', 'sbbe', 'sbbelt', 'overall_ms', 'overall_prindex', 'brandz')
+
+# calculate split levels (if binary, take 0 and 1)
+out=lapply(covars, function(.var) {
+  is_binary = all(elast[, get(.var)]%in%c(0,1))
+  
+  if (is_binary==T) elast[!is.na(get(.var)), splitvar := ifelse(get(.var)==1, 'yes', 'no')]
+  if (is_binary==F) {
+    # calculate median
+    median = median(elast[, get(.var)])
+    elast[!is.na(get(.var)), splitvar := ifelse(get(.var)>=median, 'high', 'low')]
+  }
+  tmp=elast[!is.na(elastlt), list(meanelast = mean(elastlt)), by = c('variable','emerging','splitvar')]
+  tmp[, ordered_rank:=match(variable, ordered_vars)]
+  setorder(tmp, ordered_rank)
+  tmp[, splitname:=.var]
+  tmp[, emerging_label:=ifelse(emerging==1, 'emerging country', 'developed country')]
+  tmp[, variable_label:=gsub(' activity', ' a.', as.factor(rename.fkt(variable)))]
+  return(tmp)
+})
+
+for (iter in seq(along=out)) {
+  tmp=out[[iter]]#[splitname==.var]
+
+tmp[, splitlabel := paste0(rename.fkt(splitname), ': ', splitvar)]
+titlecall=fig(paste0('Marketing mix elasticities for different values of ', rename.fkt(unique(tmp$splitname))))
+              
+tmp$variable_label <- reorder(tmp$variable_label, match(tmp$variable, ordered_vars))
+
+
+ sp<- ggplot(tmp, aes(x=variable_label, y=meanelast))+ geom_bar(position=position_dodge(), stat="identity") +  theme_bw() + scale_fill_grey() +ylab("Elasticity") +  xlab("Marketing mix instrument") +labs(title = titlecall)+ theme(plot.title = element_text(size=10))
+
+ pl2=sp + facet_grid(splitlabel ~ emerging_label, switch='y')  
+  print(pl2)
+} 
+  
+```
+
 
 ## Model selection 
 
