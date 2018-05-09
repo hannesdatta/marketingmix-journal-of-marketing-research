@@ -1,6 +1,7 @@
 # preclean for second-stage analysis
 
 # requires: elast (dataset with elasticities)
+elast[country_of_origin=='', country_of_origin:=NA]
 
 # load data for extra variables
 hdi <- fread('../temp/hdi.csv')
