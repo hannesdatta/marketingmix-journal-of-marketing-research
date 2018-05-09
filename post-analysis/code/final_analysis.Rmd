@@ -325,6 +325,7 @@ notes_base = "Regression of long-term elasticities on explanatory variables and 
 
 #sink('../temp/test.html')
 names(ordered_vars)=rename.fkt(ordered_vars)
+
 cat("<P style='page-break-before: always'>")
 printout(out1, 'lt', omit=NULL, title = tab('Model selection: regression with long-term elasticities in a pooled sample of developed and emerging countries'), vars=ordered_vars[1:2], notes=notes_base, covlabels=covlabels, column.separate=unlist(lapply(out1[ordered_vars[1:2]], function(x) length(x$lt))))
 
