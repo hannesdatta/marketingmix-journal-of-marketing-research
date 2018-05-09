@@ -324,8 +324,11 @@ names(varsord) <- paste0(unlist(sanitize_table(data.frame(varsord))), ' elastici
 notes_base = "Regression of long-term elasticities on explanatory variables and three random effects, for brands, categories, and countries, respectively. Estimated using a linear mixed-effects model, with weights equal to the inverse of the elasticities' standard error, normalized to sum up to 1. Two-sided significance levels reported. Standard errors in parentheses."
 
 #sink('../temp/test.html')
-#cat("<P style='page-break-before: always'>")
-printout(out1, 'lt', omit=NULL, title = tab('Model selection: regression with long-term elasticities in a pooled sample of developed and emerging countries'), vars=varsord, notes=notes_base, covlabels=covlabels, column.separate=unlist(lapply(out1, function(x) length(x$lt))))
+cat("<P style='page-break-before: always'>")
+printout(out1[1:2], 'lt', omit=NULL, title = tab('Model selection: regression with long-term elasticities in a pooled sample of developed and emerging countries'), vars=varsord, notes=notes_base, covlabels=covlabels, column.separate=unlist(lapply(out1[1:2], function(x) length(x$lt))))
+
+cat("<P style='page-break-before: always'>")
+printout(out1[3:4], 'lt', omit=NULL, title = tab('Model selection: regression with long-term elasticities in a pooled sample of developed and emerging countries'), vars=varsord, notes=notes_base, covlabels=covlabels, column.separate=unlist(lapply(out1[3:4], function(x) length(x$lt))))
 
 #sink()
 ```
