@@ -324,11 +324,12 @@ names(varsord) <- paste0(unlist(sanitize_table(data.frame(varsord))), ' elastici
 notes_base = "Regression of long-term elasticities on explanatory variables and three random effects, for brands, categories, and countries, respectively. Estimated using a linear mixed-effects model, with weights equal to the inverse of the elasticities' standard error, normalized to sum up to 1. Two-sided significance levels reported. Standard errors in parentheses."
 
 #sink('../temp/test.html')
+names(ordered_vars)=rename.fkt(ordered_vars)
 cat("<P style='page-break-before: always'>")
-printout(out1[1:2], 'lt', omit=NULL, title = tab('Model selection: regression with long-term elasticities in a pooled sample of developed and emerging countries'), vars=varsord[1:2], notes=notes_base, covlabels=covlabels, column.separate=unlist(lapply(out1[1:2], function(x) length(x$lt))))
+printout(out1, 'lt', omit=NULL, title = tab('Model selection: regression with long-term elasticities in a pooled sample of developed and emerging countries'), vars=ordered_vars[1:2], notes=notes_base, covlabels=covlabels, column.separate=unlist(lapply(out1[ordered_vars[1:2]], function(x) length(x$lt))))
 
 cat("<P style='page-break-before: always'>")
-printout(out1[3:4], 'lt', omit=NULL, title = tab('Model selection: regression with long-term elasticities in a pooled sample of developed and emerging countries'), vars=varsord[3:4], notes=notes_base, covlabels=covlabels, column.separate=unlist(lapply(out1[3:4], function(x) length(x$lt))))
+printout(out1, 'lt', omit=NULL, title = tab('Model selection: regression with long-term elasticities in a pooled sample of developed and emerging countries'), vars=ordered_vars[3:4], notes=notes_base, covlabels=covlabels, column.separate=unlist(lapply(out1[ordered_vars[3:4]], function(x) length(x$lt))))
 
 #sink()
 ```
