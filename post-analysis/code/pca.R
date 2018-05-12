@@ -38,6 +38,8 @@ for (nfactors in 1:1) {
     summary(fit)
     print(fit)
     
+    fwrite(data.frame(unclass(fit$loadings)), paste0('../output/pca_', nfactors, 'comp_loadings.csv'),row.names=T)
+    
     # Test: standardize scores
     mydata[, score1:=fit$scores[,1]]
     
@@ -47,6 +49,8 @@ for (nfactors in 1:1) {
     eig <- data.table(eigen(cor(mydata[, vars, with=F]))$values)
     setnames(eig, 'eigenvalue')
     print(eig)
+    
+    fwrite(eig, paste0('../output/pca_', nfactors, 'comp_eigen.csv'))
     
     cat('\n\nMatrix to compute component scores from standardized input matrix (and vice versa):\n')
     print(fit$weights)

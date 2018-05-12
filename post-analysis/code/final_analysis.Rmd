@@ -9,7 +9,7 @@ date: "`r format(Sys.time(), '%d %B %Y')`"
 knitr::opts_chunk$set(echo = TRUE)
 library(ggpubr)
 library(plyr)
-library(psych)
+#library(psych)
 
 libs_to_load <- c('data.table', 'stargazer', 'knitr', 'xtable', 'lme4', 'car', 'kableExtra', 'stringi', 'ggplot2')
 for (lib in libs_to_load) eval(parse(text=paste('library(', lib, ')')))
@@ -50,7 +50,7 @@ form_interact_gci = ~1+ (1|brand) + (1|category) + (1|country) + gcifactor_mc + 
 form_modelbasis = update.formula(form_random_component, form_std)
 form_extraregressor = .~. + sbbe_std_mc
 
-
+winsor_p=.05
 ```
 
 # Data
@@ -113,7 +113,7 @@ Notes:
 
 ^1^ Weights equal to a SKU's unit sales in the most recent quarter (t-2, t-1, t).
 
-^2^ Consumer price index obtained from [...].
+^2^ Consumer price index obtained from Thomson Reuters Datastream.
 
 ```{r elasticities_overview, echo = FALSE, results='asis'}
   sigvalue = .1 # .1-level of significance
@@ -197,7 +197,7 @@ pl<-lapply(c(qmeans='qmeans'), function(varplot) {
 ggarrange(plotlist=pl$qmeans, common.legend=TRUE, legend='bottom')
 ```
 
-Notes: Figure shows mean long-term elasticities per quartile.
+Notes: Figures show mean long-term elasticities per quartile.
 
 # Second-stage analysis
 
@@ -205,21 +205,23 @@ Notes: Figure shows mean long-term elasticities per quartile.
 
 Construct                  | Operationalization                                     | References
 ------------------------- | --------------------------------------------------------|----------
-Appliance (versus electronics)| Dummy, equaling 1 for appliances (washing machines, microwaves and refridgerators), 0 if not.
-Category growth       | Log of a market's average growth rate in the observation period (geometric average)
-Category concentration     | Log of Herfindahl index
+Appliance (versus electronics)| Dummy, equaling 1 for appliances (washing machines, microwaves and refrigerators), 0 for all other categories.
+Category growth       | Log of a market's average growth rate in the observation period
+Category concentration     | Log of Herfindahl index in a market
 Domestic versus foreign brand | Dummy, equaling 1 if a brand's headquarter is located in the focal country; 0 if not.
 Western brand | Dummy variable, equaling 1 if brand is headquartered in Western countries, 0 if not.
-Brand equity               | Sales-based brand equity, obtained as a transformation of the brand-specific intercept from the market share attraction model (short-term, long-term, and standardized by category)    | Datta, Ailawadi, and van Heerde (2017)
-Brand-level market share  | Log of average market share of brand in the observation period
+Brand equity               | Sales-based brand equity, obtained as a transformation of the brand-specific intercept from the market share attraction model; (a) short-term, (b) long-term, (c) standardized by category    | Datta, Ailawadi, and van Heerde (2017)
+Brand-level market share  | Log of a brand's average market share in a market over the observation period
 Price index | Log of a brand's average price (deflated sales value devided by the brand's sales volume over the observation period, indexed by the maximum price in a given category and country)
 Global brand (BrandZ) | Dummy, equaling 1 if a brand is listed in BrandZ's *Top 100 Most Valuable global brands (2010)*, or *Top 50 Most Valuable Chinese Brands (2011)* | ...
-Global competitiveness index (overall) | ...
-Subindex basic requirements | ...
-Subindex efficiency enhancers | ...
-Subindex innovation and sophistication factors | ...
+Global competitiveness index | Overall score for a country's competitiveness^1^ | Global Competitiveness Report^1^
+Subindex basic requirements | Score based on a country's development status determined by institutions, infrastructure, macroeconomic environment, and health & primary education^1^ | ...
+Subindex efficiency enhancers | Score based on a country's development status determined by higher education & training, goods market efficiency, labor market efficiency, financial market development, technological readiness and market size^1^ | ...
+Subindex innovation and sophistication factors | Score based on a country's development status determined by business sophistication and innovation^1^ | ...
 
-*Note:* All continuous variables are logged and mean-centered before model estimation (except brand equity, which is only mean-centered as this variable can take on negative values).
+*Note:* All continuous variables are logged and mean-centered before model estimation (except brand equity, which is only mean-centered as this variable can take on negative values). 
+
+^1^ Based on the World Economic Forum's Global Competitiveness Report (2010/2011, available at https://www.weforum.org/reports/global-competitiveness-report-2010-2011)
 
 ```{r summarystats, echo=FALSE}
 
@@ -243,7 +245,7 @@ setnames(dtf, gsub('developed_', '', colnames(dtf)))
 
 dtf=sanitize_table(dtf)
 
-kable(dtf, digits=3,caption = tab(paste0('Summary statistics for covariates in second-stage analysis')),
+kable(dtf, digits=3,caption = tab(paste0('Summary statistics for covariates in second-stage analysis, split by a country\'s development status')),
       format='html', initial.zero = FALSE) %>%
         kable_styling() %>% footnote(general=paste0('Note: Summary statistics computed on a sample of ', nrow(tmp), ' category-country-brand observations.')) %>%
   add_header_above(c(" " = 1, "Emerging countries" = 4, "Developed countries" = 4))
@@ -283,14 +285,14 @@ out=lapply(covars, function(.var) {
   setorder(tmp, ordered_rank)
   tmp[, splitname:=.var]
   tmp[, emerging_label:=ifelse(emerging==1, 'emerging country', 'developed country')]
-  tmp[, variable_label:=gsub(' activity', ' a.', as.factor(rename.fkt(variable)))]
+  tmp[, variable_label:=gsub(' activity', ' \nactivity', as.factor(rename.fkt(variable)))]
   return(tmp)
 })
 
 for (iter in seq(along=out)) {
   tmp=out[[iter]]#[splitname==.var]
 
-tmp[, splitlabel := paste0(rename.fkt(splitname), ': ', splitvar)]
+tmp[, splitlabel := paste0(rename.fkt(splitname), ':\n', splitvar)]
 titlecall=fig(paste0('Marketing mix elasticities for different values of ', rename.fkt(unique(tmp$splitname))))
               
 tmp$variable_label <- reorder(tmp$variable_label, match(tmp$variable, ordered_vars))
@@ -475,6 +477,24 @@ print(kable(tmp[grepl(filt["regex"], variable),][, variable:=NULL], caption = ta
 
 ```
 
+```{r report_pca, echo=FALSE,results='asis'} 
+
+scores = fread('../output/pca_1comp_loadings.csv')
+setnames(scores, c('variable', 'stdloading'))
+
+scores[, variable_renamed:=sapply(variable, rename.fkt, dictionary='renaming_gci.txt')]
+setcolorder(scores, c('variable_renamed', 'stdloading', 'variable'))
+scores[, variable:=NULL]
+setnames(scores, 'variable_renamed', 'Variable')
+setnames(scores, 'stdloading', 'Standardized loading')
+
+print(kable(scores, caption = tab(paste0('Standardized loadings on principal component for GCI metrics')),
+      format='html', initial.zero = FALSE, digits = 3)%>%
+        kable_styling())
+
+```
+
+
 ```{r randomcombined_factorscore, echo = FALSE, results='asis'}
 m1 = update.formula(form_modelbasis, form_extraregressor)
 m1b = update.formula(m1, .~.+gcifactor_mc)
@@ -552,61 +572,30 @@ kable(tmp, caption = tab('Country-of-origins for brands in sample, ordered by th
 
 
 
-```{r elast_by_category, echo=F,results='asis'}
-  tmp=elast[!is.na(elastlt), list(elast = sum(elastlt/elastlt_se)/sum(1/elastlt_se)), by=c('variable', 'category')]
 
-  tmp=dcast(tmp,category~variable,value.var='elast')
-  setcolorder(tmp, c('category', ordered_vars))
+```{r elast_by_win, echo=F,results='asis'}
+
+# apply winsorization
+elast[!is.na(elastlt), winsorized := winsor_onesided(elastlt, fraction=winsor_p, ifelse(variable=='rwpspr', 'right','left')), by=c('variable')]
+
+for (byvar in c('category', 'country')) {
+  tmp=elast[!is.na(elastlt), list(nowin=mean(elastlt), elast = mean(winsorized)), by=c('variable', byvar)]
+  setnames(tmp, byvar, 'byvar')
+  
+  tmp=dcast(tmp,byvar~variable,value.var='elast')
+  setnames(tmp, 'byvar', byvar)
+  setcolorder(tmp, c(byvar, ordered_vars))
   
   tmp=sanitize_table(tmp)
-  setorder(tmp, Category)
+  setorderv(tmp, colnames(tmp)[1])
+  
   cat("<P style='page-break-before: always'>")
-  kable(tmp, digits=3, caption = tab('Long-term elasticities (by category)', prefix='A'), format='html', initial.zero = FALSE) %>%
-        kable_styling() %>% footnote(general=paste0('Note: Table reports weighted long-term elasticities (weights equal to inverse standard errors, normalized to sum up to 1). Categories ordered alphabetically.'))
+  print(kable(tmp, digits=3, caption = tab(paste0('Long-term elasticities (by ', byvar, ', winsorized)'), prefix='A'), format='html', initial.zero = FALSE) %>%
+        kable_styling() %>% footnote(general=paste0('Note: Table reports winsorized long-term elasticities (winsorization at ', winsor_p*100, '%, left-sided for all variables except price). ', ifelse(byvar=='country', 'Countries', 'Categories'), ' ordered alphabetically.')))
+}
   
 ```	
 
-```{r elast_by_country, echo=F,results='asis'}
-  tmp=elast[!is.na(elastlt), list(elast = sum(elastlt/elastlt_se)/sum(1/elastlt_se)), by=c('variable', 'country')]
-
-  tmp=dcast(tmp,country~variable,value.var='elast')
-  setcolorder(tmp, c('country', ordered_vars))
-  
-  tmp=sanitize_table(tmp)
-  setorder(tmp, Country)
-  cat("<P style='page-break-before: always'>")
-  kable(tmp, digits=3, caption = tab('Long-term elasticities (by country)', prefix='A'), format='html', initial.zero = FALSE) %>%
-        kable_styling() %>% footnote(general=paste0('Note: Table reports weighted long-term elasticities (weights equal to inverse standard errors, normalized to sum up to 1). Countries ordered alphabetically.'))
-  
-```	
-
-```{r elast_by_category_win, echo=F,results='asis'}
-  tmp=elast[!is.na(elastlt), list(elast = mean(winsor(elastlt, trim=.01))), by=c('variable', 'category')]
-
-  tmp=dcast(tmp,category~variable,value.var='elast')
-  setcolorder(tmp, c('category', ordered_vars))
-  
-  tmp=sanitize_table(tmp)
-  setorder(tmp, Category)
-  cat("<P style='page-break-before: always'>")
-  kable(tmp, digits=3, caption = tab('Long-term elasticities (by category, winsorized)', prefix='A'), format='html', initial.zero = FALSE) %>%
-        kable_styling() %>% footnote(general=paste0('Note: Table reports winsorized long-term elasticities. Categories ordered alphabetically.'))
-  
-```	
-
-```{r elast_by_country_win, echo=F,results='asis'}
-  tmp=elast[!is.na(elastlt), list(elast = mean(winsor(elastlt, trim=.01))), by=c('variable', 'country')]
-
-  tmp=dcast(tmp,country~variable,value.var='elast')
-  setcolorder(tmp, c('country', ordered_vars))
-  
-  tmp=sanitize_table(tmp)
-  setorder(tmp, Country)
-  cat("<P style='page-break-before: always'>")
-  kable(tmp, digits=3, caption = tab('Long-term elasticities (by country, winsorized)', prefix='A'), format='html', initial.zero = FALSE) %>%
-        kable_styling() %>% footnote(general=paste0('Note: Table reports winsorized long-term elasticities. Countries ordered alphabetically.'))
-  
-```	
 
 ```{r rq4_growth, echo=FALSE,results='asis'}
 tmp=unique(elast, by = c('market_id')) # t-tests on growth rates
@@ -638,15 +627,10 @@ kable(out, format='html',caption = tab('Average category growth rates for develo
 ```
 
 ```{r VIFS, echo=FALSE,results='asis'}
-m1 = ~1+ appliance + ln_market_growth_mc + ln_herf_mc + local_to_market + western_brand + sbbe_std_mc
 
-interact1 = . ~ . + appliance*ln_gdppercap2010_mc + ln_market_growth_mc*ln_gdppercap2010_mc +
-  local_to_market*ln_gdppercap2010_mc + western_brand*ln_gdppercap2010_mc
-
-m2=update(m1, interact1)
+m1 = ~1+ appliance + ln_market_growth_mc + ln_herf_mc + local_to_market + western_brand + ln_overall_prindex_mc 
 
 m<-lm(update(elast~., m1), data=elast[variable=='llen'])
-m2<-lm(update(elast~., m2), data=elast[variable=='llen'])
 
 frame1=data.frame(vif(m))
 colnames(frame1) <- c('VIF')
@@ -656,16 +640,6 @@ frame1=frame1[, c('variable','VIF')]
 frame1=sanitize_table(frame1)
 cat("<P style='page-break-before: always'>")
 kable(frame1,format='html', caption = tab('VIFs in a model without interactions', prefix='A'))%>% kable_styling() %>% footnote(general=paste0('Note: VIFs calculated in regression models using the variables listed above (i.e., excluding brand, category, and country effects).'))
-
-frame2=data.frame(vif(m2))
-colnames(frame2) <- c('VIF')
-frame2$variable=rownames(frame2)
-rownames(frame2)<-NULL
-frame2=frame2[, c('variable','VIF')]
-frame2=sanitize_table(frame2)
-
-kable(frame2, format='html',caption = tab('VIFs in a model with interactions', prefix='A'))%>% kable_styling() %>% footnote(general=paste0('Note: VIFs calculated in regression models using the variables listed above (i.e., excluding brand, category, and country effects).'))
-
 
 ```
 
@@ -680,10 +654,11 @@ cat("<P style='page-break-before: always'>")
                
     tmp = elast[!is.na(get(obj[1]))][, ':=' (val=get(obj[1]), val_se=get(obj[2]))]
     
+    tmp[, winsorizedval := winsor_onesided(val, fraction=winsor_p, ifelse(variable=='rwpspr', 'right','left')), by=c('variable')]
+
     tmp=tmp[, list(Neffects=.N, median_elast = median(val), 
 												  w_elast = sum(val/val_se)/sum(1/val_se),
-												  win1_elast = mean(winsor(val, trim=.01)),
-												  win5_elast = mean(winsor(val, trim=.05)),
+												  win_elast = mean(winsorizedval),
 												  perc_positive = length(which(val/val_se>=(zval)))/.N, 
 												  perc_null = length(which(abs(val/val_se)<zval))/.N, 
 												  perc_negative = length(which(val/val_se<=(-zval)))/.N), by=c('variable')]
@@ -697,7 +672,7 @@ iters = list(st=c('st', 'Short-term'), lt=c('lt', 'Long-term'))
 for (iter in iters) {
   print(kable(sanitize_table(out[[iter[1]]]), digits=3, format='html', 
         caption=tab(paste0(iter[2], ' elasticities by marketing mix instrument'),prefix='A')) %>% kable_styling() %>% 
-        footnote(general=paste0('Note: Table reports ', tolower(iter[2]), ' elasticities. Weights, if used, are equal to inverse standard errors of estimated elasticities. Significance tested at p<',sigvalue, '.')))
+        footnote(general=paste0('Note: Table reports ', tolower(iter[2]), ' elasticities. Weights, if used, are equal to inverse standard errors of estimated elasticities. Winsorization at ', winsor_p*100, '%, left-sided for all variables except price. Significance tested at p<',sigvalue, '.')))
 }
 
 ```

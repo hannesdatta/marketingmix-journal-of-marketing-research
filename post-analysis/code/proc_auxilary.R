@@ -152,3 +152,17 @@ signstars <- function(zscore) {
 # sort x alphabetically
 sort_alpha <- function(x) return(x[order(x)])
 
+winsor_onesided <- function(x, fraction, side='both') {
+    side=unique(side)
+    
+    if(length(fraction) != 1 || fraction < 0 ||
+       fraction > 0.5) {
+      stop("bad value for 'fraction'")
+    }
+  
+    lim <- quantile(x, probs=c(fraction, 1-fraction))
+    if (side=='both'|side=='left') x[ x < lim[1] ] <- lim[1]
+    if (side=='both'|side=='right') x[ x > lim[2] ] <- lim[2]
+  
+    x
+}
