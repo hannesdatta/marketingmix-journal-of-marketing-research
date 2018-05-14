@@ -7,13 +7,13 @@ regmodel <- function(formula=list(~1+I(country_class=='linc') + as.factor(catego
   regs <- lapply(unique(dat$variable), function(varname) {
     fit=NULL
     if (model=='lm') {
-      st = lapply(formula, function(form) lm(update(form, elast ~ .), data = data.table(dat[variable==varname&!is.na(elast)]), weights=weightsst))
-      lt = lapply(formula, function(form) lm(update(form, elastlt ~ .), data = data.table(dat[variable==varname&!is.na(elastlt)]), weights=weightslt))
+      st = lapply(formula, function(form) lm(update(form, elast ~ .), data = data.table(dat[variable==varname&!is.na(elast)]), weights=w_elast))
+      lt = lapply(formula, function(form) lm(update(form, elastlt ~ .), data = data.table(dat[variable==varname&!is.na(elastlt)]), weights=w_elastlt))
       fit=NULL
       }
     if (model=='lmer') {
-      st = lapply(formula, function(form) lmer(update(form, elast ~ .), data = data.table(dat[variable==varname&!is.na(elast)]), weights=weightsst))
-      lt = lapply(formula, function(form) lmer(update(form, elastlt ~ .), data = data.table(dat[variable==varname&!is.na(elastlt)]), weights=weightslt))
+      st = lapply(formula, function(form) lmer(update(form, elast ~ .), data = data.table(dat[variable==varname&!is.na(elast)]), weights=w_elast))
+      lt = lapply(formula, function(form) lmer(update(form, elastlt ~ .), data = data.table(dat[variable==varname&!is.na(elastlt)]), weights=w_elastlt))
       fit= NULL #sem.model.fits(list(st,lt))
       }
     return(list(variable=varname, st=st, lt=lt, fit = fit))
