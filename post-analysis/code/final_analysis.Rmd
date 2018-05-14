@@ -53,8 +53,8 @@ form_extraregressor = .~. + sbbe_std_mc
 winsor_p=.05
 
 #estimtype = 'winsor-onesided'
-#estimtype = 'weighted'
-estimtype = 'winsor-twosided'
+estimtype = 'weighted'
+#estimtype = 'winsor-twosided'
 
 # apply winsorization
 # 1-sided
