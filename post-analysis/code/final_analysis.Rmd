@@ -52,8 +52,9 @@ form_extraregressor = .~. + sbbe_std_mc
 
 winsor_p=.05
 
-estimtype = 'winsor-onesided'
-estimtype = 'weighted'
+#estimtype = 'winsor-onesided'
+#estimtype = 'weighted'
+estimtype = 'winsor-twosided'
 
 # apply winsorization
 # 1-sided
@@ -78,7 +79,7 @@ if (estimtype=='winsor-twosided') {
     elast[!is.na(get(.var)), paste0('z_', .var) := get(.var)/get(paste0(.var, '_se'))]
   }
    
-      estimnote = paste0('Elasticities have been winsorized at ', winsor_p*100, '%, left-sided for all variables except price.')
+      estimnote = paste0('Elasticities have been winsorized at ', winsor_p*100, '%, two-sided.')
   
 }
 
