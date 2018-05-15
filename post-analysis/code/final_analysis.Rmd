@@ -32,8 +32,13 @@ options(knitr.kable.NA = '')
 ordered_vars = c('rwpspr', 'wpswdst','llen','nov6sh')
 
 # fix 'standard' covariates
+form_main_model = .~1+ (1|brand) + (1|category) + (1|country) + appliance + ln_market_growth_mc + ln_herf_mc + local_to_market + ln_overall_prindex_mc + sbbe_std_mc + emerging
+
+
 form_random_component = .~1+ (1|brand) + (1|category) + (1|country)
+
 form_random_component_FE = .~1+ (1|brand) + (1|category) + as.factor(country)
+
 form_std = .~. + appliance + ln_market_growth_mc + ln_herf_mc + local_to_market + ln_overall_prindex_mc
 
 form_interact = ~1+ (1|brand) + (1|category) + (1|country) + emerging + appliance + I(appliance*emerging) + ln_market_growth_mc + I(ln_market_growth_mc*emerging) + ln_herf_mc + I(ln_herf_mc*emerging) + local_to_market + I(local_to_market*emerging) + ln_overall_prindex_mc + I(ln_overall_prindex_mc*emerging) + sbbe_std_mc + I(sbbe_std_mc*emerging)
@@ -94,13 +99,13 @@ if (estimtype=='weighted') {
 # Data
 
 ```{r table1_countries, echo = FALSE}
-tmp=unique(elast, by='country')[, c('country','gci_00.03_gdppercap_s','hdi2010','gci_overall_s', 'developed'),with=F]
+tmp=unique(elast, by='country')[, c('country','gci_00.03_gdppercap_s','gci_overall_s','hdi2010', 'developed'),with=F]
 setorderv(tmp, c('developed', 'gci_00.03_gdppercap_s'), order=-1L)
 first_emerging=match(0,tmp$developed)
 tmp[, developed:=NULL]
 
 kable(sanitize_table(tmp), format='html', initial.zero = FALSE, caption=tab('Development indicators for countries in sample')) %>%
-        kable_styling() %>% footnote(general='Countries ranked by GDP per capita.', alphabet=c("GDP per capita in current USD, 2010 data, IMF World Economic Outlook Database (April 2010). Extracted from Global Competitiveness Report 2010, available at https://www.weforum.org/reports/global-competitiveness-report-2010-2011.", "Human Development Index (HDI), 2010 data, obtained from UN Development Programme (http://hdr.undp.org/en/content/human-development-index-hdi). Taiwan's HDI has been imputed as the mean HDI of Thailand and China.", "Global Competitiveness Index measures national competitiveness, capturing microeconomic and macroeconomic foundations of national competitiveness. Metric available at https://www.weforum.org/reports/global-competitiveness-report-2010-2011.")) %>%
+        kable_styling() %>% footnote(general='Countries ranked by GDP per capita.', alphabet=c("GDP per capita in current USD, 2010 data, IMF World Economic Outlook Database (April 2010). Extracted from the World Economic Forum's Global Competitiveness Report (2010/2011, available at https://www.weforum.org/reports/global-competitiveness-report-2010-2011).", "Global Competitiveness Index captures microeconomic and macroeconomic foundations of national competitiveness, and is exctracted from the World Economic Forum's Global Competitiveness Report (link see above).", "Human Development Index (HDI), 2010 data, obtained from UN Development Programme (http://hdr.undp.org/en/content/human-development-index-hdi). Taiwan's HDI has been imputed as the mean HDI of Thailand and China.")) %>%
   group_rows("Developed economies", 1, first_emerging-1) %>%
   group_rows("Emerging economies", first_emerging, 14)
 
@@ -194,26 +199,21 @@ for (iter in iters) {
 Construct                  | Operationalization                                     | References
 ------------------------- | --------------------------------------------------------|----------
 Appliance (versus electronics)| Dummy, equaling 1 for appliances (washing machines, microwaves and refrigerators), 0 for all other categories.
-Category growth       | Log of a market's average growth rate in the observation period.^2^
+Category growth       | Log of a market's average growth rate in the observation period.^1^
 Category concentration     | Log of Herfindahl index in a market.
 Domestic versus foreign brand | Dummy, equaling 1 if a brand's headquarter is located in the focal country, 0 if not.
-Brand equity               | Sales-based brand equity, obtained as a transformation of the brand-specific intercept from the market share attraction model; (a) short-term, (b) long-term, (c) standardized by category.    | Datta, Ailawadi, and van Heerde (2017)
+Brand equity               | Sales-based brand equity, obtained as a transformation of the brand-specific intercept from the market share attraction model, standardized by category. | Datta, Ailawadi, and van Heerde (2017)
 Brand-level market share  | Log of a brand's average market share in a market over the observation period.
 Price index | Log of a brand's average price (deflated sales value devided by the brand's sales volume over the observation period), indexed by the maximum price in a given category and country.
 Global brand (BrandZ) | Dummy, equaling 1 if a brand is listed in either *BrandZ's Top 100 Most Valuable global brands (2010)*, or *BrandZ's Top 50 Most Valuable Chinese Brands (2011)* | ...
-Global competitiveness index | Overall score for a country's competitiveness^1^ | Steenkamp and Geyskens (2014)
-Subindex basic requirements | Score based on a country's development status determined by institutions, infrastructure, macroeconomic environment, and health & primary education^1^ | ...
-Subindex efficiency enhancers | Score based on a country's development status determined by higher education & training, goods market efficiency, labor market efficiency, financial market development, technological readiness and market size^1^ | ...
-Subindex innovation and sophistication factors | Score based on a country's development status determined by business sophistication and innovation^1^ | ...
 
 *Note:* All continuous variables are logged and mean-centered before model estimation (except brand equity, which is only mean-centered as this variable can take on negative values). 
 
-^1^ Based on the World Economic Forum's Global Competitiveness Report (2010/2011, available at https://www.weforum.org/reports/global-competitiveness-report-2010-2011)
-^2^ Geometric growth rate in a market, defined as the n-th's square root of the ratio of the total number of unit sales in a market in the last year over total number of unit sales in the first year (both years having 12 months of data). N equals to the number of years in the observation window.
+^1^ Geometric growth rate in a market, defined as the n-th's square root of the ratio of the total number of unit sales in a market in the last year over total number of unit sales in the first year (both years having 12 months of data). N equals to the number of years in the observation window.
 
 ```{r summarystats, echo=FALSE}
 
-covars <- c('appliance', 'market_growth', 'herf', 'local_to_market', 'sbbe_std', 'sbbe', 'sbbelt', 'overall_ms', 'overall_prindex', 'brandz')
+covars <- c('appliance', 'market_growth', 'herf', 'local_to_market', 'overall_prindex', 'sbbe_std', 'brandz')
 
 tmp=data.table(elast)
 nbrands=length(unique(tmp$brand))
@@ -232,8 +232,6 @@ setcolorder(dtf, c('variable', paste0(rep(c('emerging_', 'developed_'), each=4),
 
 setnames(dtf, gsub('emerging_', '', colnames(dtf)))
 setnames(dtf, gsub('developed_', '', colnames(dtf)))
-
-# to b de done.
 
 dtf=sanitize_table(dtf)
 
@@ -257,12 +255,9 @@ On sample of `r length(unique(elast$brand))` unique brands (excluding `r paste0(
 
 ## Model selection 
 
-```{r modelselection, echo = FALSE, results='asis'}
+```{r main_regs, echo = FALSE, results='asis'}
 
-modellist = lapply(c('sbbe_std_mc', 'sbbe_mc', 'sbbelt_mc', 'ln_overall_ms_mc', 'brandz'), 
-                   function(x) update.formula(update.formula(form_modelbasis, .~.+emerging), as.formula(paste0('.~. +', x))))
-
-out1=regmodel(formula=modellist, dat=elast, model='lmer')
+out1=regmodel(formula=form_main_model, dat=elast, model='lmer')
 
 # assemble all variables
 covlabels=unlist(sanitize_table(data.frame(unique(unlist(lapply(out1[[1]]$lt, function(x) colnames(x@pp$X)))))))
@@ -277,12 +272,12 @@ notes_base = paste0("Regression of long-term elasticities on explanatory variabl
 names(ordered_vars)=rename.fkt(ordered_vars)
 
 cat("<P style='page-break-before: always'>")
-printout(out1, 'lt', omit=NULL, title = tab('Model selection: regression with long-term elasticities in a pooled sample of developed and emerging countries'), vars=ordered_vars[1:2], notes=notes_base, covlabels=covlabels, column.separate=unlist(lapply(out1[ordered_vars[1:2]], function(x) length(x$lt))))
-
-cat("<P style='page-break-before: always'>")
-printout(out1, 'lt', omit=NULL, title = tab('Model selection: regression with long-term elasticities in a pooled sample of developed and emerging countries'), vars=ordered_vars[3:4], notes=notes_base, covlabels=covlabels, column.separate=unlist(lapply(out1[ordered_vars[3:4]], function(x) length(x$lt))))
+printout(out1, 'stlt', omit=NULL, title = tab('Model selection: regression with long-term elasticities in a pooled sample of developed and emerging countries'), vars=ordered_vars, notes=notes_base, covlabels=covlabels, column.separate=rep(2, each=length(out1)),
+         dep.var.labels.include=T, dep.var.labels=rep(c('short-term', 'long-term'),4),
+         table.layout=c('-c#dm-t-s-n'))
 
 #sink()
+
 ```
 
 ```{r randomcombined1, echo = FALSE, results='asis'}
@@ -360,72 +355,6 @@ ggarrange(plotlist=pl, common.legend=TRUE, legend='bottom')
 
 ```
 
-
-```{r randomcombined4, echo = FALSE, results='asis'}
-
-m1 = update.formula(update.formula(form_random_component_FE, form_std), form_extraregressor)
-
-cat("<P style='page-break-before: always'>")
-out5=regmodel(formula=m1, dat=elast, model='lmer')
-covlabels=unlist(sanitize_table(data.frame(colnames(out5[[1]]$lt[[1]]@pp$X))))
-covlabels=c(covlabels[-which(covlabels=='(Intercept)')], 'Constant')
-printout(out5, 'lt', omit=NULL, title = tab('DV: long-term elasticities, with country-fixed effects'),vars=ordered_vars, notes=paste0("Regression of long-term elasticities on country fixed-effects (baseline: Australia), explanatory variables and two random effects for brands and categories. Estimated using a linear mixed-effects model. ", estimnote, " Two-sided signifiance levels reported. Standard errors in parentheses."), covlabels=covlabels)
-
-
-```
-
-```{r correltabinfra, echo=FALSE, results='asis'}
-
-m1 = update.formula(update.formula(form_random_component_FE, form_std), form_extraregressor)
-
-out5=regmodel(formula=m1, dat=elast, model='lmer')
-
-# collect fixed effects
-res=rbindlist(lapply(seq(along=out5), function(x) {
- varname=names(out5)[x]
- coefs=data.frame(coef(summary(out5[[x]]$lt[[1]])))
- coefs$country=gsub('as.factor[(]country[)]', '', rownames(coefs))
- coefs=data.table(coefs)[country%in%unique(elast$country)]
- coefs=rbindlist(list(coefs, data.table(0,0,0,'australia')))
- setnames(coefs, c('fe','se','t','country'))
- return(coefs[, ':=' (se=NULL,t=NULL, varname=varname)])
-}))
-
-fixedeffects=dcast(res,country~varname, value.var='fe')
-
-tmp <- merge(fixedeffects, gci, by = c('country'))
-tmp[, ':=' (country=NULL)]
-
-out=corstars(as.matrix(tmp))
-
-out=data.frame(corstars(as.matrix(tmp)))
-out=out[-c(1:4),c(1:4)]
-
-
-tmp = out
-tmp$variable<-rownames(tmp)
-tmp$variable_renamed=sapply(rownames(tmp), rename.fkt, dictionary='renaming_gci.txt')
-tmp = tmp[, c('variable', 'variable_renamed', ordered_vars)]
-rownames(tmp)<-NULL
-colnames(tmp)<-sapply(colnames(tmp), rename.fkt)
-colnames(tmp)[3:6]<-paste0(colnames(tmp)[3:6], c(' fixed-effect'))
-tmp=data.table(tmp)[grepl('[_]s$', variable)]
-
-filters <- list(c(regex='overall[_]|sub[_]', name='summarized pillars in global competitiveness report'),
-                c(regex='gci[_]p[0-9]', name='12 pillars in global competitiveness report'))#,
-                #c(regex='gci[_][0-9]', name='individual items in global competitiveness report'))
-
-tableno_fixed = tableno
-
-for (filt in filters) {                
-  cat("<P style='page-break-before: always'>")
-
-print(kable(tmp[grepl(filt["regex"], variable),][, variable:=NULL], caption = tab(paste0('Correlations of ', filt["name"], ' (scores) with marketing-mix elasticities')),
-      format='html', initial.zero = FALSE) %>%
-        kable_styling() %>% footnote(general=paste0('Note: Table reports, for each marketing mix instrument, the correlations between the scores of ', filt["name"], ' (2010/2011 data, see https://www.weforum.org/reports/global-competitiveness-report-2010-2011), and the country-fixed effects reported in Table ', tableno_fixed, '. N = ', nrow(fixedeffects), '. Significance levels: *p<.1, **p<.05, ***p<.01, ****p<.001.')))
-}
-
-```
 
 ```{r report_pca, echo=FALSE,results='asis'} 
 
@@ -655,4 +584,32 @@ tmp=sanitize_table(tmp)
 
 
 kable(tmp, caption = tab('Overview of selected brands, ordered by the number of countries and categories it is active in', prefix ='A'))
+```
+
+```{r robustness_regs, echo = FALSE, results='asis'}
+
+modellist = lapply(c('sbbe_std_mc', 'sbbe_mc', 'sbbelt_mc', 'ln_overall_ms_mc', 'brandz'), 
+                   function(x) update.formula(update.formula(form_modelbasis, .~.+emerging), as.formula(paste0('.~. +', x))))
+
+out1=regmodel(formula=modellist, dat=elast, model='lmer')
+
+# assemble all variables
+covlabels=unlist(sanitize_table(data.frame(unique(unlist(lapply(out1[[1]]$lt, function(x) colnames(x@pp$X)))))))
+covlabels=c(covlabels[-which(covlabels=='(Intercept)')], 'Constant')
+
+varsord = rep(ordered_vars,each=1)
+names(varsord) <- paste0(unlist(sanitize_table(data.frame(varsord))), ' elasticity')
+
+notes_base = paste0("Regression of long-term elasticities on explanatory variables and three random effects, for brands, categories, and countries, respectively. Estimated using a linear mixed-effects model. ", estimnote, " Two-sided significance levels reported. Standard errors in parentheses.")
+
+#sink('../temp/test.html')
+names(ordered_vars)=rename.fkt(ordered_vars)
+
+cat("<P style='page-break-before: always'>")
+printout(out1, 'lt', omit=NULL, title = tab('Model selection: regression with long-term elasticities in a pooled sample of developed and emerging countries'), vars=ordered_vars[1:2], notes=notes_base, covlabels=covlabels, column.separate=unlist(lapply(out1[ordered_vars[1:2]], function(x) length(x$lt))))
+
+cat("<P style='page-break-before: always'>")
+printout(out1, 'lt', omit=NULL, title = tab('Model selection: regression with long-term elasticities in a pooled sample of developed and emerging countries'), vars=ordered_vars[3:4], notes=notes_base, covlabels=covlabels, column.separate=unlist(lapply(out1[ordered_vars[3:4]], function(x) length(x$lt))))
+
+#sink()
 ```
