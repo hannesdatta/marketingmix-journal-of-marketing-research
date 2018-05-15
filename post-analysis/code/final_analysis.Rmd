@@ -203,7 +203,6 @@ Appliance (versus electronics)| Dummy, equaling 1 for appliances (washing machin
 Category growth       | Log of a market's average growth rate in the observation period.^2^
 Category concentration     | Log of Herfindahl index in a market.
 Domestic versus foreign brand | Dummy, equaling 1 if a brand's headquarter is located in the focal country, 0 if not.
-Western brand | Dummy variable, equaling 1 if brand is headquartered in Western countries, 0 if not.
 Brand equity               | Sales-based brand equity, obtained as a transformation of the brand-specific intercept from the market share attraction model; (a) short-term, (b) long-term, (c) standardized by category.    | Datta, Ailawadi, and van Heerde (2017)
 Brand-level market share  | Log of a brand's average market share in a market over the observation period.
 Price index | Log of a brand's average price (deflated sales value devided by the brand's sales volume over the observation period), indexed by the maximum price in a given category and country.
@@ -220,7 +219,7 @@ Subindex innovation and sophistication factors | Score based on a country's deve
 
 ```{r summarystats, echo=FALSE}
 
-covars <- c('appliance', 'market_growth', 'herf', 'local_to_market', 'western_brand', 'sbbe_std', 'sbbe', 'sbbelt', 'overall_ms', 'overall_prindex', 'brandz', 'gci_overall_s', 'gci_sub_basicrequire_s', 'gci_sub_efficiencyenhance_s', 'gci_sub_innovation_s')
+covars <- c('appliance', 'market_growth', 'herf', 'local_to_market', 'sbbe_std', 'sbbe', 'sbbelt', 'overall_ms', 'overall_prindex', 'brandz', 'gci_overall_s', 'gci_sub_basicrequire_s', 'gci_sub_efficiencyenhance_s', 'gci_sub_innovation_s')
 
 tmp=data.table(elast)
 nbrands=length(unique(tmp$brand))
@@ -267,7 +266,7 @@ On sample of `r length(unique(elast$brand))` unique brands (excluding `r paste0(
 ```{r elast_hist_by_emerging, echo=F}
 
 # define median split variables
-covars <- c('appliance', 'market_growth', 'herf', 'local_to_market', 'western_brand', 'sbbe_std', 'sbbe', 'sbbelt', 'overall_ms', 'overall_prindex', 'brandz')
+covars <- c('appliance', 'market_growth', 'herf', 'local_to_market', 'sbbe_std', 'sbbe', 'sbbelt', 'overall_ms', 'overall_prindex', 'brandz')
 
 # calculate split levels (if binary, take 0 and 1)
 out=lapply(covars, function(.var) {
