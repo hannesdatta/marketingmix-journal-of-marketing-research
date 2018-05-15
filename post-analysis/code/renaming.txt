@@ -93,7 +93,7 @@ nbrands	Number of brands	gsub
 country[_]of[_]origin	Country of origin	gsub
 Country[_]of[_]origin	Country of origin	gsub
 asian[_]brand	Asian brand	gsub
-gci[_]overall	Global competitiveness index (overall)	grepl
+gci[_]overall	Global competitiveness index	grepl
 gci[_]sub[_]basicrequire	Subindex basic requirements	grepl
 gci[_]sub[_]efficiencyenhance	Subindex efficiency enhancers	grepl
 gci[_]sub[_]innovation	Subindex innovation and sophistication factors	grepl
@@ -101,3 +101,4 @@ all[_]brands	List of brands	gsub
 other[_]brand	Brand from other country	gsub
 brandz	BrandZ listing	gsub
 gcifactor[_]mc|gcifactor	GCI component (score from PCA)	grepl
+gci[_]00.03[_]gdppercap_s	GDP per capita	gsub
