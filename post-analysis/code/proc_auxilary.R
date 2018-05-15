@@ -166,3 +166,11 @@ winsor_onesided <- function(x, fraction, side='both') {
   
     x
 }
+
+
+my_capitalize <- function(x) {
+  sapply(stri_trans_totitle(x), function(y) {
+    if (nchar(y)<=3) return(toupper(y)) else return(y)
+    
+  })
+}

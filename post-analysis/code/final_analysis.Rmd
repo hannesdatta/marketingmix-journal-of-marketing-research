@@ -116,12 +116,6 @@ setorderv(tmp, c('category', 'appliance', 'overall_ms'), order=-1L)
 tmp[!brand%in%c('unbranded','local'), rank:=1:.N, by = c('category')]
 tmp[, brand_include:= rank%in%1:5]
 
-my_capitalize <- function(x) {
-  sapply(stri_trans_totitle(x), function(y) {
-    if (nchar(y)<=3) return(toupper(y)) else return(y)
-    
-  })
-}
 
 tmp=tmp[, list(cattype=ifelse(unique(appliance)==1, 'Appliance', 'Electronics'), ncountries=unique(ncountries), nbrands=length(unique(brand)), exemplary_brand_names=paste0((my_capitalize(unique(brand[brand_include==T]))), collapse=', ')), by='category']
 tmp=sanitize_table(tmp)
@@ -494,18 +488,14 @@ cat("<P style='page-break-before: always'>")
 
 ```{r sample_origin, echo=FALSE, results='asis'}
 
-cols =  c('country_of_origin', 'western_brand', 'asian_brand', 'other_brand', 'brandz')
+cols =  c('country_of_origin')
 tmp = elast[, list(.N), by = c('brand',cols)]
 tmp = tmp[, list(nbrands=length(unique(brand)), all_brands=paste(stri_trans_totitle(brand[order(brand)]), collapse=', ')), by = cols]
 tmp[country_of_origin==''|is.na(country_of_origin), country_of_origin := 'Country not available']
-tmp[, country_of_origin:=stri_trans_totitle(country_of_origin)]
-tmp[, other_brand:=as.character(ifelse(other_brand==1, 'yes', NA))]
-tmp[, western_brand:=as.character(ifelse(western_brand==1, 'yes', NA))]
-tmp[, asian_brand:=as.character(ifelse(asian_brand==1, 'yes', NA))]
-tmp[, brandz:=as.character(ifelse(brandz==1, 'yes', NA))]
+tmp[, country_of_origin:=my_capitalize(country_of_origin)]
 
 setorderv(tmp, 'nbrands', order=-1L)
-setcolorder(tmp, c('country_of_origin', 'nbrands', 'western_brand', 'asian_brand', 'other_brand', 'brandz', 'all_brands'))
+setcolorder(tmp, c('country_of_origin', 'nbrands', 'all_brands'))
 
 tmp=sanitize_table(tmp)
 
