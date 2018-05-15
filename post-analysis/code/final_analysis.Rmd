@@ -219,7 +219,7 @@ Subindex innovation and sophistication factors | Score based on a country's deve
 
 ```{r summarystats, echo=FALSE}
 
-covars <- c('appliance', 'market_growth', 'herf', 'local_to_market', 'sbbe_std', 'sbbe', 'sbbelt', 'overall_ms', 'overall_prindex', 'brandz', 'gci_overall_s', 'gci_sub_basicrequire_s', 'gci_sub_efficiencyenhance_s', 'gci_sub_innovation_s')
+covars <- c('appliance', 'market_growth', 'herf', 'local_to_market', 'sbbe_std', 'sbbe', 'sbbelt', 'overall_ms', 'overall_prindex', 'brandz')
 
 tmp=data.table(elast)
 nbrands=length(unique(tmp$brand))
@@ -260,51 +260,6 @@ excluded_brands=setdiff(unique(elast_all$brand), unique(elast$brand))
 ```
 
 On sample of `r length(unique(elast$brand))` unique brands (excluding `r paste0(my_capitalize(excluded_brands), collapse=', ')`).
-
-## Plots
-
-```{r elast_hist_by_emerging, echo=F}
-
-# define median split variables
-covars <- c('appliance', 'market_growth', 'herf', 'local_to_market', 'sbbe_std', 'sbbe', 'sbbelt', 'overall_ms', 'overall_prindex', 'brandz')
-
-# calculate split levels (if binary, take 0 and 1)
-out=lapply(covars, function(.var) {
-  is_binary = all(elast[, get(.var)]%in%c(0,1))
-  
-  if (is_binary==T) elast[!is.na(get(.var)), splitvar := ifelse(get(.var)==1, 'yes', 'no')]
-  if (is_binary==F) {
-    # calculate median
-    median = median(elast[, get(.var)])
-    elast[!is.na(get(.var)), splitvar := ifelse(get(.var)>=median, 'high', 'low')]
-  }
-  tmp=elast[!is.na(elastlt), list(meanelast = sum(elastlt*w_elastlt)/sum(w_elastlt)), by = c('variable','emerging','splitvar')]
-  tmp[, ordered_rank:=match(variable, ordered_vars)]
-  setorder(tmp, ordered_rank)
-  tmp[, splitname:=.var]
-  tmp[, emerging_label:=ifelse(emerging==1, 'emerging country', 'developed country')]
-  tmp[, variable_label:=gsub(' activity', ' \nactivity', as.factor(rename.fkt(variable)))]
-  return(tmp)
-})
-
-for (iter in seq(along=out)) {
-  tmp=out[[iter]]#[splitname==.var]
-
-tmp[, splitlabel := paste0(rename.fkt(splitname), ':\n', splitvar)]
-titlecall=fig(paste0('Marketing mix elasticities for different values of ', rename.fkt(unique(tmp$splitname))))
-              
-tmp$variable_label <- reorder(tmp$variable_label, match(tmp$variable, ordered_vars))
-
-
- sp<- ggplot(tmp, aes(x=variable_label, y=meanelast))+ geom_bar(position=position_dodge(), stat="identity") +  theme_bw() + scale_fill_grey() +ylab("Elasticity") +  xlab("Marketing mix instrument") +labs(title = titlecall)+ theme(plot.title = element_text(size=10))
-
- pl2=sp + facet_grid(splitlabel ~ emerging_label, switch='y')  
-  print(pl2)
-} 
-  
-```
-
-Notes: `r estimnote`
 
 ## Model selection 
 
@@ -615,7 +570,7 @@ kable(out, format='html',caption = tab('Average category growth rates for develo
 
 ```{r VIFS, echo=FALSE,results='asis'}
 
-m1 = ~1+ appliance + ln_market_growth_mc + ln_herf_mc + local_to_market + western_brand + ln_overall_prindex_mc 
+m1 = ~1+ appliance + ln_market_growth_mc + ln_herf_mc + local_to_market  + ln_overall_prindex_mc 
 
 m<-lm(update(elast~., m1), data=elast[variable=='llen'])
 
