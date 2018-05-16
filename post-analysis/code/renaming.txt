@@ -19,6 +19,7 @@ Usa	USA	gsub
 othercountry	Other country	gsub
 ^country	Country	gsub
 gdppercap2010	GDP per capita	gsub
+ln_hdi2010_mc	Human Development Index	gsub
 hdi2010	Human Development Index	gsub
 llen	line length	gsub
 wpswdst	distribution	gsub
@@ -56,9 +57,9 @@ melast	Mean elasticity	grepl
 mmixinstr	Marketing-mix instrument	gsub
 Neffects	Number of estimates	grepl
 .*[_]sig	sig.	gsub
-[*] developed	   x developed country	grepl
-[*] emerging	   x emerging country	grepl
-[*] gcifactor	   x GCI component score	grepl
+[*] developed	     x developed country	grepl
+[*] emerging	     x emerging country	grepl
+[*] gcifactor	     x GCI component score	grepl
 necessity	Appliance (vs. electronics)	gsub
 appliance	Appliance (vs. electronics)	gsub
 western[_]brand	Western brand	grepl
@@ -66,10 +67,10 @@ ln_market_growth_mc	Log of category growth	gsub
 ^market_growth	Category growth	gsub
 ln_herf_mc	Log of category concentration	gsub
 ^herf	Category concentration	gsub
-ln_overall[_]ms[_]mc	Log of brand-level market share	gsub
+ln_overall[_]ms[_]mc	Log of market share	gsub
 ^overall[_]ms	Brand-level market share	grepl
-ln_overall[_]prindex[_]mc	Log of brand-level price index	gsub
-^overall[_]prindex	Brand-level price index	grepl
+ln_overall[_]prindex[_]mc	Log of price index	gsub
+^overall[_]prindex	Price index	grepl
 local_to_market	Domestic (vs. foreign) brand	grepl
 sbbelt|sbbelt[_]mc	Brand equity (long-term, not standardized)	gsub
 sbbe[_]std|sbbe[_]std[_]mc	Brand equity	gsub
@@ -101,5 +102,7 @@ all[_]brands	List of brands	gsub
 other[_]brand	Brand from other country	gsub
 brandz	BrandZ listing	gsub
 gcifactor[_]mc|gcifactor	GCI component (score from PCA)	grepl
-gci[_]00.03[_]gdppercap_s	GDP per capita	gsub
+ln[_]gci[_]00.03[_]gdppercap_s[_]mc	GDP per capita	gsub
+gci[_]00.03[_]gdppercap_s[_]mc	GDP per capita	gsub
+ln[_]gci[_]overall[_]s[_]mc	Global competitiveness index	gsub
 variable	Variable	gsub

@@ -32,7 +32,9 @@ options(knitr.kable.NA = '')
 ordered_vars = c('rwpspr', 'wpswdst','llen','nov6sh')
 
 # fix 'standard' covariates
-form_main_model = .~1+ (1|brand) + (1|category) + (1|country) + appliance + ln_market_growth_mc + ln_herf_mc + local_to_market + ln_overall_prindex_mc + sbbe_std_mc + emerging
+form_main_model = .~1+ (1|brand) + (1|category) + (1|country) + emerging + appliance + ln_market_growth_mc + ln_herf_mc + local_to_market + ln_overall_prindex_mc + sbbe_std_mc 
+
+form_interact = ~1+ (1|brand) + (1|category) + (1|country) + emerging + appliance + I(appliance*emerging) + ln_market_growth_mc + I(ln_market_growth_mc*emerging) + ln_herf_mc + I(ln_herf_mc*emerging) + local_to_market + I(local_to_market*emerging) + ln_overall_prindex_mc + I(ln_overall_prindex_mc*emerging) + sbbe_std_mc + I(sbbe_std_mc*emerging)
 
 
 form_random_component = .~1+ (1|brand) + (1|category) + (1|country)
@@ -41,7 +43,6 @@ form_random_component_FE = .~1+ (1|brand) + (1|category) + as.factor(country)
 
 form_std = .~. + appliance + ln_market_growth_mc + ln_herf_mc + local_to_market + ln_overall_prindex_mc
 
-form_interact = ~1+ (1|brand) + (1|category) + (1|country) + emerging + appliance + I(appliance*emerging) + ln_market_growth_mc + I(ln_market_growth_mc*emerging) + ln_herf_mc + I(ln_herf_mc*emerging) + local_to_market + I(local_to_market*emerging) + ln_overall_prindex_mc + I(ln_overall_prindex_mc*emerging) + sbbe_std_mc + I(sbbe_std_mc*emerging)
 
 form_interact_gci = ~1+ (1|brand) + (1|category) + (1|country) + gcifactor_mc + appliance + I(appliance*gcifactor_mc) + ln_market_growth_mc + I(ln_market_growth_mc*gcifactor_mc) + ln_herf_mc + I(ln_herf_mc*gcifactor_mc) + local_to_market + I(local_to_market*gcifactor_mc) + ln_overall_prindex_mc + I(ln_overall_prindex_mc*gcifactor_mc) + sbbe_std_mc + I(sbbe_std_mc*gcifactor_mc)
 
@@ -202,10 +203,8 @@ Appliance (versus electronics)| Dummy, equaling 1 for appliances (washing machin
 Category growth       | Log of a market's average growth rate in the observation period.^1^
 Category concentration     | Log of Herfindahl index in a market.
 Domestic versus foreign brand | Dummy, equaling 1 if a brand's headquarter is located in the focal country, 0 if not.
-Brand equity               | Sales-based brand equity, obtained as a transformation of the brand-specific intercept from the market share attraction model, standardized by category. | Datta, Ailawadi, and van Heerde (2017)
-Brand-level market share  | Log of a brand's average market share in a market over the observation period.
 Price index | Log of a brand's average price (deflated sales value devided by the brand's sales volume over the observation period), indexed by the maximum price in a given category and country.
-Global brand (BrandZ) | Dummy, equaling 1 if a brand is listed in either *BrandZ's Top 100 Most Valuable global brands (2010)*, or *BrandZ's Top 50 Most Valuable Chinese Brands (2011)* | ...
+Brand equity               | Sales-based brand equity, obtained as a transformation of the brand-specific intercept from the market share attraction model, standardized by category. | Datta, Ailawadi, and van Heerde (2017)
 
 *Note:* All continuous variables are logged and mean-centered before model estimation (except brand equity, which is only mean-centered as this variable can take on negative values). 
 
@@ -253,11 +252,59 @@ excluded_brands=setdiff(unique(elast_all$brand), unique(elast$brand))
 
 On sample of `r length(unique(elast$brand))` unique brands (excluding `r paste0(my_capitalize(excluded_brands), collapse=', ')`).
 
-## Model selection 
-
 ```{r main_regs, echo = FALSE, results='asis'}
 
-out1=regmodel(formula=form_main_model, dat=elast, model='lmer')
+out1=regmodel(formula=c(main=form_main_model, interact=form_interact), dat=elast, model='lmer')
+#out2=regmodel(formula=form_main_model, dat=elast, model='lmer')
+
+#varsord = rep(ordered_vars,each=1)
+#names(varsord) <- paste0(unlist(sanitize_table(data.frame(varsord))), ' elasticity')
+names(ordered_vars) <- paste0(unlist(sanitize_table(data.frame(ordered_vars))), ' elasticity')
+
+notes_base = paste0("Regression of long-term elasticities on explanatory variables and three random effects, for brands, categories, and countries, respectively. Estimated using a linear mixed-effects model. ", estimnote, " Two-sided significance levels reported. Standard errors in parentheses.")
+
+main = lapply(out1, function(x) {x$lt <- list(x$lt$main); x$st <- list(x$st$main); x})
+interact = lapply(out1, function(x) {x$lt <- list(x$lt$interact); x$st <- list(x$st$interact); x})
+
+# assemble all variables
+#sink('../temp/test.html')
+
+covlabels=unlist(sanitize_table(data.frame(unique(unlist(lapply(main[[1]]$lt, function(x) colnames(x@pp$X)))))))
+covlabels=c(covlabels[-which(covlabels=='(Intercept)')], 'Constant')
+
+cat("<P style='page-break-before: always'>")
+printout(main, 'stlt', omit=NULL, title = tab('Regression with short- and long-term elasticities in a pooled sample of developed and emerging countries'), vars=ordered_vars, notes=notes_base, covlabels=covlabels, column.separate=rep(2, each=length(out1)),
+         dep.var.labels.include=T, dep.var.labels=rep(c('short-term', 'long-term'),4),
+         table.layout=c('-c#dm-t-s-n'))
+
+
+covlabels=unlist(sanitize_table(data.frame(unique(unlist(lapply(interact[[1]]$lt, function(x) colnames(x@pp$X)))))))
+covlabels=c(covlabels[-which(covlabels=='(Intercept)')], 'Constant')
+
+cat("<P style='page-break-before: always'>")
+printout(interact, 'stlt', omit=NULL, title = tab('Regression with short- and long-term elasticities in a pooled sample of developed and emerging countries, with interactions'), vars=ordered_vars, notes=notes_base, covlabels=covlabels, column.separate=rep(2, each=length(out1)),
+         dep.var.labels.include=T, dep.var.labels=rep(c('short-term', 'long-term'),4),
+         table.layout=c('-c#dm-t-s-n'))
+
+#sink()
+
+```
+
+# Robustness checks
+
+## Different variables to measure a country's development status
+
+- Log of GDP per capita
+- Log of Global Competitiveness Index
+- Log of Human Development Index
+- Socio-economic development of a country (score from principal component analysis on selected items from the Global Competitiveness Report, not logged as this score takes on negative values)
+
+```{r robustness_regs, echo = FALSE, results='asis'}
+
+modellist = lapply(c('emerging', 'ln_gci_00.03_gdppercap_s_mc', 'ln_gci_overall_s_mc', 'ln_hdi2010_mc', 'gcifactor_mc'), 
+                   function(x) update.formula(update.formula(form_main_model, .~.-emerging), as.formula(paste0('.~. +', x))))
+
+out1=regmodel(formula=modellist, dat=elast, model='lmer')
 
 # assemble all variables
 covlabels=unlist(sanitize_table(data.frame(unique(unlist(lapply(out1[[1]]$lt, function(x) colnames(x@pp$X)))))))
@@ -272,87 +319,42 @@ notes_base = paste0("Regression of long-term elasticities on explanatory variabl
 names(ordered_vars)=rename.fkt(ordered_vars)
 
 cat("<P style='page-break-before: always'>")
-printout(out1, 'stlt', omit=NULL, title = tab('Model selection: regression with long-term elasticities in a pooled sample of developed and emerging countries'), vars=ordered_vars, notes=notes_base, covlabels=covlabels, column.separate=rep(2, each=length(out1)),
-         dep.var.labels.include=T, dep.var.labels=rep(c('short-term', 'long-term'),4),
-         table.layout=c('-c#dm-t-s-n'))
-
-#sink()
-
-```
-
-```{r randomcombined1, echo = FALSE, results='asis'}
-m1 = update.formula(form_modelbasis, form_extraregressor)
-m1b = update.formula(m1, .~.+emerging)
-
-names(ordered_vars) <- paste0(unlist(sanitize_table(data.frame(ordered_vars))), ' elasticity')
-
-out1=regmodel(formula=list(m1b), dat=elast, model='lmer')
-carry_forward_model_for_plotting = out1
-
-notes_base = paste0("Regression of long-term elasticities on explanatory variables and three random effects, for brands, categories, and countries, respectively. Estimated using a linear mixed-effects model. ", estimnote, " Two-sided significance levels reported. Standard errors in parentheses.")
+printout(out1, 'lt', omit=NULL, title = tab('Regression with long-term elasticities on covariates and different indicators for a country\'s state of development'), vars=ordered_vars[1:2], notes=notes_base, covlabels=covlabels, column.separate=unlist(lapply(out1[ordered_vars[1:2]], function(x) length(x$lt))))
 
 cat("<P style='page-break-before: always'>")
+printout(out1, 'lt', omit=NULL, title = tab('Regression with long-term elasticities on covariates and different indicators for a country\'s state of development'), vars=ordered_vars[3:4], notes=notes_base, covlabels=covlabels, column.separate=unlist(lapply(out1[ordered_vars[3:4]], function(x) length(x$lt))))
+#sink()
+```
 
+## Assessing robustness of brand equity metric
+
+Replace Brand equity (SBBE) by dummy variable, equaling 1 if a brand is listed in either *BrandZ's Top 100 Most Valuable global brands (2010)*, or *BrandZ's Top 50 Most Valuable Chinese Brands (2011)*.
+
+```{r robustness_regs_equity, echo = FALSE, results='asis'}
+
+modellist = lapply(c('sbbe_std_mc', 'overall_ms_mc', 'brandz'), 
+                   function(x) update.formula(update.formula(form_main_model, .~.-sbbe_std_mc), as.formula(paste0('.~. +', x))))
+
+out1=regmodel(formula=modellist, dat=elast, model='lmer')
+
+# assemble all variables
 covlabels=unlist(sanitize_table(data.frame(unique(unlist(lapply(out1[[1]]$lt, function(x) colnames(x@pp$X)))))))
 covlabels=c(covlabels[-which(covlabels=='(Intercept)')], 'Constant')
 
-printout(out1, 'st', omit=NULL, title = tab('DV: short-term elasticities, pooled sample of developed and emerging countries'), vars=ordered_vars,notes=gsub('long[-]term', 'short-term', notes_base), covlabels=covlabels,
-         column.separate=unlist(lapply(out1, function(x) length(x$lt))))
+varsord = rep(ordered_vars,each=1)
+names(varsord) <- paste0(unlist(sanitize_table(data.frame(varsord))), ' elasticity')
 
+notes_base = paste0("Regression of long-term elasticities on explanatory variables and three random effects, for brands, categories, and countries, respectively. Estimated using a linear mixed-effects model. ", estimnote, " Two-sided significance levels reported. Standard errors in parentheses.")
 
-cat("<P style='page-break-before: always'>")
-
-printout(out1, 'lt', omit=NULL, title = tab('DV: long-term elasticities, pooled sample of developed and emerging countries'), vars=ordered_vars,notes=notes_base, covlabels=covlabels,
-         column.separate=unlist(lapply(out1, function(x) length(x$lt))))
-
-# interaction model
-m2 = form_interact
+#sink('../temp/test.html')
+names(ordered_vars)=rename.fkt(ordered_vars)
 
 cat("<P style='page-break-before: always'>")
-out4=regmodel(formula=m2, dat=elast, model='lmer')
+printout(out1, 'lt', omit=NULL, title = tab('Regression with long-term elasticities on covariates and different indicators for brand equity'), vars=ordered_vars[1:2], notes=notes_base, covlabels=covlabels, column.separate=unlist(lapply(out1[ordered_vars[1:2]], function(x) length(x$lt))))
 
-covlabels=unlist(sanitize_table(data.frame(colnames(out4[[1]]$lt[[1]]@pp$X))))
-covlabels=c(covlabels[-which(covlabels=='(Intercept)')], 'Constant')
-
-printout(out4, 'lt', omit=NULL, title = tab('DV: long-term elasticities, pooled sample of developed and emerging countries with interactions'), vars=ordered_vars, notes=paste0(notes_base), covlabels=covlabels)
-
-```
-
-```{r ploteffects, echo = FALSE, include = FALSE}
-names(carry_forward_model_for_plotting)
-j=1
-
-outmod=lapply(seq(along=carry_forward_model_for_plotting), function(mod) {
-  
-  predmodel = carry_forward_model_for_plotting[[mod]]$lt[[j]]
-  preddat = data.table(predmodel@frame)
-  preddat[, predicted:=predict(predmodel)]
-  tmp=preddat[, list(meanpred=mean(predicted), sd=sd(predicted)),by=c('emerging')]
-  tmp[, variable:=names(carry_forward_model_for_plotting)[mod]]
-  return(tmp)
-})
-
-outmod=rbindlist(outmod)
-
-pl<-lapply(ordered_vars, function(.var) {
-  tmp=outmod[variable==.var]
-  ggplot(tmp, aes(x=ifelse(emerging==1, 'developed', 'emerging'), y=meanpred, fill=ifelse(emerging==1, 'developed', 'emerging'))) + 
-    theme_bw() + 
-    geom_bar(position=position_dodge(), stat="identity") + 
-    scale_fill_grey() + 
-    labs(title = fig(paste0("", rename.fkt(.var)," elasticity"))) + 
-    guides(fill=guide_legend("Development status")) +
-    xlab("Development status") + 
-    ylab("Elasticity")+ theme(plot.title = element_text(size=10)) +
-    geom_errorbar(aes(ymin=meanpred-sd, ymax=meanpred+sd),
-                  width=.2,                    # Width of the error bars
-                  position=position_dodge(.9))
-
-  })
-
-ggarrange(plotlist=pl, common.legend=TRUE, legend='bottom')
-
-
+cat("<P style='page-break-before: always'>")
+printout(out1, 'lt', omit=NULL, title = tab('Regression with long-term elasticities on covariates and different indicators for brand equity'), vars=ordered_vars[3:4], notes=notes_base, covlabels=covlabels, column.separate=unlist(lapply(out1[ordered_vars[3:4]], function(x) length(x$lt))))
+#sink()
 ```
 
 
@@ -434,10 +436,7 @@ kable(tmp, caption = tab('Country-of-origins for brands in sample, ordered by th
 ```
 
 
-
-
-
-```{r elast_by_win, echo=F,results='asis'}
+```{r elast_by_win, echo=F,results='asis', include=FALSE}
 
 for (byvar in c('category', 'country')) {
   tmp=elast[!is.na(elastlt), list(elast = sum(elastlt*w_elastlt)/sum(w_elastlt)), by=c('variable', byvar)]
@@ -586,30 +585,3 @@ tmp=sanitize_table(tmp)
 kable(tmp, caption = tab('Overview of selected brands, ordered by the number of countries and categories it is active in', prefix ='A'))
 ```
 
-```{r robustness_regs, echo = FALSE, results='asis'}
-
-modellist = lapply(c('sbbe_std_mc', 'sbbe_mc', 'sbbelt_mc', 'ln_overall_ms_mc', 'brandz'), 
-                   function(x) update.formula(update.formula(form_modelbasis, .~.+emerging), as.formula(paste0('.~. +', x))))
-
-out1=regmodel(formula=modellist, dat=elast, model='lmer')
-
-# assemble all variables
-covlabels=unlist(sanitize_table(data.frame(unique(unlist(lapply(out1[[1]]$lt, function(x) colnames(x@pp$X)))))))
-covlabels=c(covlabels[-which(covlabels=='(Intercept)')], 'Constant')
-
-varsord = rep(ordered_vars,each=1)
-names(varsord) <- paste0(unlist(sanitize_table(data.frame(varsord))), ' elasticity')
-
-notes_base = paste0("Regression of long-term elasticities on explanatory variables and three random effects, for brands, categories, and countries, respectively. Estimated using a linear mixed-effects model. ", estimnote, " Two-sided significance levels reported. Standard errors in parentheses.")
-
-#sink('../temp/test.html')
-names(ordered_vars)=rename.fkt(ordered_vars)
-
-cat("<P style='page-break-before: always'>")
-printout(out1, 'lt', omit=NULL, title = tab('Model selection: regression with long-term elasticities in a pooled sample of developed and emerging countries'), vars=ordered_vars[1:2], notes=notes_base, covlabels=covlabels, column.separate=unlist(lapply(out1[ordered_vars[1:2]], function(x) length(x$lt))))
-
-cat("<P style='page-break-before: always'>")
-printout(out1, 'lt', omit=NULL, title = tab('Model selection: regression with long-term elasticities in a pooled sample of developed and emerging countries'), vars=ordered_vars[3:4], notes=notes_base, covlabels=covlabels, column.separate=unlist(lapply(out1[ordered_vars[3:4]], function(x) length(x$lt))))
-
-#sink()
-```
