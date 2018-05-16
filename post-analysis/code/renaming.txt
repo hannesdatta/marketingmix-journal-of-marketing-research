@@ -103,6 +103,6 @@ other[_]brand	Brand from other country	gsub
 brandz	BrandZ listing	gsub
 gcifactor[_]mc|gcifactor	GCI component (score from PCA)	grepl
 ln[_]gci[_]00.03[_]gdppercap_s[_]mc	GDP per capita	gsub
-gci[_]00.03[_]gdppercap_s[_]mc	GDP per capita	gsub
+gci[_]00.03[_]gdppercap_s[_]mc|gci[_]00.03[_]gdppercap_s	GDP per capita	gsub
 ln[_]gci[_]overall[_]s[_]mc	Global competitiveness index	gsub
 variable	Variable	gsub

@@ -106,7 +106,7 @@ first_emerging=match(0,tmp$developed)
 tmp[, developed:=NULL]
 
 kable(sanitize_table(tmp), format='html', initial.zero = FALSE, caption=tab('Development indicators for countries in sample')) %>%
-        kable_styling() %>% footnote(general='Countries ranked by GDP per capita.', alphabet=c("GDP per capita in current USD, 2010 data, IMF World Economic Outlook Database (April 2010). Extracted from the World Economic Forum's Global Competitiveness Report (2010/2011, available at https://www.weforum.org/reports/global-competitiveness-report-2010-2011).", "Global Competitiveness Index captures microeconomic and macroeconomic foundations of national competitiveness, and is exctracted from the World Economic Forum's Global Competitiveness Report (link see above).", "Human Development Index (HDI), 2010 data, obtained from UN Development Programme (http://hdr.undp.org/en/content/human-development-index-hdi). Taiwan's HDI has been imputed as the mean HDI of Thailand and China.")) %>%
+        kable_styling() %>% footnote(general='Countries ranked by GDP per capita.', alphabet=c("GDP per capita is in current USD, based on IMF World Economic Outlook Database (April 2010). Global Competitiveness Index captures microeconomic and macroeconomic foundations of national competitiveness. Both measures are extracted from the World Economic Forum's Global Competitiveness Report (2010/2011, available at https://www.weforum.org/reports/global-competitiveness-report-2010-2011).", "Human Development Index (HDI), 2010 data, obtained from UN Development Programme (http://hdr.undp.org/en/content/human-development-index-hdi). Taiwan's HDI has been imputed as the mean HDI of Thailand and China.")) %>%
   group_rows("Developed economies", 1, first_emerging-1) %>%
   group_rows("Emerging economies", first_emerging, 14)
 
@@ -294,6 +294,7 @@ printout(interact, 'stlt', omit=NULL, title = tab('Regression with short- and lo
 
 ## Different variables to measure a country's development status
 
+- Developing country indicator (1-emerging country indicator)
 - Log of GDP per capita
 - Log of Global Competitiveness Index
 - Log of Human Development Index
@@ -301,7 +302,7 @@ printout(interact, 'stlt', omit=NULL, title = tab('Regression with short- and lo
 
 ```{r robustness_regs, echo = FALSE, results='asis'}
 
-modellist = lapply(c('emerging', 'ln_gci_00.03_gdppercap_s_mc', 'ln_gci_overall_s_mc', 'ln_hdi2010_mc', 'gcifactor_mc'), 
+modellist = lapply(c('developed', 'ln_gci_00.03_gdppercap_s_mc', 'ln_gci_overall_s_mc', 'ln_hdi2010_mc', 'gcifactor_mc'), 
                    function(x) update.formula(update.formula(form_main_model, .~.-emerging), as.formula(paste0('.~. +', x))))
 
 out1=regmodel(formula=modellist, dat=elast, model='lmer')
@@ -328,7 +329,9 @@ printout(out1, 'lt', omit=NULL, title = tab('Regression with long-term elasticit
 
 ## Assessing robustness of brand equity metric
 
-Replace Brand equity (SBBE) by dummy variable, equaling 1 if a brand is listed in either *BrandZ's Top 100 Most Valuable global brands (2010)*, or *BrandZ's Top 50 Most Valuable Chinese Brands (2011)*.
+- Brand equity (SBBE)
+- Average market share
+- BrandZ dummy variable, equaling 1 if a brand is listed in either *BrandZ's Top 100 Most Valuable global brands (2010)*, or *BrandZ's Top 50 Most Valuable Chinese Brands (2011)*.
 
 ```{r robustness_regs_equity, echo = FALSE, results='asis'}
 
@@ -356,56 +359,6 @@ cat("<P style='page-break-before: always'>")
 printout(out1, 'lt', omit=NULL, title = tab('Regression with long-term elasticities on covariates and different indicators for brand equity'), vars=ordered_vars[3:4], notes=notes_base, covlabels=covlabels, column.separate=unlist(lapply(out1[ordered_vars[3:4]], function(x) length(x$lt))))
 #sink()
 ```
-
-
-```{r report_pca, echo=FALSE,results='asis'} 
-
-scores = fread('../output/pca_1comp_loadings.csv')
-setnames(scores, c('variable', 'stdloading'))
-
-scores[, variable_renamed:=sapply(variable, rename.fkt, dictionary='renaming_gci.txt')]
-setcolorder(scores, c('variable_renamed', 'stdloading', 'variable'))
-scores[, variable:=NULL]
-setnames(scores, 'variable_renamed', 'Variable')
-setnames(scores, 'stdloading', 'Standardized loading')
-
-print(kable(scores, caption = tab(paste0('Standardized loadings on principal component for GCI metrics')),
-      format='html', initial.zero = FALSE, digits = 3)%>%
-        kable_styling())
-
-```
-
-
-```{r randomcombined_factorscore, echo = FALSE, results='asis'}
-m1 = update.formula(form_modelbasis, form_extraregressor)
-m1b = update.formula(m1, .~.+gcifactor_mc)
-
-names(ordered_vars) <- paste0(unlist(sanitize_table(data.frame(ordered_vars))), ' elasticity')
-
-out1=regmodel(formula=list(m1b), dat=elast, model='lmer')
-carry_forward_model_for_plotting = out1
-
-notes_base = paste0("Regression of long-term elasticities on explanatory variables and three random effects, for brands, categories, and countries, respectively. Estimated using a linear mixed-effects model. ", estimnote, " Two-sided significance levels reported. Standard errors in parentheses.")
-
-cat("<P style='page-break-before: always'>")
-
-covlabels=unlist(sanitize_table(data.frame(unique(unlist(lapply(out1[[1]]$lt, function(x) colnames(x@pp$X)))))))
-covlabels=c(covlabels[-which(covlabels=='(Intercept)')], 'Constant')
-
-printout(out1, 'lt', omit=NULL, title = tab('DV: long-term elasticities, pooled sample of developed and emerging countries, with GCI component score'), vars=ordered_vars,notes=notes_base, covlabels=covlabels,
-         column.separate=unlist(lapply(out1, function(x) length(x$lt))))
-
-# interaction model
-cat("<P style='page-break-before: always'>")
-out4=regmodel(formula=form_interact_gci, dat=elast, model='lmer')
-
-covlabels=unlist(sanitize_table(data.frame(colnames(out4[[1]]$lt[[1]]@pp$X))))
-covlabels=c(covlabels[-which(covlabels=='(Intercept)')], 'Constant')
-
-printout(out4, 'lt', omit=NULL, title = tab('DV: long-term elasticities, pooled sample of developed and emerging countries, using interactions with the GCI component score'), vars=ordered_vars, notes=paste0(notes_base), covlabels=covlabels)
-
-```
-
 
 # Appendix
 
@@ -450,8 +403,9 @@ for (byvar in c('category', 'country')) {
   setorderv(tmp, colnames(tmp)[1])
   
   cat("<P style='page-break-before: always'>")
-  print(kable(tmp, digits=3, caption = tab(paste0('Long-term elasticities (by ', byvar, ')'), prefix='A'), format='html', initial.zero = FALSE) %>%
+  if(0){print(kable(tmp, digits=3, caption = tab(paste0('Long-term elasticities (by ', byvar, ')'), prefix='A'), format='html', initial.zero = FALSE) %>%
         kable_styling() %>% footnote(general=paste0('Note: ', estimnote, ' Reported by ', ifelse(byvar=='country', 'countries', 'categories'), ' in alphabetical order.')))
+  }
 }
   
 ```	
@@ -533,6 +487,25 @@ for (iter in iters) {
 }
 
 ```
+
+
+```{r report_pca, echo=FALSE,results='asis'} 
+
+scores = fread('../output/pca_1comp_loadings.csv')
+setnames(scores, c('variable', 'stdloading'))
+
+scores[, variable_renamed:=sapply(variable, rename.fkt, dictionary='renaming_gci.txt')]
+setcolorder(scores, c('variable_renamed', 'stdloading', 'variable'))
+scores[, variable:=NULL]
+setnames(scores, 'variable_renamed', 'Variable')
+setnames(scores, 'stdloading', 'Standardized loading')
+
+print(kable(scores, caption = tab(paste0('Standardized loadings on principal component for GCI metrics')),
+      format='html', initial.zero = FALSE, digits = 3)%>%
+        kable_styling())
+
+```
+
 
 # Estimation details
 
