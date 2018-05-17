@@ -24,6 +24,15 @@ names(regs) <- unique(dat$variable)
 return(regs)
 }
 
+rsq <- function(m) {
+  resid=resid(m)
+  pred=predict(m)
+  y=pred+resid
+  tss=sum((y-mean(y))^2)
+  rss=sum(resid^2)
+  rsq=1-(rss/tss)
+  return(rsq)
+}
 
 # test
 #~1+I(country_class=='linc')
@@ -35,7 +44,7 @@ return(regs)
 
 
 # Function to plot model results (next to each other)
-printout = function(x, type='st', vars=NULL, omit='category|brand', title='',printtype='html', notes=NULL,covlabels=NULL, dep.var.labels.include=FALSE, ...) {
+printout = function(x, type='st', vars=NULL, omit='category|brand', title='',printtype='html', notes=NULL,covlabels=NULL, dep.var.labels.include=FALSE, table.layout=c('-c#m-t-a-n'), ...) {
   if (is.null(vars)) vars=seq(along=x)
   
   if (type=='st') res = do.call('c', lapply(x[unique(vars)], function(m) m$st))
@@ -53,9 +62,12 @@ printout = function(x, type='st', vars=NULL, omit='category|brand', title='',pri
   
   if (!is.null(vars)) collabels=names(vars) else collabels=names(res)
   
+  r2s = c('R-squared', sub('^(-)?0[.]', '\\1.', formatC(sapply(res, rsq), digits=3, format='f', flag='#')))
+  obs = c('Observations', sapply(res, function(x) length(residuals(x))))
+  
   stargazer(res, type = printtype, omit=omit, title = title, column.labels=collabels, dep.var.caption=NULL, initial.zero=FALSE,
             notes.align='l',dep.var.labels.include = dep.var.labels.include, covariate.labels=covlabels,
-            notes=note_text, omit.stat=c('aic','bic'), single.row=T, ...)
+            notes=note_text, omit.stat=c('aic','bic'), single.row=T, table.layout=table.layout, add.lines=list(r2s,obs), ...)
 
 }
 

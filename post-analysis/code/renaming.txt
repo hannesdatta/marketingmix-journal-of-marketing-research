@@ -67,7 +67,7 @@ ln_market_growth_mc	Log of category growth	gsub
 ^market_growth	Category growth	gsub
 ln_herf_mc	Log of category concentration	gsub
 ^herf	Category concentration	gsub
-ln_overall[_]ms[_]mc	Log of market share	gsub
+ln_overall[_]ms[_]mc	Log of brand-level market share	gsub
 ^overall[_]ms	Brand-level market share	grepl
 ln_overall[_]prindex[_]mc	Log of price index	gsub
 ^overall[_]prindex	Price index	grepl
@@ -103,6 +103,6 @@ other[_]brand	Brand from other country	gsub
 brandz	BrandZ listing	gsub
 gcifactor[_]mc|gcifactor	GCI component (score from PCA)	grepl
 ln[_]gci[_]00.03[_]gdppercap_s[_]mc	GDP per capita	gsub
-gci[_]00.03[_]gdppercap_s[_]mc|gci[_]00.03[_]gdppercap_s	GDP per capita	gsub
+gci[_]00.03[_]gdppercap_s[_]mc|gci[_]00.03[_]gdppercap[_]s	GDP per capita	gsub
 ln[_]gci[_]overall[_]s[_]mc	Global competitiveness index	gsub
 variable	Variable	gsub

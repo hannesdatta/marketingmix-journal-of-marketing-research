@@ -7,11 +7,8 @@ date: "`r format(Sys.time(), '%d %B %Y')`"
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
-library(ggpubr)
-library(plyr)
-#library(psych)
 
-libs_to_load <- c('data.table', 'stargazer', 'knitr', 'xtable', 'lme4', 'car', 'kableExtra', 'stringi', 'ggplot2')
+libs_to_load <- c('data.table', 'stargazer', 'knitr', 'xtable', 'lme4', 'car', 'kableExtra', 'stringi', 'ggplot2', 'ggpubr', 'plyr')
 for (lib in libs_to_load) eval(parse(text=paste('library(', lib, ')')))
 
 options(xtable.comment = FALSE)
@@ -30,34 +27,20 @@ options(knitr.kable.NA = '')
   
 # set order of variables to appear in figures and tables
 ordered_vars = c('rwpspr', 'wpswdst','llen','nov6sh')
+names(ordered_vars) <- paste0(unlist(sanitize_table(data.frame(ordered_vars))), ' elasticity')
 
-# fix 'standard' covariates
+# formulas for models
 form_main_model = .~1+ (1|brand) + (1|category) + (1|country) + emerging + appliance + ln_market_growth_mc + ln_herf_mc + local_to_market + ln_overall_prindex_mc + sbbe_std_mc 
 
 form_interact = ~1+ (1|brand) + (1|category) + (1|country) + emerging + appliance + I(appliance*emerging) + ln_market_growth_mc + I(ln_market_growth_mc*emerging) + ln_herf_mc + I(ln_herf_mc*emerging) + local_to_market + I(local_to_market*emerging) + ln_overall_prindex_mc + I(ln_overall_prindex_mc*emerging) + sbbe_std_mc + I(sbbe_std_mc*emerging)
 
 
-form_random_component = .~1+ (1|brand) + (1|category) + (1|country)
-
-form_random_component_FE = .~1+ (1|brand) + (1|category) + as.factor(country)
-
-form_std = .~. + appliance + ln_market_growth_mc + ln_herf_mc + local_to_market + ln_overall_prindex_mc
-
-
-form_interact_gci = ~1+ (1|brand) + (1|category) + (1|country) + gcifactor_mc + appliance + I(appliance*gcifactor_mc) + ln_market_growth_mc + I(ln_market_growth_mc*gcifactor_mc) + ln_herf_mc + I(ln_herf_mc*gcifactor_mc) + local_to_market + I(local_to_market*gcifactor_mc) + ln_overall_prindex_mc + I(ln_overall_prindex_mc*gcifactor_mc) + sbbe_std_mc + I(sbbe_std_mc*gcifactor_mc)
-
-
-# choice for main 'brand strength' variable
-form_modelbasis = update.formula(form_random_component, form_std)
-form_extraregressor = .~. + sbbe_std_mc
+#estimtype = 'winsor-onesided'
+#estimtype = 'winsor-twosided'
+estimtype = 'weighted'
 
 winsor_p=.05
 
-#estimtype = 'winsor-onesided'
-estimtype = 'weighted'
-#estimtype = 'winsor-twosided'
-
-# apply winsorization
 # 1-sided
 if (estimtype=='winsor-onesided') {
   
@@ -254,39 +237,49 @@ On sample of `r length(unique(elast$brand))` unique brands (excluding `r paste0(
 
 ```{r main_regs, echo = FALSE, results='asis'}
 
-out1=regmodel(formula=c(main=form_main_model, interact=form_interact), dat=elast, model='lmer')
-#out2=regmodel(formula=form_main_model, dat=elast, model='lmer')
-
-#varsord = rep(ordered_vars,each=1)
-#names(varsord) <- paste0(unlist(sanitize_table(data.frame(varsord))), ' elasticity')
+out1=regmodel(formula=c(main=form_main_model, 
+                        interact=form_interact, 
+                        onlybe=update.formula(form_main_model, .~.+I(sbbe_std_mc * emerging))), dat=elast, model='lmer')
 names(ordered_vars) <- paste0(unlist(sanitize_table(data.frame(ordered_vars))), ' elasticity')
 
 notes_base = paste0("Regression of long-term elasticities on explanatory variables and three random effects, for brands, categories, and countries, respectively. Estimated using a linear mixed-effects model. ", estimnote, " Two-sided significance levels reported. Standard errors in parentheses.")
 
 main = lapply(out1, function(x) {x$lt <- list(x$lt$main); x$st <- list(x$st$main); x})
 interact = lapply(out1, function(x) {x$lt <- list(x$lt$interact); x$st <- list(x$st$interact); x})
+onlybe = lapply(out1, function(x) {x$lt <- list(x$lt$onlybe); x$st <- list(x$st$onlybe); x})
 
 # assemble all variables
-#sink('../temp/test.html')
+sink('../temp/test.html')
 
+# MAIN MODEL
 covlabels=unlist(sanitize_table(data.frame(unique(unlist(lapply(main[[1]]$lt, function(x) colnames(x@pp$X)))))))
 covlabels=c(covlabels[-which(covlabels=='(Intercept)')], 'Constant')
 
 cat("<P style='page-break-before: always'>")
 printout(main, 'stlt', omit=NULL, title = tab('Regression with short- and long-term elasticities in a pooled sample of developed and emerging countries'), vars=ordered_vars, notes=notes_base, covlabels=covlabels, column.separate=rep(2, each=length(out1)),
          dep.var.labels.include=T, dep.var.labels=rep(c('short-term', 'long-term'),4),
-         table.layout=c('-c#dm-t-s-n'))
+         table.layout=c('-c#dm-t-a-n'))
 
 
+# ONLY BE INTERACTIONS
+covlabels=unlist(sanitize_table(data.frame(unique(unlist(lapply(onlybe[[1]]$lt, function(x) colnames(x@pp$X)))))))
+covlabels=c(covlabels[-which(covlabels=='(Intercept)')], 'Constant')
+
+cat("<P style='page-break-before: always'>")
+printout(onlybe, 'stlt', omit=NULL, title = tab('Regression with short- and long-term elasticities in a pooled sample of developed and emerging countries, only with brand equity interactions'), vars=ordered_vars, notes=notes_base, covlabels=covlabels, column.separate=rep(2, each=length(out1)),
+         dep.var.labels.include=T, dep.var.labels=rep(c('short-term', 'long-term'),4),
+         table.layout=c('-c#dm-t-a-n'))
+
+# ALL INTERACTIONS
 covlabels=unlist(sanitize_table(data.frame(unique(unlist(lapply(interact[[1]]$lt, function(x) colnames(x@pp$X)))))))
 covlabels=c(covlabels[-which(covlabels=='(Intercept)')], 'Constant')
 
 cat("<P style='page-break-before: always'>")
 printout(interact, 'stlt', omit=NULL, title = tab('Regression with short- and long-term elasticities in a pooled sample of developed and emerging countries, with interactions'), vars=ordered_vars, notes=notes_base, covlabels=covlabels, column.separate=rep(2, each=length(out1)),
          dep.var.labels.include=T, dep.var.labels=rep(c('short-term', 'long-term'),4),
-         table.layout=c('-c#dm-t-s-n'))
+         table.layout=c('-c#dm-t-a-n'))
 
-#sink()
+sink()
 
 ```
 
@@ -307,35 +300,37 @@ modellist = lapply(c('developed', 'ln_gci_00.03_gdppercap_s_mc', 'ln_gci_overall
 
 out1=regmodel(formula=modellist, dat=elast, model='lmer')
 
+
 # assemble all variables
 covlabels=unlist(sanitize_table(data.frame(unique(unlist(lapply(out1[[1]]$lt, function(x) colnames(x@pp$X)))))))
 covlabels=c(covlabels[-which(covlabels=='(Intercept)')], 'Constant')
 
-varsord = rep(ordered_vars,each=1)
-names(varsord) <- paste0(unlist(sanitize_table(data.frame(varsord))), ' elasticity')
+#varsord = rep(ordered_vars,each=1)
+#names(varsord) <- paste0(unlist(sanitize_table(data.frame(varsord))), ' elasticity')
 
 notes_base = paste0("Regression of long-term elasticities on explanatory variables and three random effects, for brands, categories, and countries, respectively. Estimated using a linear mixed-effects model. ", estimnote, " Two-sided significance levels reported. Standard errors in parentheses.")
 
-#sink('../temp/test.html')
-names(ordered_vars)=rename.fkt(ordered_vars)
+sink('../temp/test.html')
+#names(ordered_vars)=rename.fkt(ordered_vars)
 
 cat("<P style='page-break-before: always'>")
 printout(out1, 'lt', omit=NULL, title = tab('Regression with long-term elasticities on covariates and different indicators for a country\'s state of development'), vars=ordered_vars[1:2], notes=notes_base, covlabels=covlabels, column.separate=unlist(lapply(out1[ordered_vars[1:2]], function(x) length(x$lt))))
 
 cat("<P style='page-break-before: always'>")
-printout(out1, 'lt', omit=NULL, title = tab('Regression with long-term elasticities on covariates and different indicators for a country\'s state of development'), vars=ordered_vars[3:4], notes=notes_base, covlabels=covlabels, column.separate=unlist(lapply(out1[ordered_vars[3:4]], function(x) length(x$lt))))
-#sink()
+printout(out1, 'lt', omit=NULL, title = tab('Regression with long-term elasticities on covariates and different indicators for a country\'s state of development'), vars=varsord[3:4], notes=notes_base, covlabels=covlabels, column.separate=unlist(lapply(out1[varsord[3:4]], function(x) length(x$lt))))
+sink()
+
 ```
 
 ## Assessing robustness of brand equity metric
 
 - Brand equity (SBBE)
-- Average market share
+- Log of brand-level market share
 - BrandZ dummy variable, equaling 1 if a brand is listed in either *BrandZ's Top 100 Most Valuable global brands (2010)*, or *BrandZ's Top 50 Most Valuable Chinese Brands (2011)*.
 
 ```{r robustness_regs_equity, echo = FALSE, results='asis'}
 
-modellist = lapply(c('sbbe_std_mc', 'overall_ms_mc', 'brandz'), 
+modellist = lapply(c('sbbe_std_mc', 'ln_overall_ms_mc', 'brandz'), 
                    function(x) update.formula(update.formula(form_main_model, .~.-sbbe_std_mc), as.formula(paste0('.~. +', x))))
 
 out1=regmodel(formula=modellist, dat=elast, model='lmer')
@@ -344,13 +339,11 @@ out1=regmodel(formula=modellist, dat=elast, model='lmer')
 covlabels=unlist(sanitize_table(data.frame(unique(unlist(lapply(out1[[1]]$lt, function(x) colnames(x@pp$X)))))))
 covlabels=c(covlabels[-which(covlabels=='(Intercept)')], 'Constant')
 
-varsord = rep(ordered_vars,each=1)
-names(varsord) <- paste0(unlist(sanitize_table(data.frame(varsord))), ' elasticity')
 
 notes_base = paste0("Regression of long-term elasticities on explanatory variables and three random effects, for brands, categories, and countries, respectively. Estimated using a linear mixed-effects model. ", estimnote, " Two-sided significance levels reported. Standard errors in parentheses.")
 
 #sink('../temp/test.html')
-names(ordered_vars)=rename.fkt(ordered_vars)
+#names(ordered_vars)=rename.fkt(ordered_vars)
 
 cat("<P style='page-break-before: always'>")
 printout(out1, 'lt', omit=NULL, title = tab('Regression with long-term elasticities on covariates and different indicators for brand equity'), vars=ordered_vars[1:2], notes=notes_base, covlabels=covlabels, column.separate=unlist(lapply(out1[ordered_vars[1:2]], function(x) length(x$lt))))
@@ -442,7 +435,7 @@ kable(out, format='html',caption = tab('Average category growth rates for develo
 
 ```{r VIFS, echo=FALSE,results='asis'}
 
-m1 = ~1+ appliance + ln_market_growth_mc + ln_herf_mc + local_to_market  + ln_overall_prindex_mc 
+m1 = ~1+ appliance + ln_market_growth_mc + ln_herf_mc + local_to_market  + ln_overall_prindex_mc + sbbe_std_mc
 
 m<-lm(update(elast~., m1), data=elast[variable=='llen'])
 
