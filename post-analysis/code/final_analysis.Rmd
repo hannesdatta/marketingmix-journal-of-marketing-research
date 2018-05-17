@@ -257,20 +257,150 @@ onlybe = lapply(out1, function(x) {x$lt <- list(x$lt$onlybe); x$st <- list(x$st$
 
 # MAIN MODEL
 cat("<P style='page-break-before: always'>")
-printout(main, 'stlt', title = tab('Regression with short- and long-term elasticities in a pooled sample of developed and emerging countries'), vars=ordered_vars, notes=notes_base)
+printout(main, 'stlt', title = tab('Regression with short- and long-term elasticities in a pooled sample of developed and emerging countries'), vars=ordered_vars,  notes=gsub('long[-]term', 'short- and long-term', notes_base))
 
 # ONLY BE INTERACTIONS
 cat("<P style='page-break-before: always'>")
-printout(onlybe, 'stlt', omit=NULL, title = tab('Regression with short- and long-term elasticities in a pooled sample of developed and emerging countries, only with brand equity interactions'), vars=ordered_vars, notes=notes_base)
+printout(onlybe, 'stlt', omit=NULL, title = tab('Regression with short- and long-term elasticities in a pooled sample of developed and emerging countries, only with brand equity interactions'), vars=ordered_vars, notes=gsub('long[-]term', 'short- and long-term', notes_base))
   
 # ALL INTERACTIONS
-cat("<P style='page-break-before: always'>")
-printout(interact, 'stlt', omit=NULL, title = tab('Regression with short- and long-term elasticities in a pooled sample of developed and emerging countries, with interactions'), vars=ordered_vars, notes=notes_base)       
+#cat("<P style='page-break-before: always'>")
+#printout(interact, 'stlt', omit=NULL, title = tab('Regression with short- and long-term elasticities in a pooled sample of developed and emerging countries, with interactions'), vars=ordered_vars, notes=notes_base)       
 
 #sink()
 
 ```
 
+## Assessing interactions individually
+
+### Short-term
+
+```{r main_regs_st, echo = FALSE, results='asis'}
+
+interactions=grep('I[(]', unlist(strsplit(as.character(form_interact), ' [+] ')),value=T)
+
+test_interact=sapply(interactions, function(x) update.formula(form_main_model, as.formula(paste0('.~.+',x))))
+
+       
+out1=regmodel(formula=test_interact, dat=elast, model='lmer')
+
+# assess significance
+res=lapply(out1, function(m) lapply(m$st, function(n) data.table(mmix=m$variable,variable=rownames(summary(n)$coefficients),summary(n)$coefficients)))
+
+# assess significance
+res=rbindlist(do.call('c', res))
+res=res[grepl('I[(]', variable)]
+res[, z:=Estimate/get('Std. Error')]
+res[, abs_z:=abs(z)]
+setorder(res, abs_z)
+#res[, z:=NULL]
+
+summary_sig=dcast(res, variable ~ mmix, value.var='z')
+summary_sig[,variable:=gsub('I[(]', '', variable)]
+summary_sig[,variable:=gsub(' [*] emerging[)]', '', variable)]
+
+              
+kable(sanitize_table(summary_sig), format='html', initial.zero = FALSE, caption=tab('Z-values for adding interactions to a main-effects only model for short-term elasticities')) %>%
+        kable_styling()
+
+update_forms=res[abs_z>1.65, list(interactions=unique(variable)),by=c('mmix')]
+
+run_interact=sapply(ordered_vars, function(x) {
+  keep_terms = update_forms[mmix==x]$interactions
+  remove_terms = setdiff(interactions, keep_terms)
+  update_terms=paste(remove_terms, collapse=' - ')
+  if (update_terms=='') return(form_interact)
+  
+  update.formula(form_interact, as.formula(paste0('.~.-',update_terms)))
+})
+
+
+out1=regmodel(formula=c(form_interact, run_interact), dat=elast, model='lmer')
+
+# reassemble to keep only the ones with terms we selected
+mod_out<-lapply(seq(along=out1), function(i) {
+  x=out1[[i]]
+  x$lt<-list(x$lt[[1]], x$lt[[1+i]])
+  x$st<-list(x$st[[1]], x$st[[1+i]])
+  return(x)
+})
+names(mod_out) <- names(out1)
+
+  
+# assemble all variables
+
+# MAIN MODEL
+cat("<P style='page-break-before: always'>")
+printout(mod_out, 'st', title = tab('Regression with short-term elasticities in a pooled sample of developed and emerging countries: testing for interactions'), vars=ordered_vars, notes=paste0(gsub('long[-]term', 'short-term', notes_base),  ' For each variable, the first column reports a model with full interactions; the second column reports a model in which only interactions are added that were significant in an auxilary regression with all main effects and only the relevant interaction.'))
+
+
+```
+### Long-term
+
+```{r main_regs_lt, echo = FALSE, results='asis'}
+
+interactions=grep('I[(]', unlist(strsplit(as.character(form_interact), ' [+] ')),value=T)
+
+test_interact=sapply(interactions, function(x) update.formula(form_main_model, as.formula(paste0('.~.+',x))))
+
+       
+out1=regmodel(formula=test_interact, dat=elast, model='lmer')
+
+# assess significance
+res=lapply(out1, function(m) lapply(m$lt, function(n) data.table(mmix=m$variable,variable=rownames(summary(n)$coefficients),summary(n)$coefficients)))
+
+# assess significance
+res=rbindlist(do.call('c', res))
+res=res[grepl('I[(]', variable)]
+res[, z:=Estimate/get('Std. Error')]
+res[, abs_z:=abs(z)]
+setorder(res, abs_z)
+#res[, z:=NULL]
+
+summary_sig=dcast(res, variable ~ mmix, value.var='z')
+summary_sig[,variable:=gsub('I[(]', '', variable)]
+summary_sig[,variable:=gsub(' [*] emerging[)]', '', variable)]
+
+              
+kable(sanitize_table(summary_sig), format='html', initial.zero = FALSE, caption=tab('Z-values for adding interactions to a main-effects only model for long-term elasticities')) %>%
+        kable_styling()
+
+update_forms=res[abs_z>1.65, list(interactions=unique(variable)),by=c('mmix')]
+
+run_interact=sapply(ordered_vars, function(x) {
+  keep_terms = update_forms[mmix==x]$interactions
+  remove_terms = setdiff(interactions, keep_terms)
+  update_terms=paste(remove_terms, collapse=' - ')
+  if (update_terms=='') return(form_interact)
+  
+  update.formula(form_interact, as.formula(paste0('.~.-',update_terms)))
+})
+
+
+out1=regmodel(formula=c(form_interact, run_interact), dat=elast, model='lmer')
+
+# reassemble to keep only the ones with terms we selected
+mod_out<-lapply(seq(along=out1), function(i) {
+  x=out1[[i]]
+  x$lt<-list(x$lt[[1]], x$lt[[1+i]])
+  x$st<-list(x$st[[1]], x$st[[1+i]])
+  return(x)
+})
+names(mod_out) <- names(out1)
+
+  
+# assemble all variables
+#sink('../temp/test.html')
+
+# MAIN MODEL
+cat("<P style='page-break-before: always'>")
+printout(mod_out, 'lt', title = tab('Regression with long-term elasticities in a pooled sample of developed and emerging countries: testing for interactions'), vars=ordered_vars, notes=paste0(notes_base,  ' For each variable, the first column reports a model with full interactions; the second column reports a model in which only interactions are added that were significant in an auxilary regression with all main effects and only the relevant interaction.'))
+
+#sink()
+
+#sink()
+
+```
 # Robustness checks
 
 ## Different variables to measure a country's development status
