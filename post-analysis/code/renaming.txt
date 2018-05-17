@@ -54,6 +54,7 @@ exemplary_brand_names	Top 5 brands	gsub
 welast	Weighted elasticity	grepl
 melast	Mean elasticity	grepl
 [_]z	Meta-analytic z	grepl
+comb[_]t	t-value	grepl
 mmixinstr	Marketing-mix instrument	gsub
 Neffects	Number of estimates	grepl
 .*[_]sig	sig.	gsub

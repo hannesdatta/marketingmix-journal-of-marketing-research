@@ -151,6 +151,14 @@ Notes:
                                              val_w=get(obj[2]),
                                              val_z=get(obj[3]))]
     
+    diff_tests=rbindlist(lapply(unique(elast$variable), function(.var) {
+      data.table(variable=.var, effect=c('constant', 'emerging'), summary(lm(val~1+emerging, weights=val_w,data=tmp[variable==.var]))$coefficients)
+    }))
+    setnames(diff_tests, c('variable', 'effect', 'diff_est', 'diff_se', 'diff_t','diff_p'))
+    diff_tests=diff_tests[effect=='emerging'][, effect:=NULL]
+    
+    tmp = merge(tmp, diff_tests, by = c('variable'))
+    
     tmp=tmp[, list(Neffects= .N, 
                    all_melast = sum(val*val_w)/sum(val_w),
 						 		   all_z = sum(val_z,na.rm=T)/sqrt(.N),
@@ -164,8 +172,9 @@ Notes:
 									 em_Neffects= length(which(!is.na(val[developed==0]))),
 				           em_melast = sum(val[developed==0]*val_w[developed==0])/sum(val_w[developed==0]),
 									 em_z = sum(val_z[developed==0])/sqrt(length(which(!is.na(val[developed==0])))),
-									 em_sig = signstars(sum(val_z[developed==0])/sqrt(length(which(!is.na(val[developed==0])))))
-									 ), by=c('variable')]
+									 em_sig = signstars(sum(val_z[developed==0])/sqrt(length(which(!is.na(val[developed==0]))))),
+									                    comb_t=unique(diff_t), comb_sig=psignstars(unique(diff_p))
+									                    ), by=c('variable')]
 
   tmp=tmp[match(ordered_vars, variable)]
   setnames(tmp, 'variable', 'mmixinstr')
@@ -176,7 +185,7 @@ iters = list(st=c('st', 'Short-term'), lt=c('lt', 'Long-term'))
 for (iter in iters) {
   print(kable(sanitize_table(out[[iter[1]]]), digits=3, format='html', 
         caption=tab(paste0(iter[2], ' elasticities by marketing mix instrument'))) %>% kable_styling() %>% 
-        footnote(general=paste0('*p*<.001 (two-sided). ', estimnote)) %>% add_header_above(c(" " = 1, "All countries" = 4, "Developed countries" = 4, "Emerging countries" = 4)))
+        footnote(general=paste0('*p*<.001 and *p*<.01 (two-sided). ', estimnote, ' Test on differences carried out using WLS by regressing elasticities on an intercept and an emerging country indicator variable. Reporting t-value for estimate of the emerging country indicator.')) %>% add_header_above(c(" " = 1, "All countries" = 4, "Developed countries" = 4, "Emerging countries" = 4, 'Test on differences' =2)))
 }
 
 ```
@@ -300,7 +309,7 @@ summary_sig[,variable:=gsub('I[(]', '', variable)]
 summary_sig[,variable:=gsub(' [*] emerging[)]', '', variable)]
 
               
-kable(sanitize_table(summary_sig), format='html', initial.zero = FALSE, caption=tab('Z-values for adding interactions to a main-effects only model for short-term elasticities')) %>%
+kable(sanitize_table(summary_sig), format='html', initial.zero = FALSE, digits=3, caption=tab('Z-values for adding interactions to a main-effects only model for short-term elasticities')) %>%
         kable_styling()
 
 update_forms=res[abs_z>1.65, list(interactions=unique(variable)),by=c('mmix')]
@@ -362,7 +371,7 @@ summary_sig[,variable:=gsub('I[(]', '', variable)]
 summary_sig[,variable:=gsub(' [*] emerging[)]', '', variable)]
 
               
-kable(sanitize_table(summary_sig), format='html', initial.zero = FALSE, caption=tab('Z-values for adding interactions to a main-effects only model for long-term elasticities')) %>%
+kable(sanitize_table(summary_sig), format='html', initial.zero = FALSE, digits=3, caption=tab('Z-values for adding interactions to a main-effects only model for long-term elasticities')) %>%
         kable_styling()
 
 update_forms=res[abs_z>1.65, list(interactions=unique(variable)),by=c('mmix')]

@@ -1,3 +1,8 @@
+psignstars <- function(x) {
+  sapply(x, function(p) ifelse(p < .001, "****", ifelse(p < .01, "*** ", ifelse(p < .05, "**  ", ifelse(p < .1, "*   ", "    ")))))
+}
+
+
 # Function to run regression model (#mmix, with spec formula)
 regmodel <- function(formula=list(~1+I(country_class=='linc') + as.factor(category) + as.factor(brand)), 
                      dat, model = 'lm') {
