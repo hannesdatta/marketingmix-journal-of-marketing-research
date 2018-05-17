@@ -44,15 +44,34 @@ rsq <- function(m) {
 
 
 # Function to plot model results (next to each other)
-printout = function(x, type='st', vars=NULL, omit='category|brand', title='',printtype='html', notes=NULL,covlabels=NULL, dep.var.labels.include=FALSE, table.layout=c('-c#m-t-a-n'), ...) {
+printout = function(x, type='st', vars=NULL, omit=NULL, title='',printtype='html', notes=NULL,covlabels=NULL, dep.var.labels.include=FALSE, table.layout=c('-c#m-t-a-n'), ...) {
+  
   if (is.null(vars)) vars=seq(along=x)
   
-  if (type=='st') res = do.call('c', lapply(x[unique(vars)], function(m) m$st))
-  if (type=='lt') res = do.call('c', lapply(x[unique(vars)], function(m) m$lt))
+  dep.var.labels=NULL
+  
+  if (type=='st') {
+    res = do.call('c', lapply(x[unique(vars)], function(m) m$st))
+    colsep = unlist(lapply(x[unique(vars)], function(x) length(x$st)))
+  }
+  if (type=='lt') {
+    res = do.call('c', lapply(x[unique(vars)], function(m) m$lt))
+    colsep = unlist(lapply(x[unique(vars)], function(x) length(x$lt)))
+  }
   if (type=='stlt') {
     res = do.call('c', lapply(x[unique(vars)], function(m) c(m$st, m$lt)))
+    colsep = unlist(lapply(x[unique(vars)], function(x) length(x$st)+length(x$lt)))
+    dep.var.labels.include=T
+    dep.var.labels=rep(c('short-term', 'long-term'),length(unique(vars)))
+    table.layout=c('-c#dm-t-a-n')
   }
   
+  # get all variable names
+  covlabels= unique(unlist(lapply(res, function(x) colnames(x@pp$X))))
+  covlabels = unlist(sanitize_table(data.frame(covlabels)))
+  covlabels=c(covlabels[-which(covlabels=='(Intercept)')], 'Constant')
+  
+
   keep_alpha <- function(x) gsub("[^[:alnum:][:space:][,]]","",x)
   
   if (!is.null(omit)) note_text = c(paste0('model includes fixed effects for: ', keep_alpha(gsub('[|]', ', ', omit))))
@@ -65,11 +84,23 @@ printout = function(x, type='st', vars=NULL, omit='category|brand', title='',pri
   r2s = c('R-squared', sub('^(-)?0[.]', '\\1.', formatC(sapply(res, rsq), digits=3, format='f', flag='#')))
   obs = c('Observations', sapply(res, function(x) length(residuals(x))))
   
-  stargazer(res, type = printtype, omit=omit, title = title, column.labels=collabels, dep.var.caption=NULL, initial.zero=FALSE,
-            notes.align='l',dep.var.labels.include = dep.var.labels.include, covariate.labels=covlabels,
-            notes=note_text, omit.stat=c('aic','bic'), single.row=T, table.layout=table.layout, add.lines=list(r2s,obs), ...)
+  stargazer(res, type = printtype, omit=omit, title = title, 
+            column.labels=collabels, 
+            dep.var.caption=NULL, 
+            initial.zero=FALSE,
+            notes.align='l',
+            dep.var.labels.include = dep.var.labels.include, 
+            dep.var.labels=dep.var.labels,
+            covariate.labels=covlabels,
+            notes=note_text, omit.stat=c('aic','bic'), 
+            single.row=T, 
+            table.layout=table.layout, 
+            add.lines=list(r2s,obs), 
+            column.separate=colsep,
+            ...)
 
 }
+
 
 #title='title'
 #

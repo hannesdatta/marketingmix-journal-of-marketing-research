@@ -78,6 +78,11 @@ if (estimtype=='weighted') {
       estimnote = paste0('Elasticities are weighted by inverse standard errors.')
   
 }
+
+
+
+notes_base = paste0("Regression of long-term elasticities on explanatory variables and three random effects, for brands, categories, and countries, respectively. Estimated using a linear mixed-effects model. ", estimnote, " Two-sided significance levels reported. Standard errors in parentheses.")
+
 ```
 
 # Data
@@ -240,46 +245,29 @@ On sample of `r length(unique(elast$brand))` unique brands (excluding `r paste0(
 out1=regmodel(formula=c(main=form_main_model, 
                         interact=form_interact, 
                         onlybe=update.formula(form_main_model, .~.+I(sbbe_std_mc * emerging))), dat=elast, model='lmer')
-names(ordered_vars) <- paste0(unlist(sanitize_table(data.frame(ordered_vars))), ' elasticity')
 
-notes_base = paste0("Regression of long-term elasticities on explanatory variables and three random effects, for brands, categories, and countries, respectively. Estimated using a linear mixed-effects model. ", estimnote, " Two-sided significance levels reported. Standard errors in parentheses.")
+# keep only models that belong to one type (so that each table only features the rows that were actually estimated)
 
 main = lapply(out1, function(x) {x$lt <- list(x$lt$main); x$st <- list(x$st$main); x})
 interact = lapply(out1, function(x) {x$lt <- list(x$lt$interact); x$st <- list(x$st$interact); x})
 onlybe = lapply(out1, function(x) {x$lt <- list(x$lt$onlybe); x$st <- list(x$st$onlybe); x})
 
 # assemble all variables
-sink('../temp/test.html')
+#sink('../temp/test.html')
 
 # MAIN MODEL
-covlabels=unlist(sanitize_table(data.frame(unique(unlist(lapply(main[[1]]$lt, function(x) colnames(x@pp$X)))))))
-covlabels=c(covlabels[-which(covlabels=='(Intercept)')], 'Constant')
-
 cat("<P style='page-break-before: always'>")
-printout(main, 'stlt', omit=NULL, title = tab('Regression with short- and long-term elasticities in a pooled sample of developed and emerging countries'), vars=ordered_vars, notes=notes_base, covlabels=covlabels, column.separate=rep(2, each=length(out1)),
-         dep.var.labels.include=T, dep.var.labels=rep(c('short-term', 'long-term'),4),
-         table.layout=c('-c#dm-t-a-n'))
-
+printout(main, 'stlt', title = tab('Regression with short- and long-term elasticities in a pooled sample of developed and emerging countries'), vars=ordered_vars, notes=notes_base)
 
 # ONLY BE INTERACTIONS
-covlabels=unlist(sanitize_table(data.frame(unique(unlist(lapply(onlybe[[1]]$lt, function(x) colnames(x@pp$X)))))))
-covlabels=c(covlabels[-which(covlabels=='(Intercept)')], 'Constant')
-
 cat("<P style='page-break-before: always'>")
-printout(onlybe, 'stlt', omit=NULL, title = tab('Regression with short- and long-term elasticities in a pooled sample of developed and emerging countries, only with brand equity interactions'), vars=ordered_vars, notes=notes_base, covlabels=covlabels, column.separate=rep(2, each=length(out1)),
-         dep.var.labels.include=T, dep.var.labels=rep(c('short-term', 'long-term'),4),
-         table.layout=c('-c#dm-t-a-n'))
-
+printout(onlybe, 'stlt', omit=NULL, title = tab('Regression with short- and long-term elasticities in a pooled sample of developed and emerging countries, only with brand equity interactions'), vars=ordered_vars, notes=notes_base)
+  
 # ALL INTERACTIONS
-covlabels=unlist(sanitize_table(data.frame(unique(unlist(lapply(interact[[1]]$lt, function(x) colnames(x@pp$X)))))))
-covlabels=c(covlabels[-which(covlabels=='(Intercept)')], 'Constant')
-
 cat("<P style='page-break-before: always'>")
-printout(interact, 'stlt', omit=NULL, title = tab('Regression with short- and long-term elasticities in a pooled sample of developed and emerging countries, with interactions'), vars=ordered_vars, notes=notes_base, covlabels=covlabels, column.separate=rep(2, each=length(out1)),
-         dep.var.labels.include=T, dep.var.labels=rep(c('short-term', 'long-term'),4),
-         table.layout=c('-c#dm-t-a-n'))
+printout(interact, 'stlt', omit=NULL, title = tab('Regression with short- and long-term elasticities in a pooled sample of developed and emerging countries, with interactions'), vars=ordered_vars, notes=notes_base)       
 
-sink()
+#sink()
 
 ```
 
@@ -300,25 +288,14 @@ modellist = lapply(c('developed', 'ln_gci_00.03_gdppercap_s_mc', 'ln_gci_overall
 
 out1=regmodel(formula=modellist, dat=elast, model='lmer')
 
-
-# assemble all variables
-covlabels=unlist(sanitize_table(data.frame(unique(unlist(lapply(out1[[1]]$lt, function(x) colnames(x@pp$X)))))))
-covlabels=c(covlabels[-which(covlabels=='(Intercept)')], 'Constant')
-
-#varsord = rep(ordered_vars,each=1)
-#names(varsord) <- paste0(unlist(sanitize_table(data.frame(varsord))), ' elasticity')
-
-notes_base = paste0("Regression of long-term elasticities on explanatory variables and three random effects, for brands, categories, and countries, respectively. Estimated using a linear mixed-effects model. ", estimnote, " Two-sided significance levels reported. Standard errors in parentheses.")
-
-sink('../temp/test.html')
-#names(ordered_vars)=rename.fkt(ordered_vars)
+#sink('../temp/test.html')
 
 cat("<P style='page-break-before: always'>")
-printout(out1, 'lt', omit=NULL, title = tab('Regression with long-term elasticities on covariates and different indicators for a country\'s state of development'), vars=ordered_vars[1:2], notes=notes_base, covlabels=covlabels, column.separate=unlist(lapply(out1[ordered_vars[1:2]], function(x) length(x$lt))))
+printout(out1, 'lt', vars=ordered_vars[1:2], title = tab('Regression with long-term elasticities on covariates and different indicators for a country\'s state of development'),  notes=notes_base)
 
 cat("<P style='page-break-before: always'>")
-printout(out1, 'lt', omit=NULL, title = tab('Regression with long-term elasticities on covariates and different indicators for a country\'s state of development'), vars=varsord[3:4], notes=notes_base, covlabels=covlabels, column.separate=unlist(lapply(out1[varsord[3:4]], function(x) length(x$lt))))
-sink()
+printout(out1, 'lt', vars=ordered_vars[3:4], title = tab('Regression with long-term elasticities on covariates and different indicators for a country\'s state of development'),  notes=notes_base)
+#sink()
 
 ```
 
@@ -335,21 +312,13 @@ modellist = lapply(c('sbbe_std_mc', 'ln_overall_ms_mc', 'brandz'),
 
 out1=regmodel(formula=modellist, dat=elast, model='lmer')
 
-# assemble all variables
-covlabels=unlist(sanitize_table(data.frame(unique(unlist(lapply(out1[[1]]$lt, function(x) colnames(x@pp$X)))))))
-covlabels=c(covlabels[-which(covlabels=='(Intercept)')], 'Constant')
-
-
-notes_base = paste0("Regression of long-term elasticities on explanatory variables and three random effects, for brands, categories, and countries, respectively. Estimated using a linear mixed-effects model. ", estimnote, " Two-sided significance levels reported. Standard errors in parentheses.")
-
 #sink('../temp/test.html')
-#names(ordered_vars)=rename.fkt(ordered_vars)
 
 cat("<P style='page-break-before: always'>")
-printout(out1, 'lt', omit=NULL, title = tab('Regression with long-term elasticities on covariates and different indicators for brand equity'), vars=ordered_vars[1:2], notes=notes_base, covlabels=covlabels, column.separate=unlist(lapply(out1[ordered_vars[1:2]], function(x) length(x$lt))))
+printout(out1, 'lt', title = tab('Regression with long-term elasticities on covariates and different indicators for brand equity'), vars=ordered_vars[1:2], notes=notes_base)
 
 cat("<P style='page-break-before: always'>")
-printout(out1, 'lt', omit=NULL, title = tab('Regression with long-term elasticities on covariates and different indicators for brand equity'), vars=ordered_vars[3:4], notes=notes_base, covlabels=covlabels, column.separate=unlist(lapply(out1[ordered_vars[3:4]], function(x) length(x$lt))))
+printout(out1, 'lt', omit=NULL, title = tab('Regression with long-term elasticities on covariates and different indicators for brand equity'), vars=ordered_vars[3:4], notes=notes_base)
 #sink()
 ```
 
@@ -537,7 +506,6 @@ setorder(tabl, Category)
 kable(tabl, caption = tab('Overview of categories and countries (with number of brands indicated for each market), in estimation data', prefix='A'))
 
 ```
-
 
 ```{r sample_overview, echo=FALSE, results='asis'}
 #, headquarter_region=unique(country_of_origin)
