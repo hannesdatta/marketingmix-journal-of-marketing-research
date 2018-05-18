@@ -143,7 +143,7 @@ Distribution         | Sales-weighted^1^ distribution of each of brand *i*'s SKU
 Line length          | Number of unique SKUs sold by brand *i* in period *t*.
 New product activity | Number of SKUs introduced by brand *i* in a rolling window of 6 months (*t-5*, *t-4*, *...*, *t*), expressed as a share of the total number of unique SKUs sold by brand *i* over the same period.
 
-^1^ Weights equal to a SKU's unit sales in the most recent quarter (months t-2, t-1, t).
+^1^ Weights equal to a SKU's unit sales in the most recent quarter (months *t*-2, *t*-1, *t*).
 
 ^2^ Consumer price index obtained from Thomson Reuters Datastream.
 
@@ -208,7 +208,7 @@ for (iter in iters) {
 
 ```
 
-```{correl, echo=FALSE,results='asis'}
+```{r correl, echo=FALSE, results = 'asis'}
 
 tmp = dcast(elast,market_id+brand~variable, value.var=c('elast', 'elastlt'))
 
@@ -216,17 +216,27 @@ for (var in grep('elast', colnames(tmp),value=T)) {
   tmp[, (paste0('mc_', var)):=get(var)-mean(get(var),na.rm=T), by = c('market_id')]
   }
 
+
 printtmp=tmp[, grep('mc[_]elast[_]', colnames(tmp),value=T) ,with=F]
 setnames(printtmp, gsub('mc[_]elast[_]','',colnames(printtmp)))
+setcolorder(printtmp, ordered_vars)
+setnames(printtmp, paste0(rename.fkt(colnames(printtmp)), ' elasticity'))
 
-print(corstars(printtmp, method=c("pearson"),result='html'))
+
+corstars(printtmp, method=c("pearson"),result='html', caption = tab('Correlation among short-term marketing mix elasticities (mean-centered by market)'))
 
 printtmp=tmp[, grep('mc[_]elastlt[_]', colnames(tmp),value=T) ,with=F]
 setnames(printtmp, gsub('mc[_]elastlt[_]','',colnames(printtmp)))
+setcolorder(printtmp, ordered_vars)
+setnames(printtmp, paste0(rename.fkt(colnames(printtmp)), ' elasticity'))
 
-print(corstars(printtmp, method=c("pearson"),result='html'))
+corstars(printtmp, method=c("pearson"),result='html', caption = tab('Correlation among long-term marketing mix elasticities (mean-centered by market)'))
+
+#stargazer(cor(printtmp))
+
 
 ```
+
 # Second-stage analysis
 
 `r tab("Variable operationalization^1^")`
@@ -282,7 +292,7 @@ dtf[diff_tests, ':=' (comb_t=i.diff_t, comb_sig=gsub('[*]', '\\*', psignstars(i.
 
 dtf=sanitize_table(dtf)
 
-print(kable(dtf, format='html', initial.zero = FALSE, digits=3,caption = tab(paste0('Summary statistics for covariates in second-stage analysis, split by a country\'s development status^1^')),
+print(kable(dtf, format='html', initial.zero = FALSE, digits=3,caption = tab(paste0('Summary statistics for covariates in second-stage analysis, split by a country\'s development status^1^'))
       ) %>% kable_styling() %>% footnote(number=c(paste0('Summary statistics for variables (unlogged and not mean-centered), computed across ', nobs, ' observations in our sample.'),'Test on differences carried out by regressing variables on an intercept and an emerging country indicator variable. Reported t-value is obtained from the estimate of the emerging country indicator.')) %>% add_header_above(c(" " = 1, "Emerging countries" = 4, "Developed countries" = 4, "Test on differences^2^"=2)))
 
 
@@ -335,7 +345,8 @@ out1=regmodel(formula=test_interact, dat=elast, model='lmer')
 # assess significance
 for (elasttype in c('st', 'lt')) {
   
-  res=lapply(out1, function(m) lapply(ifelse(elasttype=='st', m$st, m$lt), function(n) data.table(mmix=m$variable,variable=rownames(summary(n)$coefficients),summary(n)$coefficients)))
+  if (elasttype=='st') res=lapply(out1, function(m) lapply(m$st, function(n) data.table(mmix=m$variable,variable=rownames(summary(n)$coefficients),summary(n)$coefficients)))
+   if (elasttype=='lt') res=lapply(out1, function(m) lapply(m$lt, function(n) data.table(mmix=m$variable,variable=rownames(summary(n)$coefficients),summary(n)$coefficients)))
   
   # assess significance
   res=rbindlist(do.call('c', res))
@@ -349,6 +360,7 @@ for (elasttype in c('st', 'lt')) {
   summary_sig[,variable:=gsub('I[(]', '', variable)]
   summary_sig[,variable:=gsub(' [*] emerging[)]', '', variable)]
   setcolorder(summary_sig, c('variable', ordered_vars))
+  
   #setnames(summary_sig, 'variable', 'Interaction term with emerging country indicator')
                 
   print(kable(sanitize_table(summary_sig), format='html', initial.zero = FALSE, digits=3, caption=tab(paste0('Assessing the significance of adding interaction terms with an emerging country indicator to a main-effects only model for ', ifelse(elasttype=='st', 'short-term', 'long-term'), ' elasticities^1^'))) %>%
@@ -366,16 +378,16 @@ for (elasttype in c('st', 'lt')) {
   })
   
   
-  out1=regmodel(formula=c(form_interact, run_interact), dat=elast, model='lmer')
+  out1b=regmodel(formula=c(form_interact, run_interact), dat=elast, model='lmer')
   
   # reassemble to keep only the ones with terms we selected
-  mod_out<-lapply(seq(along=out1), function(i) {
-    x=out1[[i]]
+  mod_out<-lapply(seq(along=out1b), function(i) {
+    x=out1b[[i]]
     x$lt<-list(x$lt[[1]], x$lt[[1+i]])
     x$st<-list(x$st[[1]], x$st[[1+i]])
     return(x)
   })
-  names(mod_out) <- names(out1)
+  names(mod_out) <- names(out1b)
   
     
   # assemble all variables

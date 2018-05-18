@@ -151,7 +151,7 @@ library(Hmisc)
 # results :  if "html" or "latex"
 # the results will be displayed in html or latex format
 corstars <-function(x, method=c("pearson", "spearman"), removeTriangle=c("upper", "lower"),
-                    result=c("none", "html", "latex")){
+                    result=c("none", "html", "latex"), ...){
   #Compute correlation matrix
   x <- as.matrix(x)
   correlation_matrix<-rcorr(x, type=method[1])
@@ -188,8 +188,8 @@ corstars <-function(x, method=c("pearson", "spearman"), removeTriangle=c("upper"
   Rnew <- cbind(Rnew[1:length(Rnew)-1])
   if (result[1]=="none") return(Rnew)
   else{
-    if(result[1]=="html") print(xtable(Rnew), type="html")
-    else print(xtable(Rnew), type="latex") 
+    if(result[1]=="html") print(xtable(Rnew, ...), type="html", caption.placement='top')
+    else print(xtable(Rnew), type="latex", ...) 
   }
 } 
 
