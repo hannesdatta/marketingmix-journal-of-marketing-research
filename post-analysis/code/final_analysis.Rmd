@@ -41,6 +41,8 @@ estimtype = 'weighted'
 
 winsor_p=.05
 
+notes_sig = '&ast; *p*<.1, &ast;&ast; *p*<.05, &ast;&ast;&ast; *p*<.01 (two-sided).'
+  
 # 1-sided
 if (estimtype=='winsor-onesided') {
   
@@ -51,7 +53,7 @@ if (estimtype=='winsor-onesided') {
   }
    
       estimnote = paste0('Elasticities have been winsorized at ', winsor_p*100, '%, left-sided for all variables except price.')
-  
+  estimnoteshort='' 
 }
 
 # 2-sided
@@ -64,7 +66,7 @@ if (estimtype=='winsor-twosided') {
   }
    
       estimnote = paste0('Elasticities have been winsorized at ', winsor_p*100, '%, two-sided.')
-  
+  estimnoteshort=''
 }
 
 if (estimtype=='weighted') {
@@ -76,6 +78,7 @@ if (estimtype=='weighted') {
   }
    
       estimnote = paste0('Elasticities are weighted by inverse standard errors.')
+      estimnoteshort= 'weighted by inverse standard errors'
   
 }
 
@@ -93,8 +96,13 @@ setorderv(tmp, c('developed', 'gci_00.03_gdppercap_s'), order=-1L)
 first_emerging=match(0,tmp$developed)
 tmp[, developed:=NULL]
 
-kable(sanitize_table(tmp), format='html', initial.zero = FALSE, caption=tab('Development indicators for countries in sample')) %>%
-        kable_styling() %>% footnote(general='Countries ranked by GDP per capita.', alphabet=c("GDP per capita is in current USD, based on IMF World Economic Outlook Database (April 2010). Global Competitiveness Index captures microeconomic and macroeconomic foundations of national competitiveness. Both measures are extracted from the World Economic Forum's Global Competitiveness Report (2010/2011, available at https://www.weforum.org/reports/global-competitiveness-report-2010-2011).", "Human Development Index (HDI), 2010 data, obtained from UN Development Programme (http://hdr.undp.org/en/content/human-development-index-hdi). Taiwan's HDI has been imputed as the mean HDI of Thailand and China.")) %>%
+tmp=sanitize_table(tmp)
+colnames(tmp)[2]<-paste0(colnames(tmp)[2], '^2^')
+colnames(tmp)[3]<-paste0(colnames(tmp)[3], '^2^')
+colnames(tmp)[4]<-paste0(colnames(tmp)[4], '^3^')
+
+kable(sanitize_table(tmp), format='html', initial.zero = FALSE, caption=tab('Development indicators for countries in sample^1^')) %>%
+        kable_styling() %>% footnote(number=c('Countries ranked by GDP per capita.', "GDP per capita is in current USD, based on IMF World Economic Outlook Database (April 2010). Global Competitiveness Index captures microeconomic and macroeconomic foundations of national competitiveness. Both measures are extracted from the World Economic Forum's Global Competitiveness Report (2010/2011, available at https://www.weforum.org/reports/global-competitiveness-report-2010-2011).", "Human Development Index (HDI), 2010 data, obtained from UN Development Programme (http://hdr.undp.org/en/content/human-development-index-hdi). Taiwan's HDI has been imputed as the mean HDI of Thailand and China.")) %>%
   group_rows("Developed economies", 1, first_emerging-1) %>%
   group_rows("Emerging economies", first_emerging, 14)
 
@@ -121,24 +129,35 @@ kable(tmp, format='html', caption=tab('Category overview')) %>%
 
 ```
 
-# Market share model
+## Market share model
 
 `r tab('Variable operationalization for market share attraction model')`
 
 
 Variable             | Operationalization
 -------------------- | ------------------------------------------------------------------
-Market share         | Unit sales for brand *i* in period *t*, devided by total unit sales in period *t* in a market.
-Price                | Sales-weighted^1^ average of each SKU's price sold by brand *i* in period *t*, expressed in local currency and adjusted by a country's consumer price index^2^.
+Market share         | Unit sales for brand *i* in period *t*, devided by total unit sales in period *t* in a market (category/country combination).
+Price                | Average price of brand *i*, computed as a sales-weighted^1^ average across its SKUs sold in period *t*, expressed in local currency and adjusted by a country's consumer price index^2^.
 Distribution         | Sales-weighted^1^ distribution of each of brand *i*'s SKUs' store-weighted distribution in period *t* (0 = no market coverage, 100 = full market coverage).
 Line length          | Number of unique SKUs sold by brand *i* in period *t*.
 New product activity | Number of SKUs introduced by brand *i* in a rolling window of 6 months (*t-5*, *t-4*, *...*, *t*), expressed as a share of the total number of unique SKUs sold by brand *i* over the same period.
 
 Notes:
 
-^1^ Weights equal to a SKU's unit sales in the most recent quarter (t-2, t-1, t).
+^1^ Weights equal to a SKU's unit sales in the most recent quarter (months t-2, t-1, t).
 
 ^2^ Consumer price index obtained from Thomson Reuters Datastream.
+
+# Results
+
+```{r continue_with_selection, echo=FALSE}
+elast_all=data.table(elast)
+elast=elast[!is.na(country_of_origin)&!brand%in%c('unbranded')]
+excluded_brands=setdiff(unique(elast_all$brand), unique(elast$brand))
+
+```
+
+Reported for a sample of `r length(unique(elast$brand))` unique brands (excluding `r paste0(my_capitalize(excluded_brands), collapse=', ')`).
 
 ```{r elasticities_overview, echo = FALSE, results='asis'}
   sigvalue = .1 # .1-level of significance
@@ -184,8 +203,8 @@ Notes:
 iters = list(st=c('st', 'Short-term'), lt=c('lt', 'Long-term'))
 for (iter in iters) {
   print(kable(sanitize_table(out[[iter[1]]]), digits=3, format='html', 
-        caption=tab(paste0(iter[2], ' elasticities by marketing mix instrument'))) %>% kable_styling() %>% 
-        footnote(general=paste0('*p*<.001 and *p*<.01 (two-sided). ', estimnote, ' Test on differences carried out using WLS by regressing elasticities on an intercept and an emerging country indicator variable. Reporting t-value for estimate of the emerging country indicator.')) %>% add_header_above(c(" " = 1, "All countries" = 4, "Developed countries" = 4, "Emerging countries" = 4, 'Test on differences' =2)))
+        caption=tab(paste0(iter[2], ' elasticities by marketing mix instrument^1^'))) %>% kable_styling() %>% 
+        footnote(number=c(paste0(notes_sig, ' ', estimnote, ' The number of observations differs slightly across marketing mix instruments because some brands in some markets (category/country combinations) do not have variation in these variables.'), paste0('Test on differences carried out by regressing elasticities (', estimnoteshort, ') on an intercept and an emerging country indicator variable. Reported t-value is obtained from the estimate of the emerging country indicator.'))) %>% add_header_above(c(" " = 1, "All countries" = 4, "Developed countries" = 4, "Emerging countries" = 4, 'Test on differences^2^' =2)))
 }
 
 ```
@@ -198,14 +217,14 @@ Construct                  | Operationalization                                 
 ------------------------- | --------------------------------------------------------|----------
 Appliance (versus electronics)| Dummy, equaling 1 for appliances (washing machines, microwaves and refrigerators), 0 for all other categories.
 Category growth       | Log of a market's average growth rate in the observation period.^1^
-Category concentration     | Log of Herfindahl index in a market.
+Category concentration     | Log of Herfindahl index in a market (category/country combination).
 Domestic versus foreign brand | Dummy, equaling 1 if a brand's headquarter is located in the focal country, 0 if not.
 Price index | Log of a brand's average price (deflated sales value devided by the brand's sales volume over the observation period), indexed by the maximum price in a given category and country.
-Brand equity               | Sales-based brand equity, obtained as a transformation of the brand-specific intercept from the market share attraction model, standardized by category. | Datta, Ailawadi, and van Heerde (2017)
+Brand equity               | Sales-based brand equity, derived from the market share attraction model, standardized by category. | Datta, Ailawadi, and van Heerde (2017)
 
-*Note:* All continuous variables are logged and mean-centered before model estimation (except brand equity, which is only mean-centered as this variable can take on negative values). 
+*Note:* All continuous variables are first logged and then mean-centered before model estimation (except brand equity, which is only mean-centered as this variable can take on negative values). 
 
-^1^ Geometric growth rate in a market, defined as the n-th's square root of the ratio of the total number of unit sales in a market in the last year over total number of unit sales in the first year (both years having 12 months of data). N equals to the number of years in the observation window.
+^1^ Geometric growth rate in a market (category/country combination), defined as the n-th's square root of the ratio of the total number of unit sales in a market in the last year over total number of unit sales in the first year (both years having 12 months of data). N equals to the number of years in the observation window.
 
 ```{r summarystats, echo=FALSE}
 
@@ -233,21 +252,12 @@ dtf=sanitize_table(dtf)
 
 kable(dtf, digits=3,caption = tab(paste0('Summary statistics for covariates in second-stage analysis, split by a country\'s development status')),
       format='html', initial.zero = FALSE) %>%
-        kable_styling() %>% footnote(general=paste0('Note: Summary statistics for variables in levels, computed on a sample of ', nbrands, ' unique brands in ', nmarkets, ' markets, totalling ', nobs, ' observations.')) %>%
+        kable_styling() %>% footnote(general=paste0('Note: Summary statistics for variables in levels, computed across ', nobs, ' observations in our sample.')) %>%
   add_header_above(c(" " = 1, "Emerging countries" = 4, "Developed countries" = 4))
 #c("striped", 'bordered')
 ```
 
 # Analysis
-
-```{r continue_with_selection, echo=FALSE}
-elast_all=data.table(elast)
-elast=elast[!is.na(country_of_origin)&!brand%in%c('unbranded')]
-excluded_brands=setdiff(unique(elast_all$brand), unique(elast$brand))
-
-```
-
-On sample of `r length(unique(elast$brand))` unique brands (excluding `r paste0(my_capitalize(excluded_brands), collapse=', ')`).
 
 ```{r main_regs, echo = FALSE, results='asis'}
 
@@ -629,7 +639,7 @@ Elasticities and corresponding standard errors calculated using the Delta rule.
 
 ## Estimation data set
 
-- Number of markets: `r length(unique(elast_all$market_id))`.
+- Number of markets (category/country combinations): `r length(unique(elast_all$market_id))`.
 - Number of brands: `r nrow(elast_all[, .N, by = c('market_id', 'brand')])`.
 - Number of unique brands: `r nrow(elast_all[, .N, by = c('brand')])`.
 - Included countries (`r length(unique(elast_all$country))`): `r paste0(unique(elast_all$country),collapse = ', ')`.
@@ -639,10 +649,10 @@ Elasticities and corresponding standard errors calculated using the Delta rule.
 tmp = elast_all[, list(Nbrands = length(unique(brand))), by = c('market_id', 'category','country')]
 
 tabl = dcast(tmp, category~country, value.var=c('Nbrands'))
-#print(xtable(tabl, caption = tab('Overview of categories and countries (with number of brands indicated for each market), in estimation data')), scalebox='0.6',type='html',caption.placement='top')
+#print(xtable(tabl, caption = tab('Overview of categories and countries, with number of brands indicated for each market (category/country combination) in the estimation data')), scalebox='0.6',type='html',caption.placement='top')
 tabl=sanitize_table(tabl)
 setorder(tabl, Category)
-kable(tabl, caption = tab('Overview of categories and countries (with number of brands indicated for each market), in estimation data', prefix='A'))
+kable(tabl, caption = tab('Overview of categories and countries (with number of brands indicated for each category/country combination), in estimation data', prefix='A'))
 
 ```
 
