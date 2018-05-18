@@ -41,7 +41,7 @@ estimtype = 'weighted'
 
 winsor_p=.05
 
-notes_sig = '\*\* test &ast; *p*<.1, &ast;&ast; *p*<.05, &ast;&ast;&ast; *p*<.01 (two-sided).'
+notes_sig = '\\* *p*<.1, \\*\\* *p*<.05, \\*\\*\\* *p*<.01 (two-sided).'
   
 # 1-sided
 if (estimtype=='winsor-onesided') {
