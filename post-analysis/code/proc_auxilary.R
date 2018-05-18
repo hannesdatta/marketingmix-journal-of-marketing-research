@@ -1,5 +1,5 @@
 psignstars <- function(x) {
-  sapply(x, function(p) ifelse(p < .001, "****", ifelse(p < .01, "*** ", ifelse(p < .05, "**  ", ifelse(p < .1, "*   ", "    ")))))
+  sapply(x, function(p) ifelse(p < .01, " ***", ifelse(p < .05, " **", ifelse(p < .1, " *", "    "))))
 }
 
 
@@ -89,16 +89,21 @@ printout = function(x, type='st', vars=NULL, omit=NULL, title='',printtype='html
   r2s = c('R-squared', sub('^(-)?0[.]', '\\1.', formatC(sapply(res, rsq), digits=3, format='f', flag='#')))
   obs = c('Observations', sapply(res, function(x) length(residuals(x))))
   
-  stargazer(res, type = printtype, omit=omit, title = title, 
+  to_stargz <- function(x) {
+    gsub('\\\\[*]', '*', x)
+  }
+  
+  stargazer(res, type = printtype, omit=omit, title = paste0(title, '<sup>1</sup>'), 
             column.labels=collabels, 
             dep.var.caption=NULL, 
             initial.zero=FALSE,
             notes.align='l',
+            notes.append=FALSE,
             dep.var.labels.include = dep.var.labels.include, 
             dep.var.labels=dep.var.labels,
             covariate.labels=covlabels,
-            notes=note_text, omit.stat=c('aic','bic'), 
-            single.row=T, 
+            notes=to_stargz(paste0('<sup>1</sup> ', notes_sig, ' ', note_text)), omit.stat=c('aic','bic'), 
+            single.row=T, notes.label='',
             table.layout=table.layout, 
             add.lines=list(r2s,obs), 
             column.separate=colsep,

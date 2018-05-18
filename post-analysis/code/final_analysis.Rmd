@@ -41,7 +41,7 @@ estimtype = 'weighted'
 
 winsor_p=.05
 
-notes_sig = '\\* *p*<.1, \\*\\* *p*<.05, \\*\\*\\* *p*<.01 (two-sided).'
+notes_sig = 'Significance levels: \\* *p*<.1, \\*\\* *p*<.05, \\*\\*\\* *p*<.01 (two-sided).'
   
 # 1-sided
 if (estimtype=='winsor-onesided') {
@@ -84,7 +84,7 @@ if (estimtype=='weighted') {
 
 
 
-notes_base = paste0("Regression of long-term elasticities on explanatory variables and three random effects, for brands, categories, and countries, respectively. Estimated using a linear mixed-effects model. ", estimnote, " Two-sided significance levels reported. Standard errors in parentheses.")
+notes_base = paste0("^1^ Regression of long-term elasticities on explanatory variables and three random effects, for brands, categories, and countries, respectively. Estimated using a linear mixed-effects model. ", estimnote, " Standard errors in parentheses.")
 
 ```
 
@@ -121,11 +121,12 @@ tmp[, brand_include:= rank%in%1:5]
 
 tmp=tmp[, list(cattype=ifelse(unique(appliance)==1, 'Appliance', 'Electronics'), ncountries=unique(ncountries), nbrands=length(unique(brand)), exemplary_brand_names=paste0((my_capitalize(unique(brand[brand_include==T]))), collapse=', ')), by='category']
 tmp=sanitize_table(tmp)
+setnames(tmp, 'Top 5 brands', 'Top 5 brands^2^')
 
 try(setorder(tmp, Category),silent=T)
 
-kable(tmp, format='html', caption=tab('Category overview')) %>%
-        kable_styling() %>% footnote(general='Categories shown in alphabetical order. Top 5 brands are determined on the basis of their average volume share across countries, and are listed in decreasing order of their market shares.')
+kable(tmp, format='html', caption=tab('Category overview^1^')) %>%
+        kable_styling() %>% footnote(number=c('Categories shown in alphabetical order.', 'Top 5 brands are determined on the basis of their average volume share across countries, and are listed in decreasing order of their market shares.'))
 
 ```
 
@@ -141,8 +142,6 @@ Price                | Average price of brand *i*, computed as a sales-weighted^
 Distribution         | Sales-weighted^1^ distribution of each of brand *i*'s SKUs' store-weighted distribution in period *t* (0 = no market coverage, 100 = full market coverage).
 Line length          | Number of unique SKUs sold by brand *i* in period *t*.
 New product activity | Number of SKUs introduced by brand *i* in a rolling window of 6 months (*t-5*, *t-4*, *...*, *t*), expressed as a share of the total number of unique SKUs sold by brand *i* over the same period.
-
-Notes:
 
 ^1^ Weights equal to a SKU's unit sales in the most recent quarter (months t-2, t-1, t).
 
@@ -209,24 +208,43 @@ for (iter in iters) {
 
 ```
 
+```{correl, echo=FALSE,results='asis'}
+
+tmp = dcast(elast,market_id+brand~variable, value.var=c('elast', 'elastlt'))
+
+for (var in grep('elast', colnames(tmp),value=T)) {
+  tmp[, (paste0('mc_', var)):=get(var)-mean(get(var),na.rm=T), by = c('market_id')]
+  }
+
+printtmp=tmp[, grep('mc[_]elast[_]', colnames(tmp),value=T) ,with=F]
+setnames(printtmp, gsub('mc[_]elast[_]','',colnames(printtmp)))
+
+print(corstars(printtmp, method=c("pearson"),result='html'))
+
+printtmp=tmp[, grep('mc[_]elastlt[_]', colnames(tmp),value=T) ,with=F]
+setnames(printtmp, gsub('mc[_]elastlt[_]','',colnames(printtmp)))
+
+print(corstars(printtmp, method=c("pearson"),result='html'))
+
+```
 # Second-stage analysis
 
-`r tab("Variable operationalization")`
+`r tab("Variable operationalization^1^")`
 
 Construct                  | Operationalization                                     | References
 ------------------------- | --------------------------------------------------------|----------
 Appliance (versus electronics)| Dummy, equaling 1 for appliances (washing machines, microwaves and refrigerators), 0 for all other categories.
-Category growth       | Log of a market's average growth rate in the observation period.^1^
-Category concentration     | Log of Herfindahl index in a market (category/country combination).
+Category growth       | Average geometric growth rate in a market (category/country combination).^2^
+Category concentration     | Herfindahl index in a market (category/country combination).
 Domestic versus foreign brand | Dummy, equaling 1 if a brand's headquarter is located in the focal country, 0 if not.
-Price index | Log of a brand's average price (deflated sales value devided by the brand's sales volume over the observation period), indexed by the maximum price in a given category and country.
+Price index | Brand's average price (deflated sales value devided by the brand's sales volume over the observation period), indexed by the maximum price in a given category and country.
 Brand equity               | Sales-based brand equity, derived from the market share attraction model, standardized by category. | Datta, Ailawadi, and van Heerde (2017)
 
-*Note:* All continuous variables are first logged and then mean-centered before model estimation (except brand equity, which is only mean-centered as this variable can take on negative values). 
+^1^ All continuous variables are first logged and then mean-centered before model estimation (except brand equity, which is only mean-centered as this variable can take on negative values). 
 
-^1^ Geometric growth rate in a market (category/country combination), defined as the n-th's square root of the ratio of the total number of unit sales in a market in the last year over total number of unit sales in the first year (both years having 12 months of data). N equals to the number of years in the observation window.
+^2^ Geometric growth rate is the n-th's square root of the ratio of the total number of unit sales in a market in the last year over total number of unit sales in the first year (both years having 12 months of data), where n is equal to the number of years in the observation window.
 
-```{r summarystats, echo=FALSE}
+```{r summarystats, echo=FALSE, results='asis'}
 
 covars <- c('appliance', 'market_growth', 'herf', 'local_to_market', 'overall_prindex', 'sbbe_std', 'brandz')
 
@@ -236,7 +254,16 @@ nmarkets=length(unique(tmp$market_id))
 tmp = unique(tmp, by = c('market_id','brand', 'emerging'))
 nobs=nrow(tmp)
 
-  
+# test for differences in means
+diff_tests=rbindlist(lapply(covars, function(.var) {
+      tmp[, val:=get(.var)]
+      data.table(variable=.var, effect=c('constant', 'emerging'), summary(lm(val~1+emerging,data=tmp))$coefficients)
+    }))
+
+setnames(diff_tests, c('variable', 'effect', 'diff_est', 'diff_se', 'diff_t','diff_p'))
+diff_tests=diff_tests[effect=='emerging'][, effect:=NULL]
+
+
 tmp=tmp[, lapply(.SD, function(x) c(min=min(x,na.rm=T), max=max(x,na.rm=T), mean=mean(x,na.rm=T),sd=sd(x,na.rm=T))), by = c('emerging'), .SDcols=c(covars)]
 tmp[, var:=rep(c('min', 'max','mean', 'sd'),2)]
 tmp=melt(tmp, id.var=c('emerging', 'var'))
@@ -248,13 +275,17 @@ setcolorder(dtf, c('variable', paste0(rep(c('emerging_', 'developed_'), each=4),
 setnames(dtf, gsub('emerging_', '', colnames(dtf)))
 setnames(dtf, gsub('developed_', '', colnames(dtf)))
 
+setkey(diff_tests, variable)
+setkey(dtf, variable)
+
+dtf[diff_tests, ':=' (comb_t=i.diff_t, comb_sig=gsub('[*]', '\\*', psignstars(i.diff_p)))]
+
 dtf=sanitize_table(dtf)
 
-kable(dtf, digits=3,caption = tab(paste0('Summary statistics for covariates in second-stage analysis, split by a country\'s development status')),
-      format='html', initial.zero = FALSE) %>%
-        kable_styling() %>% footnote(general=paste0('Note: Summary statistics for variables in levels, computed across ', nobs, ' observations in our sample.')) %>%
-  add_header_above(c(" " = 1, "Emerging countries" = 4, "Developed countries" = 4))
-#c("striped", 'bordered')
+print(kable(dtf, format='html', initial.zero = FALSE, digits=3,caption = tab(paste0('Summary statistics for covariates in second-stage analysis, split by a country\'s development status^1^')),
+      ) %>% kable_styling() %>% footnote(number=c(paste0('Summary statistics for variables (unlogged and not mean-centered), computed across ', nobs, ' observations in our sample.'),'Test on differences carried out by regressing variables on an intercept and an emerging country indicator variable. Reported t-value is obtained from the estimate of the emerging country indicator.')) %>% add_header_above(c(" " = 1, "Emerging countries" = 4, "Developed countries" = 4, "Test on differences^2^"=2)))
+
+
 ```
 
 # Analysis
@@ -290,11 +321,9 @@ printout(onlybe, 'stlt', omit=NULL, title = tab('Regression with short- and long
 
 ```
 
-## Assessing interactions individually
+## Assessing interactions individually for short- and long-term elasticities
 
-### Short-term
-
-```{r main_regs_st, echo = FALSE, results='asis'}
+```{r main_regs_both, echo = FALSE, results='asis'}
 
 interactions=grep('I[(]', unlist(strsplit(as.character(form_interact), ' [+] ')),value=T)
 
@@ -304,127 +333,73 @@ test_interact=sapply(interactions, function(x) update.formula(form_main_model, a
 out1=regmodel(formula=test_interact, dat=elast, model='lmer')
 
 # assess significance
-res=lapply(out1, function(m) lapply(m$st, function(n) data.table(mmix=m$variable,variable=rownames(summary(n)$coefficients),summary(n)$coefficients)))
-
-# assess significance
-res=rbindlist(do.call('c', res))
-res=res[grepl('I[(]', variable)]
-res[, z:=Estimate/get('Std. Error')]
-res[, abs_z:=abs(z)]
-setorder(res, abs_z)
-#res[, z:=NULL]
-
-summary_sig=dcast(res, variable ~ mmix, value.var='z')
-summary_sig[,variable:=gsub('I[(]', '', variable)]
-summary_sig[,variable:=gsub(' [*] emerging[)]', '', variable)]
-
-              
-kable(sanitize_table(summary_sig), format='html', initial.zero = FALSE, digits=3, caption=tab('Z-values for adding interactions to a main-effects only model for short-term elasticities')) %>%
-        kable_styling()
-
-update_forms=res[abs_z>1.65, list(interactions=unique(variable)),by=c('mmix')]
-
-run_interact=sapply(ordered_vars, function(x) {
-  keep_terms = update_forms[mmix==x]$interactions
-  remove_terms = setdiff(interactions, keep_terms)
-  update_terms=paste(remove_terms, collapse=' - ')
-  if (update_terms=='') return(form_interact)
+for (elasttype in c('st', 'lt')) {
   
-  update.formula(form_interact, as.formula(paste0('.~.-',update_terms)))
-})
-
-
-out1=regmodel(formula=c(form_interact, run_interact), dat=elast, model='lmer')
-
-# reassemble to keep only the ones with terms we selected
-mod_out<-lapply(seq(along=out1), function(i) {
-  x=out1[[i]]
-  x$lt<-list(x$lt[[1]], x$lt[[1+i]])
-  x$st<-list(x$st[[1]], x$st[[1+i]])
-  return(x)
-})
-names(mod_out) <- names(out1)
-
+  res=lapply(out1, function(m) lapply(ifelse(elasttype=='st', m$st, m$lt), function(n) data.table(mmix=m$variable,variable=rownames(summary(n)$coefficients),summary(n)$coefficients)))
   
-# assemble all variables
-
-# MAIN MODEL
-cat("<P style='page-break-before: always'>")
-printout(mod_out, 'st', title = tab('Regression with short-term elasticities in a pooled sample of developed and emerging countries: testing for interactions'), vars=ordered_vars, notes=paste0(gsub('long[-]term', 'short-term', notes_base),  ' For each variable, the first column reports a model with full interactions; the second column reports a model in which only interactions are added that were significant in an auxilary regression with all main effects and only the relevant interaction.'))
-
+  # assess significance
+  res=rbindlist(do.call('c', res))
+  res=res[grepl('I[(]', variable)]
+  res[, z:=Estimate/get('Std. Error')]
+  res[, abs_z:=abs(z)]
+  setorder(res, abs_z)
+  #res[, z:=NULL]
+  
+  summary_sig=dcast(res, variable ~ mmix, value.var='z')
+  summary_sig[,variable:=gsub('I[(]', '', variable)]
+  summary_sig[,variable:=gsub(' [*] emerging[)]', '', variable)]
+  setcolorder(summary_sig, c('variable', ordered_vars))
+  #setnames(summary_sig, 'variable', 'Interaction term with emerging country indicator')
+                
+  print(kable(sanitize_table(summary_sig), format='html', initial.zero = FALSE, digits=3, caption=tab(paste0('Assessing the significance of adding interaction terms with an emerging country indicator to a main-effects only model for ', ifelse(elasttype=='st', 'short-term', 'long-term'), ' elasticities^1^'))) %>%
+          kable_styling() %>% footnote(number='Table reports t-values for a single interaction term between the focal variable and an emerging country indicator added to a regression of marketing mix elasticities on main effects only.'))
+  
+  update_forms=res[abs_z>1.65, list(interactions=unique(variable)),by=c('mmix')]
+  
+  run_interact=sapply(ordered_vars, function(x) {
+    keep_terms = update_forms[mmix==x]$interactions
+    remove_terms = setdiff(interactions, keep_terms)
+    update_terms=paste(remove_terms, collapse=' - ')
+    if (update_terms=='') return(form_interact)
+    
+    update.formula(form_interact, as.formula(paste0('.~.-',update_terms)))
+  })
+  
+  
+  out1=regmodel(formula=c(form_interact, run_interact), dat=elast, model='lmer')
+  
+  # reassemble to keep only the ones with terms we selected
+  mod_out<-lapply(seq(along=out1), function(i) {
+    x=out1[[i]]
+    x$lt<-list(x$lt[[1]], x$lt[[1+i]])
+    x$st<-list(x$st[[1]], x$st[[1+i]])
+    return(x)
+  })
+  names(mod_out) <- names(out1)
+  
+    
+  # assemble all variables
+  
+  # MAIN MODEL
+  cat("<P style='page-break-before: always'>")
+  printout(mod_out, elasttype, title = tab(paste('Regression with ', ifelse(elasttype=='st', 'short-term', 'long-term'), ' elasticities in a pooled sample of developed and emerging countries: testing for interactions')), vars=ordered_vars, notes=paste0(ifelse(elasttype=='st', gsub('long[-]term', 'short-term', notes_base), notes_base),  ' For each variable, the first column reports a model with full interactions; the second column reports a model in which only interactions are added that were significant in an auxilary regression with all main effects and only the relevant interaction.'))
+}
 
 ```
-### Long-term
 
-```{r main_regs_lt, echo = FALSE, results='asis'}
-
-interactions=grep('I[(]', unlist(strsplit(as.character(form_interact), ' [+] ')),value=T)
-
-test_interact=sapply(interactions, function(x) update.formula(form_main_model, as.formula(paste0('.~.+',x))))
-
-       
-out1=regmodel(formula=test_interact, dat=elast, model='lmer')
-
-# assess significance
-res=lapply(out1, function(m) lapply(m$lt, function(n) data.table(mmix=m$variable,variable=rownames(summary(n)$coefficients),summary(n)$coefficients)))
-
-# assess significance
-res=rbindlist(do.call('c', res))
-res=res[grepl('I[(]', variable)]
-res[, z:=Estimate/get('Std. Error')]
-res[, abs_z:=abs(z)]
-setorder(res, abs_z)
-#res[, z:=NULL]
-
-summary_sig=dcast(res, variable ~ mmix, value.var='z')
-summary_sig[,variable:=gsub('I[(]', '', variable)]
-summary_sig[,variable:=gsub(' [*] emerging[)]', '', variable)]
-
-              
-kable(sanitize_table(summary_sig), format='html', initial.zero = FALSE, digits=3, caption=tab('Z-values for adding interactions to a main-effects only model for long-term elasticities')) %>%
-        kable_styling()
-
-update_forms=res[abs_z>1.65, list(interactions=unique(variable)),by=c('mmix')]
-
-run_interact=sapply(ordered_vars, function(x) {
-  keep_terms = update_forms[mmix==x]$interactions
-  remove_terms = setdiff(interactions, keep_terms)
-  update_terms=paste(remove_terms, collapse=' - ')
-  if (update_terms=='') return(form_interact)
-  
-  update.formula(form_interact, as.formula(paste0('.~.-',update_terms)))
-})
-
-
-out1=regmodel(formula=c(form_interact, run_interact), dat=elast, model='lmer')
-
-# reassemble to keep only the ones with terms we selected
-mod_out<-lapply(seq(along=out1), function(i) {
-  x=out1[[i]]
-  x$lt<-list(x$lt[[1]], x$lt[[1+i]])
-  x$st<-list(x$st[[1]], x$st[[1+i]])
-  return(x)
-})
-names(mod_out) <- names(out1)
-
-  
-# assemble all variables
-#sink('../temp/test.html')
-
-# MAIN MODEL
-cat("<P style='page-break-before: always'>")
-printout(mod_out, 'lt', title = tab('Regression with long-term elasticities in a pooled sample of developed and emerging countries: testing for interactions'), vars=ordered_vars, notes=paste0(notes_base,  ' For each variable, the first column reports a model with full interactions; the second column reports a model in which only interactions are added that were significant in an auxilary regression with all main effects and only the relevant interaction.'))
-
-#sink()
-
-#sink()
-
-```
 # Robustness checks
 
-## Different variables to measure a country's development status
+## Alternative rolling windows
 
-- Developing country indicator (1-emerging country indicator)
+Currently, we use two types of rolling windows:
+(a) prices are sales-weighted (months t-2, t-1, t) averages of a brand's SKUs prices. 
+(b) new product activity is defined as the share of SKUs introduced in the past six months (months t-5, t-4, ... t)
+
+We should discuss whether it makes sense re-estimating all models with either both variables using (a) t-2, t-1, t, or (b) t-5, t-4, ... t.
+
+## Alternative measures for a country's state of development
+
+- Emerging country indicator (here reported as 1-emerging = developed country indicator)
 - Log of GDP per capita
 - Log of Global Competitiveness Index
 - Log of Human Development Index
@@ -448,7 +423,7 @@ printout(out1, 'lt', vars=ordered_vars[3:4], title = tab('Regression with long-t
 
 ```
 
-## Assessing robustness of brand equity metric
+## Alternative measures for Brand Equity
 
 - Brand equity (SBBE)
 - Log of brand-level market share
@@ -470,6 +445,22 @@ cat("<P style='page-break-before: always'>")
 printout(out1, 'lt', omit=NULL, title = tab('Regression with long-term elasticities on covariates and different indicators for brand equity'), vars=ordered_vars[3:4], notes=notes_base)
 #sink()
 ```
+
+## Alternative sample
+
+Options are:
+(a) removing outliers (e.g., +/- 3x SD of elasticities)
+(b) Winsorized elasticities (one or two-tailed? 5%?)
+
+## Assessing time-varying elasticities
+
+Time-varying elasticities could be assessed by splitting the sample. Options are:
+- 1/3 vs 2/3
+- first versus last 50%
+
+We would then estimate marketing mix elasticities in twosamples, and assess the extent to which they (systematically) differ. 
+
+Drawback is that we'd lose some categories, as a split won't yield enough observations for estimation. A way out would be to split the sample in the first 70% of observations, and the last 70% of observations (hence, we'd have an overlap in both samples). We'd still lose some categories, but we should be better off compared to a hard split.
 
 # Appendix
 
@@ -494,8 +485,8 @@ setcolorder(tmp, c('country_of_origin', 'nbrands', 'all_brands'))
 
 tmp=sanitize_table(tmp)
 
-kable(tmp, caption = tab('Country-of-origins for brands in sample, ordered by the number of brands from a given country', prefix ='A'),format='html') %>%
-        kable_styling() %>% footnote(general=paste0('Note: Brand names listed alphabetically.'))
+kable(tmp, caption = tab('Country-of-origins for brands in sample, ordered by the number of brands from a given country^1^', prefix ='A'),format='html') %>%
+        kable_styling() %>% footnote(number=paste0('Brand names listed alphabetically.'))
 
 ```
 
@@ -514,8 +505,8 @@ for (byvar in c('category', 'country')) {
   setorderv(tmp, colnames(tmp)[1])
   
   cat("<P style='page-break-before: always'>")
-  if(0){print(kable(tmp, digits=3, caption = tab(paste0('Long-term elasticities (by ', byvar, ')'), prefix='A'), format='html', initial.zero = FALSE) %>%
-        kable_styling() %>% footnote(general=paste0('Note: ', estimnote, ' Reported by ', ifelse(byvar=='country', 'countries', 'categories'), ' in alphabetical order.')))
+  if(0){print(kable(tmp, digits=3, caption = tab(paste0('Long-term elasticities (by ', byvar, ')^1^'), prefix='A'), format='html', initial.zero = FALSE) %>%
+        kable_styling() %>% footnote(number=paste0(estimnote, ' Reported by ', ifelse(byvar=='country', 'countries', 'categories'), ' in alphabetical order.')))
   }
 }
   
@@ -547,7 +538,7 @@ setorder(out, Category)
 setnames(out, 'mean1', 'developed countries')
 setnames(out, 'mean2', 'emerging countries')
 cat("<P style='page-break-before: always'>")
-kable(out, format='html',caption = tab('Average category growth rates for developed and emerging countries',prefix='A'),digits=3) %>% kable_styling() %>% footnote(general=paste0('Note: Table reports average category growth rates, and the results of a t-test of statistical significance of the difference in growth rates between developed and emerging countries. Categories are ordered alphabetically.'))
+kable(out, format='html',caption = tab('Average category growth rates for developed and emerging countries^1^',prefix='A'),digits=3) %>% kable_styling() %>% footnote(number=paste0('Table reports average category growth rates, and the results of a t-test of statistical significance of the difference in growth rates between developed and emerging countries. Categories are ordered alphabetically.'))
   
 ```
 
@@ -564,7 +555,7 @@ rownames(frame1)<-NULL
 frame1=frame1[, c('variable','VIF')]
 frame1=sanitize_table(frame1)
 cat("<P style='page-break-before: always'>")
-kable(frame1,format='html', caption = tab('VIFs in a model without interactions', prefix='A'))%>% kable_styling() %>% footnote(general=paste0('Note: VIFs calculated in regression models using the variables listed above (i.e., excluding brand, category, and country effects).'))
+kable(frame1,format='html', caption = tab('Assessing multicollinearity^1^', prefix='A'))%>% kable_styling() %>% footnote(number=paste0('Table reports VIFs values calculated in regression models using main effects for all variables listed above (i.e., excluding brand, category, and country effects).'))
 
 ```
 
@@ -593,8 +584,8 @@ cat("<P style='page-break-before: always'>")
 iters = list(st=c('st', 'Short-term'), lt=c('lt', 'Long-term'))
 for (iter in iters) {
   print(kable(sanitize_table(out[[iter[1]]]), digits=3, format='html', 
-        caption=tab(paste0(iter[2], ' elasticities by marketing mix instrument'),prefix='A')) %>% kable_styling() %>% 
-        footnote(general=paste0('Note: Table reports ', tolower(iter[2]), ' elasticities. ', estimnote, ' Significance tested at p<',sigvalue, '.')))
+        caption=tab(paste0(iter[2], ' elasticities by marketing mix instrument^1^'),prefix='A')) %>% kable_styling() %>% 
+        footnote(number=paste0('Table reports ', tolower(iter[2]), ' elasticities. ', estimnote, ' Significance tested at *p*<',sigvalue, '.')))
 }
 
 ```
