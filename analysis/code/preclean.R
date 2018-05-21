@@ -64,12 +64,16 @@ require(data.table)
   overall_metrics[, rank_ms:=.N-rank(overall_ms)+1, by = c('market_id')]
   
   # compute price indices (devided by mean)
-  overall_metrics[, overall_rprindex := overall_avglocalrpr/max(overall_avglocalrpr), by = c('market_id')]
+  overall_metrics[, ':=' (overall_rprindex = overall_avglocalrpr/max(overall_avglocalrpr),
+					      overall_rprindexavg = overall_avglocalrpr/mean(overall_avglocalrpr)),
+						  by = c('market_id')]
+  
   
   setkey(brand_panel, market_id, brand)
   setkey(overall_metrics, market_id, brand)
   
-  brand_panel[overall_metrics, ':=' (overall_ms=i.overall_ms, overall_prindex = i.overall_rprindex)]
+  brand_panel[overall_metrics, ':=' (overall_ms=i.overall_ms, overall_prindex = i.overall_rprindex,
+									 overall_prindexavg = i.overall_rprindexavg)]
   
   concentration=overall_metrics[, list(herf = sum(overall_ms^2), 
                     c3=sum(overall_ms[rank_ms<=3])/sum(overall_ms),

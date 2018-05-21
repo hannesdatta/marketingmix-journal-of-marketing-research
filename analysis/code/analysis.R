@@ -49,12 +49,11 @@ library(parallel)
 	setorder(markets,market_id)
 	analysis_markets <- unique(markets$market_id)
 
-	analysis_markets=analysis_markets[1:2]
-	
 ### Run specs
 	run_manual=TRUE
-	run_cluster=FALSE
+	run_cluster=TRUE
 	ncpu = 10 #4
+	analysis_markets#=analysis_markets[1:2]
 	
 ### Function to initialize all required functions (on a cluster)
 	init <- function() {
@@ -65,7 +64,7 @@ library(parallel)
 	# load model code
 	init()
 
-	fname = '../output/results.RData'
+	fname = '../output/results21may2018.RData'
 	
 ######################
 ### Specify models ###
@@ -169,7 +168,7 @@ if(run_cluster==T) {
 	
 	savemodels(fname)
 	
-# Estimate with lagged Xs, without trend
+	# Estimate with lagged Xs, without trend
 	assign_model(m1, del = TRUE)
 	
 	assign_model(m2)

@@ -86,6 +86,22 @@ if (estimtype=='weighted') {
 
 notes_base = paste0("^1^ Regression of long-term elasticities on explanatory variables and three random effects, for brands, categories, and countries, respectively. Estimated using a linear mixed-effects model. ", estimnote, " Standard errors in parentheses.")
 
+
+# check correlation between llen and nov6sh
+brand_panel=fread('../../analysis/temp/preclean.csv')
+brand_panel[, ':=' (date = as.Date(date))]
+
+with(brand_panel, cor(llen,nov6sh))
+
+tmp=brand_panel[, (cor = cor(llen,nov6sh)), by = c('market_id')]
+mean(tmp$V1)
+
+
+tmp=brand_panel[, list(V1=cor(llen,nov6sh, use = 'pairwise')), by = c('market_id', 'brand')]
+
+mean(tmp$V1)
+#hist(tmp$V1,xlim=c(-1,1),xlab=c('correlation coefficient'), main = 'correlation between llen and nov6sh')
+
 ```
 
 # Data
