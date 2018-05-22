@@ -91,16 +91,17 @@ notes_base = paste0("^1^ Regression of long-term elasticities on explanatory var
 brand_panel=fread('../../analysis/temp/preclean.csv')
 brand_panel[, ':=' (date = as.Date(date))]
 
-with(brand_panel, cor(llen,nov6sh))
+vars <- c('nov6sh', 'nov6', 'nov3sh', 'nov3')
+tmp=rbindlist(lapply(vars, function(.var) {
+  print(.var)
+  
+  cor1=with(brand_panel, eval(parse(text=paste0('cor(llen,', .var, ')'))))
+  cor2=mean(brand_panel[, (cor = cor(llen,get(.var))), by = c('market_id')]$V1)
+  cor3=mean(brand_panel[, (cor = cor(llen,get(.var), use='pairwise')), by = c('market_id', 'brand')]$V1,na.rm=T)
+  #hist(tmp$V1,xlim=c(-1,1),xlab=c('correlation coefficient'), main = 'correlation between llen and nov6sh')
+  data.table(variable=.var, cor_overall=cor1, cor_by_market=cor2, cor_by_brand_market=cor3)
+}))
 
-tmp=brand_panel[, (cor = cor(llen,nov6sh)), by = c('market_id')]
-mean(tmp$V1)
-
-
-tmp=brand_panel[, list(V1=cor(llen,nov6sh, use = 'pairwise')), by = c('market_id', 'brand')]
-
-mean(tmp$V1)
-#hist(tmp$V1,xlim=c(-1,1),xlab=c('correlation coefficient'), main = 'correlation between llen and nov6sh')
 
 ```
 
