@@ -155,7 +155,6 @@ if(run_cluster==T) {
 	                        })
 	
 	# inspecting the carry-overs yields a negative one in NZ; set to zero
-	#if(0){
 	if(results_MCI_wolag_trend[[27]]$market_id==31 & data.table(results_MCI_wolag_trend[[27]]$model@coefficients)[grepl('lagunitsales',variable)]$coef<0) {
 	  
 	  results_MCI_wolag_trend[[27]] <- try(analyze_by_market(31, estmethod=estmethod, setup_y = setup_y, setup_x = setup_x, 
@@ -164,7 +163,6 @@ if(run_cluster==T) {
 	                          use_quarters=use_quarters, plusx=plusx, attraction_model=attraction_model, 
 	                          squared=squared, takediff=takediff, lag_heterog=lag_heterog,carryover_zero=T), silent=T)
 	}
-	#}
 	
 	savemodels(fname)
 	
