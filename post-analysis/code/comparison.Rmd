@@ -1,0 +1,56 @@
+---
+title: "GfK Singapore - Results - Comparison"
+output:
+  html_document: default
+date: "`r format(Sys.time(), '%d %B %Y')`"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+libs_to_load <- c('data.table', 'stargazer', 'knitr', 'xtable', 'lme4', 'car', 'kableExtra', 'stringi', 'ggplot2', 'ggpubr', 'plyr')
+for (lib in libs_to_load) eval(parse(text=paste('library(', lib, ')')))
+
+options(xtable.comment = FALSE)
+options(knitr.kable.NA = '')
+
+# Load auxilary functions
+  source('proc_auxilary.R')
+  source('proc_rename.R')
+
+fns <- c(nov6sh='elast_results_MCI_wolag_trend.csv', nov3sh='elast_results_nov3sh.csv',
+         nov6='elast_results_nov6.csv', nov3='elast_results_nov3.csv')
+         
+dts<-lapply(fns, function(x) {
+  elast <<- fread(paste0('../externals/', x))
+  # Preclean data
+  source('preclean.R')
+  
+  for (.var in c('elast', 'elastlt')) {
+
+    elast[!is.na(get(.var)), paste0('w_', .var) := 1/get(paste0(.var, '_se'))]
+    elast[!is.na(get(.var)), paste0('z_', .var) := get(.var)/get(paste0(.var, '_se'))]
+  }
+   
+   
+  return(elast)
+})
+
+
+# set order of variables to appear in figures and tables
+ordered_vars = c('rwpspr', 'wpswdst','llen','nov6sh')
+names(ordered_vars) <- paste0(unlist(sanitize_table(data.frame(ordered_vars))), ' elasticity')
+
+```
+
+```{r compare_elast, echo=F, results= 'asis'}
+
+tmp=rbindlist(lapply(seq(along=dts), function(x) dts[[x]][, list(model=names(dts)[x], wmean_st = sum(elast*w_elast)/sum(w_elast),
+                                 wmean_lt = sum(elastlt*w_elastlt)/sum(w_elastlt)),by=c('variable')]))
+setnames(tmp, 'variable', 'var')
+tmp=melt(tmp)
+
+pltmp=dcast(tmp[!var%in%c('llen','rwpspr', 'wpswdst')], model+var ~ variable)
+
+
+```
