@@ -51,7 +51,7 @@ library(parallel)
 
 ### Run specs
 	run_manual=TRUE
-	run_cluster=TRUE
+	run_cluster=FALSE
 	ncpu = 10 #4
 	analysis_markets#=analysis_markets[1:2]
 	
@@ -64,7 +64,7 @@ library(parallel)
 	# load model code
 	init()
 
-	fname = '../output/results23may2018.RData'
+	fname = '../output/results.RData'
 
 ######################
 ### Specify models ###
