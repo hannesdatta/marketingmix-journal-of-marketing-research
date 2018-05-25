@@ -71,6 +71,7 @@ ln_herf_mc	Log of category concentration	gsub
 ln_overall[_]ms[_]mc	Log of brand-level market share	gsub
 ^overall[_]ms	Brand-level market share	grepl
 ln_overall[_]prindex[_]mc	Log of price index	gsub
+ln_overall[_]prindexavg[_]mc	Log of price index	gsub
 ^overall[_]prindex	Price index	grepl
 local_to_market	Domestic (vs. foreign) brand	grepl
 sbbelt|sbbelt[_]mc	Brand equity (long-term, not standardized)	gsub

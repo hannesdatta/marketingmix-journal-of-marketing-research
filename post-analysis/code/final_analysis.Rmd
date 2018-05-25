@@ -30,9 +30,9 @@ ordered_vars = c('rwpspr', 'wpswdst','llen','nov6sh')
 names(ordered_vars) <- paste0(unlist(sanitize_table(data.frame(ordered_vars))), ' elasticity')
 
 # formulas for models
-form_main_model = .~1+ (1|brand) + (1|category) + (1|country) + emerging + appliance + ln_market_growth_mc + ln_herf_mc + local_to_market + ln_overall_prindex_mc + sbbe_std_mc 
+form_main_model = .~1+ (1|brand) + (1|category) + (1|country) + emerging + appliance + ln_market_growth_mc + ln_herf_mc + local_to_market + ln_overall_prindexavg_mc + sbbe_std_mc 
 
-form_interact = ~1+ (1|brand) + (1|category) + (1|country) + emerging + appliance + I(appliance*emerging) + ln_market_growth_mc + I(ln_market_growth_mc*emerging) + ln_herf_mc + I(ln_herf_mc*emerging) + local_to_market + I(local_to_market*emerging) + ln_overall_prindex_mc + I(ln_overall_prindex_mc*emerging) + sbbe_std_mc + I(sbbe_std_mc*emerging)
+form_interact = ~1+ (1|brand) + (1|category) + (1|country) + emerging + appliance + I(appliance*emerging) + ln_market_growth_mc + I(ln_market_growth_mc*emerging) + ln_herf_mc + I(ln_herf_mc*emerging) + local_to_market + I(local_to_market*emerging) + ln_overall_prindexavg_mc + I(ln_overall_prindexavg_mc*emerging) + sbbe_std_mc + I(sbbe_std_mc*emerging)
 
 
 #estimtype = 'winsor-onesided'
@@ -91,9 +91,6 @@ notes_base = paste0("^1^ Regression of long-term elasticities on explanatory var
 brand_panel=fread('../../analysis/temp/preclean.csv')
 brand_panel[, ':=' (date = as.Date(date))]
 
-brand_panel[, oldllen:=llen-nov3]
-
-
 vars <- c('nov6sh', 'nov6', 'nov3sh', 'nov3')
 tmp=rbindlist(lapply(vars, function(.var) {
   print(.var)
@@ -104,10 +101,6 @@ tmp=rbindlist(lapply(vars, function(.var) {
   #hist(tmp$V1,xlim=c(-1,1),xlab=c('correlation coefficient'), main = 'correlation between llen and nov6sh')
   data.table(variable=.var, cor_overall=cor1, cor_by_market=cor2, cor_by_brand_market=cor3)
 }))
-
-  cor1=with(brand_panel, eval(parse(text=paste0('cor(llen,', .var, ')'))))
-  cor2=mean(brand_panel[, (cor = cor(llen,get(.var))), by = c('market_id')]$V1)
-  cor3=mean(brand_panel[, (cor = cor(llen,get(.var), use='pairwise')), by = c('market_id', 'brand')]$V1,na.rm=T)
 
 
 ```
@@ -271,7 +264,7 @@ Appliance (versus electronics)| Dummy, equaling 1 for appliances (washing machin
 Category growth       | Average geometric growth rate in a market (category/country combination).^2^
 Category concentration     | Herfindahl index in a market (category/country combination).
 Domestic versus foreign brand | Dummy, equaling 1 if a brand's headquarter is located in the focal country, 0 if not.
-Price index | Brand's average price (deflated sales value devided by the brand's sales volume over the observation period), indexed by the maximum price in a given category and country.
+Price index | Brand's average price (deflated sales value devided by the brand's sales volume over the observation period), indexed by the average price in a given category and country.
 Brand equity               | Sales-based brand equity, derived from the market share attraction model, standardized by category. | Datta, Ailawadi, and van Heerde (2017)
 
 ^1^ All continuous variables are first logged and then mean-centered before model estimation (except brand equity, which is only mean-centered as this variable can take on negative values). 
@@ -280,7 +273,7 @@ Brand equity               | Sales-based brand equity, derived from the market s
 
 ```{r summarystats, echo=FALSE, results='asis'}
 
-covars <- c('appliance', 'market_growth', 'herf', 'local_to_market', 'overall_prindex', 'sbbe_std', 'brandz')
+covars <- c('appliance', 'market_growth', 'herf', 'local_to_market', 'overall_prindexavg', 'sbbe_std', 'brandz')
 
 tmp=data.table(elast)
 nbrands=length(unique(tmp$brand))
@@ -580,7 +573,7 @@ kable(out, format='html',caption = tab('Average category growth rates for develo
 
 ```{r VIFS, echo=FALSE,results='asis'}
 
-m1 = ~1+ appliance + ln_market_growth_mc + ln_herf_mc + local_to_market  + ln_overall_prindex_mc + sbbe_std_mc
+m1 = ~1+ appliance + ln_market_growth_mc + ln_herf_mc + local_to_market  + ln_overall_prindexavg_mc + sbbe_std_mc
 
 m<-lm(update(elast~., m1), data=elast[variable=='llen'])
 
