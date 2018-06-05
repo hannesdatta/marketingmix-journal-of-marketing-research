@@ -86,7 +86,9 @@ for (i in 1:length(skus_by_date_list)) {
 											 
 											 nov1= length(unique(sku_id[which(first_date>date_lag1 & first_date <= date)])),
 											 nov3= length(unique(sku_id[which(first_date>date_lag3 & first_date <= date)])),
-											 nov6= length(unique(sku_id[which(first_date>date_lag6 & first_date <= date)]))
+											 nov6= length(unique(sku_id[which(first_date>date_lag6 & first_date <= date)])),
+											 nov12= length(unique(sku_id[which(first_date>date_lag12 & first_date <= date)]))
+											 
 											 
 											 ), by=c('category', 'country', 'market_id', 'date', 'brand', 'selected_brand')][order(category, country,brand,date)]
 	
@@ -94,6 +96,7 @@ for (i in 1:length(skus_by_date_list)) {
 		merged_attr_sales[, N:=1:.N, by=c('category', 'country','brand')]
 		merged_attr_sales[N%in%1:3, nov3:=NA]
 		merged_attr_sales[N%in%1:3, nov6:=NA]
+		merged_attr_sales[N%in%1:3, nov12:=NA]
 		merged_attr_sales[N%in%1, nov1:=NA]
 		merged_attr_sales[, N:=NULL]
 		

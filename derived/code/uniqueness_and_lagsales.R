@@ -216,18 +216,13 @@ for (i in 1:length(datlist_final)) {
 
 		uniq_date <- skus_by_date[, list(N=.N),by='date']
 		uniq_date[, N:=NULL]
-		uniq_date[, date_lag3 := sapply(date, function(x) {m<-as.POSIXlt(x); m$mon=m$mon-3; return(as.character(as.Date(m)))})]
-		uniq_date[, date_lag3 := as.Date(date_lag3)]
-		uniq_date[, date_lag6 := sapply(date, function(x) {m<-as.POSIXlt(x); m$mon=m$mon-6; return(as.character(as.Date(m)))})]
-		uniq_date[, date_lag6 := as.Date(date_lag6)]
-		uniq_date[, date_lag1 := sapply(date, function(x) {m<-as.POSIXlt(x); m$mon=m$mon-1; return(as.character(as.Date(m)))})]
-		uniq_date[, date_lag1 := as.Date(date_lag1)]
-		setkey(skus_by_date, date)
-		setkey(uniq_date, date)
 		
-		skus_by_date[uniq_date, ':=' (date_lag3 = i.date_lag3, date_lag1 = i.date_lag1, date_lag6 = i.date_lag6)]
+		for (lags in c(1,3,6,12)) {
+			uniq_date[, paste0('date_lag', lags) := as.Date(sapply(date, function(x) {m<-as.POSIXlt(x); m$mon=m$mon-lags; return(as.character(as.Date(m)))}))]
+			}
+		
+		skus_by_date=merge(skus_by_date, uniq_date, by = c('date'))
 		rm(uniq_date)
-	
 	
 	skus_by_date_list[[i]] <- skus_by_date
 	
@@ -239,4 +234,3 @@ names(skus_by_date_list) <- names(datlist_final)
 print(warnings())
 
 save(skus_by_date_list, file='..\\temp\\uniqueness_and_lagsales.RData')
-	
