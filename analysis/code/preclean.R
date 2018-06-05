@@ -27,13 +27,14 @@ require(data.table)
 	brand_panel[, ':=' (date = as.Date(date))]
 	
 	brand_panel[, nov6sh := (nov6/llen)*100]
+	brand_panel[, nov12sh := (nov12/llen)*100]
 	brand_panel[, nov3sh := (nov3/llen)*100]
 	brand_panel[, nov1sh := (nov1/llen)*100]
 	
 	brand_panel[, quarter := quarter(date)]
 
 	# lag variables
-	for (.var in c('rwpspr', 'wpswdst','llen','nov6sh', 'nov3sh')) {
+	for (.var in c('rwpspr', 'wpswdst','llen','nov6sh', 'nov3sh', 'nov12sh')) {
 	  brand_panel[, paste0('lag', .var) := c(NA, get(.var)[-.N]), by = c('market_id', 'brand')]
 	}
 	

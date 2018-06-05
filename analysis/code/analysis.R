@@ -51,7 +51,7 @@ library(parallel)
 
 ### Run specs
 	run_manual=TRUE
-	run_cluster=FALSE
+	run_cluster=TRUE
 	ncpu = 10 #4
 	analysis_markets#=analysis_markets[1:2]
 	
@@ -64,7 +64,7 @@ library(parallel)
 	# load model code
 	init()
 
-	fname = '../output/results.RData'
+	fname = '../output/results5june2018.RData'
 
 ######################
 ### Specify models ###
@@ -103,6 +103,10 @@ library(parallel)
 	m1d$setup_endogenous[4] <- 'nov3sh'
 	m1d$plusx[1] <- 'nov3sh'
 	
+	m1e <- m1
+	m1e$setup_x['nov'] <- 'nov12sh'
+	m1e$setup_endogenous[4] <- 'nov12sh'
+	m1e$plusx[1] <- 'nov12sh'
 	
 	
 	# without trend, with lagged Xs
@@ -271,6 +275,34 @@ if(run_cluster==T) {
 	assign_model(m1d, del = TRUE)
 	
 
+	# Nov3sh
+	assign_model(m1e)
+	clusterExport(cl,names(m1e))
+	
+	results_nov12sh <- parLapplyLB(cl, analysis_markets, function(i) {
+	  try(analyze_by_market(i, estmethod=estmethod, setup_y = setup_y, setup_x = setup_x, 
+	                        setup_endogenous = setup_endogenous, trend = trend, pval = pval, 
+	                        max.lag = max.lag, min.t = min.t, maxiter = maxiter, 
+	                        use_quarters=use_quarters, plusx=plusx, attraction_model=attraction_model, 
+	                        squared=squared, takediff=takediff, lag_heterog=lag_heterog,carryover_zero=carryover_zero), silent=T)
+	})
+	
+	# inspecting the carry-overs yields a negative one in NZ; set to zero
+	if(results_nov12sh[[27]]$market_id==31 & data.table(results_nov12sh[[27]]$model@coefficients)[grepl('lagunitsales',variable)]$coef<0) {
+	  
+	  results_nov12sh[[27]] <- try(analyze_by_market(31, estmethod=estmethod, setup_y = setup_y, setup_x = setup_x, 
+	                                                setup_endogenous = setup_endogenous, trend = trend, pval = pval, 
+	                                                max.lag = max.lag, min.t = min.t, maxiter = maxiter, 
+	                                                use_quarters=use_quarters, plusx=plusx, attraction_model=attraction_model, 
+	                                                squared=squared, takediff=takediff, lag_heterog=lag_heterog,carryover_zero=T), silent=T)
+	}
+	
+	savemodels(fname)
+	
+	assign_model(m1e, del = TRUE)
+	
+	
+	
 ####
 	
 		
