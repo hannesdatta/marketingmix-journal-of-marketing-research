@@ -92,14 +92,6 @@ for (i in 1:length(skus_by_date_list)) {
 											 
 											 ), by=c('category', 'country', 'market_id', 'date', 'brand', 'selected_brand')][order(category, country,brand,date)]
 	
-		# novelty variables must be set to missing for the first three months.
-		merged_attr_sales[, N:=1:.N, by=c('category', 'country','brand')]
-		merged_attr_sales[N%in%1:3, nov3:=NA]
-		merged_attr_sales[N%in%1:3, nov6:=NA]
-		merged_attr_sales[N%in%1:3, nov12:=NA]
-		merged_attr_sales[N%in%1, nov1:=NA]
-		merged_attr_sales[, N:=NULL]
-		
 	# Add indicators for category-sales observations
 	setkey(merged_attr_sales, category, country, date)
 	merged_attr_sales[time_selection, selected_t_cat := i.selected_t_cat]
