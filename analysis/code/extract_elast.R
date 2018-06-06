@@ -15,7 +15,7 @@ library(marketingtools)
 #load(file = c('../output/results.RData'))
 #load(file = c('../temp/results_20180313.RData'))
 #load(file = c('../output/results23may2018.RData'))
-load(file = c('../output/results5june2018.RData'))
+load(file = c('../output/results6june2018.RData'))
 
 # load panel data
 brand_panel=fread('../temp/preclean.csv')

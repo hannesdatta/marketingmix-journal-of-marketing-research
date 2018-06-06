@@ -64,7 +64,7 @@ library(parallel)
 	# load model code
 	init()
 
-	fname = '../output/results5june2018.RData'
+	fname = '../output/results6june2018.RData'
 
 ######################
 ### Specify models ###
@@ -87,17 +87,6 @@ library(parallel)
 		   squared=F, maxiter = 400,
 		   carryover_zero=F)
 
-	m1b <- m1
-	m1b$setup_x['nov'] <- 'nov6'
-	m1b$setup_endogenous[4] <- 'nov6'
-	m1b$plusx[1] <- 'nov6'
-	
-	m1c <- m1
-	m1c$setup_x['nov'] <- 'nov3'
-	m1c$setup_endogenous[4] <- 'nov3'
-	m1c$plusx[1] <- 'nov3'
-	
-	
 	m1d <- m1
 	m1d$setup_x['nov'] <- 'nov3sh'
 	m1d$setup_endogenous[4] <- 'nov3sh'
@@ -191,63 +180,6 @@ if(run_cluster==T) {
 	# Estimate with lagged Xs, without trend
 	assign_model(m1, del = TRUE)
 
-#### EXTRA MODELS
-	
-	# Nov6
-	assign_model(m1b)
-	clusterExport(cl,names(m1b))
-	
-	results_nov6 <- parLapplyLB(cl, analysis_markets, function(i) {
-	  try(analyze_by_market(i, estmethod=estmethod, setup_y = setup_y, setup_x = setup_x, 
-	                        setup_endogenous = setup_endogenous, trend = trend, pval = pval, 
-	                        max.lag = max.lag, min.t = min.t, maxiter = maxiter, 
-	                        use_quarters=use_quarters, plusx=plusx, attraction_model=attraction_model, 
-	                        squared=squared, takediff=takediff, lag_heterog=lag_heterog,carryover_zero=carryover_zero), silent=T)
-	})
-	
-	# inspecting the carry-overs yields a negative one in NZ; set to zero
-	if(results_nov6[[27]]$market_id==31 & data.table(results_nov6[[27]]$model@coefficients)[grepl('lagunitsales',variable)]$coef<0) {
-	  
-	  results_nov6[[27]] <- try(analyze_by_market(31, estmethod=estmethod, setup_y = setup_y, setup_x = setup_x, 
-	                                                         setup_endogenous = setup_endogenous, trend = trend, pval = pval, 
-	                                                         max.lag = max.lag, min.t = min.t, maxiter = maxiter, 
-	                                                         use_quarters=use_quarters, plusx=plusx, attraction_model=attraction_model, 
-	                                                         squared=squared, takediff=takediff, lag_heterog=lag_heterog,carryover_zero=T), silent=T)
-	}
-	
-	savemodels(fname)
-	
-	# Estimate with lagged Xs, without trend
-	assign_model(m1b, del = TRUE)
-	
-	
-	# Nov3
-	assign_model(m1c)
-	clusterExport(cl,names(m1c))
-	
-	results_nov3 <- parLapplyLB(cl, analysis_markets, function(i) {
-	  try(analyze_by_market(i, estmethod=estmethod, setup_y = setup_y, setup_x = setup_x, 
-	                        setup_endogenous = setup_endogenous, trend = trend, pval = pval, 
-	                        max.lag = max.lag, min.t = min.t, maxiter = maxiter, 
-	                        use_quarters=use_quarters, plusx=plusx, attraction_model=attraction_model, 
-	                        squared=squared, takediff=takediff, lag_heterog=lag_heterog,carryover_zero=carryover_zero), silent=T)
-	})
-	
-	# inspecting the carry-overs yields a negative one in NZ; set to zero
-	if(results_nov3[[27]]$market_id==31 & data.table(results_nov3[[27]]$model@coefficients)[grepl('lagunitsales',variable)]$coef<0) {
-	  
-	  results_nov3[[27]] <- try(analyze_by_market(31, estmethod=estmethod, setup_y = setup_y, setup_x = setup_x, 
-	                                              setup_endogenous = setup_endogenous, trend = trend, pval = pval, 
-	                                              max.lag = max.lag, min.t = min.t, maxiter = maxiter, 
-	                                              use_quarters=use_quarters, plusx=plusx, attraction_model=attraction_model, 
-	                                              squared=squared, takediff=takediff, lag_heterog=lag_heterog,carryover_zero=T), silent=T)
-	}
-	
-	savemodels(fname)
-	
-	assign_model(m1c, del = TRUE)
-	
-	
 	# Nov3sh
 	assign_model(m1d)
 	clusterExport(cl,names(m1d))
@@ -275,7 +207,7 @@ if(run_cluster==T) {
 	assign_model(m1d, del = TRUE)
 	
 
-	# Nov3sh
+	# Nov12sh
 	assign_model(m1e)
 	clusterExport(cl,names(m1e))
 	
