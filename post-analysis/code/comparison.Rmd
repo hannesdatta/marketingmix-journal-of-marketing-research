@@ -18,9 +18,10 @@ options(knitr.kable.NA = '')
   source('proc_auxilary.R')
   source('proc_rename.R')
 
-fns <- c(nov6sh='elast_results_MCI_wolag_trend.csv', nov3sh='elast_results_nov3sh.csv',
-         nov6='elast_results_nov6.csv', nov3='elast_results_nov3.csv',
-         nov12sh = 'elast_results_nov12sh.csv')
+fns <- c(nov6sh_old='elast_results_nov6sh_old.csv', nov3sh_old='elast_results_nov3sh_old.csv',
+         nov12sh_old = 'elast_results_nov12sh_old.csv',
+         nov6sh_new='elast_results_nov6sh.csv', nov3sh_new='elast_results_nov3sh.csv',
+         nov12sh_new = 'elast_results_nov12sh.csv')
          
 dts<-lapply(fns, function(x) {
   elast <<- fread(paste0('../externals/', x))

@@ -16,7 +16,7 @@ options(knitr.kable.NA = '')
 
 # Load data
   #elast <- fread('../externals/elast_results_MCI_wlag_wotrend.csv')
-  elast <- fread('../externals/elast_results_MCI_wolag_trend.csv')
+  elast <- fread('../externals/elast_results_nov12sh.csv')
 
 # Load auxilary functions
   source('proc_auxilary.R')
@@ -26,7 +26,7 @@ options(knitr.kable.NA = '')
   source('preclean.R')
   
 # set order of variables to appear in figures and tables
-ordered_vars = c('rwpspr', 'wpswdst','llen','nov6sh')
+ordered_vars = c('rwpspr', 'wpswdst','llen','nov12sh')
 names(ordered_vars) <- paste0(unlist(sanitize_table(data.frame(ordered_vars))), ' elasticity')
 
 # formulas for models
@@ -87,11 +87,11 @@ if (estimtype=='weighted') {
 notes_base = paste0("^1^ Regression of long-term elasticities on explanatory variables and three random effects, for brands, categories, and countries, respectively. Estimated using a linear mixed-effects model. ", estimnote, " Standard errors in parentheses.")
 
 
-# check correlation between llen and nov6sh
+# check correlation between llen and nov
 brand_panel=fread('../../analysis/temp/preclean.csv')
 brand_panel[, ':=' (date = as.Date(date))]
 
-vars <- c('nov6sh', 'nov6', 'nov3sh', 'nov3')
+vars <- c('nov6sh', 'nov6', 'nov3sh', 'nov3', 'nov12sh','nov12')
 tmp=rbindlist(lapply(vars, function(.var) {
   print(.var)
   
@@ -158,7 +158,7 @@ Market share         | Unit sales for brand *i* in period *t*, devided by total 
 Price                | Average price of brand *i*, computed as a sales-weighted^1^ average across its SKUs sold in period *t*, expressed in local currency and adjusted by a country's consumer price index^2^.
 Distribution         | Sales-weighted^1^ distribution of each of brand *i*'s SKUs' store-weighted distribution in period *t* (0 = no market coverage, 100 = full market coverage).
 Line length          | Number of unique SKUs sold by brand *i* in period *t*.
-New product activity | Number of SKUs introduced by brand *i* in a rolling window of 6 months (*t-5*, *t-4*, *...*, *t*), expressed as a share of the total number of unique SKUs sold by brand *i* over the same period.
+New product activity | Number of SKUs introduced by brand *i* in a rolling window of one year (*t-11*, *t-10*, *...*, *t*), expressed as a share of the total number of unique SKUs sold by brand *i* over the same period.
 
 ^1^ Weights equal to a SKU's unit sales in the most recent quarter (months *t*-2, *t*-1, *t*).
 
@@ -648,7 +648,7 @@ Elasticities estimated using a market share attraction model (MCI), with
      + llen = line length (number of SKUs)
      + wpswdst = distribution (weighted using past sales in previous three periods)
      + price = rwpspr (deflated using a country's CPI, weighted using past sales in previous three periods)
-     + novelty = nov6sh (number of SKUs introduced in past six periods, expressed as a share of total SKUs sold in a given period)
+     + novelty = nov12sh (number of SKUs introduced in the past year, expressed as a share of total SKUs sold in a given period)
   
 * endogeneity controls using Gaussian Copulas (tested at p<.1; removed if n.s.)
 * lagged market share to model dynamics

@@ -25,6 +25,7 @@ llen	line length	gsub
 wpswdst	distribution	gsub
 rwpspr	price	gsub
 nov6sh	new product activity	gsub
+nov12sh	new product activity	gsub
 ^fe	Country fixed effect	gsub
 airqual	Quality of air transport infrastructure	gsub
 electricityqual	Quality of electricity supply	gsub
