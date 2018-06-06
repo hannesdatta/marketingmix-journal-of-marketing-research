@@ -26,7 +26,23 @@ for (i in 1:length(datlist_final)) {
 	datlist_final[[i]]<-datlist_final[[i]][which(used==T)]
 	}
 
+# Extract first availability dates from the data
 
+  # get string vector of first activity dates
+  months=data.table(char_month=unique(unlist(lapply(datlist_final, function(x) unique(x$firstactivity)))))
+  months[, char_month:=gsub('[-]', ' 20', char_month)]
+  months[, year:=sapply(char_month, function(x) strsplit(x, ' ')[[1]][2])]
+  months[, month:=sapply(char_month, function(x) tolower(substr(strsplit(x, ' ')[[1]][1],1,3)))]
+  
+  raw_months<-c('jan','feb','mar','apr','may','jun','jul','aug','sep','oct','nov','dec')
+  months[, month_no := as.character(formatC(match(month, raw_months), width=2,flag=0))]
+  
+  months[, firstactivity_date:=as.Date(paste0(year,'-', month_no, '-01'))]
+  
+  months[char_month=='BEFORE 2001', firstactivity_date:=as.Date('2000-12-01')]
+  months<-months[!is.na(char_month)]
+
+  
 #################################################################
 ### EXECUTING CREATION OF ATTRIBUTE-BASED MEASURES
 #################################################################
@@ -210,8 +226,12 @@ for (i in 1:length(datlist_final)) {
 	###################################
 
 	# Definition: Number of SKUs introduced within the last X months, expressed as percentage of unique SKUs sold in the current period
+		setkey(months, char_month)
+		setkey(datlist_final[[i]], firstactivity)
+		datlist_final[[i]][months, firstactivity_date:=i.firstactivity_date]
+		
+		tmp_novelty = datlist_final[[i]][, list(first_date = min(firstactivity_date), first_dateindata = min(date), last_date = max(date)),by = c('category','country','brand','model')]
 
-		tmp_novelty = datlist_final[[i]][, list(first_date = min(date), last_date = max(date)),by = c('category','country','brand','model')]
 		skus_by_date <- merge(skus_by_date, tmp_novelty ,by=c('category', 'country','brand','model'),all.x=T)
 
 		uniq_date <- skus_by_date[, list(N=.N),by='date']
