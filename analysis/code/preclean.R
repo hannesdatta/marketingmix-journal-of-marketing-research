@@ -25,16 +25,15 @@ require(data.table)
 ### Stack data in data.table
 	brand_panel=fread('../../derived/output/datasets.csv')
 	brand_panel[, ':=' (date = as.Date(date))]
-	
-	brand_panel[, nov6sh := (nov6/llen)*100]
-	brand_panel[, nov12sh := (nov12/llen)*100]
-	brand_panel[, nov3sh := (nov3/llen)*100]
-	brand_panel[, nov1sh := (nov1/llen)*100]
-	
 	brand_panel[, quarter := quarter(date)]
-
+	
+	# extract novelty variables, transform them to shares
+	novvars <- grep('nov[0-9].*', colnames(brand_panel),value=T)
+	for (.var in novvars) brand_panel[, (paste0(.var,'sh')) := (get(.var)/llen)*100]
+	
+	
 	# lag variables
-	for (.var in c('rwpspr', 'wpswdst','llen','nov6sh', 'nov3sh', 'nov12sh')) {
+	for (.var in c('rwpspr', 'wpswdst','llen',grep('nov[0-9]+sh', colnames(brand_panel),value=T))) {
 	  brand_panel[, paste0('lag', .var) := c(NA, get(.var)[-.N]), by = c('market_id', 'brand')]
 	}
 	
@@ -42,6 +41,7 @@ require(data.table)
 	growth = brand_panel[, list(sales=sum(usales,na.rm=T)), by = c('market_id', 'category', 'country', 'date')]
 	growth[, year:=year(date)]
 	growth[, months_with_sales:=length(which(sales>0)), by = c('market_id', 'year')]
+	
 	# remove incomplete years
 	growth = growth[months_with_sales==12]
 	growth[, list(first=min(year), last=max(year)),by=c('market_id')]
