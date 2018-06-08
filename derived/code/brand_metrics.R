@@ -92,6 +92,15 @@ for (i in 1:length(skus_by_date_list)) {
 											 
 											 ), by=c('category', 'country', 'market_id', 'date', 'brand', 'selected_brand')][order(category, country,brand,date)]
 	
+	# novelty data is censored, so set obs to missing (except in tablets: this category is new anyways)
+	catname=names(skus_by_date_list)[i]
+	
+	merged_attr_sales[, N:=1:.N, by=c('category', 'country','brand')]
+	
+	for (lags in c(1,3,6,12)) merged_attr_sales[N%in%1:lags&!catname=='tablets', (paste0('nov', lags)):=NA]
+
+	merged_attr_sales[, N:=NULL]
+	
 	# Add indicators for category-sales observations
 	setkey(merged_attr_sales, category, country, date)
 	merged_attr_sales[time_selection, selected_t_cat := i.selected_t_cat]
@@ -238,12 +247,7 @@ for (i in 1:length(all_data)) {
 			.zoo[, category:=as.character(gsub('[-]|[/]','', category))]
 			.zoo[, brand:=as.character(gsub(' |[-]|[/]|[(]|[)]|[.]|[&]','', brand))]
 			.zoo[, ':=' (category=tolower(category),country=tolower(country),brand=tolower(brand))]
-			#.zoo[, brand_id:=cnt_brand+.GRP, by = c('brand')]
-			#.zoo[, market_id:=cnt_market+1, by = c('brand')]
-			
-			#cnt_brand = cnt_brand+length(unique(.zoo$brand))
-			#cnt_market = cnt_market + 1
-			
+
 			.zoo[which(!is.na(usales) & selected_t_brand==T & selected_brand == T & !selected_t_cat %in% c(NA, F)), selected:=T, by=c('category', 'country', 'brand')]
 			.zoo[is.na(selected), selected:=F, by=c('category', 'country', 'brand')]
 			
