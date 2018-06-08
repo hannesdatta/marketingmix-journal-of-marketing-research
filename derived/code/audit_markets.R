@@ -68,12 +68,14 @@
 # Execute plotting per MARKET #
 ###############################
 	
-	paneldata_brands[, nov3sh:=(nov3/llen)*100]
+	paneldata_brands[, nov12sh:=(nov12/llen)*100]
+	paneldata_brands[, nov6sh:=(nov6/llen)*100]
+	
 	paneldata_brands[, usalessh := usales/sum(usales,na.rm=T), by=c('category', 'country', 'date')]
 	paneldata_brands[, vsalessh := vsales/sum(vsales,na.rm=T), by=c('category', 'country', 'date')]
 
-.vars=c('llen', 'nov3sh', 'wpswdst', 'wpsun',
-		'nov3', 'usalessh', 'usales', 'rwpspr')
+.vars=c('llen', 'nov12sh', 'nov6sh', 'wpswdst', 'wpsun',
+		'usalessh', 'usales', 'rwpspr')
 
 for (i in unique(paneldata_brands$market_id))	{
 	cat(paste0('Plotting for market ', i,'\n'))
@@ -82,7 +84,7 @@ for (i in unique(paneldata_brands$market_id))	{
 	marketname_rev=paste0(unique(paneldata_brands[market_id==i]$country),'_',unique(paneldata_brands[market_id==i]$category),'_id_', i)
 	
 	# Make brand-level plots
-		df=suppressWarnings(melt(paneldata_brands[selected==T&market_id==i],id.vars=c('country','brand','date','category','brand_id','market_id')))
+		df=suppressWarnings(melt(paneldata_brands[selected==T&market_id==i],id.vars=c('country','brand','date','category','market_id')))
 		df$variable <- factor(df$variable, levels = .vars)
 		if (nrow(df)>0) { 
 			plotfkt(paste0(fpaths[1], marketname, '.png'),df)
@@ -94,17 +96,14 @@ for (i in unique(paneldata_brands$market_id))	{
 				sink()
 				}
 			}
+}
+
+
+# check nov12sh at the beginning of each series
+
+# there seems to be some kind of error here
+ # tmp=	paneldata_brands[, list(nov12sh=nov12sh[!is.na(nov12sh)][1]),by = c('market_id','category','country','brand')]
+ # tmp=	paneldata_brands[, list(nov12sh=nov12sh[!is.na(nov12sh)][3]),by = c('market_id','category','country','brand')]
+ # tmp=	paneldata_brands[, list(nov12sh=nov12sh[!is.na(nov12sh)][6]),by = c('market_id','category','country','brand')]
+  
 	
-	# Make category-level plots
-	#	df=suppressWarnings(melt(paneldata_category[market_id==i],id.vars=c('market_id', 'country','category', 'brand','date')))
-	#	df$variable <- factor(df$variable, levels = .vars)
-	#	if (nrow(df)>0) { 
-	#		plotfkt(paste0(fpaths[3], marketname, '.png'),df)
-	#		} else {
-	#		sink(paste0(fpaths[3], marketname_rev, '.txt'))
-	#		cat('Data not available for this market\n')
-	#		sink()
-	#		}		
-	}
-
-
