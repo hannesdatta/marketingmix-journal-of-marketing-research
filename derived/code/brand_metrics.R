@@ -92,15 +92,21 @@ for (i in 1:length(skus_by_date_list)) {
 											 
 											 ), by=c('category', 'country', 'market_id', 'date', 'brand', 'selected_brand')][order(category, country,brand,date)]
 	
-	# novelty data is censored, so set obs to missing (except in tablets: this category is new anyways)
+	# novelty data is censored at the beginning of a category's observation period, except in 
+	# the tablets category (this is monitored at the start of the category)
+	tmp_catdates <- merged_attr_sales[!is.na(usales), list(date=unique(date)), by='market_id']
+	setorder(tmp_catdates, market_id,date)
+	tmp_catdates[, Ncens:=1:.N, by = c('market_id')]
+	
+	setkey(tmp_catdates, market_id, date)
+	setkey(merged_attr_sales, market_id, date)
+	merged_attr_sales[tmp_catdates, Ncens:=i.Ncens]
+	
 	catname=names(skus_by_date_list)[i]
 	
-	merged_attr_sales[, N:=1:.N, by=c('category', 'country','brand')]
-	
-	for (lags in c(1,3,6,12)) merged_attr_sales[N%in%1:lags&!catname=='tablets', (paste0('nov', lags)):=NA]
+	for (lags in c(1,3,6,12)) merged_attr_sales[Ncens%in%1:lags&!catname=='tablets', (paste0('nov', lags)):=NA]
+	#merged_attr_sales[, Ncens:=NULL]
 
-	merged_attr_sales[, N:=NULL]
-	
 	# Add indicators for category-sales observations
 	setkey(merged_attr_sales, category, country, date)
 	merged_attr_sales[time_selection, selected_t_cat := i.selected_t_cat]
@@ -213,7 +219,8 @@ for (i in 1:length(all_data)) {
 			tmp <- lapply(tmp, function(dframe) {
 				keyvars = c('country','brand','date','category')
 				all_cols=colnames(paneldata)
-				.availabilitycheck1 = setdiff(all_cols,c(keyvars, 'cpi', 'interpolated', 'selected_t_cat', 'selected_brand'))
+				.availabilitycheck1 = setdiff(all_cols,c(keyvars, 'cpi', 'interpolated', 'selected_t_cat', 'selected_brand', grep('nov[0-9]+', all_cols,value=T)))
+				# remove novelty vars from check ()
 				.availabilitycheck2 = NULL 
 				
 				# determine max consecutive observations
