@@ -42,7 +42,7 @@
 
 	tmp_sales[, max_sales := max(total_sales),by=c('category','country')]
 	tmp_sales[, indic_max_sales := total_sales==max_sales,by=c('category','country')]
-	tmp_sales[, indic_above_threshold := total_sales>.05*max_sales,by=c('category','country')]
+	tmp_sales[, indic_above_threshold := total_sales>.01*max_sales,by=c('category','country')]
 	table(tmp_sales$indic_above_threshold)
 	setorderv(tmp_sales, c('category','country','date'), order=1L)
 	
