@@ -104,7 +104,7 @@ for (i in 1:length(skus_by_date_list)) {
 	
 	catname=names(skus_by_date_list)[i]
 	
-	for (lags in c(1,3,6,12)) merged_attr_sales[Ncens%in%1:lags&!catname=='tablets', (paste0('nov', lags)):=NA]
+	for (lags in c(1,3,6,12)) merged_attr_sales[Ncens%in%1:lags&!catname=='tablets', (paste0('nov', lags)):=-999]
 	#merged_attr_sales[, Ncens:=NULL]
 
 	# Add indicators for category-sales observations
@@ -217,14 +217,15 @@ for (i in 1:length(all_data)) {
 			tmp <- split(paneldata, as.character(paneldata$brand))
 		
 			tmp <- lapply(tmp, function(dframe) {
-				keyvars = c('country','brand','date','category')
+				keyvars = c('market_id', 'category', 'country','brand','date')
 				all_cols=colnames(paneldata)
-				.availabilitycheck1 = setdiff(all_cols,c(keyvars, 'cpi', 'interpolated', 'selected_t_cat', 'selected_brand', grep('nov[0-9]+', all_cols,value=T)))
-				# remove novelty vars from check ()
+				
+				.availabilitycheck1 = setdiff(all_cols,c(keyvars, 'cpi', 'interpolated', 'selected_t_cat', 'selected_brand'))
 				.availabilitycheck2 = NULL 
 				
 				# determine max consecutive observations
 				.zoo = zoo(dframe)
+				
 				.excl <- NULL
 				
 				.out = try(na.contiguous(.zoo),silent=T)
@@ -258,7 +259,11 @@ for (i in 1:length(all_data)) {
 			.zoo[which(!is.na(usales) & selected_t_brand==T & selected_brand == T & !selected_t_cat %in% c(NA, F)), selected:=T, by=c('category', 'country', 'brand')]
 			.zoo[is.na(selected), selected:=F, by=c('category', 'country', 'brand')]
 			
-			}
+		}
+		
+		novvars= grep('nov[0-9]+', colnames(.zoo),value=T)
+		for (.var in novvars) .zoo[get(.var)==-999, (.var):=NA]
+		
 		all_data[[i]]$data_cleaned[[j]] <- .zoo
 		}
 	}	
@@ -275,3 +280,9 @@ for (i in 1:length(all_data)) {
 # Save complete data as .RData
 	save(all_data, gdppercap, file =  '..\\output\\datasets.RData')
 
+	
+# In which categories does the first sales NOT correspond with selected t in category
+	tmp=brand_panel[, list(first_sales=min(date[!is.na(usales)]), first_tcat=min(date[selected_t_cat==T],na.rm=T)), by = c('market_id', 'category', 'country')]
+	tmp[!first_sales==first_tcat]
+
+	
