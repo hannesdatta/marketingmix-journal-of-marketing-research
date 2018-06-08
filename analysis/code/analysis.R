@@ -28,6 +28,11 @@ library(parallel)
 	brand_panel=fread('../temp/preclean.csv')
 	brand_panel[, ':=' (date = as.Date(date))]
 
+## Obs per market
+	tmp=brand_panel[, list(obs=length(unique(date[!is.na(nov6)]))),by=c('market_id','category','country')]
+	setorder(tmp, obs)
+	
+	
 ## How many brands are active in multiple countries
 	tmp = brand_panel[, list(N=.N), by = c('brand', 'country')]
 	tmp[, Ncountries := .N, by = c('brand')]
@@ -64,7 +69,7 @@ library(parallel)
 	# load model code
 	init()
 
-	fname = '../output/results6june2018.RData'
+	fname = '../output/results8june2018.RData'
 
 ######################
 ### Specify models ###
@@ -87,10 +92,10 @@ library(parallel)
 		   squared=F, maxiter = 400,
 		   carryover_zero=F)
 
-	m1d <- m1
-	m1d$setup_x['nov'] <- 'nov3sh'
-	m1d$setup_endogenous[4] <- 'nov3sh'
-	m1d$plusx[1] <- 'nov3sh'
+	#m1d <- m1
+	#m1d$setup_x['nov'] <- 'nov3sh'
+	#m1d$setup_endogenous[4] <- 'nov3sh'
+	#m1d$plusx[1] <- 'nov3sh'
 	
 	m1e <- m1
 	m1e$setup_x['nov'] <- 'nov12sh'
