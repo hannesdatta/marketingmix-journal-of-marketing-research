@@ -659,7 +659,7 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 		if (!"index_lagged" %in% colnames(coefs)) coefs$index_lagged = NA
 		
 	# calculate means of explanatory variables
-	means <- melted_panel[variable%in%coefs$variable, list(mean_x = mean(value)), by = c('country','category','market_id','brand', 'variable')]
+	means <- melted_panel[variable%in%coefs$variable, list(mean_x = mean(value,na.rm=T)), by = c('country','category','market_id','brand', 'variable')]
   # calculate average market share
 	msaverage <- melted_panel[variable%in%setup_y, list(mean_ms = mean(value)),c('country','category','market_id','brand')]
 	
