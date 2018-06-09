@@ -57,7 +57,7 @@ library(parallel)
 ### Run specs
 	run_manual=TRUE
 	run_cluster=TRUE
-	ncpu = 10 #4
+	ncpu = 11 #4
 	analysis_markets#=analysis_markets[1:2]
 	
 ### Function to initialize all required functions (on a cluster)
@@ -69,7 +69,7 @@ library(parallel)
 	# load model code
 	init()
 
-	fname = '../output/results8june2018.RData'
+	fname = '../output/results9june2018.RData'
 
 ######################
 ### Specify models ###
@@ -163,23 +163,22 @@ if(run_cluster==T) {
 	clusterExport(cl,names(m1))
 	
 	results_MCI_wolag_trend <- parLapplyLB(cl, analysis_markets, function(i) {
-	  try(analyze_by_market(i, estmethod=estmethod, setup_y = setup_y, setup_x = setup_x, 
+	  for (carry in c(F, T)) {
+	  tmp=try(analyze_by_market(i, estmethod=estmethod, setup_y = setup_y, setup_x = setup_x, 
 	                        setup_endogenous = setup_endogenous, trend = trend, pval = pval, 
 	                        max.lag = max.lag, min.t = min.t, maxiter = maxiter, 
 	                        use_quarters=use_quarters, plusx=plusx, attraction_model=attraction_model, 
-	                        squared=squared, takediff=takediff, lag_heterog=lag_heterog,carryover_zero=carryover_zero), silent=T)
-	                        })
-	
-	# inspecting the carry-overs yields a negative one in NZ; set to zero
-	if(results_MCI_wolag_trend[[27]]$market_id==31 & data.table(results_MCI_wolag_trend[[27]]$model@coefficients)[grepl('lagunitsales',variable)]$coef<0) {
+	                        squared=squared, takediff=takediff, lag_heterog=lag_heterog,carryover_zero=carry), silent=T)
 	  
-	  results_MCI_wolag_trend[[27]] <- try(analyze_by_market(31, estmethod=estmethod, setup_y = setup_y, setup_x = setup_x, 
-	                          setup_endogenous = setup_endogenous, trend = trend, pval = pval, 
-	                          max.lag = max.lag, min.t = min.t, maxiter = maxiter, 
-	                          use_quarters=use_quarters, plusx=plusx, attraction_model=attraction_model, 
-	                          squared=squared, takediff=takediff, lag_heterog=lag_heterog,carryover_zero=T), silent=T)
-	}
-	
+	  if (!class(tmp)=='try-error') {
+	    coef=data.table(tmp$model@coefficients)[grepl('lagunitsales', variable)]$coef
+	    if (length(coef)==0) break
+	    if (coef<0) print('carryover prob') else break
+	    } else break
+	  }
+	  return(tmp)
+	})
+	  
 	savemodels(fname)
 	
 	# Estimate with lagged Xs, without trend
@@ -191,22 +190,23 @@ if(run_cluster==T) {
 	clusterExport(cl,names(m1e))
 	
 	results_nov12sh <- parLapplyLB(cl, analysis_markets, function(i) {
-	  try(analyze_by_market(i, estmethod=estmethod, setup_y = setup_y, setup_x = setup_x, 
-	                        setup_endogenous = setup_endogenous, trend = trend, pval = pval, 
-	                        max.lag = max.lag, min.t = min.t, maxiter = maxiter, 
-	                        use_quarters=use_quarters, plusx=plusx, attraction_model=attraction_model, 
-	                        squared=squared, takediff=takediff, lag_heterog=lag_heterog,carryover_zero=carryover_zero), silent=T)
-	})
+	    for (carry in c(F, T)) {
+	      tmp=try(analyze_by_market(i, estmethod=estmethod, setup_y = setup_y, setup_x = setup_x, 
+	                                setup_endogenous = setup_endogenous, trend = trend, pval = pval, 
+	                                max.lag = max.lag, min.t = min.t, maxiter = maxiter, 
+	                                use_quarters=use_quarters, plusx=plusx, attraction_model=attraction_model, 
+	                                squared=squared, takediff=takediff, lag_heterog=lag_heterog,carryover_zero=carry), silent=T)
+	      
+	      if (!class(tmp)=='try-error') {
+	        coef=data.table(tmp$model@coefficients)[grepl('lagunitsales', variable)]$coef
+	        if (length(coef)==0) break
+	        if (coef<0) print('carryover prob') else break
+	      } else break
+	    }
+	    return(tmp)
+	  })
 	
-	# inspecting the carry-overs yields a negative one in NZ; set to zero
-	if(results_nov12sh[[27]]$market_id==31 & data.table(results_nov12sh[[27]]$model@coefficients)[grepl('lagunitsales',variable)]$coef<0) {
-	  
-	  results_nov12sh[[27]] <- try(analyze_by_market(31, estmethod=estmethod, setup_y = setup_y, setup_x = setup_x, 
-	                                                setup_endogenous = setup_endogenous, trend = trend, pval = pval, 
-	                                                max.lag = max.lag, min.t = min.t, maxiter = maxiter, 
-	                                                use_quarters=use_quarters, plusx=plusx, attraction_model=attraction_model, 
-	                                                squared=squared, takediff=takediff, lag_heterog=lag_heterog,carryover_zero=T), silent=T)
-	}
+	
 	
 	savemodels(fname)
 	
@@ -216,7 +216,7 @@ if(run_cluster==T) {
 	
 ####
 	
-		
+	if(0){
 	assign_model(m2)
 	clusterExport(cl,names(m2))
 	
@@ -242,5 +242,7 @@ if(run_cluster==T) {
 	}
 	
 	savemodels(fname)
-
+  }
+	
+	
 }
