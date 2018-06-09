@@ -261,7 +261,7 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 			vars = setdiff(vars,delvars)
 			
 			# conduct Enders procedure
-			adf=data.frame(t(apply(dat_by_brand[[z]][vars], 2, adf_enders, maxlag=12,pval=pval, season=NULL)))
+			adf=data.frame(t(apply(dat_by_brand[[z]][vars], 2, adf_enders, maxlag=10,pval=pval, season=NULL)))
 			adf$variable = rownames(adf)
 			rownames(adf) <- NULL
 			
