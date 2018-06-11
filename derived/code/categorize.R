@@ -67,6 +67,7 @@ load('../temp/unzipped.RData')
 	gc()
 	# -> datlist_by_cat contains all data for each main category
 
+	
 #####################################################################
 # Investigate how data sets from raw category names can be combined #
 #####################################################################
@@ -152,8 +153,6 @@ load('../temp/unzipped.RData')
 	# combine:
 	# if present in both: take mobilecomp/notebook (higher sales - prob more SKUs and/or stores in here)
 	# add non-overlapping ones from both data sets
-	
-	}
 	
 
 #####################################################
@@ -255,9 +254,6 @@ plotfkt<-function(dt) {
 	datlist_final$microwave[, used := source == 'gfk2015']
 	plotfkt(datlist_final$microwave)
 	
-	# beginning and end dates 
-	tmp=lapply(seq(along=datlist_final), function(x) datlist_final[[x]][, list(cat=names(datlist_final)[x], min=min(date), max=max(date)),by=c('source')])
-	
 # (10) Refrigerators
 	datlist_final$cooling = rbindlist(list(datlist_by_cat$COOLING),fill=T)
 	datlist_final$cooling[, used := source == 'gfk2015']
@@ -293,6 +289,12 @@ gc()
 
 # Category overview:
 	print(names(datlist_final))
+
+# Compute earliest dates by data source: CATEGORY START DATES
+	sink('../output/category_start.txt')
+	tmp=rbindlist(lapply(seq(along=datlist_final), function(x) datlist_final[[x]][, list(cat=names(datlist_final)[x], min=min(date), max=max(date)),by=c('source')]))
+	print(data.frame(tmp))
+	sink()
 
 # Process
 for (i in 1:length(datlist_final)) {
