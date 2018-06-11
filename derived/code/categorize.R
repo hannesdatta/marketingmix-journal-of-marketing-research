@@ -67,33 +67,92 @@ load('../temp/unzipped.RData')
 	gc()
 	# -> datlist_by_cat contains all data for each main category
 
-if (0) {
-	# Manually check overlap between product categories tablets + notebook, and mobile computing
-
-		datlist_by_cat$'MOBILE COMPUTING'[, ':=' (cat='mobilecomp', subcat = DESIGN)]
-		datlist_by_cat$'TABLET+NOTEBOOK'[, ':=' (cat='tablets', subcat = ProductGroups)]
-
-		tmp = rbindlist(list(datlist_by_cat$'MOBILE COMPUTING',datlist_by_cat$'TABLET+NOTEBOOK'),fill=T)
-		tmp2 = tmp[, list(sales=sum(SALES_UNITS)),by=c('cat', 'subcat', 'COUNTRY','source')]
-		dcast(COUNTRY~cat+subcat, value.vars='sales',data=tmp2[source=='gfk2015'])
-		
-		# --> mobile computing with design = 'TABLETS', and tablet+notebook, product group Tablet are exactly the same.
-		#     these will be called HYBRID LAPTOPS/TABLETS
-		
-		# investigate overlap between mobilecomp_NOTEBOOK and tablets_OTHERS
-		
-		tmp2 = tmp[(cat=='mobilecomp'&subcat=='NOTEBOOK'&source=='gfk2015')|
-				  (cat=='tablets'&subcat=='OTHERS'&source=='gfk2015')]
-		
-		# check model overlap
-		table(unique(tmp2[cat=='mobilecomp']$Model)%in%unique(tmp2[cat=='tablets']$Model))
-		table(unique(tmp2[cat=='tablets']$Model)%in%unique(tmp2[cat=='mobilecomp']$Model))
-		
-		# --> these categories don't perfectly overlap; however, it appears that the tablets
-		#     data is almost exactly the same as the mobilecomp data.
-		# --> I just take the tablets+notebooks OTHERS category.
+#####################################################################
+# Investigate how data sets from raw category names can be combined #
+#####################################################################
 	
-	# Check for overlap between TV subcategories
+	#########################
+	# Notebooks and tablets #
+	#########################
+	
+	# The data for notebooks is spread across two raw categories, originally called
+	# 'tablets + notebook', and 'mobile computing'.
+	
+	# Here, I check for an overlap between these categories to assess how they can be combined.
+	
+	datlist_by_cat$'MOBILE COMPUTING'[, ':=' (cat='mobilecomp', subcat = DESIGN)]
+	datlist_by_cat$'TABLET+NOTEBOOK'[, ':=' (cat='tablets', subcat = ProductGroups)]
+
+	tmp = rbindlist(list(datlist_by_cat$'MOBILE COMPUTING',datlist_by_cat$'TABLET+NOTEBOOK'),fill=T)
+
+	# aggregate unit sales
+	tmp2 = tmp[, list(sales=sum(SALES_UNITS)),by=c('cat', 'subcat', 'COUNTRY','source')]
+	dcast(COUNTRY~cat+subcat, value.vars='sales',data=tmp2[source=='gfk2015'])
+	
+	# table suggests that mobilecomp_TABLET and tablets_COMPUTERS TABLET are the same.
+	# we can verify this by comparing models contained in both data sets.
+	
+	models1=data.table(tmp[source=='gfk2015'&cat=='mobilecomp'&subcat=='TABLET'][,list(N=.N),by=c('Brand','Model')])
+	models2=data.table(tmp[source=='gfk2015'&cat=='tablets'&subcat=='COMPUTERS TABLET'][,list(N2=.N),by=c('Brand','Model')])
+		
+	cbn=merge(models1,models2,by=c('Brand','Model'),all.x=T,all.y=T)
+	cbn[is.na(N)]
+	cbn[is.na(N2)]
+	
+	# -> overlap is the same; both tablets contain the same models
+	
+	# --> mobile computing with design = 'TABLETS', and tablet+notebook with product group 'COMPUTERS TABLET' 
+	# are exactly the same.
+	
+	# what kind of products are these?
+	setorder(cbn, N)
+	cbn[Brand=='SAMSUNG']
+	# --> convertible laptops / hybrids (e.g., Acer Iconia W510, Microsoft Surface Pro)
+		
+	
+	# We have sorted out two sub-categories; we're left with mobilecomp_NOTEBOOK and tablet_OTHER.
+  # compute overlap by model
+	
+	models1=data.table(tmp[source=='gfk2015'&cat=='mobilecomp'&subcat=='NOTEBOOK'][,list(N=.N, sales1=sum(SALES_UNITS)),by=c('Brand','Model')])
+	models2=data.table(tmp[source=='gfk2015'&cat=='tablets'&subcat=='OTHERS'][,list(N2=.N, sales2=sum(SALES_UNITS)),by=c('Brand','Model')])
+	
+	cbn=merge(models1,models2,by=c('Brand','Model'),all.x=T,all.y=T)
+	nrow(cbn[!is.na(N)&!is.na(N2)])/nrow(cbn) # complete, these are real laptops
+	nrow(cbn[is.na(N)&!is.na(N2)])/nrow(cbn) # mobilecomp missing (originally from the tablets-others category, these are Chromebooks)
+	nrow(cbn[!is.na(N)&is.na(N2)])/nrow(cbn) # tablets missing --> these are real laptops, e.g., Acer Aspire One 533 or Netbooks, Verzio Truebook N50
+	nrow(cbn[is.na(N)&is.na(N2)])/nrow(cbn) # both missing
+
+	# --> conclusion: essentially, the remaining two subcategories from the raw categories also contain
+	# laptops/notebooks.
+	
+	# I suggest to combine them for simplicity of write-up. However, the overlap is not
+	# perfect.
+	
+	# Are sales the same when they DO overlap?
+	with(cbn[!is.na(N)&!is.na(N2)], table(sales1==sales2))
+	
+	models1=data.table(tmp[source=='gfk2015'&cat=='mobilecomp'&subcat=='NOTEBOOK'][,list(N=.N, sales1=sum(SALES_UNITS)),by=c('Brand','Model', 'COUNTRY','date')])
+	models2=data.table(tmp[source=='gfk2015'&cat=='tablets'&subcat=='OTHERS'][,list(N2=.N, sales2=sum(SALES_UNITS)),by=c('Brand','Model','COUNTRY', 'date')])
+	
+	cbn=merge(models1,models2,by=c('Brand','Model', 'COUNTRY', 'date'),all.x=T,all.y=T)
+	
+	cbn[!is.na(N)&!is.na(N2)][!sales1==sales2]
+	
+	# doesn't hold up for only a very low number of products
+	cbn[!is.na(N)&!is.na(N2)][sales1>sales2]
+	# in both cases, sales1 is higher.
+	
+	# check for duplicates: 2012-10-01 Singapore ASPIRE ONE 725
+	tmp[source=='gfk2015'&cat=='mobilecomp'&subcat=='NOTEBOOK'][Model=='ASPIRE ONE 725'&COUNTRY=='SINGAPORE'&date=='2012-10-01']
+	
+	# Are sales the same when they DO overlap?
+	nrow(cbn[!is.na(N)&!is.na(N2)][sales1>sales2])/nrow(cbn)
+	nrow(cbn[!is.na(N)&!is.na(N2)][!sales1==sales2])/nrow(cbn) # --> take source 1: mobilecomp subcat notebook (has the higher sales data)
+	
+	# combine:
+	# if present in both: take mobilecomp/notebook (higher sales - prob more SKUs and/or stores in here)
+	# add non-overlapping ones from both data sets
+	
 	}
 	
 
@@ -101,6 +160,17 @@ if (0) {
 # Create new category classifications and define    #
 # from which data sets to get the sales data        #
 #####################################################
+
+# plot overlap
+require(lattice)
+
+plotfkt<-function(dt) {
+  tmp=dt[, list(sales=sum(SALES_UNITS)),by=c('COUNTRY','date','source')]
+  setorder(tmp,COUNTRY,date,source)
+  pl<-xyplot(sales~date|COUNTRY,groups=source,type='l',data=tmp, scales=list(y='free'))
+  print(pl)
+}
+
 
 	names(datlist_by_cat)
 	
@@ -110,20 +180,29 @@ if (0) {
 	datlist_final$desktoppc = rbindlist(list(datlist_by_cat$'DESK COMPUT'),fill=T)
 	datlist_final$desktoppc[, used := source == 'gfk2015' & !COUNTRY %in% c('INDIA','CHINA')]
 	
+	plotfkt(datlist_final$desktoppc)
+	
+	
 # (2) Laptops
-	datlist_final$laptop_regular = rbindlist(list(#datlist_by_cat$'MOBILE COMPUTING'[DESIGN=='NOTEBOOK']),fill=T)
-										  datlist_by_cat$'TABLET+NOTEBOOK'[ProductGroups=='OTHERS']),fill=T) #
-	datlist_final$laptop_regular[, used := source == 'gfk2015' & !COUNTRY %in% c('CHINA')]
+	datlist_final$laptop_regular = rbindlist(list(
+	  overlap_from_both=datlist_by_cat$'MOBILE COMPUTING'[DESIGN=='NOTEBOOK'][Model%in%unique(datlist_by_cat$'TABLET+NOTEBOOK'[ProductGroups=='OTHERS']$Model)],
+	  uniques_from_mobilecomp=datlist_by_cat$'MOBILE COMPUTING'[DESIGN=='NOTEBOOK'][!Model%in%unique(datlist_by_cat$'TABLET+NOTEBOOK'[ProductGroups=='OTHERS']$Model)],
+	  uniques_from_tabletnotebook=datlist_by_cat$'TABLET+NOTEBOOK'[ProductGroups=='OTHERS'][!Model%in%unique(datlist_by_cat$'MOBILE COMPUTING'[DESIGN=='NOTEBOOK']$Model)]
+	),fill=T)
 	
-	datlist_final$laptop_hybrids = rbindlist(list(datlist_by_cat$'MOBILE COMPUTING'[DESIGN=='TABLET']),fill=T)
-		# (which is the same as the category Notebook+Tablets, ProductGroup 'TABLET'.
-	datlist_final$laptop_hybrids[, used := source == 'gfk2015' & !COUNTRY %in% c('CHINA')]
-	
+  datlist_final$laptop_hybrids = rbindlist(list(datlist_by_cat$'MOBILE COMPUTING'[DESIGN=='TABLET']),fill=T)
+		# (which is exactly same as the category Notebook+Tablets, ProductGroup 'TABLET'.
+
 	# merge laptops and hybrid laptops
 	datlist_final$laptop <- rbindlist(list(datlist_final$laptop_regular, datlist_final$laptop_hybrid), fill=T)
+	# -> sales series of india and china don't overlap well; exclude.
+	datlist_final$laptop[, used := source == 'gfk2015' & !COUNTRY %in% c('CHINA','INDIA')]
+	
+	plotfkt(datlist_final$laptop)
+	
 	datlist_final$laptop_regular <- NULL
 	datlist_final$laptop_hybrids <- NULL
-	
+
 # (3) Tablets
 	datlist_final$tablets_only = rbindlist(list(#datlist_by_cat$'MOBILE COMPUTING'[DESIGN=='TABLET'], 
 										   #datlist_by_cat$'TABLET+NOTEBOOK'[ProductGroups=='COMPUTERS TABLET'],
@@ -132,10 +211,16 @@ if (0) {
 	
 	datlist_final$tablets_only[, used := source == 'gfk2015']
 	
+	plotfkt(datlist_final$tablets_only)
+	
 	datlist_final$tablets_phablets = rbindlist(list(datlist_by_cat$'SMART+MOBILEPHONES'[MOB_SMP=='PHABLET']),fill=T)
 	datlist_final$tablets_phablets[, used := source == 'gfk2015']
+
+	plotfkt(datlist_final$tablets_phablets)
 	
 	datlist_final$tablets <- rbindlist(list(datlist_final$tablets_phablets, datlist_final$tablets_only),fill=T)
+	plotfkt(datlist_final$tablets)
+	
 	datlist_final$tablets_phablets <- NULL
 	datlist_final$tablets_only <- NULL
 	
@@ -143,50 +228,65 @@ if (0) {
 	
 	datlist_final$phones_smart = rbindlist(list(datlist_by_cat$'SMART+MOBILEPHONES'[MOB_SMP=='SMARTPHONE']),fill=T)	
 	datlist_final$phones_smart[, used := source == 'gfk2015']
+	plotfkt(datlist_final$phones_smart)
 	
 # (5) Mobile phones
 	datlist_final$phones_mobile = rbindlist(list(datlist_by_cat$'SMART+MOBILEPHONES'[MOB_SMP=='MOBILEPHONE']),fill=T)
 	datlist_final$phones_mobile[, used := source == 'gfk2015' & !COUNTRY %in% c('INDIA')]
+	plotfkt(datlist_final$phones_mobile)
 	
 # (6) SLR Cameras	
 	datlist_final$camera_slr = rbindlist(list(datlist_by_cat$'DIGITAL CAMERAS'[CAMERA_TYPE%in%c('SLR')]),fill=T)
 	datlist_final$camera_slr[, used := source == 'gfk2015']
-
+	plotfkt(datlist_final$camera_slr)
+	
 # (7) Compact cameras
 	datlist_final$camera_compact = rbindlist(list(datlist_by_cat$'DIGITAL CAMERAS'[CAMERA_TYPE%in%c('OTHERS','COMPACT')]),fill=T)
 	datlist_final$camera_compact[, used := source == 'gfk2015']
-
+	plotfkt(datlist_final$camera_compact)
+	
 # (8) DVD
 	datlist_final$dvd = rbindlist(list(datlist_by_cat$'VIDEO PLAYER/REC'),fill=T)
 	datlist_final$dvd[, used := source == 'gfk2015']
-
+	plotfkt(datlist_final$dvd)
+	
 # (9) Microwave
 	datlist_final$microwave = rbindlist(list(datlist_by_cat$'MICROWAVE OVENS'),fill=T)
 	datlist_final$microwave[, used := source == 'gfk2015']
-
+	plotfkt(datlist_final$microwave)
+	
+	# beginning and end dates 
+	tmp=lapply(seq(along=datlist_final), function(x) datlist_final[[x]][, list(cat=names(datlist_final)[x], min=min(date), max=max(date)),by=c('source')])
+	
 # (10) Refrigerators
 	datlist_final$cooling = rbindlist(list(datlist_by_cat$COOLING),fill=T)
 	datlist_final$cooling[, used := source == 'gfk2015']
+	plotfkt(datlist_final$cooling)
 	
 # (11) TV (first generation)
 	datlist_final$tv_gen1_crtv = rbindlist(list(datlist_by_cat$'CRT-TV'),fill=T)
 	datlist_final$tv_gen1_crtv[, used := source == 'gfk2015']
-
+	plotfkt(datlist_final$tv_gen1_crtv)
+	
 # (12) TV (second generation)
 	datlist_final$tv_gen2_lcd = rbindlist(list(datlist_by_cat$'LCD-TV W/O LED',datlist_by_cat$'LCD-TV WITH LED',datlist_by_cat$'PTV/FLAT'),fill=T)
 	datlist_final$tv_gen2_lcd[, used := source == 'gfk2015']
+	plotfkt(datlist_final$tv_gen2_lcd)
 	
 # (13) Washing machines
 	datlist_final$washing = rbindlist(list(datlist_by_cat$'WASHINGMACHINES'),fill=T)
 	datlist_final$washing[, used := source == 'gfk2015']
-
+	plotfkt(datlist_final$washing)
+	
 # (14) Miniovens
 	datlist_final$minioven = rbindlist(list(datlist_by_cat$'MINI OVENS'),fill=T)
 	datlist_final$minioven[, used := source == 'gfk2015']
-
+	plotfkt(datlist_final$minioven)
+	
 # (15) Tumbledryers
 	datlist_final$tumbledryers = rbindlist(list(datlist_by_cat$'TUMBLEDRYERS'),fill=T)
 	datlist_final$tumbledryers[, used := source == 'gfk2015']
+	plotfkt(datlist_final$tumbledryers)
 	
 rm(datlist_by_cat, datlist)
 gc()
