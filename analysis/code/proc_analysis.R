@@ -52,7 +52,7 @@ savemodels <- function(fname) {
 ######################
 ### MAIN ANALYSIS ####
 ######################
-		
+
 # Main analysis function (to be run seperately for each market_id i)
 analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend = 'none', pval = .05, max.lag = 12, min.t = 36, 
                               estmethod = "FGLS", benchmarkb = NULL, use_quarters = TRUE, maxiter=1000,
@@ -115,12 +115,18 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 		  # run shapiro-wilk tests to assess non-normality of untransformed inputs to the copula function
 		  res$cop_nonnormal = cop_terms[, list(shap_pval = shapiro.test(value)$p), by = c('category', 'country', 'brand', 'variable')]
 		
+		  # check n unique values per variable
+		  cop_terms[, nuniq_val:=length(unique(value[!is.na(value)])),by=c('country','category','brand', 'variable')]
+		  
 		  cop_terms[, value := make_copula(value), by = c('country','category','brand','variable')]
+		  
+		  cop_terms[nuniq_val<=2, value:=NA]
+		  cop_terms[, nuniq_val:=NULL]
+		  
+		  cop_terms[, variable := paste0('cop_', variable)]
 		  
 		  if (attraction_model=='MCI') cop_terms[, value := exp(value)]
 		  
-		  cop_terms[, variable := paste0('cop_', variable)]
-		
 		  # attach copula terms to data
 		  melted_panel <- rbind(melted_panel, cop_terms)
 		}
