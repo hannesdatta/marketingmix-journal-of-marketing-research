@@ -120,6 +120,11 @@ for (i in seq(along=out)) {
 sink('../output/elasticities.txt')
 cat('Finished building extract_elast.R at:\n')
 print(Sys.time())
+for (i in seq(along=out)) {
+  cat(out[[i]]$model,fill=T)
+print(table(out[[i]]$checks$available))
+}
+
 cat('\n\n(File used to enable track changes by makefile).\n')
 sink()
 
