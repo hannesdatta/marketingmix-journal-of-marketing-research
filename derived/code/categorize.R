@@ -274,14 +274,15 @@ plotfkt<-function(dt) {
 	datlist_final$washing[, used := source == 'gfk2015']
 	plotfkt(datlist_final$washing)
 	
+
 # (14) Miniovens
 	datlist_final$minioven = rbindlist(list(datlist_by_cat$'MINI OVENS'),fill=T)
-	datlist_final$minioven[, used := source == 'gfk2015']
+	datlist_final$minioven[, used := F] # too few countries
 	plotfkt(datlist_final$minioven)
 	
 # (15) Tumbledryers
 	datlist_final$tumbledryers = rbindlist(list(datlist_by_cat$'TUMBLEDRYERS'),fill=T)
-	datlist_final$tumbledryers[, used := source == 'gfk2015']
+	datlist_final$tumbledryers[, used := F] # too few countries
 	plotfkt(datlist_final$tumbledryers)
 	
 rm(datlist_by_cat, datlist)
@@ -295,6 +296,25 @@ gc()
 	tmp=rbindlist(lapply(seq(along=datlist_final), function(x) datlist_final[[x]][, list(cat=names(datlist_final)[x], min=min(date), max=max(date)),by=c('source')]))
 	print(data.frame(tmp))
 	sink()
+
+# verify obs in category/country we got
+	sink('../output/category_selection.txt')
+	tmp=rbindlist(lapply(seq(along=datlist_final), function(x) datlist_final[[x]][, list(cat=names(datlist_final)[x], used = any(used[source=='gfk2015']==T)),by=c('COUNTRY')]))
+	tmp=tmp[!cat%in%c('minioven', 'tumbledryers')]
+	
+	cat('Categories excluded due to data errors:\n')
+	print(data.frame(tmp[used==F]))
+	
+	tmp[, present:=1]
+	tmp=melt(dcast(tmp, cat~COUNTRY,value.var='present'), id.vars=c('cat'))
+	
+	cat('Categories with no data from GfK:\n')
+	print(data.frame(tmp[is.na(value)][, value:=NULL]))
+	
+	cat('Number of possible markets (Ncategories x Ncountries): ', nrow(tmp))
+	
+	sink()
+	
 
 # Process
 for (i in 1:length(datlist_final)) {
