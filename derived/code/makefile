@@ -45,12 +45,8 @@ $(TEMP_DIR)/gdppercap.RData : gdp.R
 $(TEMP_DIR)/categorized.RData : categorize.R $(TEMP_DIR)/unzipped.RData
 	"$(RBIN64)Rterm.exe" --vanilla --args "" < "categorize.R"
 
-# define attribute levels per category
-$(TEMP_DIR)/attributes.RData : set_attributes.R $(TEMP_DIR)/categorized.RData
-	"$(RBIN64)Rterm.exe" --vanilla --args "" < "set_attributes.R"
-
 # calculate uniqueness metrics and lagged sales measure for re-weighing SKUs
-$(TEMP_DIR)/uniqueness_and_lagsales.RData : uniqueness_and_lagsales.R proc_functions.R $(TEMP_DIR)/categorized.RData $(TEMP_DIR)/attributes.RData
+$(TEMP_DIR)/uniqueness_and_lagsales.RData : uniqueness_and_lagsales.R proc_functions.R $(TEMP_DIR)/categorized.RData
 	"$(RBIN64)Rterm.exe" --vanilla --args "" < "uniqueness_and_lagsales.R"
 
 # select periods in which category sales are meaningful; select brands vs. grouped "other" brands
@@ -58,7 +54,7 @@ $(TEMP_DIR)/select.RData : select.R $(TEMP_DIR)/uniqueness_and_lagsales.RData
 	"$(RBIN64)Rterm.exe" --vanilla --args "" < "select.R"
 
 # prepare brand-level data set (e.g., remove/interpolate missings)
-$(OUTPUT_DIR)/datasets.RData: brand_metrics.R $(TEMP_DIR)/exch_cpi.RData $(TEMP_DIR)/select.RData $(TEMP_DIR)/uniqueness_and_lagsales.RData $(TEMP_DIR)/attributes.RData $(TEMP_DIR)/gdppercap.RData
+$(OUTPUT_DIR)/datasets.RData: brand_metrics.R $(TEMP_DIR)/exch_cpi.RData $(TEMP_DIR)/select.RData $(TEMP_DIR)/uniqueness_and_lagsales.RData $(TEMP_DIR)/gdppercap.RData
 	"$(RBIN64)Rterm.exe" --vanilla --args "" < "brand_metrics.R"
 
 

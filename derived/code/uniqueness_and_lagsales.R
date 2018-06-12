@@ -19,12 +19,21 @@ require(compiler)
 
 # Load merged and categorized data sets
 load('..\\temp\\categorized.RData')
-load('..\\temp\\attributes.RData')
+
+# Check number of categories in file
+rbindlist(lapply(datlist_final, function(x) x[, list(N=.N),by=c('catname','country')]))
 
 # Remove 'non-used' parts of the dataset (e.g., GfK 2012, if GfK 2015 data is being used)
-for (i in 1:length(datlist_final)) {
-	datlist_final[[i]]<-datlist_final[[i]][which(used==T)]
-	}
+datlist_final<-lapply(datlist_final, function(x) {
+	tmp=x[which(used==T)][, category:=catname]
+	if (!nrow(tmp)==0) return(tmp)})
+# delete empty categories
+
+datlist_final <- datlist_final[!unlist(lapply(datlist_final, is.null))]
+
+
+# Check number of categories in file
+rbindlist(lapply(datlist_final, function(x) x[, list(N=.N),by=c('category','country')]))
 
 # Extract first availability dates from the data
 
@@ -44,7 +53,7 @@ for (i in 1:length(datlist_final)) {
 
   
 #################################################################
-### EXECUTING CREATION OF ATTRIBUTE-BASED MEASURES
+### EXECUTING CREATION OF VARIABLES
 #################################################################
 
 source('proc_functions.R')
@@ -61,11 +70,9 @@ for (i in 1:length(datlist_final)) {
 	cat('=============================================================\n')
 	assign("last.warning", NULL, envir = baseenv())
 	
-	attrib = grep('attr_',colnames(attribs[[i]]),value=T)
-	
+
 	setkey(datlist_final[[i]], category, country, brand, model, date)
-	setkey(attribs[[i]], country, brand, model)
-	
+
 	skus_by_date = datlist_final[[i]][, list(t_sales_units=sum(sales_units), 
 											 t_value_sales = sum(sales_units*as.numeric(price_lc)),
 											 t_value_sales_usd = sum(sales_units*as.numeric(price_usd)),
@@ -76,8 +83,6 @@ for (i in 1:length(datlist_final)) {
 	# If a product is not sold, kick it out from this list
 	skus_by_date <- skus_by_date[!t_sales_units==0]
 	
-	skus_by_date <- merge(skus_by_date, attribs[[i]], by=c('country','market_id', 'brand','model'),all.x=T,all.y=F)[order(country, date, brand, model)]
-		
 	##############################################################################################
 	# Create weighted past sales metric for every SKU (used for weighing the promotion metrics)  #
 	##############################################################################################
@@ -124,105 +129,7 @@ for (i in 1:length(datlist_final)) {
 		skus_by_date[, c(t_lag_names, sales_lag_names) := NULL]
 		rm(tmpdates)
 		
-		# -> tmpskutable is the complete sales data, combined with a SKU's attributes
-		
-		# assert that there are only 1 sku per unique key
-		if(all(skus_by_date[, list(.N),by=c('country','category', 'date', 'sku_id')]$N==1)==F) stop('problem with unique key/SKUs')
 
-	#######################################
-	# Calculation of similarity measures  #
-	#######################################
-	
-	cat('Calculating non-metric and metric similarity measures\n')
-	
-	for (coln in attrib) {
-		colclass=eval(parse(text=paste0('class(skus_by_date$',coln,')')))
-		print(coln)
-		# compute weighted and non-weighted similarity metrics
-
-		newcolid1=paste0('similarity_', gsub('attr_', '', coln))
-		skus_by_date[, tmp_wattr := t_sales_units]
-			
-		if (colclass=='factor') {
-		# for non-metric variables
-		
-		# define weighting variable, here: sales units in the current period
-			
-		# execute coding
-			skus_by_date[, ':=' (n_sku_byattr = .N, w_sku_byattr = sum(tmp_wattr)), by=c('country', 'date', coln)]
-			skus_by_date[, ':=' (n_sku_byattr_own = .N, w_sku_byattr_own = sum(tmp_wattr)), by=c('country', 'brand', 'date', coln)] 
-			# the difference of n_sku_... is both will be equal to the amount of products with an attribute sold by the competition
-			# the difference of the next set will be equal to the amount of sales incurred by the competition, which is the denominator
-			
-			skus_by_date[, ':=' (n_sku = .N, w_sku = sum(tmp_wattr)), by=c('country', 'date')]
-			skus_by_date[, ':=' (n_sku_own = .N, w_sku_own = sum(tmp_wattr)), by=c('country', 'brand', 'date')]
-			
-			# add similarity metrics
-			skus_by_date[, ':=' (similarity_nw = (n_sku_byattr-n_sku_byattr_own)/(n_sku-n_sku_own),
-								 similarity_w = (w_sku_byattr-w_sku_byattr_own)/(w_sku-w_sku_own))	] # relative distance with weights equal to 1
-			
-			skus_by_date[is.na(similarity_nw), similarity_nw:=0] # if this measure is NaN, then it's the only SKU that has a particular attribute. Its similarity should therefore be 0.
-			skus_by_date[is.na(similarity_w), similarity_w:=0] # if this measure is NaN, then it's the only SKU that has a particular attribute. Its similarity should therefore be 0.
-			
-			# clean up skus_by_date
-			skus_by_date[, grep('n_sku|w_sku|tmp_wattr', colnames(skus_by_date),value=T) := NULL]
-			
-			setnames(skus_by_date, c('similarity_nw','similarity_w'), paste(c('nw','w'), newcolid1,sep='_'))
-			}
-			
-		if (colclass=='numeric') {
-			# compute similarity: METRIC 1 (relative distance)
-	
-			#attrval<-c(2,1,1, 1,1,1, 1,1,1)
-			#w=c(2,1,1,1,1,1,1,1,1)
-			#brand=c('a','a','a','b','b','b','c','c','c')
-			#			skus_by_date[, GRP := .GRP, by=c('country', 'date')]
-			#length(unique(skus_by_date$GRP))
-			
-			#attrval=skus_by_date[GRP==1, get(coln)]
-			#w=skus_by_date[GRP==1]$tmp_wattr
-			#brand=skus_by_date[GRP==1]$brand
-			#df = data.table(attrval,w,brand)
-			
-			
-			metric_similarity <- function(attrval, w, brand) {
-				# note: weights will be automatically normalized to 1 in what follows.
-				
-				# If all attributes are the same, similarity is 1.
-				if (length(unique(attrval))==1) return(rep(1, length(attrval)))
-				
-				valrange = max(attrval)-min(attrval)
-				brand_index = match(brand,unique(brand))
-				brand_index_list <- lapply(unique(brand_index), function(x) !brand_index%in%x)
-				
-					1-sapply(1:length(attrval), function(i) {
-						# sum over all j not belonging to SKUs
-						bindx=brand_index_list[[brand_index[i]]]
-						attrval_j <- attrval[bindx]
-						w_j <- w[bindx]
-						sum(w_j*(abs(attrval[i]-attrval_j)))/(valrange*sum(w_j))
-						})
-					
-					}
-										
-			metric_similarity <- cmpfun(metric_similarity)
-				
-			#	system.time({for (i in 1:100) metric_similarity(attrval,w,brand)})
-			
-			skus_by_date[, ':=' (similarity_nw = relative_dist(get(coln)),
-								 similarity_w = metric_similarity(attrval=get(coln), w=tmp_wattr, brand=brand)), by=c('country', 'date')]
-								 
-			setnames(skus_by_date, c('similarity_nw','similarity_w'), paste(c('nw','w'), newcolid1,sep='_'))
-			}
-			
-		}
-		
-	# Aggregate to uniqueness per SKU
-		simcols = grep('^nw_similarity_',colnames(skus_by_date),value=T)
-		eval(parse(text=paste0('skus_by_date[,nw_sku_unique:=1-rowMeans(data.frame(', paste(simcols,collapse=','),'))]')))
-		simcols = grep('^w_similarity_',colnames(skus_by_date),value=T)
-		eval(parse(text=paste0('skus_by_date[,w_sku_unique:=1-rowMeans(data.frame(', paste(simcols,collapse=','),'))]')))
-	
 	###################################
 	# Calculation of novelty measure  #
 	###################################

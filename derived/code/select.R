@@ -28,11 +28,10 @@
 
 # Load packages
 	require(data.table)
-	
-# Apply category names
-	for (i in 1:length(skus_by_date_list)) {
-		skus_by_date_list[[i]][, category:=names(skus_by_date_list)[i]]
-		}
+
+	# How many categories are here? must be 173 (182-5-4)!
+	stopifnot(nrow(rbindlist(lapply(skus_by_date_list, function(x) x[, list(N=.N), by=c('category','country')])))==173)
+
 	
 ##################################################
 ### Determine start and end of modeling period ###

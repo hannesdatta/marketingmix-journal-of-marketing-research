@@ -28,9 +28,6 @@ require(data.table)
 # -> indicators (economic indicators)
 	load('..//temp//exch_cpi.RData')
 
-# -> attrib
-	load('..//temp//attributes.RData')
-
 # initialize object to store final data
 	all_data <- NULL
 	
@@ -64,7 +61,7 @@ for (i in 1:length(skus_by_date_list)) {
 											 vsales = sum(t_value_sales), 
 											 vsalesd = sum(t_value_sales_usd),
 											
-											 llen = length(unique(sku_id)), 
+											 llen = length(unique(model)), 
 																						
 											 wspr=weigh_by_w(t_value_sales/t_sales_units, t_sales_units),
 											 wpspr=weigh_by_w(t_value_sales/t_sales_units, t_wsales_units),
@@ -72,22 +69,13 @@ for (i in 1:length(skus_by_date_list)) {
 											 wsprd=weigh_by_w(t_value_sales_usd/t_sales_units, t_sales_units),
 											 wpsprd=weigh_by_w(t_value_sales_usd/t_sales_units, t_wsales_units),
 											 
-											 wsun = weigh_by_w(w_sku_unique*100,t_sales_units),
-											 wpsun = weigh_by_w(w_sku_unique*100,t_wsales_units),
-											 
-											 wsunnw = weigh_by_w(nw_sku_unique*100,t_sales_units),
-											 wpsunnw = weigh_by_w(nw_sku_unique*100,t_wsales_units),
-											 
-										     #wsnumdist = weigh_by_w(t_numdist,t_sales_units),
-											 #wpsnumdist = weigh_by_w(t_numdist,t_wsales_units),
-											 
 											 wswdst = weigh_by_w(t_wdist,t_sales_units),
 											 wpswdst = weigh_by_w(t_wdist,t_wsales_units),
 											 
-											 nov1= length(unique(sku_id[which(first_date>date_lag1 & first_date <= date)])),
-											 nov3= length(unique(sku_id[which(first_date>date_lag3 & first_date <= date)])),
-											 nov6= length(unique(sku_id[which(first_date>date_lag6 & first_date <= date)])),
-											 nov12= length(unique(sku_id[which(first_date>date_lag12 & first_date <= date)]))
+											 nov1= length(unique(model[which(first_date>date_lag1 & first_date <= date)])),
+											 nov3= length(unique(model[which(first_date>date_lag3 & first_date <= date)])),
+											 nov6= length(unique(model[which(first_date>date_lag6 & first_date <= date)])),
+											 nov12= length(unique(model[which(first_date>date_lag12 & first_date <= date)]))
 											 
 											 
 											 ), by=c('category', 'country', 'market_id', 'date', 'brand', 'selected_brand')][order(category, country,brand,date)]
@@ -184,7 +172,7 @@ for (i in 1:length(skus_by_date_list)) {
 	rm(all_cols)
 		
 	# store data 
-	all_data[[i]]<-list(data=selected_attr_sales, skus = attribs[[i]])
+	all_data[[i]]<-list(data=selected_attr_sales)
 	
 	# remove objects
 		rm(merged_attr_sales,skus_by_date)
