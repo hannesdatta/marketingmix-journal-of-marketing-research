@@ -85,7 +85,7 @@ stopifnot(nrow(rbindlist(lapply(skus_by_date_list, function(x) x[, list(N=.N), b
 	# aggregate brand sales for selected time periods (determined on a category-level earlier)
 	tmp_brands <- dat[which(selected_t_cat==T), list(brand_sales = sum(t_sales_units), time_periods = length(unique(date))), by=c('category','country',brand_id,time_id)]
 	
-	tmp_brands[!category == 'tablets', consec_min := 4*12] #5
+	tmp_brands[!category == 'tablets', consec_min := 5*12] #5
 	tmp_brands[category == 'tablets', consec_min := 4*12] # 4
 	
 	# establish consecutive number of years
