@@ -5,8 +5,6 @@
 	require(lattice)
 	require(latticeExtra)
 	load(file='..\\temp\\categorized.RData')
-	load(file='..\\temp\\attributes.RData')
-
 
 
 ##############################
