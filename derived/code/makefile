@@ -16,7 +16,7 @@ OUTPUT_DIR = ../output
 build: $(OUTPUT_DIR)/datasets.RData
 
 # audit
-audit: audit_attrib audit_rawplot audit_markets
+audit: audit_rawplot audit_markets
 
 # building parts of the project
 unzip: $(TEMP_DIR)/unzipped.RData
@@ -60,11 +60,7 @@ $(OUTPUT_DIR)/datasets.RData: brand_metrics.R $(TEMP_DIR)/exch_cpi.RData $(TEMP_
 
 	
 # --> audit: create category sales plots
-audit_attrib: audit_attributes.R $(TEMP_DIR)/attributes.RData
-	"$(RBIN64)Rterm.exe" --vanilla --args "" < "audit_attributes.R"
-
-# --> audit: create category sales plots
-audit_rawplot: audit_rawplot.R $(TEMP_DIR)/categorized.RData $(TEMP_DIR)/attributes.RData
+audit_rawplot: audit_rawplot.R $(TEMP_DIR)/categorized.RData
 	"$(RBIN64)Rterm.exe" --vanilla --args "" < "audit_rawplot.R"
 
 # --> audit: create plots of all markets
