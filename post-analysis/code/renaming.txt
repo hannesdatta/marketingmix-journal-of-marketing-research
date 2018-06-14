@@ -5,6 +5,7 @@ japan	Japan	grepl
 new zealand	New Zealand	grepl
 hong kong	Hong Kong	grepl
 south korea	South Korea	grepl
+cntrymissing	Missing country indicator	grepl
 malaysia	Malaysia	grepl
 thailand	Thailand	grepl
 taiwan	Taiwan	grepl

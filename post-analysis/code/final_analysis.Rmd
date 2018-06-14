@@ -29,17 +29,21 @@ options(knitr.kable.NA = '')
 ordered_vars = c('rwpspr', 'wpswdst','llen','nov12sh')
 names(ordered_vars) <- paste0(unlist(sanitize_table(data.frame(ordered_vars))), ' elasticity')
 
-# formulas for models
-form_main_model = .~1+ (1|brand) + (1|category) + (1|country) + emerging + appliance + ln_market_growth_mc + ln_herf_mc + local_to_market + ln_overall_prindexavg_mc + sbbe_std_mc 
+elast[, cntrymissing:=0]
+elast[is.na(country_of_origin), ':=' (local_to_market=0, cntrymissing=1, country_of_origin='missing')]
 
-form_interact = ~1+ (1|brand) + (1|category) + (1|country) + emerging + appliance + I(appliance*emerging) + ln_market_growth_mc + I(ln_market_growth_mc*emerging) + ln_herf_mc + I(ln_herf_mc*emerging) + local_to_market + I(local_to_market*emerging) + ln_overall_prindexavg_mc + I(ln_overall_prindexavg_mc*emerging) + sbbe_std_mc + I(sbbe_std_mc*emerging)
+# formulas for models
+form_main_model = .~1+ (1|brand) + (1|category) + (1|country) + emerging + appliance + ln_market_growth_mc + ln_herf_mc + local_to_market + ln_overall_prindexavg_mc + sbbe_std_mc + cntrymissing
+
+form_interact = ~1+ (1|brand) + (1|category) + (1|country) + emerging + appliance + I(appliance*emerging) + ln_market_growth_mc + I(ln_market_growth_mc*emerging) + ln_herf_mc + I(ln_herf_mc*emerging) + local_to_market + I(local_to_market*emerging) + ln_overall_prindexavg_mc + I(ln_overall_prindexavg_mc*emerging) + sbbe_std_mc + I(sbbe_std_mc*emerging) + cntrymissing
 
 
 #estimtype = 'winsor-onesided'
 #estimtype = 'winsor-twosided'
-estimtype = 'weighted'
+#estimtype = 'weighted'
+estimtype = 'nonweighted'
 
-winsor_p=.05
+winsor_p=.01
 
 notes_sig = 'Significance levels: \\* *p*<.1, \\*\\* *p*<.05, \\*\\*\\* *p*<.01 (two-sided).'
   
@@ -82,6 +86,19 @@ if (estimtype=='weighted') {
   
 }
 
+
+if (estimtype=='nonweighted') {
+  
+  for (.var in c('elast', 'elastlt')) {
+
+    elast[!is.na(get(.var)), paste0('w_', .var) := 1]
+    elast[!is.na(get(.var)), paste0('z_', .var) := get(.var)/get(paste0(.var, '_se'))]
+  }
+   
+      estimnote = paste0('Elasticities are unweighted.')
+      estimnoteshort= 'unweighted'
+  
+}
 
 
 notes_base = paste0("^1^ Regression of long-term elasticities on explanatory variables and three random effects, for brands, categories, and countries, respectively. Estimated using a linear mixed-effects model. ", estimnote, " Standard errors in parentheses.")
@@ -165,6 +182,8 @@ New product activity | Number of SKUs introduced by brand *i* in a rolling windo
 ^2^ Consumer price index obtained from Thomson Reuters Datastream.
 
 # Results
+
+(based on brands for which country-of-origin has been coded)
 
 ```{r continue_with_selection, echo=FALSE}
 elast_all=data.table(elast)
@@ -319,30 +338,22 @@ print(kable(dtf, format='html', initial.zero = FALSE, digits=3,caption = tab(pas
 
 ```{r main_regs, echo = FALSE, results='asis'}
 
-out1=regmodel(formula=c(main=form_main_model, 
-                        interact=form_interact, 
-                        onlybe=update.formula(form_main_model, .~.+I(sbbe_std_mc * emerging))), dat=elast, model='lmer')
+
+# formulas for models
+#form_main_model = .~ 1 + (1|brand) + (1|category) + (1|country) + emerging + appliance + ln_market_growth_mc + #ln_herf_mc + local_to_market + ln_overall_prindexavg_mc #+ sbbe_std_mc
+#
+out1=regmodel(formula=c(main=form_main_model), dat=elast, model='lmer')
 
 # keep only models that belong to one type (so that each table only features the rows that were actually estimated)
 
 main = lapply(out1, function(x) {x$lt <- list(x$lt$main); x$st <- list(x$st$main); x})
-interact = lapply(out1, function(x) {x$lt <- list(x$lt$interact); x$st <- list(x$st$interact); x})
-onlybe = lapply(out1, function(x) {x$lt <- list(x$lt$onlybe); x$st <- list(x$st$onlybe); x})
 
 # assemble all variables
-#sink('../temp/test.html')
+#sink('../temp/secondstage.html')
 
 # MAIN MODEL
 cat("<P style='page-break-before: always'>")
 printout(main, 'stlt', title = tab('Regression with short- and long-term elasticities in a pooled sample of developed and emerging countries'), vars=ordered_vars,  notes=gsub('long[-]term', 'short- and long-term', notes_base))
-
-# ONLY BE INTERACTIONS
-cat("<P style='page-break-before: always'>")
-printout(onlybe, 'stlt', omit=NULL, title = tab('Regression with short- and long-term elasticities in a pooled sample of developed and emerging countries, only with brand equity interactions'), vars=ordered_vars, notes=gsub('long[-]term', 'short- and long-term', notes_base))
-  
-# ALL INTERACTIONS
-#cat("<P style='page-break-before: always'>")
-#printout(interact, 'stlt', omit=NULL, title = tab('Regression with short- and long-term elasticities in a pooled sample of developed and emerging countries, with interactions'), vars=ordered_vars, notes=notes_base)       
 
 #sink()
 
@@ -373,7 +384,7 @@ for (elasttype in c('st', 'lt')) {
   setorder(res, abs_z)
   #res[, z:=NULL]
   
-  summary_sig=dcast(res, variable ~ mmix, value.var='z')
+  summary_sig=dcast.data.table(res, variable ~ mmix, value.var='z')
   summary_sig[,variable:=gsub('I[(]', '', variable)]
   summary_sig[,variable:=gsub(' [*] emerging[)]', '', variable)]
   setcolorder(summary_sig, c('variable', ordered_vars))
@@ -520,8 +531,8 @@ kable(tmp, caption = tab('Country-of-origins for brands in sample, ordered by th
 ```
 
 
-```{r elast_by_win, echo=F,results='asis', include=FALSE}
-
+```{r elast_by_cc, echo=F,results='asis', include=FALSE}
+sink('cc.html')
 for (byvar in c('category', 'country')) {
   tmp=elast[!is.na(elastlt), list(elast = sum(elastlt*w_elastlt)/sum(w_elastlt)), by=c('variable', byvar)]
   setnames(tmp, byvar, 'byvar')
@@ -534,11 +545,12 @@ for (byvar in c('category', 'country')) {
   setorderv(tmp, colnames(tmp)[1])
   
   cat("<P style='page-break-before: always'>")
-  if(0){print(kable(tmp, digits=3, caption = tab(paste0('Long-term elasticities (by ', byvar, ')^1^'), prefix='A'), format='html', initial.zero = FALSE) %>%
+  {print(kable(tmp, digits=3, caption = tab(paste0('Long-term elasticities (by ', byvar, ')^1^'), prefix='A'), format='html', initial.zero = FALSE) %>%
         kable_styling() %>% footnote(number=paste0(estimnote, ' Reported by ', ifelse(byvar=='country', 'countries', 'categories'), ' in alphabetical order.')))
   }
 }
-  
+sink() 
+
 ```	
 
 
