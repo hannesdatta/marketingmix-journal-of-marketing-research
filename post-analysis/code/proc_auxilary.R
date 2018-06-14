@@ -1,5 +1,5 @@
 psignstars <- function(x) {
-  sapply(x, function(p) ifelse(p < .01, " ***", ifelse(p < .05, " **", ifelse(p < .1, " *", "    "))))
+  sapply(x, function(p) ifelse(p < .01, "***", ifelse(p < .05, "**", ifelse(p < .1, "*", "    "))))
 }
 
 
@@ -103,7 +103,7 @@ printout = function(x, type='st', vars=NULL, omit=NULL, title='',printtype='html
             dep.var.labels=dep.var.labels,
             covariate.labels=covlabels,
             notes=to_stargz(paste0('<sup>1</sup> ', notes_sig, ' ', note_text)), omit.stat=c('aic','bic'), 
-            single.row=T, notes.label='',
+            single.row=F, notes.label='',
             table.layout=table.layout, 
             add.lines=list(r2s,obs), 
             column.separate=colsep,
@@ -199,8 +199,8 @@ signstars <- function(zscore) {
   if (length(zscore)==0) return("   ")
   if (is.nan(zscore) | !is.numeric(zscore) | is.na(zscore)) return("   ")
   ret <- "ns."
-  if (abs(zscore)>qnorm(1-(0.1/2))) ret <- c("  *")
-  if (abs(zscore)>qnorm(1-(0.05/2))) ret <- c(" **")
+  if (abs(zscore)>qnorm(1-(0.1/2))) ret <- c("*")
+  if (abs(zscore)>qnorm(1-(0.05/2))) ret <- c("**")
   if (abs(zscore)>qnorm(1-(0.01/2))) ret <- c("***")
   return(ret)
 }
