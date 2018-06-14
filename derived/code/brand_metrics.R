@@ -50,13 +50,15 @@ for (i in 1:length(skus_by_date_list)) {
 	skus_by_date <- skus_by_date_list[[i]]
 	skus_by_date[, category:=names(skus_by_date_list)[i]]
 	setkey(skus_by_date, category, country, brand)
-	skus_by_date[brand_selection, ':=' (selected_brand=i.selected_brand, brand_rename=i.brand_rename)]
+	skus_by_date[brand_selection, ':=' (selected_brand=i.selected_brand, n_brands_selected=i.n_brands_selected, brand_rename=i.brand_rename)]
 	
 	setnames(skus_by_date, 'brand', 'brand_orig')
 	setnames(skus_by_date, 'brand_rename', 'brand')
 	
 	setkey(skus_by_date, category, country, brand, date)
-	 
+	
+	skus_by_date = skus_by_date[n_brands_selected>1]
+	
 	merged_attr_sales = skus_by_date[, list( usales=sum(t_sales_units),
 											 vsales = sum(t_value_sales), 
 											 vsalesd = sum(t_value_sales_usd),
