@@ -69,7 +69,7 @@ library(parallel)
 	# load model code
 	init()
 
-	fname = '../output/results9june2018.RData'
+	fname = '../output/results.RData'
 
 ######################
 ### Specify models ###
