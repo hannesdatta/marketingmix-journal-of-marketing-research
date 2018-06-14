@@ -195,6 +195,7 @@ plotfkt<-function(dt) {
 	# merge laptops and hybrid laptops
 	datlist_final$laptop <- rbindlist(list(datlist_final$laptop_regular, datlist_final$laptop_hybrid), fill=T)
 	# -> sales series of india and china don't overlap well; exclude.
+	
 	datlist_final$laptop[, used := source == 'gfk2015' & !COUNTRY %in% c('CHINA','INDIA')]
 	
 	plotfkt(datlist_final$laptop)
@@ -231,7 +232,10 @@ plotfkt<-function(dt) {
 	
 # (5) Mobile phones
 	datlist_final$phones_mobile = rbindlist(list(datlist_by_cat$'SMART+MOBILEPHONES'[MOB_SMP=='MOBILEPHONE']),fill=T)
-	datlist_final$phones_mobile[, used := source == 'gfk2015' & !COUNTRY %in% c('INDIA')]
+	#datlist_final$phones_mobile[, used := source == 'gfk2015' & !COUNTRY %in% c('INDIA')]
+
+	datlist_final$phones_mobile[, used := source == 'gfk2015']
+	
 	plotfkt(datlist_final$phones_mobile)
 	
 # (6) SLR Cameras	
