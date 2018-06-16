@@ -208,9 +208,9 @@ Reported for a sample of `r length(unique(elast$brand))` unique brands (excludin
       data.table(variable=.var, effect=c('constant', 'emerging'), summary(lm(val~1+emerging, weights=val_w,data=tmp[variable==.var]))$coefficients)
     }))
   
-  #    diff_tests=rbindlist(lapply(unique(elast$variable), function(.var) {
-   #   data.table(variable=.var, effect=c('constant', 'emerging'), summary(lmer(val~1+(1|category) + (1|country) + (1|brand) + emerging, weights=val_w,data=tmp[variable==.var]))$coefficients)
-   # }))
+#      diff_tests=rbindlist(lapply(unique(elast$variable), function(.var) {
+#      data.table(variable=.var, effect=c('constant', 'emerging'), summary(lmer(val~1+(1|category) + (1|country) + (1|brand) + emerging, weights=val_w,data=tmp[variable==.var]))$coefficients)
+#    }))
     
     setnames(diff_tests, c('variable', 'effect', 'diff_est', 'diff_se', 'diff_t','diff_p'))
     diff_tests=diff_tests[effect=='emerging'][, effect:=NULL]
