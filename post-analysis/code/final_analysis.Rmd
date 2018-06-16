@@ -29,19 +29,20 @@ options(knitr.kable.NA = '')
 ordered_vars = c('rwpspr', 'wpswdst','llen','nov12sh')
 names(ordered_vars) <- paste0(unlist(sanitize_table(data.frame(ordered_vars))), ' elasticity')
 
-elast[, cntrymissing:=0]
-elast[is.na(country_of_origin), ':=' (local_to_market=0, cntrymissing=1, country_of_origin='missing')]
+#elast[, cntrymissing:=0]
+
+#elast[is.na(country_of_origin), ':=' (local_to_market=0, cntrymissing=1, country_of_origin='missing')]
 
 # formulas for models
-form_main_model = .~1+ (1|brand) + (1|category) + (1|country) + emerging + appliance + ln_market_growth_mc + ln_herf_mc + local_to_market + ln_overall_prindexavg_mc + sbbe_std_mc + cntrymissing
+form_main_model = .~1+ (1|brand) + (1|category) + (1|country) + emerging + appliance + ln_market_growth_mc + ln_herf_mc + local_to_market + ln_overall_prindexavg_mc + sbbe_std_mc
 
-form_interact = ~1+ (1|brand) + (1|category) + (1|country) + emerging + appliance + I(appliance*emerging) + ln_market_growth_mc + I(ln_market_growth_mc*emerging) + ln_herf_mc + I(ln_herf_mc*emerging) + local_to_market + I(local_to_market*emerging) + ln_overall_prindexavg_mc + I(ln_overall_prindexavg_mc*emerging) + sbbe_std_mc + I(sbbe_std_mc*emerging) + cntrymissing
+form_interact = ~1+ (1|brand) + (1|category) + (1|country) + emerging + appliance + I(appliance*emerging) + ln_market_growth_mc + I(ln_market_growth_mc*emerging) + ln_herf_mc + I(ln_herf_mc*emerging) + local_to_market + I(local_to_market*emerging) + ln_overall_prindexavg_mc + I(ln_overall_prindexavg_mc*emerging) + sbbe_std_mc + I(sbbe_std_mc*emerging)
 
 
 #estimtype = 'winsor-onesided'
 #estimtype = 'winsor-twosided'
-#estimtype = 'weighted'
-estimtype = 'nonweighted'
+estimtype = 'weighted'
+#estimtype = 'nonweighted'
 
 winsor_p=.01
 
@@ -183,8 +184,6 @@ New product activity | Number of SKUs introduced by brand *i* in a rolling windo
 
 # Results
 
-(based on brands for which country-of-origin has been coded)
-
 ```{r continue_with_selection, echo=FALSE}
 elast_all=data.table(elast)
 elast=elast[!is.na(country_of_origin)&!brand%in%c('unbranded')]
@@ -208,6 +207,11 @@ Reported for a sample of `r length(unique(elast$brand))` unique brands (excludin
     diff_tests=rbindlist(lapply(unique(elast$variable), function(.var) {
       data.table(variable=.var, effect=c('constant', 'emerging'), summary(lm(val~1+emerging, weights=val_w,data=tmp[variable==.var]))$coefficients)
     }))
+  
+  #    diff_tests=rbindlist(lapply(unique(elast$variable), function(.var) {
+   #   data.table(variable=.var, effect=c('constant', 'emerging'), summary(lmer(val~1+(1|category) + (1|country) + (1|brand) + emerging, weights=val_w,data=tmp[variable==.var]))$coefficients)
+   # }))
+    
     setnames(diff_tests, c('variable', 'effect', 'diff_est', 'diff_se', 'diff_t','diff_p'))
     diff_tests=diff_tests[effect=='emerging'][, effect:=NULL]
     
@@ -531,8 +535,8 @@ kable(tmp, caption = tab('Country-of-origins for brands in sample, ordered by th
 ```
 
 
-```{r elast_by_cc, echo=F,results='asis', include=FALSE}
-sink('cc.html')
+```{r elast_by_cc, echo=F,results='asis', include=TRUE}
+#sink('cc.html')
 for (byvar in c('category', 'country')) {
   tmp=elast[!is.na(elastlt), list(elast = sum(elastlt*w_elastlt)/sum(w_elastlt)), by=c('variable', byvar)]
   setnames(tmp, byvar, 'byvar')
@@ -549,7 +553,7 @@ for (byvar in c('category', 'country')) {
         kable_styling() %>% footnote(number=paste0(estimnote, ' Reported by ', ifelse(byvar=='country', 'countries', 'categories'), ' in alphabetical order.')))
   }
 }
-sink() 
+#sink() 
 
 ```	
 
