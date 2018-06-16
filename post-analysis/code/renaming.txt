@@ -38,7 +38,7 @@ railroadqual	Quality of railroad infrastructure	gsub
 roadqual	Quality of roads	gsub
 washing	Washing machines	gsub
 tv_gen2_lcd	LCD TV	gsub
-tv_gen1_crtv	Regular TV	gsub
+tv_gen1_crtv	CRT TV	gsub
 tablets	Tablets	gsub
 phones_smart	Smart phones	gsub
 phones_mobile	Mobile phones	gsub
@@ -47,7 +47,7 @@ laptop	Laptop computers	gsub
 dvd	DVD players and recorders	gsub
 desktoppc	Desktop computers	gsub
 cooling	Refrigerators	gsub
-camera_slr	SLR cameras	gsub
+camera_slr	DSLR cameras	gsub
 camera_compact	Compact cameras	gsub
 category	Category	gsub
 cattype	Category type	gsub
