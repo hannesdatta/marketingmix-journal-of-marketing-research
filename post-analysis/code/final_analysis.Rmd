@@ -207,7 +207,9 @@ Reported for a sample of `r length(unique(elast$brand))` unique brands (excludin
                                              val_w=get(obj[2]),
                                              val_z=get(obj[3]))]
  
-  tvalrep='re'
+  #tvalrep='re'
+  tvalrep='ttest'
+  
   taddition=''
   
     if (tvalrep=='wls') {
@@ -215,16 +217,33 @@ Reported for a sample of `r length(unique(elast$brand))` unique brands (excludin
     diff_tests=rbindlist(lapply(unique(elast$variable), function(.var) {
       data.table(variable=.var, effect=c('constant', 'emerging'), summary(lm(val~1+emerging, weights=val_w,data=tmp[variable==.var]))$coefficients)
     }))
-    taddition='on an intercept and an emerging country indicator variable.'
-    }
+          taddition = paste0('Test on differences carried out by regressing elasticities (', estimnoteshort, ') on an intercept and an emerging country indicator variable. Reported t-value is obtained from the estimate of the emerging country indicator.')
+
+          }
   
     if (tvalrep=='re') {
     # random effects based p values
       diff_tests=rbindlist(lapply(unique(tmp$variable), function(.var) {
       data.table(variable=.var, effect=c('constant', 'emerging'), summary(lmer(val~1+(1|category) + (1|country) + (1|brand) + emerging, weights=val_w,data=tmp[variable==.var]))$coefficients)[, p:=2*(1-pnorm(abs(get('t value'))))]
     }))
-      taddition = 'on an intercept, an emerging country indicator variable and three random effects, for brands, categories, and countries, respectively.'
-    }
+      taddition = paste0('Test on differences carried out by regressing elasticities (', estimnoteshort, ') on an intercept, an emerging country indicator variable and three random effects, for brands, categories, and countries, respectively. Reported t-value is obtained from the estimate of the emerging country indicator.')
+
+          }
+  
+     if (tvalrep=='ttest') {
+       
+    # random effects based p values
+      diff_tests=rbindlist(lapply(unique(tmp$variable), function(.var) {
+        xemerg=tmp[variable==.var&emerging==1]$val
+        xdevel=tmp[variable==.var&emerging==0]$val
+        
+        tout = t.test(xemerg,xdevel)
+        
+      data.table(variable=.var, effect=c('emerging'), NA, NA, tout$statistic, tout$p.value)
+      }))
+      
+      taddition = paste0('Test on differences carried out using a two-sided t-test.')
+     }
   
     setnames(diff_tests, c('variable', 'effect', 'diff_est', 'diff_se', 'diff_t','diff_p'))
     diff_tests=diff_tests[effect=='emerging'][, effect:=NULL]
@@ -260,7 +279,7 @@ iters = list(st=c('st', 'Short-term'), lt=c('lt', 'Long-term'))
 for (iter in iters) {
   print(kable(sanitize_table(out[[iter[1]]]), digits=3, format='html', 
         caption=tab(paste0(iter[2], ' elasticities by marketing mix instrument^1^'))) %>% kable_styling() %>% 
-        footnote(number=c(paste0(notes_sig, ' ', estimnote, ' The number of observations differs slightly across marketing mix instruments because some brands in some markets (category/country combinations) do not have variation in these variables.'), paste0('Test on differences carried out by regressing elasticities (', estimnoteshort, ') ', taddition, ' Reported t-value is obtained from the estimate of the emerging country indicator.'))) %>% add_header_above(c(" " = 1, "All countries" = 4, "Developed countries" = 4, "Emerging countries" = 4, 'Test on differences^2^' =2)))
+        footnote(number=c(paste0(notes_sig, ' ', estimnote, ' The number of observations differs slightly across marketing mix instruments because some brands in some markets (category/country combinations) do not have variation in these variables. ', taddition))) %>% add_header_above(c(" " = 1, "All countries" = 4, "Developed countries" = 4, "Emerging countries" = 4, 'Test on differences^2^' =2)))
 }
   
 ```
