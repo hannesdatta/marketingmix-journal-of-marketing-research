@@ -198,25 +198,39 @@ Reported for a sample of `r length(unique(elast$brand))` unique brands (excludin
   
   zval = qnorm(1-sigvalue/2)
 
-  out = lapply(list(st=c('elast', 'w_elast', 'z_elast'), lt = c('elastlt','w_elastlt', 'z_elastlt')), function(obj) {
-               
+  out= NULL
+  for (i in 1:2) {
+    if (i==1) obj=c('elast', 'w_elast', 'z_elast')
+    if (i==2) obj=c('elastlt','w_elastlt', 'z_elastlt')
+    
     tmp = elast[!is.na(get(obj[1]))][, ':=' (val=get(obj[1]), 
                                              val_w=get(obj[2]),
                                              val_z=get(obj[3]))]
-    
+ 
+  tvalrep='re'
+  taddition=''
+  
+    if (tvalrep=='wls') {
+    # OLS-based p values   
     diff_tests=rbindlist(lapply(unique(elast$variable), function(.var) {
       data.table(variable=.var, effect=c('constant', 'emerging'), summary(lm(val~1+emerging, weights=val_w,data=tmp[variable==.var]))$coefficients)
     }))
+    taddition='on an intercept and an emerging country indicator variable.'
+    }
   
-#      diff_tests=rbindlist(lapply(unique(elast$variable), function(.var) {
-#      data.table(variable=.var, effect=c('constant', 'emerging'), summary(lmer(val~1+(1|category) + (1|country) + (1|brand) + emerging, weights=val_w,data=tmp[variable==.var]))$coefficients)
-#    }))
-    
+    if (tvalrep=='re') {
+    # random effects based p values
+      diff_tests=rbindlist(lapply(unique(tmp$variable), function(.var) {
+      data.table(variable=.var, effect=c('constant', 'emerging'), summary(lmer(val~1+(1|category) + (1|country) + (1|brand) + emerging, weights=val_w,data=tmp[variable==.var]))$coefficients)[, p:=2*(1-pnorm(abs(get('t value'))))]
+    }))
+      taddition = 'on an intercept, an emerging country indicator variable and three random effects, for brands, categories, and countries, respectively.'
+    }
+  
     setnames(diff_tests, c('variable', 'effect', 'diff_est', 'diff_se', 'diff_t','diff_p'))
     diff_tests=diff_tests[effect=='emerging'][, effect:=NULL]
-    
+
     tmp = merge(tmp, diff_tests, by = c('variable'))
-    
+
     tmp=tmp[, list(Neffects= .N, 
                    all_melast = sum(val*val_w)/sum(val_w),
 						 		   all_z = sum(val_z,na.rm=T)/sqrt(.N),
@@ -236,16 +250,19 @@ Reported for a sample of `r length(unique(elast$brand))` unique brands (excludin
 
   tmp=tmp[match(ordered_vars, variable)]
   setnames(tmp, 'variable', 'mmixinstr')
-  return(tmp)
-  })
+
+  out[[i]]<-tmp
+  }
   
+names(out)<-c('st','lt')
+
 iters = list(st=c('st', 'Short-term'), lt=c('lt', 'Long-term'))
 for (iter in iters) {
   print(kable(sanitize_table(out[[iter[1]]]), digits=3, format='html', 
         caption=tab(paste0(iter[2], ' elasticities by marketing mix instrument^1^'))) %>% kable_styling() %>% 
-        footnote(number=c(paste0(notes_sig, ' ', estimnote, ' The number of observations differs slightly across marketing mix instruments because some brands in some markets (category/country combinations) do not have variation in these variables.'), paste0('Test on differences carried out by regressing elasticities (', estimnoteshort, ') on an intercept and an emerging country indicator variable. Reported t-value is obtained from the estimate of the emerging country indicator.'))) %>% add_header_above(c(" " = 1, "All countries" = 4, "Developed countries" = 4, "Emerging countries" = 4, 'Test on differences^2^' =2)))
+        footnote(number=c(paste0(notes_sig, ' ', estimnote, ' The number of observations differs slightly across marketing mix instruments because some brands in some markets (category/country combinations) do not have variation in these variables.'), paste0('Test on differences carried out by regressing elasticities (', estimnoteshort, ') ', taddition, ' Reported t-value is obtained from the estimate of the emerging country indicator.'))) %>% add_header_above(c(" " = 1, "All countries" = 4, "Developed countries" = 4, "Emerging countries" = 4, 'Test on differences^2^' =2)))
 }
-
+  
 ```
 
 ```{r correl, echo=FALSE, results = 'asis'}
@@ -346,6 +363,7 @@ print(kable(dtf, format='html', initial.zero = FALSE, digits=3,caption = tab(pas
 # formulas for models
 #form_main_model = .~ 1 + (1|brand) + (1|category) + (1|country) + emerging + appliance + ln_market_growth_mc + #ln_herf_mc + local_to_market + ln_overall_prindexavg_mc #+ sbbe_std_mc
 #
+
 out1=regmodel(formula=c(main=form_main_model), dat=elast, model='lmer')
 
 # keep only models that belong to one type (so that each table only features the rows that were actually estimated)
