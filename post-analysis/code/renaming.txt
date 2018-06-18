@@ -57,6 +57,9 @@ welast	Weighted elasticity	grepl
 melast	Mean elasticity	grepl
 [_]z	Meta-analytic z	grepl
 comb[_]t	t-value	grepl
+ttest[_]t	t-value from t-test^2^	grepl
+wls[_]t	t-value from WLS^3^	grepl
+re[_]t	t-value from RE^4^	grepl
 mmixinstr	Marketing-mix instrument	gsub
 Neffects	Number of estimates	grepl
 .*[_]sig	sig.	gsub

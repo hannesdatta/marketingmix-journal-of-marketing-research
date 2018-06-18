@@ -15,7 +15,6 @@ options(xtable.comment = FALSE)
 options(knitr.kable.NA = '')
 
 # Load data
-  #elast <- fread('../externals/elast_results_MCI_wlag_wotrend.csv')
   elast <- fread('../externals/elast_results_nov12sh.csv')
 
 # Load auxilary functions
@@ -207,29 +206,27 @@ Reported for a sample of `r length(unique(elast$brand))` unique brands (excludin
                                              val_w=get(obj[2]),
                                              val_z=get(obj[3]))]
  
-  #tvalrep='re'
-  tvalrep='ttest'
+    # different t-tests
   
-  taddition=''
+    diff_tests=lapply(c(ttest='ttest', wls='wls',re='re'), function(tvalrep) {
+      if (tvalrep=='wls') {
+      # OLS-based p values   
+      diff_tests=rbindlist(lapply(unique(elast$variable), function(.var) {
+        data.table(variable=.var, effect=c('constant', 'emerging'), summary(lm(val~1+emerging, weights=val_w,data=tmp[variable==.var]))$coefficients)
+      }))
+            taddition = paste0('Test on differences carried out by regressing elasticities (', estimnoteshort, ') on an intercept and an emerging country indicator variable. Reported t-value is obtained from the estimate of the emerging country indicator.')
   
-    if (tvalrep=='wls') {
-    # OLS-based p values   
-    diff_tests=rbindlist(lapply(unique(elast$variable), function(.var) {
-      data.table(variable=.var, effect=c('constant', 'emerging'), summary(lm(val~1+emerging, weights=val_w,data=tmp[variable==.var]))$coefficients)
-    }))
-          taddition = paste0('Test on differences carried out by regressing elasticities (', estimnoteshort, ') on an intercept and an emerging country indicator variable. Reported t-value is obtained from the estimate of the emerging country indicator.')
-
-          }
+            }
+    
+      if (tvalrep=='re') {
+      # random effects based p values
+        diff_tests=rbindlist(lapply(unique(tmp$variable), function(.var) {
+        data.table(variable=.var, effect=c('constant', 'emerging'), summary(lmer(val~1+(1|category) + (1|country) + (1|brand) + emerging, weights=val_w,data=tmp[variable==.var]))$coefficients)[, p:=2*(1-pnorm(abs(get('t value'))))]
+      }))
+        taddition = paste0('Test on differences carried out by regressing elasticities (', estimnoteshort, ') on an intercept, an emerging country indicator variable and three random effects, for brands, categories, and countries, respectively. Reported t-value is obtained from the estimate of the emerging country indicator.')
   
-    if (tvalrep=='re') {
-    # random effects based p values
-      diff_tests=rbindlist(lapply(unique(tmp$variable), function(.var) {
-      data.table(variable=.var, effect=c('constant', 'emerging'), summary(lmer(val~1+(1|category) + (1|country) + (1|brand) + emerging, weights=val_w,data=tmp[variable==.var]))$coefficients)[, p:=2*(1-pnorm(abs(get('t value'))))]
-    }))
-      taddition = paste0('Test on differences carried out by regressing elasticities (', estimnoteshort, ') on an intercept, an emerging country indicator variable and three random effects, for brands, categories, and countries, respectively. Reported t-value is obtained from the estimate of the emerging country indicator.')
-
-          }
-  
+            }
+    
      if (tvalrep=='ttest') {
        
     # random effects based p values
@@ -247,9 +244,20 @@ Reported for a sample of `r length(unique(elast$brand))` unique brands (excludin
   
     setnames(diff_tests, c('variable', 'effect', 'diff_est', 'diff_se', 'diff_t','diff_p'))
     diff_tests=diff_tests[effect=='emerging'][, effect:=NULL]
+    diff_tests[,testtype:=tvalrep]
+    return(list(diff_tests=diff_tests, notes=taddition))
+    })
+    
+    
+    ttests=melt(rbindlist(lapply(diff_tests, function(x) x$diff_tests)), id.vars=c('variable','testtype'))
+    ttests=dcast(ttests, variable~testtype+variable.1)
+    
+    notes<-lapply(diff_tests, function(x) x$notes)
+    
+    
+    tmp = merge(tmp, ttests, by = c('variable'))
 
-    tmp = merge(tmp, diff_tests, by = c('variable'))
-
+    
     tmp=tmp[, list(Neffects= .N, 
                    all_melast = sum(val*val_w)/sum(val_w),
 						 		   all_z = sum(val_z,na.rm=T)/sqrt(.N),
@@ -264,7 +272,9 @@ Reported for a sample of `r length(unique(elast$brand))` unique brands (excludin
 				           em_melast = sum(val[developed==0]*val_w[developed==0])/sum(val_w[developed==0]),
 									 em_z = sum(val_z[developed==0])/sqrt(length(which(!is.na(val[developed==0])))),
 									 em_sig = signstars(sum(val_z[developed==0])/sqrt(length(which(!is.na(val[developed==0]))))),
-									                    comb_t=unique(diff_t), comb_sig=psignstars(unique(diff_p))
+									 ttest_t = unique(ttest_diff_t), ttest_sig = psignstars(unique(ttest_diff_p)),
+									 wls_t = unique(wls_diff_t), wls_sig = psignstars(unique(wls_diff_p)),
+									 re_t = unique(re_diff_t), res_sig = psignstars(unique(re_diff_p))
 									                    ), by=c('variable')]
 
   tmp=tmp[match(ordered_vars, variable)]
@@ -279,38 +289,9 @@ iters = list(st=c('st', 'Short-term'), lt=c('lt', 'Long-term'))
 for (iter in iters) {
   print(kable(sanitize_table(out[[iter[1]]]), digits=3, format='html', 
         caption=tab(paste0(iter[2], ' elasticities by marketing mix instrument^1^'))) %>% kable_styling() %>% 
-        footnote(number=c(paste0(notes_sig, ' ', estimnote, ' The number of observations differs slightly across marketing mix instruments because some brands in some markets (category/country combinations) do not have variation in these variables. ', taddition))) %>% add_header_above(c(" " = 1, "All countries" = 4, "Developed countries" = 4, "Emerging countries" = 4, 'Test on differences^2^' =2)))
+        footnote(number=c(paste0(notes_sig, ' ', estimnote, ' The number of observations differs slightly across marketing mix instruments because some brands in some markets (category/country combinations) do not have variation in these variables.'),notes[1],notes[2],notes[3])) %>% add_header_above(c(" " = 1, "All countries" = 4, "Developed countries" = 4, "Emerging countries" = 4, 'Tests on differences' =6)))
 }
   
-```
-
-```{r correl, echo=FALSE, results = 'asis'}
-
-tmp = dcast(elast,market_id+brand~variable, value.var=c('elast', 'elastlt'))
-
-for (var in grep('elast', colnames(tmp),value=T)) {
-  tmp[, (paste0('mc_', var)):=get(var)-mean(get(var),na.rm=T), by = c('market_id')]
-  }
-
-
-printtmp=tmp[, grep('mc[_]elast[_]', colnames(tmp),value=T) ,with=F]
-setnames(printtmp, gsub('mc[_]elast[_]','',colnames(printtmp)))
-setcolorder(printtmp, ordered_vars)
-setnames(printtmp, paste0(rename.fkt(colnames(printtmp)), ' elasticity'))
-
-
-corstars(printtmp, method=c("pearson"),result='html', caption = tab('Correlation among short-term marketing mix elasticities (mean-centered by market)'))
-
-printtmp=tmp[, grep('mc[_]elastlt[_]', colnames(tmp),value=T) ,with=F]
-setnames(printtmp, gsub('mc[_]elastlt[_]','',colnames(printtmp)))
-setcolorder(printtmp, ordered_vars)
-setnames(printtmp, paste0(rename.fkt(colnames(printtmp)), ' elasticity'))
-
-corstars(printtmp, method=c("pearson"),result='html', caption = tab('Correlation among long-term marketing mix elasticities (mean-centered by market)'))
-
-#stargazer(cor(printtmp))
-
-
 ```
 
 # Second-stage analysis
@@ -430,14 +411,20 @@ for (elasttype in c('st', 'lt')) {
   summary_sig[,variable:=gsub(' [*] emerging[)]', '', variable)]
   setcolorder(summary_sig, c('variable', ordered_vars))
   
+  # order:
+  tmporder <- gsub('I[(]', '', interactions)
+  tmporder <- gsub(' [*] emerging[)]', '', tmporder)
+  
+  summary_sig = summary_sig[match(tmporder, variable),]
+  
   #setnames(summary_sig, 'variable', 'Interaction term with emerging country indicator')
                 
   print(kable(sanitize_table(summary_sig), format='html', initial.zero = FALSE, digits=3, caption=tab(paste0('Assessing the significance of adding interaction terms with an emerging country indicator to a main-effects only model for ', ifelse(elasttype=='st', 'short-term', 'long-term'), ' elasticities^1^'))) %>%
           kable_styling() %>% footnote(number='Table reports t-values for a single interaction term between the focal variable and an emerging country indicator added to a regression of marketing mix elasticities on main effects only.'))
   
-  update_forms=res[abs_z>1.65, list(interactions=unique(variable)),by=c('mmix')]
+  update_forms=res[abs_z>=zval, list(interactions=unique(variable)),by=c('mmix')]
   
-  run_interact=sapply(ordered_vars, function(x) {
+  run_interact=sapply(unique(elast$variable), function(x) {
     keep_terms = update_forms[mmix==x]$interactions
     remove_terms = setdiff(interactions, keep_terms)
     update_terms=paste(remove_terms, collapse=' - ')
@@ -447,24 +434,25 @@ for (elasttype in c('st', 'lt')) {
   })
   
   
-  out1b=regmodel(formula=c(form_interact, run_interact), dat=elast, model='lmer')
+  out1b=regmodel(formula=c(form_main_model, form_interact, run_interact), dat=elast, model='lmer')
   
   # reassemble to keep only the ones with terms we selected
   mod_out<-lapply(seq(along=out1b), function(i) {
     x=out1b[[i]]
-    x$lt<-list(x$lt[[1]], x$lt[[1+i]])
-    x$st<-list(x$st[[1]], x$st[[1+i]])
+    # retain first two models, and pick selected interaction model (2+i)
+    x$lt<-list(x$lt[[1]], x$lt[[2]], x$lt[[2+i]])
+    x$st<-list(x$st[[1]], x$st[[2]], x$st[[2+i]])
     return(x)
   })
-  names(mod_out) <- names(out1b)
   
-    
-  # assemble all variables
+  names(mod_out) <- names(out1b)
   
   # MAIN MODEL
   cat("<P style='page-break-before: always'>")
-  printout(mod_out, elasttype, title = tab(paste('Regression with ', ifelse(elasttype=='st', 'short-term', 'long-term'), ' elasticities in a pooled sample of developed and emerging countries: testing for interactions')), vars=ordered_vars, notes=paste0(ifelse(elasttype=='st', gsub('long[-]term', 'short-term', notes_base), notes_base),  ' For each variable, the first column reports a model with full interactions; the second column reports a model in which only interactions are added that were significant in an auxilary regression with all main effects and only the relevant interaction.'))
+  printout(mod_out, elasttype, title = tab(paste('Regression with ', ifelse(elasttype=='st', 'short-term', 'long-term'), ' elasticities in a pooled sample of developed and emerging countries: main model, model with full interaction terms, and model with selected interaction terms')), vars=ordered_vars, notes=paste0(ifelse(elasttype=='st', gsub('long[-]term', 'short-term', notes_base), notes_base),  ' For each variable, the first column reports a model without interactions (our main model); the second column reports a model with full interactions; the third column reports a model in which only interactions are added that were significant in an auxilary regression with all main effects, and only one of the relevant interaction terms each.'))
+
 }
+
 
 ```
 
@@ -741,3 +729,31 @@ tmp=sanitize_table(tmp)
 kable(tmp, caption = tab('Overview of selected brands, ordered by the number of countries and categories it is active in', prefix ='A'))
 ```
 
+```{r correl, echo=FALSE, results = 'asis'}
+
+tmp = dcast(elast,market_id+brand~variable, value.var=c('elast', 'elastlt'))
+
+for (var in grep('elast', colnames(tmp),value=T)) {
+  tmp[, (paste0('mc_', var)):=get(var)-mean(get(var),na.rm=T), by = c('market_id')]
+  }
+
+
+printtmp=tmp[, grep('mc[_]elast[_]', colnames(tmp),value=T) ,with=F]
+setnames(printtmp, gsub('mc[_]elast[_]','',colnames(printtmp)))
+setcolorder(printtmp, ordered_vars)
+setnames(printtmp, paste0(rename.fkt(colnames(printtmp)), ' elasticity'))
+
+
+corstars(printtmp, method=c("pearson"),result='html', caption = tab('Correlation among short-term marketing mix elasticities (mean-centered by market)'))
+
+printtmp=tmp[, grep('mc[_]elastlt[_]', colnames(tmp),value=T) ,with=F]
+setnames(printtmp, gsub('mc[_]elastlt[_]','',colnames(printtmp)))
+setcolorder(printtmp, ordered_vars)
+setnames(printtmp, paste0(rename.fkt(colnames(printtmp)), ' elasticity'))
+
+corstars(printtmp, method=c("pearson"),result='html', caption = tab('Correlation among long-term marketing mix elasticities (mean-centered by market)'))
+
+#stargazer(cor(printtmp))
+
+
+```
