@@ -163,8 +163,6 @@ kable(tmp, format='html', caption=tab('Category overview^1^')) %>%
 
 ```
 
-## Market share model
-
 `r tab('Variable operationalization for market share attraction model')`
 
 
@@ -248,8 +246,10 @@ Reported for a sample of `r length(unique(elast$brand))` unique brands (excludin
     })
     
     
-    ttests=melt(rbindlist(lapply(diff_tests, function(x) x$diff_tests)), id.vars=c('variable','testtype'))
-    ttests=dcast(ttests, variable~testtype+variable.1)
+    ttests=melt(rbindlist(lapply(diff_tests, function(x) x$diff_tests))[, ':=' (var=variable,variable=NULL)], id.vars=c('var','testtype'))
+    
+    ttests=dcast(ttests, var~testtype+variable)
+    setnames(ttests, 'var', 'variable')
     
     notes<-lapply(diff_tests, function(x) x$notes)
     
@@ -354,8 +354,6 @@ print(kable(dtf, format='html', initial.zero = FALSE, digits=3,caption = tab(pas
 
 ```
 
-# Analysis
-
 ```{r main_regs, echo = FALSE, results='asis'}
 
 
@@ -379,8 +377,6 @@ printout(main, 'stlt', title = tab('Regression with short- and long-term elastic
 #sink()
 
 ```
-
-## Assessing interactions individually for short- and long-term elasticities
 
 ```{r main_regs_both, echo = FALSE, results='asis'}
 
@@ -417,9 +413,11 @@ for (elasttype in c('st', 'lt')) {
   summary_sig = summary_sig[match(tmporder, variable),]
   
   #setnames(summary_sig, 'variable', 'Interaction term with emerging country indicator')
-                
+  
+  if(0){              
   print(kable(sanitize_table(summary_sig), format='html', initial.zero = FALSE, digits=3, caption=tab(paste0('Assessing the significance of adding interaction terms with an emerging country indicator to a main-effects only model for ', ifelse(elasttype=='st', 'short-term', 'long-term'), ' elasticities^1^'))) %>%
           kable_styling() %>% footnote(number='Table reports t-values for a single interaction term between the focal variable and an emerging country indicator added to a regression of marketing mix elasticities on main effects only.'))
+  }
   
   update_forms=res[abs_z>=zval, list(interactions=unique(variable)),by=c('mmix')]
   
@@ -459,14 +457,6 @@ for (elasttype in c('st', 'lt')) {
 
 # Robustness checks
 
-## Alternative measures for a country's state of development
-
-- Emerging country indicator (here reported as 1-emerging = developed country indicator)
-- Log of GDP per capita
-- Log of Global Competitiveness Index
-- Log of Human Development Index
-- Socio-economic development of a country (score from principal component analysis on selected items from the Global Competitiveness Report, not logged as this score takes on negative values)
-
 ```{r robustness_regs, echo = FALSE, results='asis'}
 
 modellist = lapply(c('developed', 'ln_gci_00.03_gdppercap_s_mc', 'ln_gci_overall_s_mc', 'ln_hdi2010_mc', 'gcifactor_mc'), 
@@ -476,11 +466,13 @@ out1=regmodel(formula=modellist, dat=elast, model='lmer')
 
 #sink('../temp/test.html')
 
-cat("<P style='page-break-before: always'>")
-printout(out1, 'lt', vars=ordered_vars[1:2], title = tab('Regression with long-term elasticities on covariates and different indicators for a country\'s state of development'),  notes=notes_base)
+notes=paste0(notes_base, ' Alternative indicators for a country\'s state of development are: (1) Developed country indicator (=1-Emerging country indicator, used in main specifications), (2) Log of GDP per capita, (3) Log of Global Competitiveness Index, (4) Log of Human Development Index, and (5) Socio-economic develop of a country (score from PCA on selected items from the Global Competitiveness Report, not logged because this score takes on negative values)')
 
 cat("<P style='page-break-before: always'>")
-printout(out1, 'lt', vars=ordered_vars[3:4], title = tab('Regression with long-term elasticities on covariates and different indicators for a country\'s state of development'),  notes=notes_base)
+printout(out1, 'lt', vars=ordered_vars[1:2], title = tab('Regression with long-term elasticities on covariates and different indicators for a country\'s state of development'),  notes=notes)
+
+cat("<P style='page-break-before: always'>")
+printout(out1, 'lt', vars=ordered_vars[3:4], title = tab('Regression with long-term elasticities on covariates and different indicators for a country\'s state of development'),  notes=notes)
 #sink()
 
 ```
@@ -494,8 +486,6 @@ figureno<<-0
 cat("<P style='page-break-before: always'>")
   
 ```
-
-## Alternative measures for Brand Equity
 
 ```{r robustness_regs_equity, echo = FALSE, results='asis'}
 
@@ -521,7 +511,7 @@ printout(out1, 'lt', omit=NULL, title = tab('Regression with long-term elasticit
 
 cols =  c('country_of_origin')
 tmp = elast[, list(.N), by = c('brand',cols)]
-tmp = tmp[, list(nbrands=length(unique(brand)), all_brands=paste(stri_trans_totitle(brand[order(brand)]), collapse=', ')), by = cols]
+tmp = tmp[, list(nbrands=length(unique(brand)), all_brands=paste(brand[order(brand)]), collapse=', '), by = cols]
 tmp[country_of_origin==''|is.na(country_of_origin), country_of_origin := 'Country not available']
 tmp[, country_of_origin:=my_capitalize(country_of_origin)]
 
@@ -538,7 +528,7 @@ kable(tmp, caption = tab('Country-of-origins for brands in sample, ordered by th
 
 ```{r elast_by_cc, echo=F,results='asis', include=TRUE}
 #sink('cc.html')
-for (byvar in c('category', 'country')) {
+for (byvar in c('country','category')) {
   tmp=elast[!is.na(elastlt), list(elast = sum(elastlt*w_elastlt)/sum(w_elastlt)), by=c('variable', byvar)]
   setnames(tmp, byvar, 'byvar')
   
@@ -566,7 +556,7 @@ t_tests <- lapply(unique(elast$category), function(var) {
     tmpdat = tmp[category == var]
     teststat=t.test(tmpdat[country_class=='hinc']$market_growth, tmpdat[country_class=='linc']$market_growth)
     
-    tabl = data.frame(category=var, mean1=teststat$estimate[1], mean2=teststat$estimate[2], t=teststat$statistic, p=teststat$p.value)
+    tabl = data.frame(category=var, mean1=teststat$estimate[1], mean2=teststat$estimate[2], tval=teststat$statistic, pval=teststat$p.value)
                 
     return(list(summary=tabl))
 })
@@ -601,8 +591,10 @@ rownames(frame1)<-NULL
 frame1=frame1[, c('variable','VIF')]
 frame1=sanitize_table(frame1)
 cat("<P style='page-break-before: always'>")
-kable(frame1,format='html', caption = tab('Assessing multicollinearity^1^', prefix='A'))%>% kable_styling() %>% footnote(number=paste0('Table reports VIFs values calculated in regression models using main effects for all variables listed above (i.e., excluding brand, category, and country effects).'))
 
+if(0){
+kable(frame1,format='html', caption = tab('Assessing multicollinearity^1^', prefix='A'))%>% kable_styling() %>% footnote(number=paste0('Table reports VIFs values calculated in regression models using main effects for all variables listed above (i.e., excluding brand, category, and country effects).'))
+}
 ```
 
 ```{r elasts_full, echo=F,results='asis'}
@@ -648,7 +640,7 @@ scores[, variable:=NULL]
 setnames(scores, 'variable_renamed', 'Variable')
 setnames(scores, 'stdloading', 'Standardized loading')
 
-print(kable(scores, caption = tab(paste0('Standardized loadings on principal component for GCI metrics')),
+print(kable(scores, caption = tab(paste0('Standardized loadings on principal component for GCI metrics',prefix='A')),
       format='html', initial.zero = FALSE, digits = 3)%>%
         kable_styling())
 
@@ -661,7 +653,7 @@ tabl = dcast(tmp, category~country, value.var=c('Nbrands'))
 
 tabl=sanitize_table(tabl)
 setorder(tabl, Category)
-kable(tabl, caption = tab('Overview of markets (category/country combination) in sample (with number of selected brands in brackets)', prefix='A'))
+kable(tabl, caption = tab('Overview of markets (category/country combination) in sample (with number of selected brands indicated per cell)', prefix='A'))
 
 ```
 
@@ -670,7 +662,7 @@ kable(tabl, caption = tab('Overview of markets (category/country combination) in
 tmp=elast[, list(active_in_countries=length(unique(country)), active_in_categories=length(unique(category)), headquarter_location=unique(country_of_origin)), by = c('brand')]
 setorderv(tmp, c('active_in_countries','active_in_categories', 'brand'),order=-1L)
 
-tmp[, ':=' (brand=stri_trans_totitle(brand), headquarter_location=stri_trans_totitle(headquarter_location))]#, #headquarter_region=stri_trans_totitle(headquarter_region))]
+tmp[, ':=' (headquarter_location=stri_trans_totitle(headquarter_location))]#, #headquarter_region=stri_trans_totitle(headquarter_region))]
 tmp=sanitize_table(tmp)
 
 
