@@ -49,7 +49,7 @@ rsq <- function(m) {
 
 
 # Function to plot model results (next to each other)
-printout = function(x, type='st', vars=NULL, omit=NULL, title='',printtype='html', notes=NULL,covlabels=NULL, dep.var.labels.include=FALSE, table.layout=c('-c#m-t-a-n'), ...) {
+printout = function(x, type='st', vars=NULL, omit=NULL, title='', printtype='html', notes=NULL, dep.var.labels.include=FALSE, table.layout=c('-c#m-t-a-n'), ...) {
   
   if (is.null(vars)) vars=seq(along=x)
   
@@ -72,9 +72,26 @@ printout = function(x, type='st', vars=NULL, omit=NULL, title='',printtype='html
   }
   
   # get all variable names
-  covlabels= unique(unlist(lapply(res, function(x) colnames(x@pp$X))))
-  covlabels = unlist(sanitize_table(data.frame(covlabels)))
-  covlabels=c(covlabels[-which(covlabels=='(Intercept)')], 'Constant')
+  covlabels= lapply(res, function(x) colnames(x@pp$X))
+  
+  # take order of variables of model with most variables
+  llabels=unlist(lapply(covlabels, length))
+  chose_labels = unlist(covlabels[which(llabels==max(llabels))][1])
+  # add all other variables, by order (should they have been excluded before)
+  
+  for (i in seq(along=covlabels)) chose_labels=union(chose_labels, covlabels[[i]])
+  #chose_labels=rev(chose_labels)
+  
+  chose_labels=chose_labels[!chose_labels%in%c('(Intercept)')]
+  covlabels_print = unlist(sanitize_table(data.frame(chose_labels)))
+  covlabels_print=c(covlabels_print, 'Constant')
+  
+  chose_labels=gsub('[(]', '[(]', chose_labels)
+  chose_labels=gsub('[)]', '[)]', chose_labels)
+  chose_labels=gsub('[*]', '[*]', chose_labels)
+  
+  covlabels_print_order=paste0("^", chose_labels , "$")
+  
   
 
   keep_alpha <- function(x) gsub("[^[:alnum:][:space:][,]]","",x)
@@ -100,9 +117,11 @@ printout = function(x, type='st', vars=NULL, omit=NULL, title='',printtype='html
             notes.align='l',
             notes.append=FALSE,
             dep.var.labels.include = dep.var.labels.include, 
+            order=covlabels_print_order,
             dep.var.labels=dep.var.labels,
-            covariate.labels=covlabels,
-            notes=to_stargz(paste0('<sup>1</sup> ', notes_sig, ' ', note_text)), omit.stat=c('aic','bic'), 
+            covariate.labels=covlabels_print,
+            notes=to_stargz(paste0('<sup>1</sup> ', notes_sig, ' ', note_text)), 
+            omit.stat=c('aic','bic'), 
             single.row=F, notes.label='',
             table.layout=table.layout, 
             add.lines=list(r2s,obs), 
@@ -110,20 +129,6 @@ printout = function(x, type='st', vars=NULL, omit=NULL, title='',printtype='html
             ...)
 
 }
-
-
-#title='title'
-#
-#sink('../temp/test.html')
-#stargazer(res, type = printtype, omit=omit, title = title, dep.var.caption=NULL, initial.zero=FALSE,
-#          notes.align='l',dep.var.labels.include = FALSE, covariate.labels=covlabels,
-#          notes=note_text, column.labels=names(res))
-#
-#sink()
-#
-#names(res) <- paste0(unlist(sanitize_table(data.frame(names(res)))), ' elasticity')
-
-
 
 
 # Function to produce model results for short- and long-term elasticities
