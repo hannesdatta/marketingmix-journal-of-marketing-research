@@ -304,7 +304,7 @@ Appliance (versus electronics)| Dummy, equaling 1 for appliances (washing machin
 Category growth       | Average geometric growth rate in a market (category/country combination).^2^
 Category concentration     | Herfindahl index in a market (category/country combination).
 Domestic versus foreign brand | Dummy, equaling 1 if a brand's headquarter is located in the focal country, 0 if not.
-Price index | Brand's average price (deflated sales value devided by the brand's sales volume over the observation period), indexed by the average price in a given category and country.
+Price index | Brand's average price (deflated sales value divided by the brand's sales volume over the observation period), indexed by the average price in a given category and country.
 Brand equity               | Sales-based brand equity, derived from the market share attraction model, standardized by category. | Datta, Ailawadi, and van Heerde (2017)
 
 ^1^ All continuous variables are first logged and then mean-centered before model estimation (except brand equity, which is only mean-centered as this variable can take on negative values). 
@@ -448,23 +448,17 @@ for (elasttype in c('st', 'lt')) {
   names(mod_out) <- names(out1b)
   
   # MAIN MODEL
+  #sink('../temp/test.html')
   cat("<P style='page-break-before: always'>")
   printout(mod_out, elasttype, title = tab(paste('Regression with ', ifelse(elasttype=='st', 'short-term', 'long-term'), ' elasticities in a pooled sample of developed and emerging countries: main model, model with full interaction terms, and model with selected interaction terms')), vars=ordered_vars, notes=paste0(ifelse(elasttype=='st', gsub('long[-]term', 'short-term', notes_base), notes_base),  ' For each variable, the first column reports a model without interactions (our main model); the second column reports a model with full interactions; the third column reports a model in which only interactions are added that were significant in an auxilary regression with all main effects, and only one of the relevant interaction terms each.'))
+  #sink()
 
 }
-
+  
 
 ```
 
 # Robustness checks
-
-## Alternative rolling windows
-
-Currently, we use two types of rolling windows:
-(a) prices are sales-weighted (months t-2, t-1, t) averages of a brand's SKUs prices. 
-(b) new product activity is defined as the share of SKUs introduced in the past six months (months t-5, t-4, ... t)
-
-We should discuss whether it makes sense re-estimating all models with either both variables using (a) t-2, t-1, t, or (b) t-5, t-4, ... t.
 
 ## Alternative measures for a country's state of development
 
@@ -492,44 +486,6 @@ printout(out1, 'lt', vars=ordered_vars[3:4], title = tab('Regression with long-t
 
 ```
 
-## Alternative measures for Brand Equity
-
-- Brand equity (SBBE)
-- Log of brand-level market share
-- BrandZ dummy variable, equaling 1 if a brand is listed in either *BrandZ's Top 100 Most Valuable global brands (2010)*, or *BrandZ's Top 50 Most Valuable Chinese Brands (2011)*.
-
-```{r robustness_regs_equity, echo = FALSE, results='asis'}
-
-modellist = lapply(c('sbbe_std_mc', 'ln_overall_ms_mc', 'brandz'), 
-                   function(x) update.formula(update.formula(form_main_model, .~.-sbbe_std_mc), as.formula(paste0('.~. +', x))))
-
-out1=regmodel(formula=modellist, dat=elast, model='lmer')
-
-#sink('../temp/test.html')
-
-cat("<P style='page-break-before: always'>")
-printout(out1, 'lt', title = tab('Regression with long-term elasticities on covariates and different indicators for brand equity'), vars=ordered_vars[1:2], notes=notes_base)
-
-cat("<P style='page-break-before: always'>")
-printout(out1, 'lt', omit=NULL, title = tab('Regression with long-term elasticities on covariates and different indicators for brand equity'), vars=ordered_vars[3:4], notes=notes_base)
-#sink()
-```
-
-## Alternative sample
-
-Options are:
-(a) removing outliers (e.g., +/- 3x SD of elasticities)
-(b) Winsorized elasticities (one or two-tailed? 5%?)
-
-## Assessing time-varying elasticities
-
-Time-varying elasticities could be assessed by splitting the sample. Options are:
-- 1/3 vs 2/3
-- first versus last 50%
-
-We would then estimate marketing mix elasticities in twosamples, and assess the extent to which they (systematically) differ. 
-
-Drawback is that we'd lose some categories, as a split won't yield enough observations for estimation. A way out would be to split the sample in the first 70% of observations, and the last 70% of observations (hence, we'd have an overlap in both samples). We'd still lose some categories, but we should be better off compared to a hard split.
 
 # Appendix
 
@@ -538,6 +494,27 @@ tableno<<-0
 figureno<<-0
 cat("<P style='page-break-before: always'>")
   
+```
+
+## Alternative measures for Brand Equity
+
+```{r robustness_regs_equity, echo = FALSE, results='asis'}
+
+modellist = lapply(c('sbbe_std_mc', 'ln_overall_ms_mc', 'brandz'), 
+                   function(x) update.formula(update.formula(form_main_model, .~.-sbbe_std_mc), as.formula(paste0('.~. +', x))))
+
+out1=regmodel(formula=modellist, dat=elast, model='lmer')
+
+notes = paste0(notes_base, ' The three measures for brand equity are: (1) Brand equity (SBBE, as in the main model), (2) Log of brand-level market share, and (3) an indicator variable, equaling 1 if a brand is listed in the BrandZ\'s Top 100 Most Valuable Global Brands (2010), or BrandZ\'s Top 50 Most Valuable Chinese Brands (2011).')
+
+#sink('../temp/test.html')
+
+cat("<P style='page-break-before: always'>")
+printout(out1, 'lt', title = tab('Regression with long-term elasticities on covariates and different measures for brand equity', prefix='A'), vars=ordered_vars[1:2], notes=notes)
+
+cat("<P style='page-break-before: always'>")
+printout(out1, 'lt', omit=NULL, title = tab('Regression with long-term elasticities on covariates and different measures for brand equity', prefix='A'), vars=ordered_vars[3:4], notes=notes)
+#sink()
 ```
 
 
@@ -555,7 +532,7 @@ setcolorder(tmp, c('country_of_origin', 'nbrands', 'all_brands'))
 tmp=sanitize_table(tmp)
 
 kable(tmp, caption = tab('Country-of-origins for brands in sample, ordered by the number of brands from a given country^1^', prefix ='A'),format='html') %>%
-        kable_styling() %>% footnote(number=paste0('Brand names listed alphabetically.'))
+        kable_styling() %>% footnote(number=paste0('Brand names per country listed alphabetically.'))
 
 ```
 
@@ -574,7 +551,7 @@ for (byvar in c('category', 'country')) {
   setorderv(tmp, colnames(tmp)[1])
   
   cat("<P style='page-break-before: always'>")
-  {print(kable(tmp, digits=3, caption = tab(paste0('Long-term elasticities (by ', byvar, ')^1^'), prefix='A'), format='html', initial.zero = FALSE) %>%
+  {print(kable(tmp, digits=3, caption = tab(paste0('Long-term elasticities (means by ', byvar, ')^1^'), prefix='A'), format='html', initial.zero = FALSE) %>%
         kable_styling() %>% footnote(number=paste0(estimnote, ' Reported by ', ifelse(byvar=='country', 'countries', 'categories'), ' in alphabetical order.')))
   }
 }
@@ -612,7 +589,7 @@ kable(out, format='html',caption = tab('Average category growth rates for develo
   
 ```
 
-```{r VIFS, echo=FALSE,results='asis'}
+```{r VIFS, echo=FALSE,results='asis', include=FALSE}
 
 m1 = ~1+ appliance + ln_market_growth_mc + ln_herf_mc + local_to_market  + ln_overall_prindexavg_mc + sbbe_std_mc
 
@@ -678,42 +655,14 @@ print(kable(scores, caption = tab(paste0('Standardized loadings on principal com
 
 ```
 
-
-# Estimation details
-
-## Market share attraction model
-
-Elasticities estimated using a market share attraction model (MCI), with
-
-* four marketing mix instruments:
-     + llen = line length (number of SKUs)
-     + wpswdst = distribution (weighted using past sales in previous three periods)
-     + price = rwpspr (deflated using a country's CPI, weighted using past sales in previous three periods)
-     + novelty = nov12sh (number of SKUs introduced in the past year, expressed as a share of total SKUs sold in a given period)
-  
-* endogeneity controls using Gaussian Copulas (tested at p<.1; removed if n.s.)
-* lagged market share to model dynamics
-* brand-specific trend
-* brand-specific quarterly dummies
-
-Elasticities and corresponding standard errors calculated using the Delta rule.
-
-## Estimation data set
-
-- Number of markets (category/country combinations): `r length(unique(elast_all$market_id))`.
-- Number of brands: `r nrow(elast_all[, .N, by = c('market_id', 'brand')])`.
-- Number of unique brands: `r nrow(elast_all[, .N, by = c('brand')])`.
-- Included countries (`r length(unique(elast_all$country))`): `r paste0(unique(elast_all$country),collapse = ', ')`.
-- Included categories (`r length(unique(elast_all$category))`): `r paste0(unique(elast_all$category),collapse = ', ')`.
-
 ```{r overview2, echo=FALSE, results='asis'}
 tmp = elast_all[, list(Nbrands = length(unique(brand))), by = c('market_id', 'category','country')]
 
 tabl = dcast(tmp, category~country, value.var=c('Nbrands'))
-#print(xtable(tabl, caption = tab('Overview of categories and countries, with number of brands indicated for each market (category/country combination) in the estimation data')), scalebox='0.6',type='html',caption.placement='top')
+
 tabl=sanitize_table(tabl)
 setorder(tabl, Category)
-kable(tabl, caption = tab('Overview of categories and countries (with number of brands indicated for each category/country combination), in estimation data', prefix='A'))
+kable(tabl, caption = tab('Overview of markets (category/country combination) in sample (with number of selected brands in brackets)', prefix='A'))
 
 ```
 
@@ -726,7 +675,7 @@ tmp[, ':=' (brand=stri_trans_totitle(brand), headquarter_location=stri_trans_tot
 tmp=sanitize_table(tmp)
 
 
-kable(tmp, caption = tab('Overview of selected brands, ordered by the number of countries and categories it is active in', prefix ='A'))
+kable(tmp, caption = tab('Overview of selected brands, ordered by the number of countries and categories they are included in estimation data', prefix ='A'))
 ```
 
 ```{r correl, echo=FALSE, results = 'asis'}

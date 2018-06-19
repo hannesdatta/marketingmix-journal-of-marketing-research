@@ -20,7 +20,7 @@ Usa	USA	gsub
 othercountry	Other country	gsub
 ^country	Country	gsub
 gdppercap2010	GDP per capita	gsub
-ln_hdi2010_mc	Human Development Index	gsub
+ln_hdi2010_mc	Log Human Development Index	gsub
 hdi2010	Human Development Index	gsub
 llen	line length	gsub
 wpswdst	distribution	gsub
@@ -82,8 +82,8 @@ local_to_market	Domestic (vs. foreign) brand	grepl
 sbbelt|sbbelt[_]mc	Brand equity (long-term, not standardized)	gsub
 sbbe[_]std|sbbe[_]std[_]mc	Brand equity	gsub
 sbbe|sbbe[_]mc	Brand equity (short-term, not standardized)	gsub
-active_in_countries	Number of countries active in	gsub
-active_in_categories	Number of categories active in 	gsub
+active_in_countries	Number of countries with data	gsub
+active_in_categories	Number of categories with data 	gsub
 headquarter_location	Location of headquarter	gsub
 headquarter_region	Region of headquarter	gsub
 median_elast	Median elasticity	gsub
@@ -98,6 +98,7 @@ perc_null	%-insignificant	gsub
 Northamerica	North America	gsub
 nbrands	Number of brands	gsub
 ^emerging	Emerging country indicator	grepl
+^developed	Developed country indicator	grepl
 country[_]of[_]origin	Country of origin	gsub
 Country[_]of[_]origin	Country of origin	gsub
 asian[_]brand	Asian brand	gsub
@@ -107,9 +108,9 @@ gci[_]sub[_]efficiencyenhance	Subindex efficiency enhancers	grepl
 gci[_]sub[_]innovation	Subindex innovation and sophistication factors	grepl
 all[_]brands	List of brands	gsub
 other[_]brand	Brand from other country	gsub
-brandz	BrandZ listing	gsub
+brandz	BrandZ listing indicator	gsub
 gcifactor[_]mc|gcifactor	GCI component (score from PCA)	grepl
-ln[_]gci[_]00.03[_]gdppercap_s[_]mc	GDP per capita	gsub
+ln[_]gci[_]00.03[_]gdppercap_s[_]mc	Log GDP per capita	gsub
 gci[_]00.03[_]gdppercap_s[_]mc|gci[_]00.03[_]gdppercap[_]s	GDP per capita	gsub
-ln[_]gci[_]overall[_]s[_]mc	Global competitiveness index	gsub
+ln[_]gci[_]overall[_]s[_]mc	Log global competitiveness index	gsub
 variable	Variable	gsub
