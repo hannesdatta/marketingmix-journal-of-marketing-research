@@ -511,7 +511,7 @@ printout(out1, 'lt', omit=NULL, title = tab('Regression with long-term elasticit
 
 cols =  c('country_of_origin')
 tmp = elast[, list(.N), by = c('brand',cols)]
-tmp = tmp[, list(nbrands=length(unique(brand)), all_brands=paste(brand[order(brand)]), collapse=', '), by = cols]
+tmp = tmp[, list(nbrands=length(unique(brand)), all_brands=paste(brand[order(brand)], collapse=', ')), by = cols]
 tmp[country_of_origin==''|is.na(country_of_origin), country_of_origin := 'Country not available']
 tmp[, country_of_origin:=my_capitalize(country_of_origin)]
 
