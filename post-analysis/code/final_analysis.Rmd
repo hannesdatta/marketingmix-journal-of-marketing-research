@@ -152,8 +152,7 @@ setorderv(tmp, c('category', 'appliance', 'overall_ms'), order=-1L)
 tmp[!brand%in%c('unbranded','local'), rank:=1:.N, by = c('category')]
 tmp[, brand_include:= rank%in%1:5]
 
-
-tmp=tmp[, list(cattype=ifelse(unique(appliance)==1, 'Appliance', 'Electronics'), ncountries=unique(ncountries), nbrands=length(unique(brand)), exemplary_brand_names=paste0((my_capitalize(unique(brand[brand_include==T]))), collapse=', ')), by='category']
+tmp=tmp[, list(cattype=ifelse(unique(appliance)==1, 'Appliance', 'Electronics'), ncountries=unique(ncountries), nbrands=length(unique(brand)), exemplary_brand_names=paste0((unique(brand[brand_include==T])), collapse=', ')), by='category']
 tmp=sanitize_table(tmp)
 setnames(tmp, 'Top 5 brands', 'Top 5 brands^2^')
 
@@ -185,7 +184,7 @@ New product activity | Number of SKUs introduced by brand *i* in a rolling windo
 
 ```{r continue_with_selection, echo=FALSE}
 elast_all=data.table(elast)
-elast=elast[!is.na(country_of_origin)&!brand%in%c('unbranded')]
+elast=elast[!is.na(country_of_origin)&!tolower(brand)%in%c('unbranded')]
 excluded_brands=setdiff(unique(elast_all$brand), unique(elast$brand))
 
 ```
