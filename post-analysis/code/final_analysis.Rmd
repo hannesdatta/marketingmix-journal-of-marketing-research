@@ -260,17 +260,17 @@ Reported for a sample of `r length(unique(elast$brand))` unique brands (excludin
     tmp=tmp[, list(Neffects= .N, 
                    all_melast = sum(val*val_w)/sum(val_w),
 						 		   all_z = sum(val_z,na.rm=T)/sqrt(.N),
-									 all_sig = signstars(sum(val_z,na.rm=T)/sqrt(.N)),
+									 #all_sig = signstars(sum(val_z,na.rm=T)/sqrt(.N)),
 												  
 									 dev_Neffects= length(which(!is.na(val[developed==1]))),
 				           dev_melast = sum(val[developed==1]*val_w[developed==1])/sum(val_w[developed==1]),
 									 dev_z = sum(val_z[developed==1])/sqrt(length(which(!is.na(val[developed==1])))),
-									 dev_sig = signstars(sum(val_z[developed==1])/sqrt(length(which(!is.na(val[developed==1]))))),
+									 #dev_sig = signstars(sum(val_z[developed==1])/sqrt(length(which(!is.na(val[developed==1]))))),
 									 
 									 em_Neffects= length(which(!is.na(val[developed==0]))),
 				           em_melast = sum(val[developed==0]*val_w[developed==0])/sum(val_w[developed==0]),
 									 em_z = sum(val_z[developed==0])/sqrt(length(which(!is.na(val[developed==0])))),
-									 em_sig = signstars(sum(val_z[developed==0])/sqrt(length(which(!is.na(val[developed==0]))))),
+									 #em_sig = signstars(sum(val_z[developed==0])/sqrt(length(which(!is.na(val[developed==0]))))),
 									 ttest_t = unique(ttest_diff_t), ttest_sig = psignstars(unique(ttest_diff_p)),
 									 wls_t = unique(wls_diff_t), wls_sig = psignstars(unique(wls_diff_p)),
 									 re_t = unique(re_diff_t), res_sig = psignstars(unique(re_diff_p))
@@ -288,7 +288,7 @@ iters = list(st=c('st', 'Short-term'), lt=c('lt', 'Long-term'))
 for (iter in iters) {
   print(kable(sanitize_table(out[[iter[1]]]), digits=3, format='html', 
         caption=tab(paste0(iter[2], ' elasticities by marketing mix instrument^1^'))) %>% kable_styling() %>% 
-        footnote(number=c(paste0(notes_sig, ' ', estimnote, ' The number of observations differs slightly across marketing mix instruments because some brands in some markets (category/country combinations) do not have variation in these variables.'),notes[1],notes[2],notes[3])) %>% add_header_above(c(" " = 1, "All countries" = 4, "Developed countries" = 4, "Emerging countries" = 4, 'Tests on differences' =6)))
+        footnote(number=c(paste0(notes_sig, ' ', estimnote, ' The number of observations differs slightly across marketing mix instruments because some brands in some markets (category/country combinations) do not have variation in these variables.'),notes[1],notes[2],notes[3])) %>% add_header_above(c(" " = 1, "All countries" = 3, "Developed countries" = 3, "Emerging countries" = 3, 'Tests on differences' =6)))
 }
   
 ```
