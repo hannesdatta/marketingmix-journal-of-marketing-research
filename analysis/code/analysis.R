@@ -18,6 +18,7 @@
 # |___________________|_____|
 
 
+if (1==1) quit()
 
 ### LOAD DATA SETS
 library(data.table)

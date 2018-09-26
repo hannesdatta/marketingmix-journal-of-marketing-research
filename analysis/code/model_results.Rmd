@@ -18,7 +18,8 @@ library(sjstats)
 options(xtable.comment = FALSE)
 
 # Load results
-  load(file = c('../temp/results_20180313.RData'))
+ # load(file = c('../temp/results_20180313.RData'))
+load(file = c('../output/results14june2018.RData'))
 
 # determine model to analyze
   results_brands <-  results_MCI_wolag_trend#results_MCI_wlag_wotrend #results_MCI_wolag_trend#results_MCI_wlag_wotrend #results_MCI_wolag_trend# results_MCI_wlag_wotrend #results_MCI_wolag_trend #
@@ -57,6 +58,7 @@ Number of markets which could not be estimated due to errors: `r length(which(!c
 	tmp=elast[!is.na(elast), list(median_elast = median(elast), 
 												  w_elast = sum(elast/elast_se)/sum(1/elast_se), 
 												  N_brands= .N, 
+												  N_copulas = length(which(is.na(get(paste0('cop_', variable))))),
 												  perc_positive = length(which(elast/elast_se>=(zval)))/.N, 
 												  perc_null = length(which(abs(elast/elast_se)<zval))/.N, 
 												  perc_negative = length(which(elast/elast_se<=(-zval)))/.N), by=c('variable')]
@@ -66,6 +68,7 @@ Number of markets which could not be estimated due to errors: `r length(which(!c
 	tmp=elast[!is.na(elast), list(median_elast = median(elastlt), 
 												  w_elast = sum(elastlt/elastlt_se)/sum(1/elastlt_se), 
 												  N_brands= .N, 
+												  N_copulas = length(which(is.na(get(paste0('cop_', variable))))),
 												  perc_positive = length(which(elastlt/elastlt_se>=(zval)))/.N, 
 												  perc_null = length(which(abs(elastlt/elastlt_se)<zval))/.N, 
 												  perc_negative = length(which(elastlt/elastlt_se<=(-zval)))/.N), by=c('variable')]
@@ -84,7 +87,9 @@ Number of markets which could not be estimated due to errors: `r length(which(!c
 
 	kable(tmp, caption = 'Copula terms by variable (used for getting an understanding about significance)')
 
-	# Normality of copula terms
+	
+	
+	# Normality of potentially endogeneous regressors
 	#Copulas
 	copulanormality <- rbindlist(lapply(results_brands[!checks=='try-error'], function(x) x$cop_nonnormal))
 	
@@ -93,8 +98,13 @@ Number of markets which could not be estimated due to errors: `r length(which(!c
 	                                       perc_nonnormal = length(which(shap_pval<=.1))/.N),
 	                                       by=c('variable')]
 	
+  tmp2=copulanormality[!is.na(shap_pval), list(N_tests = .N,
+	                                       perc_normal = length(which(shap_pval>.1))/.N,
+	                                       perc_nonnormal = length(which(shap_pval<=.1))/.N)]
+	
 
-	kable(tmp, caption = 'Assessing non-normality of marketing mix instruments')
+	kable(tmp, caption = 'Assessing non-normality of marketing mix instruments (by variable)')
+	kable(tmp2, caption = 'Assessing non-normality of marketing mix instruments (collapsed)')
 	
 	# Assessing carry-over coefficients
 	tmp <- rbindlist(lapply(results_brands[!checks=='try-error'], function(x) x$model@coefficients))
