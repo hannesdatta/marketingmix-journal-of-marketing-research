@@ -22,7 +22,7 @@ options(xtable.comment = FALSE)
 load(file = c('../output/results14june2018.RData'))
 
 # determine model to analyze
-  results_brands <-  results_MCI_wolag_trend#results_MCI_wlag_wotrend #results_MCI_wolag_trend#results_MCI_wlag_wotrend #results_MCI_wolag_trend# results_MCI_wlag_wotrend #results_MCI_wolag_trend #
+  results_brands <-  results_nov12sh #results_MCI_wlag_wotrend #results_MCI_wolag_trend#results_MCI_wlag_wotrend #results_MCI_wolag_trend# results_MCI_wlag_wotrend #results_MCI_wolag_trend #
   
 # identify model crashes
 	checks <- unlist(lapply(results_brands, class))
@@ -32,6 +32,26 @@ load(file = c('../output/results14june2018.RData'))
 # obtain elasticities
 	elast <- rbindlist(lapply(results_brands[!checks=='try-error'], function(x) x$elast))
 
+	cops <- rbindlist(lapply(results_brands[!checks=='try-error'], function(x) data.table(x$model@coefficients)[!grepl('lagunitsales_sh|dum|trend', varname)&!grepl('quarter', brand), c('varname', 'brand', 'market_id'),with=F]))
+
+	# split brands
+	cops[, copula:='main']
+	cops[grepl('cop[_]',varname), copula:='copula']
+	
+	cops[copula=='copula', varname:=sapply(varname, function(x) strsplit(x, '[_]')[[1]][2])]
+
+#	tmp=dcast(cops, market_id+brand+varname)
+	cops[, all:='total']
+	# stats on used copula terms
+	# total number of variables
+	tmp=lapply(c('all', 'varname'), function(bycol) {
+	  tmp=cops[, list(total_N=length(which(copula=='main')), total_copula=length(which(copula=='copula'))), by= bycol]
+	  tmp[, share:=total_copula/total_N]
+	  return(tmp)
+	  	})
+
+	
+# get an idea which brands
 tableno<<-0
 figureno<<-0
 fig<-function(caption) {figureno<<-figureno+1;paste0('Figure ', figureno, ': ', caption)}
