@@ -18,11 +18,10 @@ library(sjstats)
 options(xtable.comment = FALSE)
 
 # Load results
- # load(file = c('../temp/results_20180313.RData'))
 load(file = c('../output/results14june2018.RData'))
 
 # determine model to analyze
-  results_brands <-  results_nov12sh #results_MCI_wlag_wotrend #results_MCI_wolag_trend#results_MCI_wlag_wotrend #results_MCI_wolag_trend# results_MCI_wlag_wotrend #results_MCI_wolag_trend #
+  results_brands <-  results_nov12sh 
   
 # identify model crashes
 	checks <- unlist(lapply(results_brands, class))
@@ -32,24 +31,23 @@ load(file = c('../output/results14june2018.RData'))
 # obtain elasticities
 	elast <- rbindlist(lapply(results_brands[!checks=='try-error'], function(x) x$elast))
 
-	cops <- rbindlist(lapply(results_brands[!checks=='try-error'], function(x) data.table(x$model@coefficients)[!grepl('lagunitsales_sh|dum|trend', varname)&!grepl('quarter', brand), c('varname', 'brand', 'market_id'),with=F]))
+# obtain data on the use of copula terms 
+	cops <- rbindlist(lapply(results_brands[!checks=='try-error'], function(x) data.table(x$model@coefficients)[!grepl('lagunitsales_sh|dum|trend', varname)&!grepl('quarter', brand), c('varname', 'market_id', 'brand', 'coef','z'),with=F]))
 
 	# split brands
 	cops[, copula:='main']
 	cops[grepl('cop[_]',varname), copula:='copula']
 	
 	cops[copula=='copula', varname:=sapply(varname, function(x) strsplit(x, '[_]')[[1]][2])]
-
-#	tmp=dcast(cops, market_id+brand+varname)
 	cops[, all:='total']
-	# stats on used copula terms
-	# total number of variables
-	tmp=lapply(c('all', 'varname'), function(bycol) {
-	  tmp=cops[, list(total_N=length(which(copula=='main')), total_copula=length(which(copula=='copula'))), by= bycol]
-	  tmp[, share:=total_copula/total_N]
-	  return(tmp)
-	  	})
-
+	
+# add indicator to copula
+	setkey(cops, market_id, brand, varname)
+	setkey(elast, market_id, brand, variable)
+	
+	elast[cops[copula=='copula'], ':=' (cop_coef = i.coef, cop_z = i.z)]
+	
+	
 	
 # get an idea which brands
 tableno<<-0
@@ -67,38 +65,26 @@ Number of brands: `r nrow(elast[, .N, by = c('market_id', 'brand')])`.
 Number of unique brands: `r nrow(elast[, .N, by = c('brand')])`.
 Number of markets which could not be estimated due to errors: `r length(which(!checks=='list'))`.
 
-## Elasticities
-
-### Short-term
-
 ```{r elast_overall, echo = FALSE, results='asis'}
-  .vars=c('llen','wpswdst','rwpspr','nov6sh')
+
+.vars=c('llen','wpswdst','rwpspr','nov12sh')
+zval=1.64
 	
-  zval=1.64
-	tmp=elast[!is.na(elast), list(median_elast = median(elast), 
-												  w_elast = sum(elast/elast_se)/sum(1/elast_se), 
-												  N_brands= .N, 
-												  N_copulas = length(which(is.na(get(paste0('cop_', variable))))),
-												  perc_positive = length(which(elast/elast_se>=(zval)))/.N, 
-												  perc_null = length(which(abs(elast/elast_se)<zval))/.N, 
-												  perc_negative = length(which(elast/elast_se<=(-zval)))/.N), by=c('variable')]
-	kable(tmp[match(.vars, variable)], caption = tab('Short-term elasticities by variable for all brands (significance tested at p<.1 (z >= 1.64).'))
-	
-  zval=1.64
-	tmp=elast[!is.na(elast), list(median_elast = median(elastlt), 
-												  w_elast = sum(elastlt/elastlt_se)/sum(1/elastlt_se), 
-												  N_brands= .N, 
-												  N_copulas = length(which(is.na(get(paste0('cop_', variable))))),
-												  perc_positive = length(which(elastlt/elastlt_se>=(zval)))/.N, 
-												  perc_null = length(which(abs(elastlt/elastlt_se)<zval))/.N, 
-												  perc_negative = length(which(elastlt/elastlt_se<=(-zval)))/.N), by=c('variable')]
-	kable(tmp[match(.vars, variable)], caption = tab('Long-term elasticities by variable for all brands (significance tested at p<.1 (z >= 1.64).'))
-	
+  tmp=elast[!is.na(elast)&!brand%in%c('unbranded','super', 'amazon'), list(w_elast_st = sum(elast/elast_se)/sum(1/elast_se), 
+                                w_elast_lt = sum(elastlt/elastlt_se)/sum(1/elastlt_se),
+                                N_copula = length(which(!is.na(cop_coef))),
+                                N=.N,
+                                share_copula=length(which(!is.na(cop_coef)))/.N), by=c('variable')]
+  
+	kable(tmp[match(.vars, variable)], caption = tab('Short- and long-term elasticities by variable, excluding unbranded, super, and amazon (significance tested at p<.1 (z >= 1.64).'))
+
 	
 	#Copulas
 	copulas <- rbindlist(lapply(results_brands[!checks=='try-error'], function(x) x$model@coefficients))
 	copulas <- copulas[grepl('cop_', varname)]
 	
+
+		
 	tmp=copulas[!is.na(coef), list(median = median(coef), 
 											  N_brands= .N, 
 											  perc_positive = length(which(z>=(zval)))/.N, 
@@ -107,8 +93,14 @@ Number of markets which could not be estimated due to errors: `r length(which(!c
 
 	kable(tmp, caption = 'Copula terms by variable (used for getting an understanding about significance)')
 
-	
-	
+			tmp=lapply(c('all', 'varname'), function(bycol) {
+	  tmp=cops[, list(total_N=length(which(copula=='main')), total_copula=length(which(copula=='copula'))), by= bycol]
+	  tmp[, share:=total_copula/total_N]
+	  return(tmp)
+	  	})
+
+	kable(tmp[[1]], caption = 'Overall copula share')
+
 	# Normality of potentially endogeneous regressors
 	#Copulas
 	copulanormality <- rbindlist(lapply(results_brands[!checks=='try-error'], function(x) x$cop_nonnormal))
