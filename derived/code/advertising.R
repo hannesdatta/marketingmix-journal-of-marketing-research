@@ -19,8 +19,6 @@
 # |___________________|_____|
 
 ### CHINESE ADVERTISING DATA ###
-#source(paste0(Sys.getenv('uvt_setup_gfk'), 'setup.R'))
-
 require(reshape2)
 require(RODBC)
 require(data.table)
@@ -62,6 +60,7 @@ require(data.table)
 	#tartmonth=7
 	#endyear=2012
 	#endmonth=12
+	
 	if (0){
 	make_series <- function(X, year, month) { # Linear interpolation; deprecated
 		cat('.')
@@ -78,6 +77,7 @@ require(data.table)
 		return(list(date=.seq, X=res))
 		}
 	}
+	
 	require(zoo)
 	make_series <- function(X, year, month) { # Update: Harald's devide-by-three rule; provided on 17 April 2015 via E-Mail
 		cat('.')
@@ -145,6 +145,7 @@ setcolorder(adv_china, c('fileid', 'country', 'brand', 'date', 'adspent'))
 	adv_china[brand=='RONSHEN',brand:='RONGSHENG']
 	adv_china[brand=='RONGSHEN',brand:='RONGSHENG']
 	adv_china[brand=='FRESTEC',brand:='FRESTECH']
+	
 	adv_china[fileid=='refrigerators',catname:='refrigerators']
 	
 	datlist_final$refrigerators<-merge(datlist_final$refrigerators, adv_china[which(catname=='refrigerators'),c('country','brand','date','adspent'),with=F],by=c('country','brand','date'),all.x=T)
@@ -154,6 +155,7 @@ setcolorder(adv_china, c('fileid', 'country', 'brand', 'date', 'adspent'))
 	adv_china[fileid=="dvd players",catname:='dvd']
 	datlist_final$dvd<-merge(datlist_final$dvd, adv_china[which(catname=='dvd'),c('country','brand','date','adspent'),with=F],by=c('country','brand','date'),all.x=T)
 	# AOKA   not matched
+
 # TV
 	adv_china[fileid=="television sets",catname:='tv']
 	datlist_final$tv<-merge(datlist_final$tv, adv_china[which(catname=='tv'),c('country','brand','date','adspent'),with=F],by=c('country','brand','date'),all.x=T)
@@ -168,11 +170,13 @@ setcolorder(adv_china, c('fileid', 'country', 'brand', 'date', 'adspent'))
 	
 	#  brands: NATIONAL and BANQIU not matched.
 	# BANQIU
+
 # Desktop PC
 	adv_china[fileid=="computers",catname:='desktoppc']
 	datlist_final$desktoppc<-merge(datlist_final$desktoppc, adv_china[which(catname=='desktoppc'),c('country','brand','date','adspent'),with=F],by=c('country','brand','date'),all.x=T)
 	
 	# not matched: E REN E BOOK
+
 # Laptop
 	adv_china[fileid=="computers",catname:='laptop']
 	datlist_final$laptop<-merge(datlist_final$laptop, adv_china[which(catname=='laptop'),c('country','brand','date','adspent'),with=F],by=c('country','brand','date'),all.x=T)
@@ -182,6 +186,7 @@ setcolorder(adv_china, c('fileid', 'country', 'brand', 'date', 'adspent'))
 	datlist_final$tablets<-merge(datlist_final$tablets, adv_china[which(catname=='tablets'),c('country','brand','date','adspent'),with=F],by=c('country','brand','date'),all.x=T)
 	
 	# not matched: E REN E BOOK
+
 # Adv. cameras
 	adv_china[fileid=="digital-cameras",catname:='camera_adv']
 	datlist_final$camera_adv<-merge(datlist_final$camera_adv, adv_china[which(catname=='camera_adv'),c('country','brand','date','adspent'),with=F],by=c('country','brand','date'),all.x=T)
@@ -195,6 +200,7 @@ setcolorder(adv_china, c('fileid', 'country', 'brand', 'date', 'adspent'))
 	datlist_final$phones_smart<-merge(datlist_final$phones_smart, adv_china[which(catname=='phones_smart'),c('country','brand','date','adspent'),with=F],by=c('country','brand','date'),all.x=T)
 	
 	 #NIECHE not matched
+
 # Regular phones
 	adv_china[fileid=="phones (mobile phones and smartphones)",catname:='phones_mobile']
 	datlist_final$phones_mobile<-merge(datlist_final$phones_mobile, adv_china[which(catname=='phones_mobile'),c('country','brand','date','adspent'),with=F],by=c('country','brand','date'),all.x=T)
