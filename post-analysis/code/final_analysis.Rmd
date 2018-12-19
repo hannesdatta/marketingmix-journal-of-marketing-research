@@ -697,37 +697,3 @@ corstars(printtmp, method=c("pearson"),result='html', caption = tab('Correlation
 
 
 ```
-
-```{r elasticities_by_country, echo = FALSE, results='asis'}
-  sigvalue = .1 # .1-level of significance
-  
-  zval = qnorm(1-sigvalue/2)
-
-  out= NULL
-  for (i in 1:2) {
-    if (i==1) obj=c('elast', 'w_elast', 'z_elast')
-    if (i==2) obj=c('elastlt','w_elastlt', 'z_elastlt')
-    
-    tmp = elast[!is.na(get(obj[1]))][, ':=' (val=get(obj[1]), 
-                                             val_w=get(obj[2]),
-                                             val_z=get(obj[3]))]
- 
-    tmp=tmp[, list(Neffects= .N, 
-                   all_melast = sum(val*val_w)/sum(val_w),
-						 		   all_z = sum(val_z,na.rm=T)/sqrt(.N)), by=c('variable', 'country')]
-
-    tmp=dcast(tmp, country~variable,value.var='all_melast')
-  out[[i]]<-tmp
-  }
-  
-names(out)<-c('st','lt')
-
-#iters = list(st=c('st', 'Short-term'), lt=c('lt', 'Long-term'))
-#for (iter in iters) {
-  #print(kable(sanitize_table(out[[iter[1]]]), digits=3, format='html', 
-        #caption=tab(paste0(iter[2], ' elasticities by marketing mix instrument^1^'))) %>% kable_styling() %>% 
-        #footnote(number=c(paste0(notes_sig, ' ', estimnote, ' The number of observations differs slightly across marketing mix instruments because some brands in some markets (category/country combinations) do not have variation in these variables.'),notes[1],notes[2],notes[3])) %>% add_header_above(c(" " = 1, "All countries" = 3, "Developed countries" = 3, "Emerging countries" = 3, 'Tests on differences' =6)))
-
-#}
-  
-```
