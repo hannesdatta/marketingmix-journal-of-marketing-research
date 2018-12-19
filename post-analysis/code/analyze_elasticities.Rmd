@@ -9,22 +9,22 @@ date: "`r format(Sys.time(), '%d %B %Y')`"
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
-library(data.table)
-require(stargazer)
-library(knitr)
-require(xtable)
-require(texreg)
-library(sjstats)
-library(ggplot2)
+libs_to_load <- c('data.table', 'stargazer', 'knitr', 'xtable', 'lme4', 'car', 'kableExtra', 'stringi', 'ggplot2', 'ggpubr', 'plyr', 'sjstats')
+for (lib in libs_to_load) eval(parse(text=paste('library(', lib, ')')))
 
 options(xtable.comment = FALSE)
+options(knitr.kable.NA = '')
 
-elast <- fread('../externals/elast_results_MCI_wlag_wotrend.csv')
+# Load data
+  elast <- fread('../externals/elast_results_nov12sh.csv')
 
-tableno<<-0
-figureno<<-0
-fig<-function(caption) {figureno<<-figureno+1;paste0('Figure ', figureno, ': ', caption)}
-tab<-function(caption) {tableno<<-tableno+1;paste0('Table ', tableno, ': ', caption)}
+# Load auxilary functions
+  source('proc_auxilary.R')
+  source('proc_rename.R')
+
+# Preclean data
+  source('preclean.R')
+
 ```
 
 # Estimation sample
@@ -51,7 +51,7 @@ print(xtable(tmp,caption=tab('Brand activity across countries (estimation data)'
 
 ## Elasticities
 ```{r elast_ov, echo = FALSE, results='asis'}
-  .vars=c('llen','wpswdst','rwpspr','nov6sh')
+  .vars=c('llen','wpswdst','rwpspr','nov12sh')
 	
   zval=1.64
 	tmp=elast[!is.na(elast), list(median_elast = median(elast), 
@@ -91,7 +91,7 @@ print(xtable(tmp, caption=tab('Overview of selected brands (need to be active in
 
 ## Elasticities for global brands
 ```{r elast_overall, echo = FALSE, results='asis'}
-  .vars=c('llen','wpswdst','rwpspr','nov6sh')
+  .vars=c('llen','wpswdst','rwpspr','nov12sh')
 	
   zval=1.64
 	tmp=elast[!is.na(elast)&globalbrand==T, list(median_elast = median(elast), 
@@ -182,8 +182,8 @@ Note that signs reverse, compared to regression before (GDP per capita is revers
 regs <- lapply(unique(elast$variable), function(var) {
     tmpdat = elast[globalbrand==T & variable == var]
     
-    st<-lm(elast~1+gdppercap + as.factor(category) + as.factor(brand), data = tmpdat)
-    lt<-lm(elastlt~1+gdppercap + as.factor(category) + as.factor(brand), data = tmpdat)
+    st<-lm(elast~1+gdppercap2010 + as.factor(category) + as.factor(brand), data = tmpdat)
+    lt<-lm(elastlt~1+gdppercap2010 + as.factor(category) + as.factor(brand), data = tmpdat)
     
     tabl = rbind(data.frame(var=var, type='shortterm', coef = summary(st)$coefficients[2,1], p = summary(st)$coefficients[2,4]),
     data.frame(var=var, type='longterm', coef = summary(lt)$coefficients[2,1], p = summary(lt)$coefficients[2,4]))
@@ -277,8 +277,8 @@ Regressing short- and long-term elasticities on country-of-origin dummies, using
 regs <- lapply(unique(elast$variable), function(var) {
     tmpdat = elast[globalbrand==T & variable == var]
     
-      st<-lm(elast~-1+as.factor(global_country) + as.factor(market_id), data=tmpdat)
-      lt<-lm(elastlt~-1+as.factor(global_country) + as.factor(market_id), data=tmpdat)
+      st<-lm(elast~-1+as.factor(country_of_origin) + as.factor(market_id), data=tmpdat)
+      lt<-lm(elastlt~-1+as.factor(country_of_origin) + as.factor(market_id), data=tmpdat)
       
       res=rbindlist(lapply(c('st', 'lt'), function(m) {
         modelname=m
@@ -287,8 +287,8 @@ regs <- lapply(unique(elast$variable), function(var) {
         out[, variable:=rownames(summary(m)$coefficients)]
         setnames(out, c('est', 'se', 't', 'p', 'variable'))
         setcolorder(out, c('variable', 'est', 'se', 't', 'p'))
-        out=out[grepl('global[_]country', variable)]
-        out[, variable:=gsub('.*country[)]', '', variable)]
+        out=out[grepl('country[_]of[_]origin', variable)]
+        out[, variable:=gsub('.*origin[)]', '', variable)]
         out[, var:=var]
         out[, type:=modelname]
         return(out)
@@ -416,7 +416,7 @@ Sample of global brands.
 ### ANOVAs for short-term elasticities
 
 ```{r anova, echo=FALSE,results='asis', warning=FALSE}
-.vars=c('llen','wpswdst','rwpspr','nov6sh')
+.vars=c('llen','wpswdst','rwpspr','nov12sh')
 
 for (i in .vars) {
   m<-aov(elast~brand+country+category, data=elast[globalbrand==T], subset=variable==i)
@@ -426,7 +426,7 @@ for (i in .vars) {
 
 ### ANOVAs for long-term elasticities
 ```{r anova2lt, echo=FALSE,results='asis', warning=FALSE}
-.vars=c('llen','wpswdst','rwpspr','nov6sh')
+.vars=c('llen','wpswdst','rwpspr','nov12sh')
 
 for (i in .vars) {
   m<-aov(elastlt~brand+country+category, data=elast[globalbrand==T], subset=variable==i)
@@ -437,7 +437,7 @@ for (i in .vars) {
 ### Plots for short-term elasticities
 ```{r plots_elast, echo=FALSE, fig.pos="H", include = TRUE,fig.width=8, fig.height=5,dpi=300}
 
-.vars=c('llen','wpswdst','rwpspr','nov6sh')
+.vars=c('llen','wpswdst','rwpspr','nov12sh')
 
 for (i in .vars) {
   par(mfrow=c(1,3))
@@ -466,7 +466,7 @@ for (i in .vars) {
 ### Plots for long-term elasticities
 ```{r plots_elastlt, echo=FALSE, fig.pos="H", include = TRUE,fig.width=8, fig.height=5,dpi=300}
 
-.vars=c('llen','wpswdst','rwpspr','nov6sh')
+.vars=c('llen','wpswdst','rwpspr','nov12sh')
 
 for (i in .vars) {
   par(mfrow=c(1,3))
