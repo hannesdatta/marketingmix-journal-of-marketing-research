@@ -205,40 +205,42 @@ Regressing short- and long-term elasticities on country dummies (China is interc
 
 ```{r rq2, echo = FALSE}
 
-regs <- lapply(unique(elast$variable), function(var) {
-    tmpdat = elast[globalbrand==T & variable == var&country_class=='linc']
-    
-      st<-lm(elast~1+as.factor(country) + as.factor(category) + as.factor(brand), data=tmpdat)
-      lt<-lm(elastlt~1+as.factor(country) + as.factor(category) + as.factor(brand), data=tmpdat)
-      
-      res=rbindlist(lapply(c('st', 'lt'), function(m) {
-        modelname=m
-        m=eval(parse(text=m))
-        out=data.table(summary(m)$coefficients)
-        out[, variable:=rownames(summary(m)$coefficients)]
-        setnames(out, c('est', 'se', 't', 'p', 'variable'))
-        setcolorder(out, c('variable', 'est', 'se', 't', 'p'))
-        out=out[grepl('Intercept|country', variable)]
-        out[, variable:=gsub('.*country[)]', '', variable)]
-        out[, var:=var]
-        out[, type:=modelname]
-        return(out)
-      }))
-      
-    return(list(summary=res, st=st, lt=lt))
-})
+elast[,linc:=ifelse(country_class=='linc',1,0)]
+elast[,hinc:=1-linc]
 
-out = rbindlist(lapply(regs, function(x) x$summary))
+lmer(elast~-1+(1|hinc)+(1|linc)+(1|brand) + (1|category),data=elast[variable=='rwpspr'],weight=1/elast_se)
+lmer(elast~-1+(1|hinc)+(1|linc)+(1|brand) + (1|category),data=elast[variable=='llen'],weight=1/elast_se)
+lmer(elast~-1+(1|hinc)+(1|linc)+(1|brand) + (1|category),data=elast[variable=='wpswdst'],weight=1/elast_se)
+lmer(elast~-1+(1|hinc)+(1|linc)+(1|brand) + (1|category),data=elast[variable=='nov12sh'],weight=1/elast_se)
+
+lmer(elastlt~-1+as.factor(country)+ (1|category) + (1|brand),data=elast[variable=='rwpspr'],weight=1/elastlt_se)
+lmer(elastlt~-1+(1|hinc)+(1|linc)+(1|brand) + (1|category),data=elast[variable=='llen'],weight=1/elastlt_se)
+lmer(elastlt~-1+(1|hinc)+(1|linc)+(1|brand) + (1|category),data=elast[variable=='wpswdst'],weight=1/elastlt_se)
+lmer(elastlt~-1+(1|hinc)+(1|linc)+(1|brand) + (1|category),data=elast[variable=='nov12sh'],weight=1/elastlt_se)
+
+
+out1=regmodel(formula=c(main=.~ 1 + (1|category) + (1|hinc) + (1|linc)), dat=elast, model='lmer')
+
+tmp=rbindlist(lapply(out1, function(x) {
+
+  res=rbindlist(lapply(c('st', 'lt'), function(m) {
+      modelname=m
+      m=eval(parse(text=paste0('x$',m)))
+      out=data.table(data.frame(summary(m$main)$varcor))
+      out[, var:=x$variable]
+      out[, type:=modelname]
+      return(out)
+    }))
+ return(res)
+}))
+
 
 # boxplot
 for (.var in unique(elast$variable)) {
-p<-ggplot(out[var==.var], aes(x=variable, y=est, fill=type)) + 
-    geom_bar(position=position_dodge(), stat="identity") +
-    geom_errorbar(aes(ymin=est-1.96*se, ymax=est+1.96*se),
-                  width=.2,                    # Width of the error bars
-                  position=position_dodge(.9))+ggtitle(fig(.var))
+p<-ggplot(tmp[var==.var&grp%in%c('linc','hinc')], aes(x=type, y=sdcor, fill=grp)) + geom_bar(position=position_dodge(), stat="identity") +ggtitle(fig(.var))
 print(p)
 }
+
 ```
 
 ## R3: When we look at the same markets and product categories, do western brands have the same marketing elasticities than non-western brands?
