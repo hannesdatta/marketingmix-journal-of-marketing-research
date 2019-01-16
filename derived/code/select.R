@@ -124,7 +124,7 @@ stopifnot(nrow(rbindlist(lapply(skus_by_date_list, function(x) x[, list(N=.N), b
 	time_selection = tmp_sales[, c('category','country','date','selected_t_cat'),with=F]
 	setkey(time_selection,category,country,date)
 	
-	save(brand_selection, time_selection, file='..//temp//select.RData')
+	save(brand_selection, time_selection, tmp_brands_select, file='..//temp//select.RData')
 
 	##########
 	# report #
@@ -142,15 +142,17 @@ stopifnot(nrow(rbindlist(lapply(skus_by_date_list, function(x) x[, list(N=.N), b
 	# How many of the brands which are selected are still in the top 7 at the end of the sample
 	options(width=800)
 	options(max.print=10000)
+
 	sink('../output/brand_selection.txt')
-	
 	
 	{
 	cat(paste0('\nBrand selection rule\n====================================================================================\n\n'))
 	cat(paste0('Number of markets at this point of data preparation: ', nrow(tmp),'\n'))
 	cat(paste0('Number of selected markets (category-country combinations): ', nrow(tmp[selected_market==T]),'\n'))
 	
+	cat(paste0('Number of total market-brands: ', sum(tmp[selected_market==T]$n_brands_total),'\n'))
 	cat(paste0('Number of selected market-brands: ', sum(tmp[selected_market==T]$n_brands_selected),'\n'))
+	#cat(paste0('Number of total unique brands: ', length(unique(tmp_brands_select[selected_market==T]$brand)),'\n'))
 	cat(paste0('Number of selected unique brands: ', length(unique(tmp_brands_select[n_brands_selected>1&selected_brand==T]$brand)),'\n'))
 	
 	cat('\n')
