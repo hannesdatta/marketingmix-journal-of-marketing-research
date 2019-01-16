@@ -15,7 +15,19 @@ options(xtable.comment = FALSE)
 options(knitr.kable.NA = '')
 
 # Load data
-  elast <- fread('../externals/elast_results_nov12sh.csv')
+  elast <- fread('../externals/elast_results_nov12sh.csv')#[globalbrand==T]
+
+  
+brand_panel=fread('../../analysis/temp/preclean.csv')
+brand_panel[, ':=' (date = as.Date(date))]
+
+mean_usd = brand_panel[, lapply(.SD, mean,na.rm=T), .SDcols=c('llen','nov12sh','rwpsprd','wpswdst'), by = c('market_id','brand')]
+mean_usd2 = melt(mean_usd, id.vars=c('market_id','brand'))
+mean_usd2[variable=='rwpsprd',variable:='rwpspr']
+
+setkey(mean_usd2, market_id,brand,variable)
+setkey(elast, market_id, brand, variable)
+elast[mean_usd2, meanglobalx:=i.value]
 
 # Load auxilary functions
   source('proc_auxilary.R')
@@ -33,7 +45,7 @@ names(ordered_vars) <- paste0(unlist(sanitize_table(data.frame(ordered_vars))), 
 #elast[is.na(country_of_origin), ':=' (local_to_market=0, cntrymissing=1, country_of_origin='missing')]
 
 # formulas for models
-form_main_model = .~1+ (1|brand) + (1|category) + (1|country) + emerging + appliance + ln_market_growth_mc + ln_herf_mc + local_to_market + ln_overall_prindexavg_mc + sbbe_std_mc
+form_main_model = .~1+ (1|brand) + (1|category) + (1|country) + emerging + appliance + ln_market_growth_mc + ln_herf_mc + local_to_market + ln_overall_prindexavg_mc + meanglobalx_mc + sbbe_std_mc
 
 form_interact = ~1+ (1|brand) + (1|category) + (1|country) + emerging + appliance + I(appliance*emerging) + ln_market_growth_mc + I(ln_market_growth_mc*emerging) + ln_herf_mc + I(ln_herf_mc*emerging) + local_to_market + I(local_to_market*emerging) + ln_overall_prindexavg_mc + I(ln_overall_prindexavg_mc*emerging) + sbbe_std_mc + I(sbbe_std_mc*emerging)
 
@@ -105,8 +117,8 @@ notes_base = paste0("^1^ Regression of long-term elasticities on explanatory var
 
 
 # check correlation between llen and nov
-brand_panel=fread('../../analysis/temp/preclean.csv')
-brand_panel[, ':=' (date = as.Date(date))]
+#brand_panel=fread('../../analysis/temp/preclean.csv')
+#brand_panel[, ':=' (date = as.Date(date))]
 
 vars <- c('nov6sh', 'nov6', 'nov3sh', 'nov3', 'nov12sh','nov12')
 tmp=rbindlist(lapply(vars, function(.var) {
@@ -118,7 +130,6 @@ tmp=rbindlist(lapply(vars, function(.var) {
   #hist(tmp$V1,xlim=c(-1,1),xlab=c('correlation coefficient'), main = 'correlation between llen and nov6sh')
   data.table(variable=.var, cor_overall=cor1, cor_by_market=cor2, cor_by_brand_market=cor3)
 }))
-
 
 ```
 
@@ -694,6 +705,51 @@ setnames(printtmp, paste0(rename.fkt(colnames(printtmp)), ' elasticity'))
 corstars(printtmp, method=c("pearson"),result='html', caption = tab('Correlation among long-term marketing mix elasticities (mean-centered by market)'))
 
 #stargazer(cor(printtmp))
+
+
+```
+
+
+# plot variables
+
+```{r plotvars,echo=FALSE}
+vars=c('nov12sh','rwsprd','llen','wpswdst')
+library(gridExtra)
+
+cats = unique(brand_panel$category)
+#dir.create('../audit')
+
+for (cat in cats) {
+  tmp=brand_panel[category==cat][, lapply(.SD,mean,na.rm=T), .SDcols=vars,by=c('country','brand')]
+
+  gdp = elast[, c('country','gdppercap2010'),with=F]
+  gdp = unique(gdp, key=c('country'))
+  
+  tmp$country <- factor(tmp$country, levels=gdp$country[order(gdp$gdppercap2010)])
+  
+
+pl<-lapply(vars, function(v) {
+  #print(v)
+  tmp2=data.table(tmp)
+  tmp2[, min:=min(get(v)),by=c('country')]
+  tmp2[, max:=max(get(v)),by=c('country')]
+  tmp2[, val:=get(v),by=c('country')]
+ 
+  return(ggplot(tmp2, aes(x=country))+
+  geom_point(aes(y=val),size=2,color="grey")+
+  geom_linerange(aes(ymin=min,ymax=max),linetype=2,color='blue')+
+  geom_point(aes(y=min),size=3,color="red")+
+  geom_point(aes(y=max),size=3,color="red")+
+  theme_bw()+ ylab(v) + 
+  theme(axis.text.x=element_text(angle=90, hjust=1, size=8)))
+})
+
+#png(paste0('../audit/ranges_', cat, '.png'), res=200, units='in', height=8, width=12)
+
+print(grid.arrange(pl[[1]], pl[[2]], pl[[3]], pl[[4]], top = cat, bottom = "Note: Plot shows variable means for each brand in a given country and category; countries ranked by GDP per capita (2010)"))
+#dev.off()
+}
+
 
 
 ```
