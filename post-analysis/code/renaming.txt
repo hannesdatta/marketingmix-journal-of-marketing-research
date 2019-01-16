@@ -116,3 +116,4 @@ ln[_]gci[_]00.03[_]gdppercap_s[_]mc	Log GDP per capita	gsub
 gci[_]00.03[_]gdppercap_s[_]mc|gci[_]00.03[_]gdppercap[_]s	GDP per capita	gsub
 ln[_]gci[_]overall[_]s[_]mc	Log global competitiveness index	gsub
 variable	Variable	gsub
+meanglobalx[_]mc	Variable mean	gsub

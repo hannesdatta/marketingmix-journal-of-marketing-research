@@ -49,7 +49,7 @@ for (var in vars) {
 }
 
 # grand-mean centering by variable (llen, etc.) for all explanatory (continuous) variables
-for (var in unique(drop(unlist(lapply(c(vars, 'sbbe_std', 'sbbe', 'sbbelt', 'gcifactor'), grep, colnames(elast), value=T))))) {
+for (var in unique(drop(unlist(lapply(c(vars, 'sbbe_std', 'sbbe', 'sbbelt', 'gcifactor', 'meanglobalx'), grep, colnames(elast), value=T))))) {
   elast[, (paste0(var, '_mc')):=get(var)-mean(get(var)), by = c('variable')]
 }
 
@@ -81,7 +81,7 @@ options(knitr.kable.NA = '')
 
 #elast=elast[ncountries>=2]
 
-ordered_vars = c('rwpspr', 'wpswdst','llen','nov6sh')
+ordered_vars = c('rwpspr', 'wpswdst','llen','nov12sh')
 
 #elast[!is.na(elast), weightsst := (1/elast_se)/sum(1/elast_se), by = c('variable')]
 #elast[!is.na(elastlt), weightslt := (1/elastlt_se)/sum(1/elastlt_se), by = c('variable')]
