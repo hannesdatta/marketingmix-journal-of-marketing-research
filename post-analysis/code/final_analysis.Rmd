@@ -45,7 +45,7 @@ names(ordered_vars) <- paste0(unlist(sanitize_table(data.frame(ordered_vars))), 
 #elast[is.na(country_of_origin), ':=' (local_to_market=0, cntrymissing=1, country_of_origin='missing')]
 
 # formulas for models
-form_main_model = .~1+ (1|brand) + (1|category) + (1|country) + emerging + appliance + ln_market_growth_mc + ln_herf_mc + local_to_market + ln_overall_prindexavg_mc + gini_mc + sbbe_std_mc
+form_main_model = .~1+ (1|brand) + (1|category) + (1|country) + emerging + appliance + ln_market_growth_mc + ln_herf_mc + local_to_market + local_multip_market + ln_overall_prindexavg_mc + gini_mc + sbbe_std_mc
 
 form_interact = ~1+ (1|brand) + (1|category) + (1|country) + emerging + appliance + I(appliance*emerging) + ln_market_growth_mc + I(ln_market_growth_mc*emerging) + ln_herf_mc + I(ln_herf_mc*emerging) + local_to_market + I(local_to_market*emerging) + ln_overall_prindexavg_mc + I(ln_overall_prindexavg_mc*emerging) + sbbe_std_mc + I(sbbe_std_mc*emerging)
 

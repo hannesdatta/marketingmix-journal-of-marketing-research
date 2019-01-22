@@ -80,7 +80,8 @@ ln_overall[_]ms[_]mc	Log of brand-level market share	gsub
 ln_overall[_]prindex[_]mc	Log of price index	gsub
 ln_overall[_]prindexavg[_]mc	Log of price index	gsub
 ^overall[_]prindex	Price index	grepl
-local_to_market	Domestic (vs. foreign) brand	grepl
+local_to_market	Domestic single-market (vs. foreign) brand	grepl
+local_multip_market	Domestic multiple markets brand	grepl
 sbbelt|sbbelt[_]mc	Brand equity (long-term, not standardized)	gsub
 sbbe[_]std|sbbe[_]std[_]mc	Brand equity	gsub
 sbbe|sbbe[_]mc	Brand equity (short-term, not standardized)	gsub
