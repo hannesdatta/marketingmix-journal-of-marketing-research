@@ -12,12 +12,19 @@ hdi[, hdi2010:=ifelse(country=='taiwan', mean(hdi2010[country%in%c('thailand', '
 # Load GDP
 gdp <- fread('../temp/gdp.csv')
 
+# Load GINI
+gini <- fread('../temp/gini.csv')
+
 # Merge
 setkey(hdi, country)
 setkey(elast, country)
 elast[hdi, hdi2010:=i.hdi2010]
 setkey(gdp, country)
 elast[gdp, gdppercap2010:=i.gdppercap2010]
+
+setkey(elast, country)
+setkey(gini, country)
+elast[gini, gini:=i.ginicoef]
 
 # elast asian devel vs. not
 elast[, region_of_origin:=country_of_origin]
@@ -40,7 +47,7 @@ setkey(elast, country)
 elast[pca, gcifactor := i.F1_PC1]
 
 # take natural log of variables
-vars=c('herf','c3','c5','market_growth','hdi2010','gdppercap2010', 'ncat_in_country', 'ncountry_in_category',
+vars=c('herf','c3','c5', 'gini', 'market_growth','hdi2010','gdppercap2010', 'ncat_in_country', 'ncountry_in_category',
        'overall_ms', 'gci_00.03_gdppercap_s', 'overall_prindex','overall_prindexavg', 'gci_sub_basicrequire_s','gci_sub_efficiencyenhance_s','gci_sub_innovation_s', 'gci_overall_s')
  
 for (var in vars) {
