@@ -19,7 +19,7 @@
 # |___________________|_____|
 
 require(data.table)
-require(RODBC)
+require(xlsx)
 
 ############################################
 # CPI 							   	 	   #
@@ -29,16 +29,13 @@ require(RODBC)
 
 # Get content of all zip files
 file_path = '..\\..\\..\\..\\Data\\datastream\\'
-file_list <- list.files(file_path, full.names=T,pattern='XLS')
+file_list <- list.files(file_path, full.names=T,pattern='xlsx')
 
 indicators <- NULL
 		for (i in 1:length(file_list)) {
 			print(i)
 			xlsfile=paste0(file_list[i])
-			channel <- odbcConnectExcel2007(xlsfile)
-			tbls <- sqlTables(channel) 
-			out = sqlFetch(channel, tbls$TABLE_NAME[1])
-			odbcClose(channel)
+			out <- read.xlsx(xlsfile,1)
 				
 			if (grepl('CONPRCF|CPBANGF', out[4,2])) {
 				# reference price
@@ -53,6 +50,8 @@ indicators <- NULL
 			colnames(out)[1:2] <- c('date_untransformed', 'value')
 			out$countrycode = substr(out[4,2],1,2)
 			out$value = as.numeric(levels(out$value)[out$value])
+			out$date_untransformed = as.numeric(levels(out$date_untransformed)[out$date_untransformed])
+			
 			out <- out[6:nrow(out),]
 			indicators[[i]]<-out
 			
@@ -60,9 +59,11 @@ indicators <- NULL
 			
 raw_indicators<-rbindlist(indicators)
 
+
 # Interpolation to monthly data
 	# set all dates to the beginning of the month
-	raw_indicators[, date_tmp := unlist(lapply(strsplit(as.character(date_untransformed), "/"),function(x) paste0(x[1],'/01/',x[3])))]
+	raw_indicators[, date_tmp := as.Date(date_untransformed, origin="1899/12/30")]
+	raw_indicators[, date_tmp := date_tmp-mday(date_tmp)+1]
 	# convert to date column
 	raw_indicators[, date := as.Date(date_tmp, format = '%m/%d/%Y')]
 	raw_indicators[, ':=' (date_tmp=NULL,date_untransformed=NULL)]

@@ -21,7 +21,7 @@ audit: audit_rawplot audit_markets
 # building parts of the project
 unzip: $(TEMP_DIR)/unzipped.RData
 categorize: $(TEMP_DIR)/categorized.RData
-
+gdponly: $(TEMP_DIR)/gdppercap.RData
 
 ###### DATA PREPARATION ######
 
@@ -35,11 +35,11 @@ $(TEMP_DIR)/adv_china.RData : advertising.R
 
 # clean exchange rates and CPIs
 $(TEMP_DIR)/exch_cpi.RData : exch_cpi.R
-	"$(RBIN32)Rterm.exe" --vanilla --args "" < "exch_cpi.R"
+	"$(RBIN64)Rterm.exe" --vanilla --args "" < "exch_cpi.R"
 
 # prepare GDP per capita data
 $(TEMP_DIR)/gdppercap.RData : gdp.R
-	"$(RBIN32)Rterm.exe" --vanilla --args "" < "gdp.R"
+	"$(RBIN64)Rterm.exe" --vanilla --args "" < "gdp.R"
 
 # re-categorize categories
 $(TEMP_DIR)/categorized.RData : categorize.R $(TEMP_DIR)/unzipped.RData

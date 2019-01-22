@@ -18,8 +18,7 @@
 # | |_______________| ||___|| 
 # |___________________|_____|
 
-require(data.table)
-require(RODBC)
+library(data.table)
 
 ##########################
 # GDP per capita 		 #
