@@ -17,13 +17,30 @@ options(knitr.kable.NA = '')
 # Load data
   elast <- fread('../externals/elast_results_nov12sh.csv')#[globalbrand==T]
 
-  
-brand_panel=fread('../../analysis/temp/preclean.csv')
-brand_panel[, ':=' (date = as.Date(date))]
+  brand_panel=fread('../../analysis/temp/preclean.csv')
 
-mean_usd = brand_panel[, lapply(.SD, mean,na.rm=T), .SDcols=c('llen','nov12sh','rwpsprd','wpswdst'), by = c('market_id','brand')]
+  if (0) {
+tmp=brand_panel[, list(avgprice=mean(rwpsprd)),by=c('market_id','category','country','brand')][, list(pricedispersion=(max(avgprice)-min(avgprice))/mean(avgprice)),by=c('market_id','category','country')]
+setorder(tmp, pricedispersion)
+tmp[, rank:=rank(pricedispersion)/.N]
+
+setkey(tmp, market_id)
+setkey(brand_panel, market_id)
+setkey(elast, market_id)
+brand_panel[tmp, rankquantile:=i.rank]
+
+elast[tmp, rankquantile:=i.rank]
+
+
+elast <- elast[rankquantile>=.2]
+  }
+
+
+brand_panel[, ':=' (date = as.Date(date))]
+  
+mean_usd = brand_panel[, lapply(.SD, mean,na.rm=T), .SDcols=c('llen','nov12sh','nwprd','wpswdst'), by = c('market_id','brand')]
 mean_usd2 = melt(mean_usd, id.vars=c('market_id','brand'))
-mean_usd2[variable=='rwpsprd',variable:='rwpspr']
+mean_usd2[variable=='nw',variable:='rwpspr']
 
 setkey(mean_usd2, market_id,brand,variable)
 setkey(elast, market_id, brand, variable)
@@ -45,8 +62,9 @@ names(ordered_vars) <- paste0(unlist(sanitize_table(data.frame(ordered_vars))), 
 #elast[is.na(country_of_origin), ':=' (local_to_market=0, cntrymissing=1, country_of_origin='missing')]
 
 # formulas for models
-form_main_model = .~1+ (1|brand) + (1|category) + (1|country) + emerging + appliance + ln_market_growth_mc + ln_herf_mc + local_to_market + local_multip_market + ln_overall_prindexavg_mc + gini_mc + sbbe_std_mc
+form_main_model = .~1+ (1|brand) + (1|category) + (1|country) + emerging + appliance + ln_market_growth_mc + ln_herf_mc + local_to_market +  ln_overall_prindexavg_mc + gini_mc + sbbe_std_mc
 
+#local_multip_market +
 form_interact = ~1+ (1|brand) + (1|category) + (1|country) + emerging + appliance + I(appliance*emerging) + ln_market_growth_mc + I(ln_market_growth_mc*emerging) + ln_herf_mc + I(ln_herf_mc*emerging) + local_to_market + I(local_to_market*emerging) + ln_overall_prindexavg_mc + I(ln_overall_prindexavg_mc*emerging) + sbbe_std_mc + I(sbbe_std_mc*emerging)
 
 
