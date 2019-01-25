@@ -58,6 +58,7 @@ for (i in 1:length(skus_by_date_list)) {
 	setkey(skus_by_date, category, country, brand, date)
 	
 	skus_by_date = skus_by_date[n_brands_selected>1]
+	skus_by_date[, t_noweights:=1]
 	
 	merged_attr_sales = skus_by_date[, list( usales=sum(t_sales_units),
 											 vsales = sum(t_value_sales), 
@@ -67,9 +68,11 @@ for (i in 1:length(skus_by_date_list)) {
 																						
 											 wspr=weigh_by_w(t_value_sales/t_sales_units, t_sales_units),
 											 wpspr=weigh_by_w(t_value_sales/t_sales_units, t_wsales_units),
+											 nwpr= weigh_by_w(t_value_sales/t_sales_units, t_noweights),
 											 
 											 wsprd=weigh_by_w(t_value_sales_usd/t_sales_units, t_sales_units),
 											 wpsprd=weigh_by_w(t_value_sales_usd/t_sales_units, t_wsales_units),
+											 nwprd = weigh_by_w(t_value_sales_usd/t_sales_units, t_noweights),
 											 
 											 wswdst = weigh_by_w(t_wdist,t_sales_units),
 											 wpswdst = weigh_by_w(t_wdist,t_wsales_units),
@@ -201,7 +204,10 @@ for (i in 1:length(all_data)) {
 			paneldata = all_data[[i]]$data[[j]]
 		
 		# Correct monetary variables with a country's CPI
-			paneldata[, ':=' (rvsales = vsales/cpi, rwspr = wspr/cpi, rwpspr = wpspr/cpi, rwsprd = wsprd/cpi, rwpsprd = wpsprd/cpi)]
+			paneldata[, ':=' (rvsales = vsales/cpi, rwspr = wspr/cpi, 
+			                  rwpspr = wpspr/cpi, 
+			                  rwsprd = wsprd/cpi, 
+			                  rwpsprd = wpsprd/cpi)]
 		
 		# Investigate which part of the data set is complete and can be used for model estimation
 			tmp <- split(paneldata, as.character(paneldata$brand))

@@ -105,8 +105,6 @@ require(data.table)
 
 	# -> I have to merge these carefully and rename company names, etc.
 
-	#dir.create(paste0(dirs$svn,'derived\\temp\\'))
-	
 	save(adv_china, file=paste0('..\\temp\\adv_china.RData'))
 
 	
