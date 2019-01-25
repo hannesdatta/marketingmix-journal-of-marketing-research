@@ -77,7 +77,8 @@ stopifnot(nrow(rbindlist(lapply(skus_by_date_list, function(x) x[, list(N=.N), b
 	# selection criteria: all brands with at least X% market share in X consec. years (at X*12 months)
 	# with average yearly share of at least x%. 
 
-	min_share = .01
+	min_share = 0.00000001 # 0.01 #.01
+	max_rank = 10
 	
 	brand_id = 'brand'
 	time_id = 'month'
@@ -85,8 +86,8 @@ stopifnot(nrow(rbindlist(lapply(skus_by_date_list, function(x) x[, list(N=.N), b
 	# aggregate brand sales for selected time periods (determined on a category-level earlier)
 	tmp_brands <- dat[which(selected_t_cat==T), list(brand_sales = sum(t_sales_units), time_periods = length(unique(date))), by=c('category','country',brand_id,time_id)]
 	
-	tmp_brands[!category == 'tablets', consec_min := 5*12] #5
-	tmp_brands[category == 'tablets', consec_min := 4*12] # 4
+	tmp_brands[!category == 'tablets', consec_min := 3*12] #5
+	tmp_brands[category == 'tablets', consec_min := 3*12] # 4
 	
 	# establish consecutive number of years
 	setorderv(tmp_brands, c('category', 'country',time_id, 'brand_sales'),order=-1)
@@ -98,13 +99,17 @@ stopifnot(nrow(rbindlist(lapply(skus_by_date_list, function(x) x[, list(N=.N), b
 	
 	tmp_brands_select = tmp_brands[, list(brand_sales=sum(brand_sales), consec_fulfilled = any(obs >= consec_min), tot_obs=max(obs)),by=c('category','country',brand_id)]
 	tmp_brands_select[is.na(consec_fulfilled), consec_fulfilled:=F]
+	
+	setorderv(tmp_brands_select, c('category', 'country','brand_sales'), order=-1L)
+	tmp_brands_select[, rank:=1:.N, by = c('category','country')]
+	
 	setorderv(tmp_brands_select, c('category', 'country',brand_id))
 
 	# calculate market shares by brand
 	tmp_brands_select[, marketshare := brand_sales / sum(brand_sales), by=c('category','country')]
 	tmp_brands_select[, ms_fulfilled := marketshare >= min_share]
 	
-	tmp_brands_select[, selected_brand := consec_fulfilled == T & ms_fulfilled==T, by = c('category','country','brand')]
+	tmp_brands_select[, selected_brand := consec_fulfilled == T & ms_fulfilled==T & rank <= max_rank, by = c('category','country','brand')]
 
 	# kick out markets with only 1 brand
 	tmp_brands_select[, n_brands_selected := length(unique(get(brand_id)[selected_brand==T])), by = c('category','country')]
