@@ -116,9 +116,11 @@ raw_indicators<-rbindlist(indicators)
 	indicators[type=='cpi', value := value/value[date=='2004-01-01'], by = c('country')]
 		
 	library(lattice)
+	dir.create('../audit/')
 	png('../audit/cpi.png', res=150, units='in', height=8, width=12)
 	print(xyplot(value~date|country, data=data.table(indicators)[type=='cpi']))
 	dev.off()
 	
 # save
+	dir.create('../temp/')
 	save(indicators, file='..\\temp\\exch_cpi.RData')
