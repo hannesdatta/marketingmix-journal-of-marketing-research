@@ -14,7 +14,7 @@ library(knitr)
 require(xtable)
 require(texreg)
 library(sjstats)
-library(purtest)
+library(metap)
 
 options(xtable.comment = FALSE)
 
@@ -143,86 +143,53 @@ kable(data.table(t(summary(carryover$coef)))[, ':=' (V1=NULL, value=N, N=NULL)],
 hist(carryover$coef, main = 'Distribution of carry-over coefficients')
 ```	
 	
-	
+
 # Panel unit root tests
+
 ```{r unitroot, echo = FALSE}
 
   
-  focal_vars <- c('usalessh')
+  # obtain elasticities
+	ur_raw <- rbindlist(lapply(results_brands[!checks=='try-error'], function(x) x$adf_sur))
 
-  # extract info on which variables were estimated in the first place
+  ur_raw <- ur_raw[variable=='y']
 
-  ur_raw<-data.table(suppressWarnings(melt(brand_panel, id.vars=c('market_id', 'category','country', 'brand', 'date'), measure.vars=focal_vars)))
-  ur_raw = ur_raw[!is.na(value)]
+ # specify tests
+  iter = c('market_id', 'category', 'country', 'individ')
   
-  # use only data used for estimation
-  #setkey(ur_raw, market_id, brand, variable)
-  #setkey(elast, market_id, brand, variable)
-  #ur_raw[elast, match:=i.variable]
-  #ur_raw <- ur_raw[!is.na(match)]
-  
-  # turn this on if prototyping code
-  if(0){
-    # variables for prototyping
-    .var=focal_vars[1]
-    .byvar=c('combined')
-  }
-  
-  # specify tests
-  iter = c('market_id', 'individ')#','category', 'country', 'individ')
-  
+  ur_raw[, individ:=1:.N]
   
   ur_by = rbindlist(lapply(iter, function(.byvar) {
-    
-    rbindlist(lapply(focal_vars, function(.var) {
+    ur_raw[, splitvar := get(.byvar)]
+    te= split(ur_raw, ur_raw$splitvar)
       
-      if (.byvar=='market_id') ur_data = dcast(ur_raw[variable==.var], market_id+date~brand)
-      if (.byvar=='individ') ur_data = ur_raw[variable==.var, list(individ=paste0(market_id,'+',brand), date=date,value = value)]
-      
-      ur_data[, splitvar := get(.byvar)]
-      for (.iter in iter) suppressWarnings(ur_data[, (.iter) := NULL])
-      
-      te= split(ur_data, ur_data$splitvar)
-      
-      out=NULL
+    out=NULL
       for (j in 1:length(te)) {
         test_data=te[[j]]
-        print(j)
+        pval = NA
+        if (nrow(test_data)==1) {
+          plogitp=test_data$p
+          pfisher=test_data$p
+          pstouffer=test_data$p
+          } else {
+            tmpX=allmetap(test_data$p, method=c('logitp','sumlog','sumz'))
+            plogitp=unlist(tmpX[which(rownames(tmpX)=='logitp'),"p"])
+            pfisher=unlist(tmpX[which(rownames(tmpX)=='sumlog'),"p"])
+            pstouffer=unlist(tmpX[which(rownames(tmpX)=='sumz'),"p"])
+            
+          }
+        
         splitvar = unique(test_data$splitvar)
-        test_data[, ':=' (date=NULL, splitvar=NULL)]
-        .inclcols <- colnames(test_data)[!colSums(test_data,na.rm=T)==0]
-        test_data=test_data[, .inclcols,with=F]
-        test_data[, time:=1:.N]
-        tmp=melt(test_data, id.vars=c('time'))
-        fwrite(tmp, '../temp/test.csv')
-        
-        
-        if ((ncol(test_data))>0) {
-          # Levin-Lin-Chu without demean
-          Choi <- pCADFtest(Y=test_data, type = "trend", max.lag.y = 12, criterion = "AIC")
-
-        }
-        out[[j]]<-data.table(by = .byvar, name=splitvar, variable=.var, 
-                   choi_testval=Choi$statistic, choi_pval=Choi$p.value)
+        out[[j]]<-data.table(by = .byvar, name=splitvar, variable='y', 
+                   test= c('logitp','fisher','stouffer'),
+                   pval = c(plogitp, pfisher, pstouffer))
       }
-      rbindlist(out)
-    }  
-      ))
-  }))
-  
+    rbindlist(out)
+  }
+  ))
   
 #  ur_by <- fread('../output/ur_tests.csv')
-test_results=ur_by[, list(N=length(which(!is.na(choi_pval))), N_stationary = length(which(choi_pval<=.1)), N_UR = length(which(choi_pval>.1))), by = c('variable','by')]
-print(test_results)
+test_results=ur_by[, list(N=length(which(!is.na(pval))), N_stationary = length(which(pval<=.1)), N_UR = length(which(pval>.1))), by = c('by','test')]
 
-kable(test_results[by=='cat_name'], caption='Summary of UR tests by category')
-
-
-# try different panel ur
-
-data("OECDunemp")
-u=data.frame(OECDunemp[,-8])
-u <- log(OECDunemp[,-8]/(100 - OECDunemp[,-8]))
-Choi <- pCADFtest(Y=u, type = "drift", max.lag.y = 5, criterion = "AIC")
-
+kable(test_results, caption='Summary of UR tests on the log ratio of market shares')
 ```
