@@ -1,4 +1,4 @@
-require(compiler)
+library(compiler)
 
 # Distance metrics as used in the GfK project
 
