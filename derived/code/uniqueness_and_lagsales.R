@@ -83,9 +83,9 @@ for (i in 1:length(datlist_final)) {
 	# If a product is not sold, kick it out from this list
 	skus_by_date <- skus_by_date[!t_sales_units==0]
 	
-	##############################################################################################
-	# Create weighted past sales metric for every SKU (used for weighing the promotion metrics)  #
-	##############################################################################################
+	###########################################################################################################
+	# Create weighted past sales metric for every SKU (used for weighing the price and distribution metrics)  #
+	###########################################################################################################
 	
 		cat('Compute past sales metric for re-weighing.\n')
 		
