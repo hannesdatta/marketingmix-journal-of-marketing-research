@@ -85,8 +85,6 @@ for (i in 1:length(skus_by_date_list)) {
 	# add rolling mean (SHOULD BE... SUM!)
 	tmp[, t_sales_units_rolled := rollmean(t_sales_units, k=3,align='right',fill=0),by=idkey]
 
-	# rowSums
-	
 	merged_attr_sales = skus_by_date[, list( usales=sum(t_sales_units),
 											 vsales = sum(t_value_sales), 
 											 vsalesd = sum(t_value_sales_usd),
