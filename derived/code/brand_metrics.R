@@ -60,6 +60,33 @@ for (i in 1:length(skus_by_date_list)) {
 	skus_by_date = skus_by_date[n_brands_selected>1]
 	skus_by_date[, t_noweights:=1]
 	
+	# compute average prices using the correct lagging specification
+	idkey=c('category','country','market_id','brand_orig','model')
+	
+	out=lapply(c('t_sales_units','t_value_sales', 't_value_sales_usd'), function(varname) {
+	  fill=NULL
+	  if(grepl('sales[_]units', varname)) fill=0
+	  tmp=dcast(skus_by_date,category+country+market_id+brand_orig+model~date, value.var=varname,fill=fill)
+	  tmp2=melt(tmp, id.var=idkey)
+	  setnames(tmp2, 'value',varname)
+	  setnames(tmp2, 'variable','date')
+	  setkeyv(tmp2, c(idkey,'date'))
+	  
+	  return(tmp2)
+	})
+	
+	merge.all <- function(x,y, ...) {merge(x,y, all.x=T,all.y=T, ...)}
+	tmp=Reduce(merge.all, out)
+
+	for (.var in c('','_usd')) {
+	  tmp[, paste0('avgprice_filled', .var):=na.locf(get(paste0('t_value_sales', .var))/t_sales_units,na.rm=F), by=idkey]
+	  }
+	
+	# add rolling mean
+	tmp[, t_sales_units_rolled := rollmean(t_sales_units, k=3,align='right',fill=0),by=idkey]
+
+	
+	
 	merged_attr_sales = skus_by_date[, list( usales=sum(t_sales_units),
 											 vsales = sum(t_value_sales), 
 											 vsalesd = sum(t_value_sales_usd),
