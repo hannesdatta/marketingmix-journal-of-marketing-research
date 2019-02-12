@@ -46,6 +46,8 @@ for (i in 1:length(skus_by_date_list)) {
 	# Aggregate remaining measures to the brand level
 	source('proc_functions.R')
 
+	
+	
 	# Merge time and date observations to the data
 	skus_by_date <- skus_by_date_list[[i]]
 	skus_by_date[, category:=names(skus_by_date_list)[i]]
@@ -61,29 +63,25 @@ for (i in 1:length(skus_by_date_list)) {
 	skus_by_date[, t_noweights:=1]
 	
 	# compute average prices using the correct lagging specification
-	idkey=c('category','country','market_id','brand_orig','model')
-	
-	out=lapply(c('t_sales_units','t_value_sales', 't_value_sales_usd'), function(varname) {
-	  fill=NULL
-	  if(grepl('sales[_]units', varname)) fill=0
-	  tmp=dcast(skus_by_date,category+country+market_id+brand_orig+model~date, value.var=varname,fill=fill)
-	  tmp2=melt(tmp, id.var=idkey)
-	  setnames(tmp2, 'value',varname)
-	  setnames(tmp2, 'variable','date')
-	  setkeyv(tmp2, c(idkey,'date'))
-	  
-	  return(tmp2)
-	})
-	
-	merge.all <- function(x,y, ...) {merge(x,y, all.x=T,all.y=T, ...)}
-	tmp=Reduce(merge.all, out)
+	idkey=c('market_id','brand_orig','model')
 
+	# by market ID
+	
+	#combined brand/model
+	skus_by_date[, market_brand_model:=.GRP,by=c('market_id','brand_orig','model')]
+	
+	tmp=dcast(skus_by_date, market_brand_model+date~., value.var=c('t_sales_units','t_value_sales', 't_value_sales_usd'),drop=F)
+	
+	setkey(tmp, market_brand_model)
+	setkey(skus_by_date, market_brand_model)
+	tmp[skus_by_date, ':=' (market_id=market_id, brand_orig=brand_orig, model=model)]
+	
 	for (.var in c('','_usd')) {
 	  tmp[, paste0('avgprice_filled', .var):=na.locf(get(paste0('t_value_sales', .var))/t_sales_units,na.rm=F), by=idkey]
 	  }
 	
-	# add rolling mean (SHOULD BE... SUM!)
-	tmp[, t_sales_units_rolled := rollmean(t_sales_units, k=3,align='right',fill=0),by=idkey]
+	# add rolling sum
+	tmp[, t_sales_units_rolled := rollsum(t_sales_units, k=3,align='right',fill=0),by=idkey]
 
 	merged_attr_sales = skus_by_date[, list( usales=sum(t_sales_units),
 											 vsales = sum(t_value_sales), 
