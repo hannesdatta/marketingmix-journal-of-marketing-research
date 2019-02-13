@@ -120,7 +120,8 @@ nafill <- function(x, maxgap=2) {
 			}
 			
 			
-weigh_by_w <- function(x, w) {
+weigh_by_w <- function(x, w,na.rm=FALSE) {
 		if (sum(w)==0) w = rep(1, length(x))
-		sum(x*w)/sum(w)
-		}
+		if (na.rm==FALSE) return(sum(x*w)/sum(w))
+		if (na.rm==TRUE) return(sum(x[!is.na(x)]*w[!is.na(x)])/sum(w[!is.na(x)]))
+}

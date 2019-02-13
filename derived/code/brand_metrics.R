@@ -9,10 +9,9 @@
 # |___________________|_____|
 
 # Goals: 
-# - Create assortment variables at the brand level
+# - Create variables at the brand level
 # - Determine beginning and end of observation periods per brand
 # - Aggregate small brands to a common "allothers" brand
-
 
 require(data.table)
 
@@ -27,7 +26,8 @@ require(data.table)
 
 # -> indicators (economic indicators)
 	load('..//temp//exch_cpi.RData')
-
+	Rcpp::sourceCpp('runsum.cpp')
+	
 # initialize object to store final data
 	all_data <- NULL
 	
@@ -60,53 +60,68 @@ for (i in 1:length(skus_by_date_list)) {
 	setkey(skus_by_date, category, country, brand, date)
 	
 	skus_by_date = skus_by_date[n_brands_selected>1]
-	skus_by_date[, t_noweights:=1]
 	
 	# compute average prices using the correct lagging specification
-	idkey=c('market_id','brand_orig','model')
-
-	# by market ID
+	idkey=c('market_id','brand_orig','brand', 'model')
+  skus_by_date[, market_brand_model:=.GRP,by=idkey]
 	
-	#combined brand/model
-	skus_by_date[, market_brand_model:=.GRP,by=c('market_id','brand_orig','model')]
-	
-	tmp=dcast(skus_by_date, market_brand_model+date~., value.var=c('t_sales_units','t_value_sales', 't_value_sales_usd'),drop=F)
+  tmp=dcast(skus_by_date, market_brand_model+date~., value.var=c('t_sales_units','t_value_sales', 't_value_sales_usd', 't_wdist'),drop=F)
 	
 	setkey(tmp, market_brand_model)
 	setkey(skus_by_date, market_brand_model)
-	tmp[skus_by_date, ':=' (market_id=market_id, brand_orig=brand_orig, model=model)]
+	tmp[skus_by_date, ':=' (market_id=i.market_id, brand_orig=i.brand_orig, 
+	                        brand=i.brand, model=i.model)]
+	tmp[is.na(t_sales_units), t_sales_units:=0]
 	
-	for (.var in c('','_usd')) {
-	  tmp[, paste0('avgprice_filled', .var):=na.locf(get(paste0('t_value_sales', .var))/t_sales_units,na.rm=F), by=idkey]
+	tmp[, ':=' (avgprice = t_value_sales/t_sales_units,
+	            avgprice_usd = t_value_sales_usd/t_sales_units)]
+	
+	for (.var in c('avgprice', 'avgprice_usd', 't_wdist')) {
+	  tmp[, paste0(.var, '_filled'):=na_forwarding(get(.var)), by=idkey]
 	  }
-	
-	# add rolling sum
-	tmp[, t_sales_units_rolled := rollsum(t_sales_units, k=3,align='right',fill=0),by=idkey]
 
-	merged_attr_sales = skus_by_date[, list( usales=sum(t_sales_units),
-											 vsales = sum(t_value_sales), 
-											 vsalesd = sum(t_value_sales_usd),
-											
-											 llen = length(unique(model)), 
-																						
-											 wspr=weigh_by_w(t_value_sales/t_sales_units, t_sales_units),
-											 wpspr=weigh_by_w(t_value_sales/t_sales_units, t_wsales_units),
-											 nwpr= weigh_by_w(t_value_sales/t_sales_units, t_noweights),
-											 
-											 wsprd=weigh_by_w(t_value_sales_usd/t_sales_units, t_sales_units),
-											 wpsprd=weigh_by_w(t_value_sales_usd/t_sales_units, t_wsales_units),
-											 nwprd = weigh_by_w(t_value_sales_usd/t_sales_units, t_noweights),
-											 
-											 wswdst = weigh_by_w(t_wdist,t_sales_units),
-											 wpswdst = weigh_by_w(t_wdist,t_wsales_units),
-											 
-											 nov1= length(unique(model[which(first_date>date_lag1 & first_date <= date)])),
+	# add rolling sum of unit sales
+  tmp[, t_sales_units_rolled := run_sum(t_sales_units, n=3),by=idkey]
+	tmp[is.na(t_sales_units_rolled), t_sales_units_rolled := 0]
+	tmp[, t_noweights:=1]
+	
+	merged_attr_sales2 = tmp[, list( usales=sum(t_sales_units,na.rm=T),
+	                                         vsales = sum(t_value_sales,na.rm=T), 
+	                                         vsalesd = sum(t_value_sales_usd,na.rm=T),
+	                                         
+	                                         llen = length(unique(model[t_sales_units>0])),
+	                                         
+	                                         wspr=weigh_by_w(avgprice_filled, t_sales_units,na.rm=T),
+	                                         wpspr=weigh_by_w(avgprice_filled, t_sales_units_rolled,na.rm=T),
+	                                         nwpr= weigh_by_w(avgprice_filled, t_noweights,na.rm=T),
+	                                         
+	                                         wsprd=weigh_by_w(avgprice_usd_filled, t_sales_units, na.rm=T),
+	                                         wpsprd=weigh_by_w(avgprice_usd_filled, t_sales_units_rolled, na.rm=T),
+	                                         nwprd = weigh_by_w(avgprice_usd_filled, t_noweights,na.rm=T),
+	                                         
+	                                         wswdst = weigh_by_w(t_wdist_filled,t_sales_units,na.rm=T),
+	                                         wpswdst = weigh_by_w(t_wdist_filled,t_sales_units_rolled,na.rm=T)),
+	by=c('market_id', 'date', 'brand')]
+
+	merged_attr_sales1 = skus_by_date[, list(nov1= length(unique(model[which(first_date>date_lag1 & first_date <= date)])),
 											 nov3= length(unique(model[which(first_date>date_lag3 & first_date <= date)])),
 											 nov6= length(unique(model[which(first_date>date_lag6 & first_date <= date)])),
 											 nov12= length(unique(model[which(first_date>date_lag12 & first_date <= date)]))
-											 
-											 
 											 ), by=c('category', 'country', 'market_id', 'date', 'brand', 'selected_brand')][order(category, country,brand,date)]
+	# any missing obs?
+	
+	merged_attr_sales=merge(merged_attr_sales1, merged_attr_sales2, by = c('market_id','date','brand'),all.x=T,all.y=F)
+	
+	if(0){dates<-data.table(date=unique(merged_attr_sales2$date))
+	setorder(dates,date)
+	dates[,order:=1:.N]
+	setkey(dates,date)
+	setkey(merged_attr_sales2, date)
+	merged_attr_sales2[dates, dateorder:=i.order]
+	
+	merged_attr_sales2[, datediff:=c(NA, dateorder[-1]-dateorder[-.N]), by=c('market_id','brand')]
+	setorder(merged_attr_sales2, market_id, brand,date)
+	}
 	
 	# novelty data is censored at the beginning of a category's observation period, except in 
 	# the tablets category (this is monitored at the start of the category)
