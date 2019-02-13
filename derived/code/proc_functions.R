@@ -51,7 +51,8 @@ if(0) {
 }
 
 # filling of NAs
-require(zoo)
+library(zoo)
+
 nafill <- function(x, maxgap=2) {
 	# maxgap indicates the maximum number of consecutive observations to fill
 	

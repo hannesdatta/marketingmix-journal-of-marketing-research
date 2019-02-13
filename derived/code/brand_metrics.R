@@ -31,6 +31,8 @@ require(data.table)
 # initialize object to store final data
 	all_data <- NULL
 	
+	source('proc_functions.R')
+	
 # run the preparation
 for (i in 1:length(skus_by_date_list)) {
 	cat('=============================================================\n')
@@ -44,10 +46,7 @@ for (i in 1:length(skus_by_date_list)) {
 	cat('Aggregation to brand-level\n')
 	
 	# Aggregate remaining measures to the brand level
-	source('proc_functions.R')
 
-	
-	
 	# Merge time and date observations to the data
 	skus_by_date <- skus_by_date_list[[i]]
 	skus_by_date[, category:=names(skus_by_date_list)[i]]
