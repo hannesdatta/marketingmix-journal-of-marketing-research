@@ -82,53 +82,6 @@ for (i in 1:length(datlist_final)) {
 	
 	# If a product is not sold, kick it out from this list
 	skus_by_date <- skus_by_date[!t_sales_units==0]
-	
-	###########################################################################################################
-	# Create weighted past sales metric for every SKU (used for weighing the price and distribution metrics)  #
-	###########################################################################################################
-	
-		cat('Compute past sales metric for re-weighing.\n')
-		
-		# metrics that are aggregated to a brand-level will be
-		# weighted with each SKU's lagged sales (t-2, t-1, t).
-		
-		# question: are NAs counted as ZEROS, or as NA's:
-		# -> I decide they will be treated as NAs.
-	
-		t_lags = c(-2,-1, 0)
-		t_lag_names = paste0('lag_date', gsub('[-]', 'min', as.character(t_lags)))
-		
-		tmpdates <- skus_by_date[, list(N=.N),by=c('date')][,N:=NULL]
-		
-		lags=sapply(t_lags, function(t_lag, x) {
-			m.date=as.POSIXlt(x)
-			m.date$mon=m.date$mon+t_lag
-			return(as.character(m.date))
-			}, x=tmpdates$date)
-		
-		for (t_lag in seq(along=t_lags)) {
-			tmpdates[, t_lag_names[t_lag] := c(as.Date(lags[,t_lag]))]
-			}
-		
-		# Merge this to skus_by_date
-		setkey(tmpdates, date)
-		setkey(skus_by_date, date)
-		suppressWarnings(skus_by_date[, t_lag_names := NULL])
-		skus_by_date <- tmpdates[skus_by_date]
-		
-		setkey(skus_by_date, 'category', 'country','brand', 'model', 'date')
-		
-		sales_lag_names = paste0('lag_sales', gsub('[-]', 'min', as.character(t_lags)))
-		for (t_lag in seq(along=t_lags)) {
-			eval(parse(text=paste0('skus_by_date[,  sales_lag_names[t_lag] := t_sales_units[match(', t_lag_names[t_lag],', date)],by=c(\'category\', \'country\',\'brand\', \'model\')]')))
-			}
-		eval(parse(text=paste0('skus_by_date[, t_wsales_units := rowSums(data.table(',paste(sales_lag_names,collapse=','),'), na.rm=T)]')))
-		skus_by_date[, t_wsales_units:=t_wsales_units/length(t_lags)]
-		
-		# remove unnecessary columns
-		skus_by_date[, c(t_lag_names, sales_lag_names) := NULL]
-		rm(tmpdates)
-		
 
 	###################################
 	# Calculation of novelty measure  #
