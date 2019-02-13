@@ -61,15 +61,16 @@ for (i in 1:length(skus_by_date_list)) {
 	skus_by_date = skus_by_date[n_brands_selected>1]
 	
 	# compute average prices using the correct lagging specification
-	idkey=c('market_id','brand_orig','brand', 'model')
+	idkey=c('market_id','category','country', 'brand_orig','brand', 'selected_brand', 'model')
   skus_by_date[, market_brand_model:=.GRP,by=idkey]
 	
   tmp=dcast(skus_by_date, market_brand_model+date~., value.var=c('t_sales_units','t_value_sales', 't_value_sales_usd', 't_wdist'),drop=F)
 	
-	setkey(tmp, market_brand_model)
+  setkey(tmp, market_brand_model)
 	setkey(skus_by_date, market_brand_model)
-	tmp[skus_by_date, ':=' (market_id=i.market_id, brand_orig=i.brand_orig, 
-	                        brand=i.brand, model=i.model)]
+	cmds=paste(sapply(idkey, function(cols) paste0(cols, '=i.',cols)),collapse=',')
+	eval(parse(text=paste0("tmp[skus_by_date, ':='(", cmds, ")]")))
+
 	tmp[is.na(t_sales_units), t_sales_units:=0]
 	
 	tmp[, ':=' (avgprice = t_value_sales/t_sales_units,
@@ -84,6 +85,7 @@ for (i in 1:length(skus_by_date_list)) {
 	tmp[is.na(t_sales_units_rolled), t_sales_units_rolled := 0]
 	tmp[, t_noweights:=1]
 	
+	aggkey=c(setdiff(idkey,c('model','brand_orig')),'date')
 	merged_attr_sales2 = tmp[, list( usales=sum(t_sales_units,na.rm=T),
 	                                         vsales = sum(t_value_sales,na.rm=T), 
 	                                         vsalesd = sum(t_value_sales_usd,na.rm=T),
@@ -100,27 +102,18 @@ for (i in 1:length(skus_by_date_list)) {
 	                                         
 	                                         wswdst = weigh_by_w(t_wdist_filled,t_sales_units,na.rm=T),
 	                                         wpswdst = weigh_by_w(t_wdist_filled,t_sales_units_rolled,na.rm=T)),
-	by=c('market_id', 'date', 'brand')]
+	by=aggkey]
 
 	merged_attr_sales1 = skus_by_date[, list(nov1= length(unique(model[which(first_date>date_lag1 & first_date <= date)])),
 											 nov3= length(unique(model[which(first_date>date_lag3 & first_date <= date)])),
 											 nov6= length(unique(model[which(first_date>date_lag6 & first_date <= date)])),
 											 nov12= length(unique(model[which(first_date>date_lag12 & first_date <= date)]))
-											 ), by=c('category', 'country', 'market_id', 'date', 'brand', 'selected_brand')][order(category, country,brand,date)]
-	# any missing obs?
+											 ), by=aggkey]
 	
-	merged_attr_sales=merge(merged_attr_sales1, merged_attr_sales2, by = c('market_id','date','brand'),all.x=T,all.y=F)
+	merged_attr_sales=merge(merged_attr_sales2, merged_attr_sales1, by = aggkey,all.x=T,all.y=T)
 	
-	if(0){dates<-data.table(date=unique(merged_attr_sales2$date))
-	setorder(dates,date)
-	dates[,order:=1:.N]
-	setkey(dates,date)
-	setkey(merged_attr_sales2, date)
-	merged_attr_sales2[dates, dateorder:=i.order]
+	# to do: integrate novelty in main metrics above; so that it can also evaluate to 0 in a specific period (!)
 	
-	merged_attr_sales2[, datediff:=c(NA, dateorder[-1]-dateorder[-.N]), by=c('market_id','brand')]
-	setorder(merged_attr_sales2, market_id, brand,date)
-	}
 	
 	# novelty data is censored at the beginning of a category's observation period, except in 
 	# the tablets category (this is monitored at the start of the category)
@@ -144,60 +137,50 @@ for (i in 1:length(skus_by_date_list)) {
 	# Merge CPIs
 		cpi=indicators[type=='cpi']
 		setkey(cpi, date, country)
+	
+		merged_attr_sales[, selected_brand := unique(selected_brand[!is.na(selected_brand)]), by = c('brand')]
 		
-	# Make an empty dataset from beginning date till end date, merge
-		all_dates = seq(from=base::as.Date('2004-01-01'),to=base::as.Date('2014-12-01'),by='1 month')
-		tmp <- split(merged_attr_sales, as.character(merged_attr_sales$country))
-		selected_attr_sales=lapply(tmp, function(dframe) {
-									# create 'empty' data frame (with full set of dates
-									empty_df=data.table(date=rep(all_dates,each=length(unique(dframe$brand))), 
-														  category=as.character(dframe$category)[1],
-														  country=unique(dframe$country)[1],
-														  market_id=unique(dframe$market_id)[1],
-														  brand=rep(unique(dframe$brand), length(all_dates))
-														  )
-									
-									res=merge(empty_df, dframe, by=c('category', 'country', 'market_id', 'brand', 'date'),all.x=T)
-									setkey(res, 'date', 'country')
-									
-									res[, selected_brand := unique(selected_brand[!is.na(selected_brand)]), by = c('brand')]
-									
-									# add cpi's
-									res[cpi, cpi:=i.value]
-									# order
-									setorder(res,country,brand,date)
-									# convert some columns to factors
-									res[, ':=' (brand=as.factor(brand), country=as.factor(country), category=as.factor(category))]
-									return(res)
-									})
-		rm(tmp)
+		# add cpi's
+		setkey(merged_attr_sales, date, country)
+		merged_attr_sales[cpi, cpi:=i.value]
 		
+		
+		# order
+		setorder(merged_attr_sales,country,brand,date)
+		
+		
+		# convert some columns to factors
+		merged_attr_sales[, ':=' (brand=as.factor(brand), country=as.factor(country), category=as.factor(category))]
+		
+	
 	##############################
 	# Interpolation of missings  #
 	##############################
 	
 		# define colums to interpolate (maximum fill currently set to two observations
-		all_cols=unique(unlist(lapply(selected_attr_sales, colnames)))
+		all_cols=colnames(merged_attr_sales)
+		
 		interp_cols = all_cols[!all_cols%in%c('category', 'country', 'market_id', 'brand', 'date', 'selected_t_cat', 'selected_brand')]
 		
-		selected_attr_sales <- lapply(selected_attr_sales, function(dframe) {
-			setorder(dframe, country,brand,date)
-			
-			# set some columns to NA before interpolating
-			for (.var in grep('spr', all_cols,value=T)) {
-				eval(parse(text=paste0('dframe[which(', .var,'<=0), ', .var, ':=NA]')))
-				}
-			
-			# set sales columns to NA if they are below 0.
-			for (.var in c('usales', 'vsales', 'vsalesd', 'wswdst', 'wpswdst')) {
-				eval(parse(text=paste0('dframe[, ', .var, ' := ifelse(', .var, '<0, NA, ', .var,')]')))
-				}
-											
+		
+		# set some columns to NA before interpolating
+		for (.var in grep('spr', all_cols,value=T)) {
+		  eval(parse(text=paste0('merged_attr_sales[which(', .var,'<=0), ', .var, ':=NA]')))
+		}
+		
+		# set sales columns to NA if they are below 0.
+		for (.var in grep('sales$|salesd$|dst$', all_cols, value=T)) {
+		  eval(parse(text=paste0('merged_attr_sales[, ', .var, ' := ifelse(', .var, '<0, NA, ', .var,')]')))
+		}
+		
+		
+		setorder(merged_attr_sales,market_id,category,country,brand,date)
+		
 			# interpolate variables
-			dframe_interp<-cbind(dframe[, c('date', 'category','selected_t_cat', 'selected_brand'),with=F], 
-								 dframe[, lapply(.SD, nafill),by=c('country','market_id', 'brand'),.SDcols=interp_cols])
+		dframe_interp<-cbind(merged_attr_sales[, c('date', 'country', 'category','selected_t_cat', 'selected_brand'),with=F], 
+		                     merged_attr_sales[, lapply(.SD, nafill),by=c('category','country','market_id', 'brand'),.SDcols=interp_cols])
 			
-			dframe_noninterp <- dframe[,colnames(dframe_interp),with=F]
+		dframe_noninterp <- merged_attr_sales[,colnames(dframe_interp),with=F]
 			
 			# compare whether values were interpolated, or not
 			unequal = rowSums(!is.na(dframe_interp))-rowSums(!is.na(dframe_noninterp))
@@ -208,20 +191,16 @@ for (i in 1:length(skus_by_date_list)) {
 			dframe_interp[,':=' (usalessh = as.numeric(usales/sum(usales,na.rm=T)),
 								 vsalessh = as.numeric(vsales/sum(vsales,na.rm=T))), by=c('country', 'date')]
 	
-			return(dframe_interp)
-		})
 	
-	rm(all_cols)
-		
 	# store data 
-	all_data[[i]]<-list(data=selected_attr_sales)
+	all_data[[i]]<-list(data=split(dframe_interp, dframe_interp$country))
 	
 	# remove objects
 		rm(merged_attr_sales,skus_by_date)
 	# clear memory
 		gc()
 		cat('\n')
-	}	
+}
 
 # rename
 names(all_data)<-names(skus_by_date_list)
