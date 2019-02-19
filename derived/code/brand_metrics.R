@@ -58,20 +58,20 @@ for (i in 1:length(skus_by_date_list)) {
 	skus_by_date = skus_by_date[n_brands_selected>1]
 	
 	# Compute novelty
-	tmp = skus_by_date[, list(first_date=min(first_date,na.rm=T)),by=c('category','country','brand','model')]
+	tmp = skus_by_date[, list(first_date=min(first_date,na.rm=T)),by=c('category','country','brand','brand_orig', 'model')]
 	alldates=seq(from=min(tmp$first_date,na.rm=T), to=as.Date('2015-12-01'), by = '1 month')
-	tmp=rbind(tmp, data.table(category='null',country='null',brand='null',model='null', first_date=alldates))
-	tmp[, id := .GRP,by=c('category','country','brand','model')]
+	tmp=rbind(tmp, data.table(category='null',country='null',brand='null',brand_orig='null',model='null', first_date=alldates))
+	tmp[, id := .GRP,by=c('category','country','brand','brand_orig', 'model')]
 	tmp[, value:=1]
 	novelty=dcast(tmp, id+first_date~., drop=F, fill=0)
 	setnames(novelty, '.', 'novel')
 	
 	setkey(novelty)
 	setkey(tmp, id)
-	novelty=novelty[tmp, ':=' (category=i.category, country=i.country, brand=i.brand, model=i.model)]
+	novelty=novelty[tmp, ':=' (category=i.category, country=i.country, brand=i.brand, brand_orig=i.brand_orig, model=i.model)]
 	novelty=novelty[!id==max(id)]
 	setorder(novelty, id, first_date)
-	novelty[, novel_sum:=cumsum(cumsum(novel)),by=c('category','country','brand','model')]
+	novelty[, novel_sum:=cumsum(cumsum(novel)),by=c('category','country','brand','brand_orig', 'model')]
 	
 	# compute average prices using the correct lagging specification
 	idkey=c('market_id','category','country', 'brand_orig','brand', 'selected_brand', 'model')
@@ -98,8 +98,8 @@ for (i in 1:length(skus_by_date_list)) {
 	
 	aggkey=c(setdiff(idkey,c('model','brand_orig')),'date')
 	
-	setkey(tmp, category,country,brand,model,date)
-	setkey(novelty, category,country,brand,model,first_date)
+	setkey(tmp, category,country,brand,brand_orig,model,date)
+	setkey(novelty, category,country,brand,brand_orig, model,first_date)
 	
 	tmp[novelty, novelty_sum:=i.novel_sum]
 	
@@ -120,23 +120,23 @@ for (i in 1:length(skus_by_date_list)) {
 	                                         wswdst = weigh_by_w(t_wdist_filled,t_sales_units,na.rm=T),
 	                                         wpswdst = weigh_by_w(t_wdist_filled,t_sales_units_rolled,na.rm=T),
 	                                          
-	                                         nov1 = sum(novelty_sum%in%1),
-	                                         nov3 = sum(novelty_sum%in%1:3),
-	                                         nov6 = sum(novelty_sum%in%1:6),
-	                                         nov12 = sum(novelty_sum%in%1:12)
-	                                 
+	                                         nov1 = length(unique(model[t_sales_units>0&novelty_sum%in%1])),
+	                                         nov3 = length(unique(model[t_sales_units>0&novelty_sum%in%1:3])),
+	                                         nov6 = length(unique(model[t_sales_units>0&novelty_sum%in%1:6])),
+  	                                       nov12 = length(unique(model[t_sales_units>0&novelty_sum%in%1:12]))
+	                                
 	                                 ),
 	by=aggkey]
 
 	# still verify the result below lines up with the result above
-	if(0) {}
-	merged_attr_sales1 = skus_by_date[, list(nov1= length(unique(model[which(first_date>date_lag1 & first_date <= date)])),
-											 nov3= length(unique(model[which(first_date>date_lag3 & first_date <= date)])),
-											 nov6= length(unique(model[which(first_date>date_lag6 & first_date <= date)])),
-											 nov12= length(unique(model[which(first_date>date_lag12 & first_date <= date)]))
+	if(0) {
+	merged_attr_sales1 = skus_by_date[, list(nov1= length(unique(model[which(t_sales_units>0&first_date>date_lag1 & first_date <= date)])),
+											 nov3= length(unique(model[which(t_sales_units>0&first_date>date_lag3 & first_date <= date)])),
+											 nov6= length(unique(model[which(t_sales_units>0&first_date>date_lag6 & first_date <= date)])),
+											 nov12= length(unique(model[which(t_sales_units>0&first_date>date_lag12 & first_date <= date)]))
 											 ), by=aggkey]
 	
-	merged_attr_sales=merge(merged_attr_sales2, merged_attr_sales1, by = aggkey,all.x=T,all.y=T)
+	merged_attr_salesX=merge(merged_attr_sales, merged_attr_sales1, by = aggkey,all.x=T,all.y=T)
 }
 	# novelty data is censored at the beginning of a category's observation period, except in 
 	# the tablets category (this is monitored at the start of the category)
