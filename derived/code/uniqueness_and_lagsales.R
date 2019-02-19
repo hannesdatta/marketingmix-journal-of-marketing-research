@@ -73,16 +73,18 @@ for (i in 1:length(datlist_final)) {
 
 	setkey(datlist_final[[i]], category, country, brand, model, date)
 
-	skus_by_date = datlist_final[[i]][, list(t_sales_units=sum(sales_units), 
-											 t_value_sales = sum(sales_units*as.numeric(price_lc)),
-											 t_value_sales_usd = sum(sales_units*as.numeric(price_usd)),
-											 t_numdist = sum(sales_units*numeric_distribution)/sum(sales_units),
-											 t_wdist = sum(sales_units*weighted_distribution)/sum(sales_units)), 
+	datlist_final[[i]][, sales_units_nonzero:=sales_units]
+	datlist_final[[i]][sales_units_nonzero<0, sales_units_nonzero:=0]
+	
+	skus_by_date = datlist_final[[i]][, list(t_sales_units=sum(sales_units_nonzero), 
+											 t_value_sales = sum(sales_units_nonzero*as.numeric(price_lc)),
+											 t_value_sales_usd = sum(sales_units_nonzero*as.numeric(price_usd)),
+											 t_price = mean(price_lc),
+											 t_price_usd = mean(price_usd),
+											 t_numdist = ifelse(all(sales_units_nonzero==0), mean(numeric_distribution), sum(sales_units_nonzero*numeric_distribution)/sum(sales_units_nonzero)),
+											 t_wdist = ifelse(all(sales_units_nonzero==0), mean(weighted_distribution), sum(sales_units_nonzero*weighted_distribution)/sum(sales_units_nonzero))), 
 											 by=c('category', 'country', 'market_id', 'brand', 'model', 'date')]
 	
-	# If a product is not sold, kick it out from this list
-	skus_by_date <- skus_by_date[!t_sales_units==0]
-
 	###################################
 	# Calculation of novelty measure  #
 	###################################
