@@ -15,13 +15,10 @@
 
 require(data.table)
 
-
 # -> skus_by_date_list: sales data on a SKU-level by date
-	load('..//temp//uniqueness_and_lagsales.RData') 
+  load('..//temp//uniqueness_and_lagsales.RData') 
 
 # -> brand_selection: selection of brands
-
-# -> time_selection: selection of category-date observations that will be used (e.g., due to "late" take-off of category)
 	load('..//temp//select.RData') 
 
 # -> indicators (economic indicators)
@@ -60,11 +57,27 @@ for (i in 1:length(skus_by_date_list)) {
 	
 	skus_by_date = skus_by_date[n_brands_selected>1]
 	
+	# Compute novelty
+	tmp = skus_by_date[, list(first_date=min(first_date,na.rm=T)),by=c('category','country','brand','model')]
+	alldates=seq(from=min(tmp$first_date,na.rm=T), to=as.Date('2015-12-01'), by = '1 month')
+	tmp=rbind(tmp, data.table(category='null',country='null',brand='null',model='null', first_date=alldates))
+	tmp[, id := .GRP,by=c('category','country','brand','model')]
+	tmp[, value:=1]
+	novelty=dcast(tmp, id+first_date~., drop=F, fill=0)
+	setnames(novelty, '.', 'novel')
+	
+	setkey(novelty)
+	setkey(tmp, id)
+	novelty=novelty[tmp, ':=' (category=i.category, country=i.country, brand=i.brand, model=i.model)]
+	novelty=novelty[!id==max(id)]
+	setorder(novelty, id, first_date)
+	novelty[, novel_sum:=cumsum(cumsum(novel)),by=c('category','country','brand','model')]
+	
 	# compute average prices using the correct lagging specification
 	idkey=c('market_id','category','country', 'brand_orig','brand', 'selected_brand', 'model')
   skus_by_date[, market_brand_model:=.GRP,by=idkey]
 	
-  tmp=dcast(skus_by_date, market_brand_model+date~., value.var=c('t_sales_units','t_value_sales', 't_value_sales_usd', 't_wdist'),drop=F)
+  tmp=dcast(skus_by_date, market_brand_model+date~., value.var=c('t_sales_units','t_value_sales', 't_value_sales_usd', 't_wdist', 't_price','t_price_usd'),drop=F)
 	
   setkey(tmp, market_brand_model)
 	setkey(skus_by_date, market_brand_model)
@@ -72,11 +85,9 @@ for (i in 1:length(skus_by_date_list)) {
 	eval(parse(text=paste0("tmp[skus_by_date, ':='(", cmds, ")]")))
 
 	tmp[is.na(t_sales_units), t_sales_units:=0]
+	tmp[t_sales_units<0, t_sales_units:=0]
 	
-	tmp[, ':=' (avgprice = t_value_sales/t_sales_units,
-	            avgprice_usd = t_value_sales_usd/t_sales_units)]
-	
-	for (.var in c('avgprice', 'avgprice_usd', 't_wdist')) {
+	for (.var in c('t_price', 't_price_usd', 't_wdist')) {
 	  tmp[, paste0(.var, '_filled'):=na_forwarding(get(.var)), by=idkey]
 	  }
 
@@ -86,24 +97,39 @@ for (i in 1:length(skus_by_date_list)) {
 	tmp[, t_noweights:=1]
 	
 	aggkey=c(setdiff(idkey,c('model','brand_orig')),'date')
-	merged_attr_sales2 = tmp[, list( usales=sum(t_sales_units,na.rm=T),
+	
+	setkey(tmp, category,country,brand,model,date)
+	setkey(novelty, category,country,brand,model,first_date)
+	
+	tmp[novelty, novelty_sum:=i.novel_sum]
+	
+	merged_attr_sales = tmp[, list( usales=sum(t_sales_units,na.rm=T),
 	                                         vsales = sum(t_value_sales,na.rm=T), 
 	                                         vsalesd = sum(t_value_sales_usd,na.rm=T),
 	                                         
 	                                         llen = length(unique(model[t_sales_units>0])),
 	                                         
-	                                         wspr=weigh_by_w(avgprice_filled, t_sales_units,na.rm=T),
-	                                         wpspr=weigh_by_w(avgprice_filled, t_sales_units_rolled,na.rm=T),
-	                                         nwpr= weigh_by_w(avgprice_filled, t_noweights,na.rm=T),
+	                                         wspr=weigh_by_w(t_price_filled, t_sales_units,na.rm=T),
+	                                         wpspr=weigh_by_w(t_price_filled, t_sales_units_rolled,na.rm=T),
+	                                         nwpr= weigh_by_w(t_price_filled, t_noweights,na.rm=T),
 	                                         
-	                                         wsprd=weigh_by_w(avgprice_usd_filled, t_sales_units, na.rm=T),
-	                                         wpsprd=weigh_by_w(avgprice_usd_filled, t_sales_units_rolled, na.rm=T),
-	                                         nwprd = weigh_by_w(avgprice_usd_filled, t_noweights,na.rm=T),
+	                                         wsprd=weigh_by_w(t_price_usd_filled, t_sales_units, na.rm=T),
+	                                         wpsprd=weigh_by_w(t_price_usd_filled, t_sales_units_rolled, na.rm=T),
+	                                         nwprd = weigh_by_w(t_price_usd_filled, t_noweights,na.rm=T),
 	                                         
 	                                         wswdst = weigh_by_w(t_wdist_filled,t_sales_units,na.rm=T),
-	                                         wpswdst = weigh_by_w(t_wdist_filled,t_sales_units_rolled,na.rm=T)),
+	                                         wpswdst = weigh_by_w(t_wdist_filled,t_sales_units_rolled,na.rm=T),
+	                                          
+	                                         nov1 = sum(novelty_sum%in%1),
+	                                         nov3 = sum(novelty_sum%in%1:3),
+	                                         nov6 = sum(novelty_sum%in%1:6),
+	                                         nov12 = sum(novelty_sum%in%1:12)
+	                                 
+	                                 ),
 	by=aggkey]
 
+	# still verify the result below lines up with the result above
+	if(0) {}
 	merged_attr_sales1 = skus_by_date[, list(nov1= length(unique(model[which(first_date>date_lag1 & first_date <= date)])),
 											 nov3= length(unique(model[which(first_date>date_lag3 & first_date <= date)])),
 											 nov6= length(unique(model[which(first_date>date_lag6 & first_date <= date)])),
@@ -111,10 +137,7 @@ for (i in 1:length(skus_by_date_list)) {
 											 ), by=aggkey]
 	
 	merged_attr_sales=merge(merged_attr_sales2, merged_attr_sales1, by = aggkey,all.x=T,all.y=T)
-	
-	# to do: integrate novelty in main metrics above; so that it can also evaluate to 0 in a specific period (!)
-	
-	
+}
 	# novelty data is censored at the beginning of a category's observation period, except in 
 	# the tablets category (this is monitored at the start of the category)
 	tmp_catdates <- merged_attr_sales[!is.na(usales), list(date=unique(date)), by='market_id']
@@ -128,7 +151,6 @@ for (i in 1:length(skus_by_date_list)) {
 	catname=names(skus_by_date_list)[i]
 	
 	for (lags in c(1,3,6,12)) merged_attr_sales[Ncens%in%1:lags&!catname=='tablets', (paste0('nov', lags)):=-999]
-	#merged_attr_sales[, Ncens:=NULL]
 
 	# Add indicators for category-sales observations
 	setkey(merged_attr_sales, category, country, date)

@@ -36,7 +36,6 @@ datlist_final <- datlist_final[!unlist(lapply(datlist_final, is.null))]
 rbindlist(lapply(datlist_final, function(x) x[, list(N=.N),by=c('category','country')]))
 
 # Extract first availability dates from the data
-
   # get string vector of first activity dates
   months=data.table(char_month=unique(unlist(lapply(datlist_final, function(x) unique(x$firstactivity)))))
   months[, char_month:=gsub('[-]', ' 20', char_month)]
@@ -99,7 +98,31 @@ for (i in 1:length(datlist_final)) {
     tmp_novelty[first_datecoded>first_datedata, first_date:=first_datedata]
     tmp_novelty[first_datecoded<=first_datedata, first_date:=first_datecoded]
     
+    if(0){
+    # Novelty
+    tmp = tmp_novelty[, c('category','country','brand','model','first_date')]
+    
+    alldates=seq(from=min(tmp$first_date,na.rm=T), to=as.Date('2015-12-01'), by = '1 month')
+    
+    tmp=rbind(tmp, data.table(category='null',country='null',brand='null',model='null', first_date=alldates))
+    
+    tmp[, id := .GRP,by=c('category','country','brand','model')]
+    tmp[, value:=1]
+    novelty=dcast(tmp, id+first_date~., drop=F, fill=0)
+    setnames(novelty, '.', 'novel')
+    
+    setkey(novelty)
+    setkey(tmp, id)
+    novelty=novelty[tmp, ':=' (category=i.category, country=i.country, brand=i.brand, model=i.model)]
+    novelty=novelty[!id==max(id)]
+    
+    
+    #dim(test)
+    
+    }
+    
     novelty_list[[i]]<-tmp_novelty
+    
     
 		skus_by_date <- merge(skus_by_date, tmp_novelty ,by=c('category', 'country','brand','model'),all.x=T)
 

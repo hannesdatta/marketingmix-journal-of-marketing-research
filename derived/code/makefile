@@ -22,6 +22,7 @@ audit: audit_rawplot audit_markets
 unzip: $(TEMP_DIR)/unzipped.RData
 categorize: $(TEMP_DIR)/categorized.RData
 gdponly: $(TEMP_DIR)/gdppercap.RData
+uniq: $(TEMP_DIR)/uniqueness_and_lagsales.RData
 
 ###### DATA PREPARATION ######
 
