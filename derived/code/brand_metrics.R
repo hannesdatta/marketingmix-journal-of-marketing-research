@@ -42,9 +42,7 @@ for (i in 1:length(skus_by_date_list)) {
 
 	cat('Aggregation to brand-level\n')
 	
-	# Aggregate remaining measures to the brand level
-
-	# Merge time and date observations to the data
+	# Add brand selection indicators and brand names
 	skus_by_date <- skus_by_date_list[[i]]
 	skus_by_date[, category:=names(skus_by_date_list)[i]]
 	setkey(skus_by_date, category, country, brand)
@@ -53,53 +51,63 @@ for (i in 1:length(skus_by_date_list)) {
 	setnames(skus_by_date, 'brand', 'brand_orig')
 	setnames(skus_by_date, 'brand_rename', 'brand')
 	
-	setkey(skus_by_date, category, country, brand, date)
+	setkey(skus_by_date, category, country, brand, brand_orig, date)
 	
 	skus_by_date = skus_by_date[n_brands_selected>1]
 	
 	# Compute novelty
-	tmp = skus_by_date[, list(first_date=min(first_date,na.rm=T)),by=c('category','country','brand','brand_orig', 'model')]
+	idvars=c('market_id','category','country','brand','brand_orig', 'selected_brand', 'model')
+	tmp = skus_by_date[, list(first_date=min(first_date,na.rm=T)),by=idvars]
 	alldates=seq(from=min(tmp$first_date,na.rm=T), to=as.Date('2015-12-01'), by = '1 month')
-	tmp=rbind(tmp, data.table(category='null',country='null',brand='null',brand_orig='null',model='null', first_date=alldates))
-	tmp[, id := .GRP,by=c('category','country','brand','brand_orig', 'model')]
+	
+	emptydf=data.table(first_date=alldates)
+	for (coln in colnames(tmp)[!colnames(tmp)%in%c('first_date')]) {
+	  emptydf[, (coln):=NA]
+	}
+	
+	tmp=rbind(tmp, emptydf)
+	
+	tmp[, id := .GRP,by=idvars]
 	tmp[, value:=1]
 	novelty=dcast(tmp, id+first_date~., drop=F, fill=0)
 	setnames(novelty, '.', 'novel')
 	
 	setkey(novelty)
 	setkey(tmp, id)
-	novelty=novelty[tmp, ':=' (category=i.category, country=i.country, brand=i.brand, brand_orig=i.brand_orig, model=i.model)]
+	
+	cmds=paste(sapply(idvars, function(cols) paste0(cols, '=i.',cols)),collapse=',')
+	eval(parse(text=paste0("novelty[tmp, ':='(", cmds, ")]")))
+	
 	novelty=novelty[!id==max(id)]
 	setorder(novelty, id, first_date)
-	novelty[, novel_sum:=cumsum(cumsum(novel)),by=c('category','country','brand','brand_orig', 'model')]
+	novelty[, novel_sum:=cumsum(cumsum(novel)),by=idvars]
 	
 	# compute average prices using the correct lagging specification
-	idkey=c('market_id','category','country', 'brand_orig','brand', 'selected_brand', 'model')
-  skus_by_date[, market_brand_model:=.GRP,by=idkey]
+	skus_by_date[, id:=.GRP,by=idvars]
 	
-  tmp=dcast(skus_by_date, market_brand_model+date~., value.var=c('t_sales_units','t_value_sales', 't_value_sales_usd', 't_wdist', 't_price','t_price_usd'),drop=F)
+  tmp=dcast(skus_by_date, id+date~., value.var=c('t_sales_units','t_value_sales', 't_value_sales_usd', 't_wdist', 't_price','t_price_usd'),drop=F)
 	
-  setkey(tmp, market_brand_model)
-	setkey(skus_by_date, market_brand_model)
-	cmds=paste(sapply(idkey, function(cols) paste0(cols, '=i.',cols)),collapse=',')
+  setkey(tmp, id)
+	setkey(skus_by_date, id)
+	cmds=paste(sapply(idvars, function(cols) paste0(cols, '=i.',cols)),collapse=',')
 	eval(parse(text=paste0("tmp[skus_by_date, ':='(", cmds, ")]")))
 
 	tmp[is.na(t_sales_units), t_sales_units:=0]
 	tmp[t_sales_units<0, t_sales_units:=0]
 	
 	for (.var in c('t_price', 't_price_usd', 't_wdist')) {
-	  tmp[, paste0(.var, '_filled'):=na_forwarding(get(.var)), by=idkey]
+	  tmp[, paste0(.var, '_filled'):=na_forwarding(get(.var)), by=idvars]
 	  }
 
 	# add rolling sum of unit sales
-  tmp[, t_sales_units_rolled := run_sum(t_sales_units, n=3),by=idkey]
+  tmp[, t_sales_units_rolled := run_sum(t_sales_units, n=3),by=idvars]
 	tmp[is.na(t_sales_units_rolled), t_sales_units_rolled := 0]
 	tmp[, t_noweights:=1]
 	
-	aggkey=c(setdiff(idkey,c('model','brand_orig')),'date')
+	aggkey=c(setdiff(idvars,c('model','brand_orig')),'date')
 	
-	setkey(tmp, category,country,brand,brand_orig,model,date)
-	setkey(novelty, category,country,brand,brand_orig, model,first_date)
+	setkeyv(tmp, c(idvars, 'date'))
+	setkeyv(novelty, c(idvars, 'first_date'))
 	
 	tmp[novelty, novelty_sum:=i.novel_sum]
 	
@@ -128,16 +136,6 @@ for (i in 1:length(skus_by_date_list)) {
 	                                 ),
 	by=aggkey]
 
-	# still verify the result below lines up with the result above
-	if(0) {
-	merged_attr_sales1 = skus_by_date[, list(nov1= length(unique(model[which(t_sales_units>0&first_date>date_lag1 & first_date <= date)])),
-											 nov3= length(unique(model[which(t_sales_units>0&first_date>date_lag3 & first_date <= date)])),
-											 nov6= length(unique(model[which(t_sales_units>0&first_date>date_lag6 & first_date <= date)])),
-											 nov12= length(unique(model[which(t_sales_units>0&first_date>date_lag12 & first_date <= date)]))
-											 ), by=aggkey]
-	
-	merged_attr_salesX=merge(merged_attr_sales, merged_attr_sales1, by = aggkey,all.x=T,all.y=T)
-}
 	# novelty data is censored at the beginning of a category's observation period, except in 
 	# the tablets category (this is monitored at the start of the category)
 	tmp_catdates <- merged_attr_sales[!is.na(usales), list(date=unique(date)), by='market_id']
