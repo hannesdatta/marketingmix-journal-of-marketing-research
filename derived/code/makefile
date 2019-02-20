@@ -13,10 +13,12 @@ OUTPUT_DIR = ../output
 #.PHONY : $(TEMP_DIR)/%.RData
 
 # full build
+all: build audit
+
 build: $(OUTPUT_DIR)/datasets.RData
 
 # audit
-audit: audit_rawplot audit_markets
+audit: $(TEMP_DIR)/audit_rawplot.txt $(TEMP_DIR)/audit_markets.txt
 
 # building parts of the project
 unzip: $(TEMP_DIR)/unzipped.RData
@@ -61,9 +63,9 @@ $(OUTPUT_DIR)/datasets.RData: brand_metrics.R $(TEMP_DIR)/exch_cpi.RData $(TEMP_
 
 	
 # --> audit: create category sales plots
-audit_rawplot: audit_rawplot.R $(TEMP_DIR)/categorized.RData
+$(TEMP_DIR)/audit_rawplot.txt: audit_rawplot.R $(TEMP_DIR)/categorized.RData
 	"$(RBIN64)Rterm.exe" --vanilla --args "" < "audit_rawplot.R"
 
 # --> audit: create plots of all markets
-audit_markets: audit_markets.R $(OUTPUT_DIR)/datasets.RData
+$(TEMP_DIR)/audit_markets.txt: audit_markets.R $(OUTPUT_DIR)/datasets.RData
 	"$(RBIN64)Rterm.exe" --vanilla --args "" < "audit_markets.R"

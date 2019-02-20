@@ -62,3 +62,6 @@ res[, marketshare := total_sales/sum(total_sales), by=c('category', 'country')]
 # top brands
 res[grepl('other|unbrand', brand, ignore.case=T)]
 
+sink('../temp/audit_rawplot.txt')
+cat(paste0('done at: ', Sys.time()))
+sink()
