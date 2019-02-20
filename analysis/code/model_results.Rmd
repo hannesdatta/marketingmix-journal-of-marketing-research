@@ -19,7 +19,7 @@ library(metap)
 options(xtable.comment = FALSE)
 
 # Load results
-load(file = c('../output/results14june2018.RData'))
+load(file = c('../output/results.RData'))
 
 # determine model to analyze
   results_brands <-  results_nov12sh 
@@ -127,7 +127,7 @@ zval=1.64
 	tmp <- rbindlist(lapply(results_brands[!checks=='try-error'], function(x) x$model@coefficients))
 	tmp <- tmp[grepl('lagunitsales[_]', varname)]
 	# check markets
-	carryover <- data.table(market_id=unlist(lapply(results_brands, function(x) x$market_id)))
+	carryover <- data.table(market_id=unlist(lapply(results_brands[!checks=='try-error'], function(x) x$market_id)))
 	setkey(carryover, market_id)
 	setkey(tmp, market_id)
 	carryover[tmp, coef:=i.coef]
