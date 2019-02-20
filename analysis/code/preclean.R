@@ -79,7 +79,9 @@ require(data.table)
   # keep only selected brands
   brand_panel <- brand_panel[selected==T]
 	
-	brand_panel[, usalessh := usales/sum(usales,na.rm=T), by=c('category', 'country', 'date')]
+  brand_panel[, usales_incr:=ifelse(usales==0, usales+.01, usales)]
+  
+	brand_panel[, usalessh := usales_incr/sum(usales_incr,na.rm=T), by=c('category', 'country', 'date')]
 	brand_panel[, vsalessh := vsales/sum(vsales,na.rm=T), by=c('category', 'country', 'date')]
 	brand_panel[, month_no := as.numeric(as.factor(date))]
 	
@@ -102,5 +104,6 @@ require(data.table)
 	brand_panel[, N:=NULL]
 	
 	# Save file
+	dir.create('../temp')
 	fwrite(brand_panel, '../temp/preclean.csv')
 	
