@@ -31,7 +31,7 @@ require(data.table)
 	source('proc_functions.R')
 	
 # run the preparation
-for (i in 1:length(skus_by_date_list)) {
+for (i in 1){#:length(skus_by_date_list)) {
 	cat('=============================================================\n')
 	cat(names(skus_by_date_list)[i],fill=T)
 	cat('=============================================================\n')
@@ -251,7 +251,11 @@ for (i in 1:length(all_data)) {
 		
 			tmp <- lapply(tmp, function(dframe) {
 				keyvars = c('market_id', 'category', 'country','brand','date')
-				all_cols=colnames(paneldata)
+				
+				dframe[, usales0:=usales]
+				dframe[usales0==0, usales0:=NA]
+				
+				all_cols=colnames(dframe)
 				
 				.availabilitycheck1 = setdiff(all_cols,c(keyvars, 'cpi', 'interpolated', 'selected_t_cat', 'selected_brand'))
 				.availabilitycheck2 = NULL 
@@ -278,6 +282,7 @@ for (i in 1:length(all_data)) {
 				# tag longest consecutive stretch
 				suppressWarnings(.zoo[, selected_t_brand:=!1:.N %in% as.numeric(attr(.out, 'na.action'))])
 				.zoo <- .zoo[, c(keyvars, .availabilitycheck1, .availabilitycheck2, 'selected_t_brand', 'selected_t_cat', 'selected_brand'),with=F]
+				.zoo[, usales0:=0]
 				return(.zoo)
 				})
 			
