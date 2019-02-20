@@ -136,9 +136,13 @@ for (i in 1:length(skus_by_date_list)) {
 	                                 ),
 	by=aggkey]
 
+	# transform novelty variables to shares; if llen = 0, set novelty to 0, too!
+	novvars <- grep('nov[0-9].*', colnames(merged_attr_sales),value=T)
+	for (.var in novvars) merged_attr_sales[, (paste0(.var,'sh')) := ifelse(llen==0, 0, (get(.var)/llen)*100)]
+	
 	# novelty data is censored at the beginning of a category's observation period, except in 
 	# the tablets category (this is monitored at the start of the category)
-	tmp_catdates <- merged_attr_sales[!is.na(usales), list(date=unique(date)), by='market_id']
+	tmp_catdates <- merged_attr_sales[,list(sumsales=sum(usales)),by=c('market_id','date')][sumsales>0, list(date=unique(date)), by='market_id']
 	setorder(tmp_catdates, market_id,date)
 	tmp_catdates[, Ncens:=1:.N, by = c('market_id')]
 	

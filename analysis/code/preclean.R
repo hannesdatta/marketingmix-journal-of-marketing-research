@@ -27,11 +27,6 @@ require(data.table)
 	brand_panel[, ':=' (date = as.Date(date))]
 	brand_panel[, quarter := quarter(date)]
 	
-	# extract novelty variables, transform them to shares
-	novvars <- grep('nov[0-9].*', colnames(brand_panel),value=T)
-	for (.var in novvars) brand_panel[, (paste0(.var,'sh')) := (get(.var)/llen)*100]
-	
-	
 	# lag variables
 	for (.var in c('rwpspr', 'wpswdst','llen',grep('nov[0-9]+sh', colnames(brand_panel),value=T))) {
 	  brand_panel[, paste0('lag', .var) := c(NA, get(.var)[-.N]), by = c('market_id', 'brand')]
