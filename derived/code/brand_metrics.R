@@ -31,7 +31,7 @@ require(data.table)
 	source('proc_functions.R')
 	
 # run the preparation
-for (i in 1){#:length(skus_by_date_list)) {
+for (i in 1:length(skus_by_date_list)) {
 	cat('=============================================================\n')
 	cat(names(skus_by_date_list)[i],fill=T)
 	cat('=============================================================\n')
@@ -253,7 +253,8 @@ for (i in 1:length(all_data)) {
 				keyvars = c('market_id', 'category', 'country','brand','date')
 				
 				dframe[, usales0:=usales]
-				dframe[usales0==0, usales0:=NA]
+				dframe[1:.N<first(which(usales>0)), usales0:=NA]
+				dframe[1:.N>last(which(usales>0)), usales0:=NA]
 				
 				all_cols=colnames(dframe)
 				
@@ -282,7 +283,7 @@ for (i in 1:length(all_data)) {
 				# tag longest consecutive stretch
 				suppressWarnings(.zoo[, selected_t_brand:=!1:.N %in% as.numeric(attr(.out, 'na.action'))])
 				.zoo <- .zoo[, c(keyvars, .availabilitycheck1, .availabilitycheck2, 'selected_t_brand', 'selected_t_cat', 'selected_brand'),with=F]
-				.zoo[, usales0:=0]
+				.zoo[, usales0:=NULL]
 				return(.zoo)
 				})
 			
