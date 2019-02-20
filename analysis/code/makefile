@@ -9,7 +9,7 @@ OUTPUT_DIR = ../output
 
 
 ###### BUILD COMMANDS ######
-
+all: elast markdown
 elast: $(OUTPUT_DIR)/elasticities.txt
 pre: $(TEMP_DIR)/preclean.csv
 results: $(TEMP_DIR)/results.RData
