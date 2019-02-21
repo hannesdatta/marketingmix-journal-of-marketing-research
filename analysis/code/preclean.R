@@ -76,9 +76,9 @@ require(data.table)
                     c5=sum(overall_ms[rank_ms<=5])/sum(overall_ms)), by = c('market_id')]
   brand_panel <- merge(brand_panel, concentration, by = c('market_id'), all.x=T, all.y=F)
   
-  # keep only selected brands
-  brand_panel <- brand_panel[selected==T]
-	
+  # keep selected brands and ALLOTHER brands
+  brand_panel <- brand_panel[selected==T|(brand=='allothers'&selected_t_brand&selected_t_cat)]
+  
   brand_panel[, usales_incr:=ifelse(usales==0, usales+.01, usales)]
   
 	brand_panel[, usalessh := usales_incr/sum(usales_incr,na.rm=T), by=c('category', 'country', 'date')]
