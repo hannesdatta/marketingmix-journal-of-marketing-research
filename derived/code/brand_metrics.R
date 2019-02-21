@@ -251,11 +251,18 @@ for (i in 1:length(all_data)) {
 		
 			tmp <- lapply(tmp, function(dframe) {
 				keyvars = c('market_id', 'category', 'country','brand','date')
-				
+
+				# include 0-sales periods inbetween non-zero sales				
+				if(0) {
 				dframe[, usales0:=usales]
 				dframe[1:.N<first(which(usales>0)), usales0:=NA]
 				dframe[1:.N>last(which(usales>0)), usales0:=NA]
+				}
 				
+				# exclude 0-sales periods inbetween non-zero sales				
+				  dframe[, usales0:=usales]
+				  dframe[usales==0, usales0:=NA]
+				  
 				all_cols=colnames(dframe)
 				
 				.availabilitycheck1 = setdiff(all_cols,c(keyvars, 'cpi', 'interpolated', 'selected_t_cat', 'selected_brand'))
