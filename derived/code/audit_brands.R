@@ -81,7 +81,7 @@
 .vars=c('llen', 'nov12sh', 'wpswdst', 
 		'usalessh', 'usales', 'rwpspr')
 
-df=melt(paneldata_brands[selected==T&has_zero_sales==T],id.vars=c('market_id','category','country','brand','brand_id','date'),
+df=melt(paneldata_brands[selected==T],id.vars=c('market_id','category','country','brand','brand_id','date'),
         measure.vars=.vars)
 
 
