@@ -18,7 +18,7 @@ all: build audit
 build: $(OUTPUT_DIR)/datasets.RData
 
 # audit
-audit: $(TEMP_DIR)/audit_rawplot.txt $(TEMP_DIR)/audit_markets.txt
+audit: $(TEMP_DIR)/audit_rawplot.txt $(TEMP_DIR)/audit_markets.txt $(TEMP_DIR)/audit_brands.txt
 
 # building parts of the project
 unzip: $(TEMP_DIR)/unzipped.RData
@@ -69,3 +69,7 @@ $(TEMP_DIR)/audit_rawplot.txt: audit_rawplot.R $(TEMP_DIR)/categorized.RData
 # --> audit: create plots of all markets
 $(TEMP_DIR)/audit_markets.txt: audit_markets.R $(OUTPUT_DIR)/datasets.RData
 	"$(RBIN64)Rterm.exe" --vanilla --args "" < "audit_markets.R"
+
+# --> audit: create plots of brands
+$(TEMP_DIR)/audit_brands.txt: audit_brands.R $(OUTPUT_DIR)/datasets.RData
+	"$(RBIN64)Rterm.exe" --vanilla --args "" < "audit_brands.R"
