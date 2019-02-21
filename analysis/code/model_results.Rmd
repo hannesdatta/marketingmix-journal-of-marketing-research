@@ -203,3 +203,16 @@ test_results=ur_by[, list(N=length(which(!is.na(pval))), N_stationary = length(w
 
 kable(test_results, caption='Summary of UR tests on the log ratio of market shares')
 ```
+
+```{r plot_distributions, echo=FALSE}
+
+for (var in unique(elast$variable)) {
+  par(mfrow=c(1,2))
+  hist(elast[variable==var]$elast, main = paste0('Histogram for ', var))
+  boxplot(elast[variable==var]$elast, main = paste0('Boxplot for ', var))
+}
+
+
+
+
+```
