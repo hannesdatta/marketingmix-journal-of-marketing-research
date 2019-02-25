@@ -107,3 +107,6 @@ for (i in unique(paneldata_brands$market_id))	{
  # tmp=	paneldata_brands[, list(nov12sh=nov12sh[!is.na(nov12sh)][6]),by = c('market_id','category','country','brand')]
   
 	
+sink('../temp/audit_markets.txt')
+cat(paste0('done at: ', Sys.time()))
+sink()

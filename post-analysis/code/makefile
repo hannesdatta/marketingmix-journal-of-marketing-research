@@ -10,7 +10,9 @@ OUTPUT_DIR = ../output
 
 ###### BUILD COMMANDS ######
 
-all: $(TEMP_DIR)/hdi.csv $(TEMP_DIR)/gdp.csv $(TEMP_DIR)/gci.csv $(TEMP_DIR)/gini.csv $(OUTPUT_DIR)/pca.txt
+all: $(OUTPUT_DIR)/final_analysis.Rmd
+
+pre: $(TEMP_DIR)/hdi.csv $(TEMP_DIR)/gdp.csv $(TEMP_DIR)/gci.csv $(TEMP_DIR)/gini.csv $(OUTPUT_DIR)/pca.txt
 
 ###### Build parts ######
 
@@ -33,3 +35,6 @@ $(TEMP_DIR)/gini.csv: gini.R
 # Conduct PCA
 $(OUTPUT_DIR)/pca.txt: pca.R $(TEMP_DIR)/gci_pca.csv
 	"$(RBIN64)Rterm.exe" --vanilla --args "" < "pca.R"
+
+$(OUTPUT_DIR)/final_analysis.Rmd: final_analysis.Rmd proc_auxilary.R proc_rename.R preclean.R pre
+	"$(RBIN64)Rscript.exe" -e "rmarkdown::render('final_analysis.Rmd', output_file = '../output/final_analysis.html')"

@@ -15,7 +15,7 @@ options(xtable.comment = FALSE)
 options(knitr.kable.NA = '')
 
 # Load data
-  elast <- fread('../externals/elast_results_nov12sh.csv')#[globalbrand==T]
+  elast <- fread('../externals/elast_results_nov12sh.csv') #[globalbrand==T]
   #elast <- fread('../externals/elast_results_nov12sh.csv')#[category%in%c('camera_slr', 'tablets')]
 
   brand_panel=fread('../../analysis/temp/preclean.csv')
