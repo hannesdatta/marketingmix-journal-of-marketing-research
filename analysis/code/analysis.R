@@ -35,7 +35,31 @@ dir.create('../output')
 	tmp=brand_panel[, list(obs=length(unique(date[!is.na(nov12)]))),by=c('market_id','category','country')]
 	setorder(tmp, obs)
 	
+# For which markets do we only see 1 brand?
+  tmp=brand_panel[, list(sumsales=sum(usales), nbrand=length(unique(brand))),by=c('market_id','category','country','date')]
+	setorder(tmp, market_id,date)
 	
+	tmp[, above:=as.numeric(1:.N%in%first(which(nbrand>1))), by=c('market_id')]
+	tmp[, below:=as.numeric(1:.N%in%(1+last(which(nbrand>1))))*(-1), by=c('market_id')]
+	tmp[, obs:=cumsum(above+below),by=c('market_id')]
+	
+	dir.create('../audit')
+	dir.create('../audit/1-brand-markets')
+
+	for (i in unique(tmp$market_id)) {
+	  fn=paste0(unique(tmp[market_id==i]$category), ' - ', unique(tmp[market_id==i]$country), ' (', i, ')', ifelse(any(tmp[market_id==i]$nbrand==1),' - affected',''))
+	  
+	  png(paste0('../audit/1-brand-markets/', fn,'.png'), res=200, units='in', height=8, width=16)
+	  
+	  with(tmp[market_id==i], plot(x=date, y=sumsales, type='l', main = fn, xlab='date',ylab='sum of sales'))
+	  with(tmp[market_id==i], abline(v=date[which(above==1)],col='red'))
+	  with(tmp[market_id==i], abline(v=date[which(below==c(-1))],col='red'))
+	  
+	  dev.off()
+	  
+	}
+	
+
 ## How many brands are active in multiple countries
 	tmp = brand_panel[, list(N=.N), by = c('brand', 'country')]
 	tmp[, Ncountries := .N, by = c('brand')]
