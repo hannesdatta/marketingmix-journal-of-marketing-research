@@ -318,6 +318,50 @@ for (i in 1:length(all_data)) {
 
 # Load GDP per capita, and put into data sets
 	load('..\\temp\\gdppercap.RData')
+
+# Update selected t_cat
+	# For which markets do we only see 1 brand?
+	
+	tmp_sales2 = rbindlist(lapply(skus_by_date_list, function(x) x[,list(total_sales=sum(t_sales_units, na.rm=T)),by=c('market_id','category', 'country','date','brand')]))
+	
+	# get prior time selection
+	time_selection = tmp_sales[, c('category','country','date','selected_t_cat'),with=F]
+	
+	# merge
+	setkey(tmp_sales2, category, country,date)
+	setkey(time_selection,category,country,date)
+	tmp_sales2[time_selection, selected_t_cat:=i.selected_t_cat]
+	
+	
+	
+	setkey(tmp_sales2, category, country, brand)
+	setkey(brand_selection, category, country, brand)
+	tmp_sales2[brand_selection, ':=' (selected=i.selected_brand, brand_rename=i.brand_rename)]
+	
+	tmp=tmp_sales2[selected==T, list(sumsales=sum(total_sales), nbrand=length(unique(brand_rename))),by=c('market_id','category','country','date')]
+	
+	setorder(tmp, category, country,date)
+	
+	tmp[, above:=as.numeric(1:.N%in%first(which(nbrand>1))), by=c('category','country')]
+	tmp[, below:=as.numeric(1:.N%in%(1+last(which(nbrand>1))))*(-1), by=c('category','country')]
+	tmp[, obs:=cumsum(above+below),by=c('category','country')]
+	
+	dir.create('../audit')
+	dir.create('../audit/1-brand-markets')
+	
+	
+	for (i in unique(tmp$market_id)) {
+	  fn=paste0(unique(tmp[market_id==i]$category), ' - ', unique(tmp[market_id==i]$country), ' (', i, ')', ifelse(any(tmp[market_id==i]$nbrand==1),' - affected',''))
+	  
+	  png(paste0('../audit/1-brand-markets/', fn,'.png'), res=200, units='in', height=8, width=16)
+	  
+	  with(tmp[market_id==i], plot(x=date, y=sumsales, type='l', main = fn, xlab='date',ylab='sum of sales'))
+	  with(tmp[market_id==i], abline(v=date[which(above==1)],col='red'))
+	  with(tmp[market_id==i], abline(v=date[which(below==c(-1))],col='red'))
+	  
+	  dev.off()
+	  
+	}
 	
 # Prepare CSV file with data
 	brand_panel=rbindlist(lapply(all_data, function(x) rbindlist(x$data_cleaned)))
