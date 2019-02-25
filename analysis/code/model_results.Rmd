@@ -212,7 +212,4 @@ for (var in unique(elast$variable)) {
   boxplot(elast[variable==var]$elast, main = paste0('Boxplot for ', var))
 }
 
-
-
-
 ```
