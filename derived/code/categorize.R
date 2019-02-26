@@ -320,6 +320,7 @@ gc()
 	print(names(datlist_final))
 
 # Compute earliest dates by data source: CATEGORY START DATES
+	dir.create('../output/')
 	sink('../output/category_start.txt')
 	tmp=rbindlist(lapply(seq(along=datlist_final), function(x) datlist_final[[x]][, list(cat=names(datlist_final)[x], min=min(date), max=max(date)),by=c('source')]))
 	print(data.frame(tmp))
@@ -494,5 +495,5 @@ for (i in 1:length(datlist_final)) {
 		datlist_final[[i]][country==c, market_id := cntr]
 		}
 	}
-	
+dir.create('../temp/')
 save(datlist_final, file='..\\temp\\categorized.RData')
