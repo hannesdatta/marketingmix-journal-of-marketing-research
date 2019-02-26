@@ -41,7 +41,7 @@
 	
 	
 # Define output directories
-	fpaths <- c('../audit/brands_with_zero_sales/')
+	fpaths <- c('../audit/brand_plots/')
 	
 	for (pn in fpaths) {
 		dir.create(pn)
@@ -58,7 +58,7 @@
 	
 # Plotting function
 	plotfkt <- function(fn, tmp, make_png = T) {
-		if (make_png==T) png(fn, res=200, units='in', height=8, width=16)
+		if (make_png==T) png(fn, res=150, units='in', height=6, width=12)
 		
 		print(xyplot(value~date|variable, data=tmp,type='l', scales = list(y = list(relation = "free")),
 					par.settings = mytheme,
@@ -95,9 +95,11 @@ for (i in unique(df$brand_id))	{
     tmpdat=df[brand_id==i]
     
     if(nrow(tmpdat)>0) {
-      plotfkt(paste0(fpaths[1], i, '.png'), tmpdat, make_png = T) 
+	  lbl = paste0(unique(tmpdat$category),' - ',unique(tmpdat$country), ' - ', unique(tmpdat$brand))
+		
+      plotfkt(paste0(fpaths[1], lbl, ' (', i, ').png'), tmpdat, make_png = T)
     } else {
-        sink(paste0(fpaths[1], i, '.txt'))
+        sink(paste0(fpaths[1], lbl, ' (', i, ').txt'))
 				cat('Data not available for this brand\n')
 				sink()
 		}
