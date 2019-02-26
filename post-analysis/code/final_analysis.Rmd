@@ -9,6 +9,7 @@ date: "`r format(Sys.time(), '%d %B %Y')`"
 knitr::opts_chunk$set(echo = TRUE)
 
 libs_to_load <- c('data.table', 'stargazer', 'knitr', 'xtable', 'lme4', 'car', 'kableExtra', 'stringi', 'ggplot2', 'ggpubr', 'plyr', 'gridExtra', 'grid')
+
 for (lib in libs_to_load) eval(parse(text=paste('library(', lib, ')')))
 
 options(xtable.comment = FALSE)
