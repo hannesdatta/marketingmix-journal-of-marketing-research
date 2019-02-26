@@ -77,7 +77,7 @@ require(data.table)
   brand_panel <- merge(brand_panel, concentration, by = c('market_id'), all.x=T, all.y=F)
   
   # keep selected brands and ALLOTHER brands
-  brand_panel <- brand_panel[selected==T|(brand=='allothers'&selected_t_brand&selected_t_cat)]
+  brand_panel <- brand_panel[selected==T]
   
   brand_panel[, usales_incr:=ifelse(usales==0, usales+.01, usales)]
   
