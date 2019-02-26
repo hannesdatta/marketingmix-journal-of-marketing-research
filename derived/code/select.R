@@ -54,11 +54,6 @@ stopifnot(nrow(rbindlist(lapply(skus_by_date_list, function(x) x[, list(N=.N), b
 	# add time selection
 	dat[tmp_sales, selected_t_cat:=i.selected_t_cat]
 	
-#############
-# Auditing  #
-#############
-
-#tmp = dat[category=='camera_slr'&country=='INDIA']
 
 ####################
 # Brand selection  #
@@ -109,8 +104,6 @@ stopifnot(nrow(rbindlist(lapply(skus_by_date_list, function(x) x[, list(N=.N), b
 	# kick out markets with only 1 brand
 	tmp_brands_select[, n_brands_selected := length(unique(get(brand_id)[selected_brand==T])), by = c('category','country')]
 
-	#tmp_brands_select[n_brands_selected==1, selected_brand:=F]
-	
 	# rename "non-selected brands" as composite "allothers"
 	tmp_brands_select[which(selected_brand==F), brand_rename:='ALLOTHERS']
 	tmp_brands_select[which(selected_brand==T), brand_rename:=brand]

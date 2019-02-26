@@ -230,7 +230,7 @@ names(all_data)<-names(skus_by_date_list)
 	cnt_brand=0
 	cnt_market=0
 
-# prepare final (cleaned) data sets
+# prepare final (cleaned) data sets / longest consecutive stretch selection
 for (i in 1:length(all_data)) {
 	print(i)
 	cat('Flagging missing observations per brand\n')
@@ -304,8 +304,8 @@ for (i in 1:length(all_data)) {
 			.zoo[, brand:=as.character(gsub(' |[-]|[/]|[(]|[)]|[.]|[&]','', brand))]
 			.zoo[, ':=' (category=tolower(category),country=tolower(country),brand=tolower(brand))]
 
-			.zoo[which(!is.na(usales) & selected_t_brand==T & selected_brand == T & !selected_t_cat %in% c(NA, F)), selected:=T, by=c('category', 'country', 'brand')]
-			.zoo[is.na(selected), selected:=F, by=c('category', 'country', 'brand')]
+			#.zoo[which(!is.na(usales) & selected_t_brand==T & selected_brand == T & !selected_t_cat %in% c(NA, F)), selected:=T, by=c('category', 'country', 'brand')]
+			#.zoo[is.na(selected), selected:=F, by=c('category', 'country', 'brand')]
 			
 		}
 		
@@ -314,66 +314,7 @@ for (i in 1:length(all_data)) {
 		
 		all_data[[i]]$data_cleaned[[j]] <- .zoo
 		}
-	}	
+}	
 
-# Load GDP per capita, and put into data sets
-	load('..\\temp\\gdppercap.RData')
+save(all_data, file='../temp/brand_metrics.RData')	
 
-# Update selected t_cat
-	# For which markets do we only see 1 brand?
-	
-	tmp_sales2 = rbindlist(lapply(skus_by_date_list, function(x) x[,list(total_sales=sum(t_sales_units, na.rm=T)),by=c('market_id','category', 'country','date','brand')]))
-	
-	# get prior time selection
-	time_selection = tmp_sales[, c('category','country','date','selected_t_cat'),with=F]
-	
-	# merge
-	setkey(tmp_sales2, category, country,date)
-	setkey(time_selection,category,country,date)
-	tmp_sales2[time_selection, selected_t_cat:=i.selected_t_cat]
-	
-	
-	
-	setkey(tmp_sales2, category, country, brand)
-	setkey(brand_selection, category, country, brand)
-	tmp_sales2[brand_selection, ':=' (selected=i.selected_brand, brand_rename=i.brand_rename)]
-	
-	tmp=tmp_sales2[selected==T, list(sumsales=sum(total_sales), nbrand=length(unique(brand_rename))),by=c('market_id','category','country','date')]
-	
-	setorder(tmp, category, country,date)
-	
-	tmp[, above:=as.numeric(1:.N%in%first(which(nbrand>1))), by=c('category','country')]
-	tmp[, below:=as.numeric(1:.N%in%(1+last(which(nbrand>1))))*(-1), by=c('category','country')]
-	tmp[, obs:=cumsum(above+below),by=c('category','country')]
-	
-	dir.create('../audit')
-	dir.create('../audit/1-brand-markets')
-	
-	
-	for (i in unique(tmp$market_id)) {
-	  fn=paste0(unique(tmp[market_id==i]$category), ' - ', unique(tmp[market_id==i]$country), ' (', i, ')', ifelse(any(tmp[market_id==i]$nbrand==1),' - affected',''))
-	  
-	  png(paste0('../audit/1-brand-markets/', fn,'.png'), res=200, units='in', height=8, width=16)
-	  
-	  with(tmp[market_id==i], plot(x=date, y=sumsales, type='l', main = fn, xlab='date',ylab='sum of sales'))
-	  with(tmp[market_id==i], abline(v=date[which(above==1)],col='red'))
-	  with(tmp[market_id==i], abline(v=date[which(below==c(-1))],col='red'))
-	  
-	  dev.off()
-	  
-	}
-	
-# Prepare CSV file with data
-	brand_panel=rbindlist(lapply(all_data, function(x) rbindlist(x$data_cleaned)))
-	setorder(brand_panel, market_id, category,country,brand,date)
-
-	fwrite(brand_panel, file = '..\\output\\datasets.csv', row.names=F)
-	
-# Save complete data as .RData
-	save(all_data, gdppercap, file =  '..\\output\\datasets.RData')
-
-# In which categories does the first sales NOT correspond with selected t in category
-	tmp=brand_panel[, list(first_sales=min(date[!is.na(usales)]), first_tcat=min(date[selected_t_cat==T],na.rm=T)), by = c('market_id', 'category', 'country')]
-	tmp[!first_sales==first_tcat]
-
-	
