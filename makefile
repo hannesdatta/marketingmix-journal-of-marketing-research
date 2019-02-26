@@ -9,12 +9,14 @@ include C:/make_research
 # full build
 all: postanalysis
 
+.PHONY: all derived analysis postanalysis
+
 derived:
-	cd derived/code && $(MAKE)
+	$(MAKE) -C derived/code
 
 analysis: derived
-	cd analysis/code && $(MAKE)
+	$(MAKE) -C analysis\code
 
 postanalysis: analysis
-	cd post-analysis/code &&  $(MAKE)
+	$(MAKE) -C post-analysis\code
 
