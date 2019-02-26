@@ -8,7 +8,7 @@ date: "`r format(Sys.time(), '%d %B %Y')`"
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
-libs_to_load <- c('data.table', 'stargazer', 'knitr', 'xtable', 'lme4', 'car', 'kableExtra', 'stringi', 'ggplot2', 'ggpubr', 'plyr')
+libs_to_load <- c('data.table', 'stargazer', 'knitr', 'xtable', 'lme4', 'car', 'kableExtra', 'stringi', 'ggplot2', 'ggpubr', 'plyr', 'gridExtra', 'grid')
 for (lib in libs_to_load) eval(parse(text=paste('library(', lib, ')')))
 
 options(xtable.comment = FALSE)
@@ -733,7 +733,6 @@ corstars(printtmp, method=c("pearson"),result='html', caption = tab('Correlation
 
 ```{r plotvars,echo=FALSE}
 vars=c('nov12sh','nwprd','llen','wpswdst')
-library(gridExtra)
 
 cats = unique(brand_panel$category)
 #dir.create('../audit')
@@ -763,16 +762,14 @@ pl<-lapply(vars, function(v) {
   theme(axis.text.x=element_text(angle=90, hjust=1, size=8)))
 })
 
-#png(paste0('../audit/ranges_', cat, '.png'), res=200, units='in', height=8, width=12)
 
-print(grid.arrange(pl[[1]], pl[[2]], pl[[3]], pl[[4]], top = cat, bottom = "Note: Plot shows variable means for each brand in a given country and category; countries ranked by GDP per capita (2010)"))
-#dev.off()
+grid.arrange(pl[[1]], pl[[2]], pl[[3]], pl[[4]], top = cat, bottom = textGrob("Note: Plot shows variable means for each brand in a given country and category; countries ranked by GDP per capita (2010).", gp=gpar(fontsize=8)))
+
 }
 
 ```
 
 ```{r plot_2x2, echo=FALSE}
-
 
 out1=regmodel(formula=c(main=form_main_model), dat=elast, model='lmer')
 
@@ -805,7 +802,6 @@ sims=rbindlist(lapply(names(main), function(mod) {
 
 ```{r outputbar, echo=F}
 
-
 #ggplot(sims, aes(x=emerging, y=est, fill=local_to_market)) + geom_bar(stat="identity", position=position_dodge())
 sims[, ':=' (l_emerging=ifelse(emerging==1,'EM','DM'),
              l_brandequity=ifelse(modvar==max(modvar), 'high brand equity','low brand equity'),
@@ -818,7 +814,7 @@ simtmp=sims[model==mod]
 png(paste0('../audit/plot_', mod, '.png'), res=150, units='in', height=4, width=4)
 p<-ggplot(simtmp, aes(x=l_emerging,y=est))+geom_bar(stat="identity")+facet_grid(l_brandequity~l_local, switch='y') + ggtitle(paste0(rename.fkt(unique(simtmp$model)), ' elasticities')) + xlab('Development status') + ylab('Change in mean elasticity')
 #+  geom_errorbar(aes(ymin=est-1.69*se,ymax=est+1.69*se),width=.1)
-print(p)
+p
 dev.off()
 
 }
