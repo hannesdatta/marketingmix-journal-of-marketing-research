@@ -21,7 +21,8 @@ require(data.table)
 	load('..\\temp\\uniqueness_and_lagsales.RData')
 
 # Assert: How many categories are passed on from the previous step? must be 174 (182-4-4)!
-stopifnot(nrow(rbindlist(lapply(skus_by_date_list, function(x) x[, list(N=.N), by=c('category','country')])))==174)
+#stopifnot(nrow(rbindlist(lapply(skus_by_date_list, function(x) x[, list(N=.N), by=c('category','country')])))==174)
+stopifnot(nrow(rbindlist(lapply(skus_by_date_list, function(x) x[, list(N=.N), by=c('category','country')])))==196-4-4)
 
 ##################################################
 ### Determine start and end of modeling period ###
