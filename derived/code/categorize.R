@@ -267,18 +267,37 @@ plotfkt<-function(dt) {
 	datlist_final$tv_gen1_crtv = rbindlist(list(datlist_by_cat$'CRT-TV'),fill=T)
 	datlist_final$tv_gen1_crtv[, used := source == 'gfk2015']
 	plotfkt(datlist_final$tv_gen1_crtv)
+
+# (12a) TV (third generation)
+	datlist_final$tv_gen3_lcd_only = rbindlist(list(datlist_by_cat$'LCD-TV W/O LED',datlist_by_cat$'LCD-TV WITH LED'),fill=T)
+	datlist_final$tv_gen3_lcd_only[, used := source == 'gfk2015']
+	plotfkt(datlist_final$tv_gen3_lcd_only)
 	
-# (12) TV (second generation)
-	datlist_final$tv_gen2_lcd = rbindlist(list(datlist_by_cat$'LCD-TV W/O LED',datlist_by_cat$'LCD-TV WITH LED',datlist_by_cat$'PTV/FLAT'),fill=T)
-	datlist_final$tv_gen2_lcd[, used := source == 'gfk2015']
-	plotfkt(datlist_final$tv_gen2_lcd)
+	if(0){
+	tmp=datlist_final$tv_gen3_lcd_only[Brand=='PIONEER'&COUNTRY=='CHINA'&used==T, list(sum(SALES_UNITS,na.rm=T)),by=c('date')]
+	setorder(tmp,date)
+	require(lattice)
+	xyplot(V1~date,data=tmp,type='l')
+	}
+	
+# (12b) TV (second generation)
+	datlist_final$tv_gen2_ptv = rbindlist(list(datlist_by_cat$'PTV/FLAT'),fill=T)
+	datlist_final$tv_gen2_ptv[, used := source == 'gfk2015']
+	plotfkt(datlist_final$tv_gen2_ptv)
+
+	if(0){
+	tmp=datlist_final$tv_gen2_ptv[Brand=='PIONEER'&COUNTRY=='CHINA'&source=='gfk2015', list(sum(SALES_UNITS,na.rm=T)),by=c('date')]
+	setorder(tmp,date)
+	require(lattice)
+	xyplot(V1~date,data=tmp,type='l',auto.key=T)
+	}
+	
 	
 # (13) Washing machines
 	datlist_final$washing = rbindlist(list(datlist_by_cat$'WASHINGMACHINES'),fill=T)
 	datlist_final$washing[, used := source == 'gfk2015']
 	plotfkt(datlist_final$washing)
 	
-
 # (14) Miniovens
 	datlist_final$minioven = rbindlist(list(datlist_by_cat$'MINI OVENS'),fill=T)
 	datlist_final$minioven[, used := F] # too few countries
