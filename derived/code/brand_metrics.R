@@ -47,7 +47,7 @@ for (i in 1:length(skus_by_date_list)) {
 	# Which brands have been selected for modeling? Add the info here, plus brand names to be used for aggregation (e.g., for collapsing some brands)
 	skus_by_date[, category:=names(skus_by_date_list)[i]]
 	setkey(skus_by_date, category, country, brand)
-	skus_by_date[brand_selection, ':=' (selected_brand=i.selected_brand, n_brands_selected=i.n_brands_selected, brand_rename=i.brand_rename)]
+	skus_by_date[brand_selection, ':=' (selected_brand=i.selected_brand, n_brands_selected=i.n_brands_selected, brand_rename=i.brand_rename, composite_included=i.composite_included)]
 	
 	setnames(skus_by_date, 'brand', 'brand_orig')
 	setnames(skus_by_date, 'brand_rename', 'brand')
@@ -200,111 +200,111 @@ for (i in 1:length(skus_by_date_list)) {
 		# interpolate variables
 		dframe_interp<-cbind(merged_attr_sales[, c('date', 'country', 'category','selected_t_cat', 'selected_brand'),with=F], 
 		                     merged_attr_sales[, lapply(.SD, nafill),by=c('category','country','market_id', 'brand'),.SDcols=interp_cols])
-			
+		
 		dframe_noninterp <- merged_attr_sales[,colnames(dframe_interp),with=F]
-			
+		
 		# compare whether values were interpolated, or not
-			unequal = rowSums(!is.na(dframe_interp))-rowSums(!is.na(dframe_noninterp))
+		unequal = rowSums(!is.na(dframe_interp))-rowSums(!is.na(dframe_noninterp))
 		# add an indicator which rows contain at least one interpolated value
-			dframe_interp[, interpolated:= !unequal==0]
-			
+		dframe_interp[, interpolated:= !unequal==0]
+		
 		# add market share metrics
-			dframe_interp[,':=' (usalessh = as.numeric(usales/sum(usales,na.rm=T)),
-		           						 vsalessh = as.numeric(vsales/sum(vsales,na.rm=T))), by=c('country', 'date')]
-	
-	# store data 
-	all_data[[i]]<-list(data=split(dframe_interp, dframe_interp$country))
-	
-	# remove objects
+		dframe_interp[,':=' (usalessh = as.numeric(usales/sum(usales,na.rm=T)),
+		                     vsalessh = as.numeric(vsales/sum(vsales,na.rm=T))), by=c('country', 'date')]
+		
+		# store data 
+		all_data[[i]]<-list(data=split(dframe_interp, dframe_interp$country))
+		
+		# remove objects
 		rm(merged_attr_sales,skus_by_date)
-	
-	# clear memory
+		
+		# clear memory
 		gc()
 		cat('\n')
 }
-
-# rename
-names(all_data)<-names(skus_by_date_list)
-
-# Initialize count variables to assign unique IDs to brands and markets
+	
+	# rename
+	names(all_data)<-names(skus_by_date_list)
+	
+	# Initialize count variables to assign unique IDs to brands and markets
 	cnt_brand=0
 	cnt_market=0
-
-# prepare final (cleaned) data sets / longest consecutive stretch selection
-for (i in 1:length(all_data)) {
-	print(i)
-	cat('Flagging missing observations per brand\n')
-	all_data[[i]]$data_cleaned <- NULL
 	
-	for(j in seq(along=all_data[[i]]$data)) {
-		# Get data
-			paneldata = all_data[[i]]$data[[j]]
-		
-		# Correct monetary variables with a country's CPI
-			paneldata[, ':=' (rvsales = vsales/cpi, rwspr = wspr/cpi, 
-			                  rwpspr = wpspr/cpi, 
-			                  rwsprd = wsprd/cpi, 
-			                  rwpsprd = wpsprd/cpi)]
-		
-		# Investigate which part of the data set is complete and can be used for model estimation
-			tmp <- split(paneldata, as.character(paneldata$brand))
-		
-			tmp <- lapply(tmp, function(dframe) {
-				keyvars = c('market_id', 'category', 'country','brand','date')
-
-				# include 0-sales periods inbetween non-zero sales				
-				if(0) {
-				dframe[, usales0:=usales]
-				dframe[1:.N<first(which(usales>0)), usales0:=NA]
-				dframe[1:.N>last(which(usales>0)), usales0:=NA]
-				}
-				
-				#if(0){
-				# exclude 0-sales periods inbetween non-zero sales				
-				  dframe[, usales0:=usales]
-				  dframe[usales==0, usales0:=NA]
-				#}
-				
-				all_cols=colnames(dframe)
-				
-				.availabilitycheck1 = setdiff(all_cols,c(keyvars, 'cpi', 'interpolated', 'selected_t_cat', 'selected_brand'))
-				.availabilitycheck2 = NULL 
-				
-				# determine max consecutive observations
-				.zoo = zoo(dframe)
-				
-				.excl <- NULL
-				
-				.out = try(na.contiguous(.zoo),silent=T)
-				
-				if (class(.out)=='try-error') {
-					if (grepl('all times contain an NA', .out[1])) { 
-						
-						# check out which time series has only NAs, rerun
-						.excl = names(which(colSums(is.na(.zoo))==length(unique(dframe$date))))
-						.zoo = zoo(dframe[, setdiff(c(keyvars, .availabilitycheck1, .availabilitycheck2), .excl),with=F])
-						.out = try(na.contiguous(.zoo),silent=T)
-						}
-					}
-
-				.zoo = dframe
-				
-				# tag longest consecutive stretch
-				suppressWarnings(.zoo[, selected_t_brand:=!1:.N %in% as.numeric(attr(.out, 'na.action'))])
-				.zoo <- .zoo[, c(keyvars, .availabilitycheck1, .availabilitycheck2, 'selected_t_brand', 'selected_t_cat', 'selected_brand'),with=F]
-				.zoo[, usales0:=NULL]
-				return(.zoo)
-				})
-			
-		.zoo <- rbindlist(tmp)
-		
-		# clean category/country/brand names
-		if (nrow(.zoo)>0){
-			.zoo[, category:=as.character(gsub('[-]|[/]','', category))]
-			.zoo[, brand:=as.character(gsub(' |[-]|[/]|[(]|[)]|[.]|[&]','', brand))]
-			.zoo[, ':=' (category=tolower(category),country=tolower(country),brand=tolower(brand))]
-
-			#.zoo[which(!is.na(usales) & selected_t_brand==T & selected_brand == T & !selected_t_cat %in% c(NA, F)), selected:=T, by=c('category', 'country', 'brand')]
+	# prepare final (cleaned) data sets / longest consecutive stretch selection
+	for (i in 1:length(all_data)) {
+	  print(i)
+	  cat('Flagging missing observations per brand\n')
+	  all_data[[i]]$data_cleaned <- NULL
+	  
+	  for(j in seq(along=all_data[[i]]$data)) {
+	    # Get data
+	    paneldata = all_data[[i]]$data[[j]]
+	    
+	    # Correct monetary variables with a country's CPI
+	    paneldata[, ':=' (rvsales = vsales/cpi, rwspr = wspr/cpi, 
+	                      rwpspr = wpspr/cpi, 
+	                      rwsprd = wsprd/cpi, 
+	                      rwpsprd = wpsprd/cpi)]
+	    
+	    # Investigate which part of the data set is complete and can be used for model estimation
+	    tmp <- split(paneldata, as.character(paneldata$brand))
+	    
+	    tmp <- lapply(tmp, function(dframe) {
+	      keyvars = c('market_id', 'category', 'country','brand','date')
+	      
+	      # include 0-sales periods inbetween non-zero sales				
+	      if(0) {
+	        dframe[, usales0:=usales]
+	        dframe[1:.N<first(which(usales>0)), usales0:=NA]
+	        dframe[1:.N>last(which(usales>0)), usales0:=NA]
+	      }
+	      
+	      #if(0){
+	      # exclude 0-sales periods inbetween non-zero sales				
+	      dframe[, usales0:=usales]
+	      dframe[usales==0, usales0:=NA]
+	      #}
+	      
+	      all_cols=colnames(dframe)
+	      
+	      .availabilitycheck1 = setdiff(all_cols,c(keyvars, 'cpi', 'interpolated', 'selected_t_cat', 'selected_brand'))
+	      .availabilitycheck2 = NULL 
+	      
+	      # determine max consecutive observations
+	      .zoo = zoo(dframe)
+	      
+	      .excl <- NULL
+	      
+	      .out = try(na.contiguous(.zoo),silent=T)
+	      
+	      if (class(.out)=='try-error') {
+	        if (grepl('all times contain an NA', .out[1])) { 
+	          
+	          # check out which time series has only NAs, rerun
+	          .excl = names(which(colSums(is.na(.zoo))==length(unique(dframe$date))))
+	          .zoo = zoo(dframe[, setdiff(c(keyvars, .availabilitycheck1, .availabilitycheck2), .excl),with=F])
+	          .out = try(na.contiguous(.zoo),silent=T)
+	        }
+	      }
+	      
+	      .zoo = dframe
+	      
+	      # tag longest consecutive stretch
+	      suppressWarnings(.zoo[, selected_t_brand:=!1:.N %in% as.numeric(attr(.out, 'na.action'))])
+	      .zoo <- .zoo[, c(keyvars, .availabilitycheck1, .availabilitycheck2, 'selected_t_brand', 'selected_t_cat', 'selected_brand'),with=F]
+	      .zoo[, usales0:=NULL]
+	      return(.zoo)
+	    })
+	    
+	    .zoo <- rbindlist(tmp)
+	    
+	    # clean category/country/brand names
+	    if (nrow(.zoo)>0){
+	      .zoo[, category:=as.character(gsub('[-]|[/]','', category))]
+	      .zoo[, brand:=as.character(gsub(' |[-]|[/]|[(]|[)]|[.]|[&]','', brand))]
+	      .zoo[, ':=' (category=tolower(category),country=tolower(country),brand=tolower(brand))]
+	      
+	      #.zoo[which(!is.na(usales) & selected_t_brand==T & selected_brand == T & !selected_t_cat %in% c(NA, F)), selected:=T, by=c('category', 'country', 'brand')]
 			#.zoo[is.na(selected), selected:=F, by=c('category', 'country', 'brand')]
 			
 		}

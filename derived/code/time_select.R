@@ -6,7 +6,7 @@ library(data.table)
 brand_panel=rbindlist(lapply(all_data, function(x) rbindlist(x$data_cleaned)))
 setorder(brand_panel, market_id, category,country,brand,date)
 
-brand_panel[which(!is.na(usales) & selected_t_brand==T & (selected_brand == T | grepl('alloth', brand)) & !selected_t_cat %in% c(NA, F)), prelim_selected:=T, by=c('category', 'country', 'brand')]
+brand_panel[which(!is.na(usales) & selected_t_brand==T & selected_brand == T), prelim_selected:=T, by=c('category', 'country', 'brand')]
 brand_panel[is.na(prelim_selected), prelim_selected:=F, by=c('category', 'country', 'brand')]
 
 # For which markets do we only see 1 brand?
