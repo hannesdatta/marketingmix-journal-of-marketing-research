@@ -215,6 +215,7 @@ New product activity | Number of SKUs introduced by brand *i* in a rolling windo
 elast_all=data.table(elast)
 elast=elast[!is.na(country_of_origin)&!tolower(brand)%in%c('unbranded')]
 excluded_brands=setdiff(unique(elast_all$brand), unique(elast$brand))
+excluded_brands<-unique(gsub('Allothers.*', 'Composite brands (allothers)', excluded_brands))
 
 ```
 
