@@ -47,6 +47,8 @@ for (i in 1:length(skus_by_date_list)) {
 	# Which brands have been selected for modeling? Add the info here, plus brand names to be used for aggregation (e.g., for collapsing some brands)
 	skus_by_date[, category:=names(skus_by_date_list)[i]]
 	setkey(skus_by_date, category, country, brand)
+	setkey(brand_selection, category, country, brand)
+	
 	skus_by_date[brand_selection, ':=' (selected_brand=i.selected_brand, n_brands_selected=i.n_brands_selected, brand_rename=i.brand_rename, composite_included=i.composite_included)]
 	
 	setnames(skus_by_date, 'brand', 'brand_orig')
