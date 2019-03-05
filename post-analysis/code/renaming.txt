@@ -38,6 +38,8 @@ railroadqual	Quality of railroad infrastructure	gsub
 roadqual	Quality of roads	gsub
 washing	Washing machines	gsub
 tv_gen2_lcd	LCD TV	gsub
+tv_gen2_ptv	Plasma TV	gsub
+tv_gen3_lcd_only	LCD TV	gsub
 tv_gen1_crtv	CRT TV	gsub
 tablets	Tablets	gsub
 phones_smart	Smart phones	gsub

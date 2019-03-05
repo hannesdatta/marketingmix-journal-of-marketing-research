@@ -64,8 +64,8 @@ names(ordered_vars) <- paste0(unlist(sanitize_table(data.frame(ordered_vars))), 
 #elast[is.na(country_of_origin), ':=' (local_to_market=0, cntrymissing=1, country_of_origin='missing')]
 
 # formulas for models
-form_main_model = .~1+ (1|brand) + (1|category) + (1|country) + emerging + appliance + ln_market_growth_mc + ln_herf_mc + local_to_market + local_multip_market + ln_overall_prindexavg_mc + gini_mc + meanglobalx + sbbe_std_mc
-
+form_main_model = .~1+ (1|brand) + (1|category) + (1|country) + emerging + appliance + ln_market_growth_mc + ln_herf_mc + local_to_market + ln_overall_prindexavg_mc + gini_mc + sbbe_std_mc
+#meanglobalx local_multip_market
 #local_multip_market +
 form_interact = ~1+ (1|brand) + (1|category) + (1|country) + emerging + appliance + I(appliance*emerging) + ln_market_growth_mc + I(ln_market_growth_mc*emerging) + ln_herf_mc + I(ln_herf_mc*emerging) + local_to_market + I(local_to_market*emerging) + ln_overall_prindexavg_mc + I(ln_overall_prindexavg_mc*emerging) + sbbe_std_mc + I(sbbe_std_mc*emerging)
 
@@ -177,7 +177,7 @@ kable(sanitize_table(tmp), format='html', initial.zero = FALSE, caption=tab('Dev
 tmp=data.table(elast)
 tmp[, ncountries:=length(unique(country)),by=c('category')]
 
-tmp=tmp[, list(overall_ms=mean(overall_ms), ncountries=mean(ncountries)), by = c('category', 'appliance', 'brand')]
+tmp=tmp[!grepl('allothers', brand), list(overall_ms=mean(overall_ms), ncountries=mean(ncountries)), by = c('category', 'appliance', 'brand')]
 
 setorderv(tmp, c('category', 'appliance', 'overall_ms'), order=-1L)
 tmp[!brand%in%c('unbranded','local'), rank:=1:.N, by = c('category')]
