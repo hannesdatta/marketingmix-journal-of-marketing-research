@@ -167,7 +167,7 @@ for (i in 1:length(skus_by_date_list)) {
 		cpi=indicators[type=='cpi']
 		setkey(cpi, date, country)
 	
-		merged_attr_sales[, selected_brand := unique(selected_brand[!is.na(selected_brand)]), by = c('brand')]
+		stopifnot(!any(is.na(merged_attr_sales$selected_brand)))
 		
 		setkey(merged_attr_sales, date, country)
 		merged_attr_sales[cpi, cpi:=i.value]
