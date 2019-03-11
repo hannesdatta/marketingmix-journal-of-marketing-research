@@ -773,13 +773,85 @@ corstars(printtmp, method=c("pearson"),result='html', caption = tab('Correlation
 ```
 
 
-# plot variables
+```{r plot_2x2, echo=FALSE, include= FALSE}
 
-```{r plotvars,echo=FALSE}
+out1=regmodel(formula=c(main=form_main_model), dat=elast, model='lmer')
+
+# keep only models that belong to one type (so that each table only features the rows that were actually estimated)
+
+main = lapply(out1, function(x) x$lt$main)
+
+# example data
+index=1
+
+shifter = lapply(main, function(i) {
+  vars = grep('_mc|category|country|brand|^elast|(weights)', colnames(i@frame),value=T, invert=T)
+  means=sapply(vars, function(x) mean(i@frame[, x]))
+  coefs = data.frame(summary(i)$coefficients)
+
+  shifter = coefs['(Intercept)',]$Estimate+coefs['appliance',]$Estimate*means['appliance']
+  return(shifter)
+})
+
+shifter=unlist(shifter)
+names(shifter)=names(main)
+
+modvarq=quantile(elast$sbbe_std_mc,c(.2,.8))
+emerging = c(0,1)
+local=c(0,1)
+
+simdata=data.table(expand.grid(modvar=modvarq, emerging=emerging,local_to_market=local))
+
+require(car)
+
+
+sims=rbindlist(lapply(names(main), function(mod) {
+  simdata[, form:=paste0(shifter[mod], '+emerging*', emerging,'+local_to_market*', local_to_market,'+sbbe_std_mc*', modvar)]
+
+  rbindlist(lapply(1:nrow(simdata), function(r) {
+    
+    tmp=deltaMethod(main[[mod]], simdata[r]$form)
+    cbind(model=mod, simdata[r], est=tmp$Estimate, se=tmp$SE)
+  }))
+}))
+
+
+```
+
+## 2x2 plots of estimated elasticities
+
+```{r outputbar, echo=F}
+
+#ggplot(sims, aes(x=emerging, y=est, fill=local_to_market)) + geom_bar(stat="identity", position=position_dodge())
+sims[, ':=' (l_emerging=ifelse(emerging==1,'EM','DM'),
+             l_brandequity=ifelse(modvar==max(modvar), 'high brand equity','low brand equity'),
+             l_local=ifelse(local_to_market==1,'domestic brand','foreign brand'))]
+
+for (mod in unique(sims$model)) {
+simtmp=sims[model==mod]
+
+#png(paste0('../audit/plot_', mod, '.png'), res=150, units='in', height=4, width=4)
+p<-ggplot(simtmp, aes(x=l_emerging,y=est))+geom_bar(stat="identity")+facet_grid(l_brandequity~l_local, switch='y') + ggtitle(paste0(rename.fkt(unique(simtmp$model)), ' elasticities')) + xlab('Development status') + ylab('Mean elasticity')
+#+  geom_errorbar(aes(ymin=est-1.69*se,ymax=est+1.69*se),width=.1)
+print(p)
+#dev.off()
+
+}
+
+
+       
+
+
+```
+
+## Means of marketing mix instruments per brand
+
+...to illustrate whether level effects may drive our effects.
+
+```{r plotvars,echo=FALSE, include=FALSE}
 vars=c('nov12sh','nwprd','llen','wpswdst')
 
 cats = unique(brand_panel$category)
-#dir.create('../audit')
 
 for (cat in cats) {
   tmp=brand_panel[category==cat][, lapply(.SD,mean,na.rm=T), .SDcols=vars,by=c('country','brand')]
@@ -812,60 +884,3 @@ grid.arrange(pl[[1]], pl[[2]], pl[[3]], pl[[4]], top = cat, bottom = textGrob("N
 }
 
 ```
-
-```{r plot_2x2, echo=FALSE}
-
-out1=regmodel(formula=c(main=form_main_model), dat=elast, model='lmer')
-
-# keep only models that belong to one type (so that each table only features the rows that were actually estimated)
-
-main = lapply(out1, function(x) x$lt$main)
-
-# example data
-main$llen
-
-modvarq=quantile(elast$sbbe_std_mc,c(.2,.8))
-
-emerging = c(0,1)
-local=c(0,1)
-
-simdata=data.table(expand.grid(modvar=modvarq, emerging=emerging,local_to_market=local))
-require(car)
-
-simdata[, form:=paste0('emerging*', emerging,'+local_to_market*', local_to_market,'+sbbe_std_mc*', modvar)]
-
-sims=rbindlist(lapply(names(main), function(mod) {
-  rbindlist(lapply(1:nrow(simdata), function(r) {
-    tmp=deltaMethod(main[[mod]], simdata[r]$form)
-    cbind(model=mod, simdata[r], est=tmp$Estimate, se=tmp$SE)
-  }))
-}))
-
-
-```
-
-```{r outputbar, echo=F}
-
-#ggplot(sims, aes(x=emerging, y=est, fill=local_to_market)) + geom_bar(stat="identity", position=position_dodge())
-sims[, ':=' (l_emerging=ifelse(emerging==1,'EM','DM'),
-             l_brandequity=ifelse(modvar==max(modvar), 'high brand equity','low brand equity'),
-             l_local=ifelse(local_to_market==1,'domestic brand','foreign brand'))]
-dir.create('../audit')
-
-for (mod in unique(sims$model)) {
-simtmp=sims[model==mod]
-
-png(paste0('../audit/plot_', mod, '.png'), res=150, units='in', height=4, width=4)
-p<-ggplot(simtmp, aes(x=l_emerging,y=est))+geom_bar(stat="identity")+facet_grid(l_brandequity~l_local, switch='y') + ggtitle(paste0(rename.fkt(unique(simtmp$model)), ' elasticities')) + xlab('Development status') + ylab('Change in mean elasticity')
-#+  geom_errorbar(aes(ymin=est-1.69*se,ymax=est+1.69*se),width=.1)
-p
-dev.off()
-
-}
-
-
-       
-
-
-```
-
