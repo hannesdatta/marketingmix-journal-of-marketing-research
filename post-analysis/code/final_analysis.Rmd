@@ -177,7 +177,7 @@ kable(sanitize_table(tmp), format='html', initial.zero = FALSE, caption=tab('Dev
 tmp=data.table(elast)
 tmp[, ncountries:=length(unique(country)),by=c('category')]
 
-tmp=tmp[!grepl('allothers', brand), list(overall_ms=mean(overall_ms), ncountries=mean(ncountries)), by = c('category', 'appliance', 'brand')]
+tmp=tmp[!grepl('allothers|unbranded', brand,ignore.case=T), list(overall_ms=mean(overall_ms), ncountries=mean(ncountries)), by = c('category', 'appliance', 'brand')]
 
 setorderv(tmp, c('category', 'appliance', 'overall_ms'), order=-1L)
 tmp[!brand%in%c('unbranded','local'), rank:=1:.N, by = c('category')]
@@ -325,6 +325,48 @@ for (iter in iters) {
   
 ```
 
+```{r testconvergence, echo=FALSE, include=FALSE}
+obj=c('elast', 'w_elast', 'z_elast')
+  
+tmp = elast[!is.na(get(obj[1]))][, ':=' (val=get(obj[1]), 
+                                       val_w=get(obj[2]),
+                                       val_z=get(obj[3]))]
+    # random effects based p values
+        diff_tests=rbindlist(lapply(unique(tmp$variable), function(.var) {
+          print(.var)
+        data.table(variable=.var, effect=c('constant', 'emerging'), summary(lmer(val~1+(1|category) + (1|country) + (1|brand) + emerging, weights=val_w,REML=FALSE,data=tmp[variable==.var]))$coefficients)[, p:=2*(1-pnorm(abs(get('t value'))))]
+      }))
+   
+ obj=c('elastlt','w_elastlt', 'z_elastlt')
+       
+obj=c('elastlt','w_elastlt', 'z_elastlt')
+summary(lmer(val~1+(1|category) + (1|country) + (1|brand) + emerging, weights=val_w,data= tmp[variable=='llen'],control = lmerControl(optimizer ="Nelder_Mead")))
+
+
+summary(lmer(val~1+(1|category) + (1|country) + (1|brand) + emerging, weights=val_w,data= tmp[variable=='llen'], REML = FALSE))
+summary(lmer(val~1+(1|category) + (1|country) + (1|brand) + emerging, weights=val_w,data= tmp[variable=='nov12sh'], REML = FALSE))
+
+
+# one with singular fit
+
+
+# singular
+obj=c('elastlt','w_elastlt', 'z_elastlt')
+tmp = elast[!is.na(get(obj[1]))][, ':=' (val=get(obj[1]), 
+                                       val_w=get(obj[2]),
+                                       val_z=get(obj[3]))]
+summary(lmer(val~1+(1|category) + (1|country) + emerging, data= tmp[variable=='rwpspr']))
+             
+ #+ (1|brand) 
+
+#singluar fit
+lmer(elast~1+ (1|brand) + (1|category) + (1|country) + emerging + appliance + ln_market_growth_mc + ln_herf_mc + local_to_market + ln_overall_prindexavg_mc + gini_mc + sbbe_std_mc,data=elast[variable=='rwpspr'],weights=1/elast_se)
+
+lmer(elastlt~1+ (1|brand) + (1|category) + (1|country) + emerging + appliance + ln_market_growth_mc + ln_herf_mc + local_to_market + ln_overall_prindexavg_mc + gini_mc + sbbe_std_mc,data=elast[variable=='llen'],weights=1/elastlt_se)
+
+     
+```
+
 # Second-stage analysis
 
 `r tab("Variable operationalization^1^")`
@@ -410,7 +452,7 @@ printout(main, 'stlt', title = tab('Regression with short- and long-term elastic
 
 ```
 
-```{r main_regs_both, echo = FALSE, results='asis'}
+```{r main_regs_both, echo = FALSE, results='asis', include=TRUE}
 
 interactions=grep('I[(]', unlist(strsplit(as.character(form_interact), ' [+] ')),value=T)
 
