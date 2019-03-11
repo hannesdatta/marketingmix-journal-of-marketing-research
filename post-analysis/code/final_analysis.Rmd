@@ -848,7 +848,7 @@ print(p)
 
 ...to illustrate whether level effects may drive our effects.
 
-```{r plotvars,echo=FALSE, include=FALSE}
+```{r plotvars,echo=FALSE, include=TRUE}
 vars=c('nov12sh','nwprd','llen','wpswdst')
 
 cats = unique(brand_panel$category)
