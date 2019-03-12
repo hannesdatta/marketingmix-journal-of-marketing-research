@@ -546,7 +546,7 @@ for (elasttype in c('st', 'lt')) {
 
 # Robustness checks
 
-```{r robustness_regs, echo = TRUE, results='asis'}
+```{r robustness_regs, echo = FALSE, results='asis'}
 
 modellist = lapply(c('developed', 'ln_gci_00.03_gdppercap_s_mc', 'ln_gci_overall_s_mc', 'ln_hdi2010_mc', 'gcifactor_mc'), 
                    function(x) update.formula(update.formula(form_main_model, .~.-emerging), as.formula(paste0('.~. +', x))))
@@ -800,7 +800,7 @@ corstars(printtmp, method=c("pearson"),result='html', caption = tab('Correlation
 ```
 
 
-```{r plot_2x2, echo=FALSE, include= FALSE}
+```{r plot_2x2, echo=FALSE, include=FALSE}
 
 out1=regmodel(formula=c(main=form_main_model), dat=elast, model='lmer')
 
