@@ -292,6 +292,28 @@ plotfkt<-function(dt) {
 	xyplot(V1~date,data=tmp,type='l',auto.key=T)
 	}
 	
+	# investigate plasma vs other TVs
+	if(0){
+	LCD=rbindlist(list(datlist_by_cat$'LCD-TV W/O LED',datlist_by_cat$'LCD-TV WITH LED'), fill=T)
+	PLASMA=rbindlist(list(datlist_by_cat$'PTV/FLAT'))
+	
+	LCD=LCD[source=='gfk2015']
+	PLASMA=PLASMA[source=='gfk2015']
+	
+	tmp=LCD[, list(sales=sum(SALES_UNITS)),by=c('COUNTRY','date')]
+	tmp2=PLASMA[, list(sales=sum(SALES_UNITS)),by=c('COUNTRY','date')]
+	setorder(tmp,COUNTRY,date)
+	setorder(tmp2,COUNTRY,date)
+	
+	require(lattice)
+	xyplot(sales~date|COUNTRY,tmp,type='l',scales=list(y='free'),main='LCD')
+	xyplot(sales~date|COUNTRY,tmp2,type='l',scales=list(y='free'), main='PLASMA')
+	
+	# overlap / duplicates?
+	PLASMA[COUNTRY=='CHINA'&Brand=='PIONEER'] #?
+	# reportinggroup PTV/FLAT also contains LCD TVs
+	table(PLASMA[COUNTRY=='CHINA'&Brand=='PIONEER']$Model%in%LCD[COUNTRY=='CHINA'&Brand=='PIONEER'])
+	}
 	
 # (13) Washing machines
 	datlist_final$washing = rbindlist(list(datlist_by_cat$'WASHINGMACHINES'),fill=T)

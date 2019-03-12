@@ -10,8 +10,7 @@
 
 # Goal: Define uniqueness measures per SKU and date
 
-require(data.table)
-require(compiler)
+library(data.table)
 
 #################################################################
 ### LOAD RAW DATA AND PREPARE DATA FILES INTO datlist_final
