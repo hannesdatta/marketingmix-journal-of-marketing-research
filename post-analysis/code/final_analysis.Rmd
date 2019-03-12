@@ -333,7 +333,7 @@ for (iter in iters) {
   
 ```
 
-```{r testconvergence, echo=FALSE, include=FALSE}
+```{r testconvergence, eval=FALSE, echo=FALSE, include=FALSE}
 obj=c('elast', 'w_elast', 'z_elast')
   
 tmp = elast[!is.na(get(obj[1]))][, ':=' (val=get(obj[1]), 
@@ -395,7 +395,7 @@ Category concentration     | Herfindahl index in a market (category/country comb
 Domestic versus foreign brand | Dummy, equaling 1 if a brand's headquarter is located in the focal country, 0 if not.
 Price index | Brand's average price (deflated sales value divided by the brand's sales volume over the observation period), indexed by the average price in a given category and country.
 Brand equity               | Sales-based brand equity, derived from the market share attraction model, standardized by category. | Datta, Ailawadi, and van Heerde (2017)
-Gini index                | Gini index in a country.^1^
+Gini index                | Gini index in a country.
 
 ^1^ All continuous variables are first logged and then mean-centered before model estimation (except brand equity, which is only mean-centered as this variable can take on negative values). 
 
@@ -462,7 +462,7 @@ printout(main, 'stlt', title = tab('Regression with short- and long-term elastic
 
 # MAIN MODEL WITH SELECTED INTERACTIONS
 cat("<P style='page-break-before: always'>")
-printout(main, 'stlt', title = tab('Regression with short- and long-term elasticities in a pooled sample of developed and emerging countries, with selected interactions'), vars=ordered_vars,  notes=gsub('long[-]term', 'short- and long-term', notes_base))
+printout(main_interact, 'stlt', title = tab('Regression with short- and long-term elasticities in a pooled sample of developed and emerging countries, with selected interactions'), vars=ordered_vars,  notes=gsub('long[-]term', 'short- and long-term', notes_base))
 
 
 ```
@@ -536,7 +536,7 @@ for (elasttype in c('st', 'lt')) {
   # MAIN MODEL
   #sink('../temp/test.html')
   cat("<P style='page-break-before: always'>")
-  printout(mod_out, elasttype, title = tab(paste('Regression with ', ifelse(elasttype=='st', 'short-term', 'long-term'), ' elasticities in a pooled sample of developed and emerging countries: main model, model with full interaction terms, and model with selected interaction terms')), vars=ordered_vars, notes=paste0(ifelse(elasttype=='st', gsub('long[-]term', 'short-term', notes_base), notes_base),  ' For each variable, the first column reports a model without interactions (our main model); the second column reports a model with full interactions; the third column reports a model in which only interactions are added that were significant in an auxilary regression with all main effects, and only one of the relevant interaction terms each.'))
+  printout(mod_out, elasttype, title = tab(paste('Regression with ', ifelse(elasttype=='st', 'short-term', 'long-term'), ' elasticities in a pooled sample of developed and emerging countries: main model, model with full interaction terms, and model with model-based selected interaction terms')), vars=ordered_vars, notes=paste0(ifelse(elasttype=='st', gsub('long[-]term', 'short-term', notes_base), notes_base),  ' For each variable, the first column reports a model without interactions (our main model); the second column reports a model with full interactions; the third column reports a model in which only interactions are added that were significant in an auxilary regression with all main effects, and only one of the relevant interaction terms each.'))
   #sink()
 
 }
@@ -546,12 +546,17 @@ for (elasttype in c('st', 'lt')) {
 
 # Robustness checks
 
-```{r robustness_regs, echo = FALSE, results='asis'}
+```{r robustness_regs, echo = TRUE, results='asis'}
 
 modellist = lapply(c('developed', 'ln_gci_00.03_gdppercap_s_mc', 'ln_gci_overall_s_mc', 'ln_hdi2010_mc', 'gcifactor_mc'), 
                    function(x) update.formula(update.formula(form_main_model, .~.-emerging), as.formula(paste0('.~. +', x))))
 
+modellist2 = lapply(c('developed', 'ln_gci_00.03_gdppercap_s_mc', 'ln_gci_overall_s_mc', 'ln_hdi2010_mc', 'gcifactor_mc'), 
+                   function(x) update.formula(update.formula(form_main_model_selected_interact, .~.-emerging), as.formula(paste0('.~. +', x))))
+
 out1=regmodel(formula=modellist, dat=elast, model='lmer')
+
+out2=regmodel(formula=modellist2, dat=elast, model='lmer')
 
 #sink('../temp/test.html')
 
@@ -562,6 +567,13 @@ printout(out1, 'lt', vars=ordered_vars[1:2], title = tab('Regression with long-t
 
 cat("<P style='page-break-before: always'>")
 printout(out1, 'lt', vars=ordered_vars[3:4], title = tab('Regression with long-term elasticities on covariates and different indicators for a country\'s state of development'),  notes=notes)
+#sink()
+
+cat("<P style='page-break-before: always'>")
+printout(out2, 'lt', vars=ordered_vars[1:2], title = tab('Regression with long-term elasticities on covariates and different indicators for a country\'s state of development, with selected interactions'),  notes=notes)
+
+cat("<P style='page-break-before: always'>")
+printout(out2, 'lt', vars=ordered_vars[3:4], title = tab('Regression with long-term elasticities on covariates and different indicators for a country\'s state of development, with selected interactions'),  notes=notes)
 #sink()
 
 ```
