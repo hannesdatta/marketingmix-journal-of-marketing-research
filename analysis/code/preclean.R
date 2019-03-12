@@ -27,11 +27,6 @@ require(data.table)
 	brand_panel[, ':=' (date = as.Date(date))]
 	brand_panel[, quarter := quarter(date)]
 	
-	# extract novelty variables, transform them to shares
-	novvars <- grep('nov[0-9].*', colnames(brand_panel),value=T)
-	for (.var in novvars) brand_panel[, (paste0(.var,'sh')) := (get(.var)/llen)*100]
-	
-	
 	# lag variables
 	for (.var in c('rwpspr', 'wpswdst','llen',grep('nov[0-9]+sh', colnames(brand_panel),value=T))) {
 	  brand_panel[, paste0('lag', .var) := c(NA, get(.var)[-.N]), by = c('market_id', 'brand')]
@@ -81,10 +76,12 @@ require(data.table)
                     c5=sum(overall_ms[rank_ms<=5])/sum(overall_ms)), by = c('market_id')]
   brand_panel <- merge(brand_panel, concentration, by = c('market_id'), all.x=T, all.y=F)
   
-  # keep only selected brands
+  # keep selected brands and ALLOTHER brands
   brand_panel <- brand_panel[selected==T]
-	
-	brand_panel[, usalessh := usales/sum(usales,na.rm=T), by=c('category', 'country', 'date')]
+  
+  brand_panel[, usales_incr:=ifelse(usales==0, usales+.01, usales)]
+  
+	brand_panel[, usalessh := usales_incr/sum(usales_incr,na.rm=T), by=c('category', 'country', 'date')]
 	brand_panel[, vsalessh := vsales/sum(vsales,na.rm=T), by=c('category', 'country', 'date')]
 	brand_panel[, month_no := as.numeric(as.factor(date))]
 	
@@ -107,5 +104,6 @@ require(data.table)
 	brand_panel[, N:=NULL]
 	
 	# Save file
+	dir.create('../temp')
 	fwrite(brand_panel, '../temp/preclean.csv')
 	

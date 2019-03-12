@@ -21,6 +21,7 @@
 library(data.table)
 library(stringr)
 
+dir.create('../temp')
 
 ########################################
 # Human development index              #

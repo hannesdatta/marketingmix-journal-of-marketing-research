@@ -13,15 +13,18 @@ OUTPUT_DIR = ../output
 #.PHONY : $(TEMP_DIR)/%.RData
 
 # full build
-build: $(OUTPUT_DIR)/datasets.RData
+all: build audit
+
+build: $(OUTPUT_DIR)/datasets.csv
 
 # audit
-audit: audit_rawplot audit_markets
+audit: $(TEMP_DIR)/audit_rawplot.txt $(TEMP_DIR)/audit_markets.txt $(TEMP_DIR)/audit_brands.txt
 
 # building parts of the project
 unzip: $(TEMP_DIR)/unzipped.RData
 categorize: $(TEMP_DIR)/categorized.RData
 gdponly: $(TEMP_DIR)/gdppercap.RData
+uniq: $(TEMP_DIR)/uniqueness_and_lagsales.RData
 
 ###### DATA PREPARATION ######
 
@@ -54,15 +57,21 @@ $(TEMP_DIR)/select.RData : select.R $(TEMP_DIR)/uniqueness_and_lagsales.RData
 	"$(RBIN64)Rterm.exe" --vanilla --args "" < "select.R"
 
 # prepare brand-level data set (e.g., remove/interpolate missings)
-$(OUTPUT_DIR)/datasets.RData: brand_metrics.R $(TEMP_DIR)/exch_cpi.RData $(TEMP_DIR)/select.RData $(TEMP_DIR)/uniqueness_and_lagsales.RData $(TEMP_DIR)/gdppercap.RData
+$(TEMP_DIR)/brand_metrics.RData: brand_metrics.R $(TEMP_DIR)/exch_cpi.RData $(TEMP_DIR)/select.RData $(TEMP_DIR)/uniqueness_and_lagsales.RData $(TEMP_DIR)/gdppercap.RData
 	"$(RBIN64)Rterm.exe" --vanilla --args "" < "brand_metrics.R"
 
-
+# do final time selection
+$(OUTPUT_DIR)/datasets.csv: time_select.R $(TEMP_DIR)/brand_metrics.RData
+	"$(RBIN64)Rterm.exe" --vanilla --args "" < "time_select.R"
 	
 # --> audit: create category sales plots
-audit_rawplot: audit_rawplot.R $(TEMP_DIR)/categorized.RData
+$(TEMP_DIR)/audit_rawplot.txt: audit_rawplot.R $(TEMP_DIR)/categorized.RData
 	"$(RBIN64)Rterm.exe" --vanilla --args "" < "audit_rawplot.R"
 
 # --> audit: create plots of all markets
-audit_markets: audit_markets.R $(OUTPUT_DIR)/datasets.RData
+$(TEMP_DIR)/audit_markets.txt: audit_markets.R $(OUTPUT_DIR)/datasets.csv
 	"$(RBIN64)Rterm.exe" --vanilla --args "" < "audit_markets.R"
+
+# --> audit: create plots of brands
+$(TEMP_DIR)/audit_brands.txt: audit_brands.R $(OUTPUT_DIR)/datasets.csv
+	"$(RBIN64)Rterm.exe" --vanilla --args "" < "audit_brands.R"

@@ -35,7 +35,6 @@ datlist_final <- datlist_final[!unlist(lapply(datlist_final, is.null))]
 rbindlist(lapply(datlist_final, function(x) x[, list(N=.N),by=c('category','country')]))
 
 # Extract first availability dates from the data
-
   # get string vector of first activity dates
   months=data.table(char_month=unique(unlist(lapply(datlist_final, function(x) unique(x$firstactivity)))))
   months[, char_month:=gsub('[-]', ' 20', char_month)]
@@ -72,63 +71,18 @@ for (i in 1:length(datlist_final)) {
 
 	setkey(datlist_final[[i]], category, country, brand, model, date)
 
-	skus_by_date = datlist_final[[i]][, list(t_sales_units=sum(sales_units), 
-											 t_value_sales = sum(sales_units*as.numeric(price_lc)),
-											 t_value_sales_usd = sum(sales_units*as.numeric(price_usd)),
-											 t_numdist = sum(sales_units*numeric_distribution)/sum(sales_units),
-											 t_wdist = sum(sales_units*weighted_distribution)/sum(sales_units)), 
+	datlist_final[[i]][, sales_units_nonzero:=sales_units]
+	datlist_final[[i]][sales_units_nonzero<0, sales_units_nonzero:=0]
+	
+	skus_by_date = datlist_final[[i]][, list(t_sales_units=sum(sales_units_nonzero), 
+											 t_value_sales = sum(sales_units_nonzero*as.numeric(price_lc)),
+											 t_value_sales_usd = sum(sales_units_nonzero*as.numeric(price_usd)),
+											 t_price = mean(price_lc),
+											 t_price_usd = mean(price_usd),
+											 t_numdist = ifelse(all(sales_units_nonzero==0), mean(numeric_distribution), sum(sales_units_nonzero*numeric_distribution)/sum(sales_units_nonzero)),
+											 t_wdist = ifelse(all(sales_units_nonzero==0), mean(weighted_distribution), sum(sales_units_nonzero*weighted_distribution)/sum(sales_units_nonzero))), 
 											 by=c('category', 'country', 'market_id', 'brand', 'model', 'date')]
 	
-	# If a product is not sold, kick it out from this list
-	skus_by_date <- skus_by_date[!t_sales_units==0]
-	
-	##############################################################################################
-	# Create weighted past sales metric for every SKU (used for weighing the promotion metrics)  #
-	##############################################################################################
-	
-		cat('Compute past sales metric for re-weighing.\n')
-		
-		# metrics that are aggregated to a brand-level will be
-		# weighted with each SKU's lagged sales (t-2, t-1, t).
-		
-		# question: are NAs counted as ZEROS, or as NA's:
-		# -> I decide they will be treated as NAs.
-	
-		t_lags = c(-2,-1, 0)
-		t_lag_names = paste0('lag_date', gsub('[-]', 'min', as.character(t_lags)))
-		
-		tmpdates <- skus_by_date[, list(N=.N),by=c('date')][,N:=NULL]
-		
-		lags=sapply(t_lags, function(t_lag, x) {
-			m.date=as.POSIXlt(x)
-			m.date$mon=m.date$mon+t_lag
-			return(as.character(m.date))
-			}, x=tmpdates$date)
-		
-		for (t_lag in seq(along=t_lags)) {
-			tmpdates[, t_lag_names[t_lag] := c(as.Date(lags[,t_lag]))]
-			}
-		
-		# Merge this to skus_by_date
-		setkey(tmpdates, date)
-		setkey(skus_by_date, date)
-		suppressWarnings(skus_by_date[, t_lag_names := NULL])
-		skus_by_date <- tmpdates[skus_by_date]
-		
-		setkey(skus_by_date, 'category', 'country','brand', 'model', 'date')
-		
-		sales_lag_names = paste0('lag_sales', gsub('[-]', 'min', as.character(t_lags)))
-		for (t_lag in seq(along=t_lags)) {
-			eval(parse(text=paste0('skus_by_date[,  sales_lag_names[t_lag] := t_sales_units[match(', t_lag_names[t_lag],', date)],by=c(\'category\', \'country\',\'brand\', \'model\')]')))
-			}
-		eval(parse(text=paste0('skus_by_date[, t_wsales_units := rowSums(data.table(',paste(sales_lag_names,collapse=','),'), na.rm=T)]')))
-		skus_by_date[, t_wsales_units:=t_wsales_units/length(t_lags)]
-		
-		# remove unnecessary columns
-		skus_by_date[, c(t_lag_names, sales_lag_names) := NULL]
-		rm(tmpdates)
-		
-
 	###################################
 	# Calculation of novelty measure  #
 	###################################
@@ -143,7 +97,31 @@ for (i in 1:length(datlist_final)) {
     tmp_novelty[first_datecoded>first_datedata, first_date:=first_datedata]
     tmp_novelty[first_datecoded<=first_datedata, first_date:=first_datecoded]
     
+    if(0){
+    # Novelty
+    tmp = tmp_novelty[, c('category','country','brand','model','first_date')]
+    
+    alldates=seq(from=min(tmp$first_date,na.rm=T), to=as.Date('2015-12-01'), by = '1 month')
+    
+    tmp=rbind(tmp, data.table(category='null',country='null',brand='null',model='null', first_date=alldates))
+    
+    tmp[, id := .GRP,by=c('category','country','brand','model')]
+    tmp[, value:=1]
+    novelty=dcast(tmp, id+first_date~., drop=F, fill=0)
+    setnames(novelty, '.', 'novel')
+    
+    setkey(novelty)
+    setkey(tmp, id)
+    novelty=novelty[tmp, ':=' (category=i.category, country=i.country, brand=i.brand, model=i.model)]
+    novelty=novelty[!id==max(id)]
+    
+    
+    #dim(test)
+    
+    }
+    
     novelty_list[[i]]<-tmp_novelty
+    
     
 		skus_by_date <- merge(skus_by_date, tmp_novelty ,by=c('category', 'country','brand','model'),all.x=T)
 

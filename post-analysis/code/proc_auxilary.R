@@ -6,6 +6,8 @@ psignstars <- function(x) {
 # Function to run regression model (#mmix, with spec formula)
 regmodel <- function(formula=list(~1+I(country_class=='linc') + as.factor(category) + as.factor(brand)), 
                      dat, model = 'lm') {
+ 
+  lmerctrl = lmerControl(optimizer ="Nelder_Mead", check.conv.singular="ignore")
   
   if (class(formula)=='formula') formula=list(formula)
   
@@ -17,8 +19,8 @@ regmodel <- function(formula=list(~1+I(country_class=='linc') + as.factor(catego
       fit=NULL
       }
     if (model=='lmer') {
-      st = lapply(formula, function(form) lmer(update(form, elast ~ .), data = data.table(dat[variable==varname&!is.na(elast)]), weights=w_elast))
-      lt = lapply(formula, function(form) lmer(update(form, elastlt ~ .), data = data.table(dat[variable==varname&!is.na(elastlt)]), weights=w_elastlt))
+      st = lapply(formula, function(form) lmer(update(form, elast ~ .),  control = lmerctrl, data = data.table(dat[variable==varname&!is.na(elast)]), weights=w_elast))
+      lt = lapply(formula, function(form) lmer(update(form, elastlt ~ .),  control = lmerctrl, data = data.table(dat[variable==varname&!is.na(elastlt)]), weights=w_elastlt))
       fit= NULL #sem.model.fits(list(st,lt))
       }
     return(list(variable=varname, st=st, lt=lt, fit = fit))

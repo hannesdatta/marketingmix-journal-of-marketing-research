@@ -38,6 +38,8 @@ railroadqual	Quality of railroad infrastructure	gsub
 roadqual	Quality of roads	gsub
 washing	Washing machines	gsub
 tv_gen2_lcd	LCD TV	gsub
+tv_gen2_ptv	Plasma TV	gsub
+tv_gen3_lcd_only	LCD TV	gsub
 tv_gen1_crtv	CRT TV	gsub
 tablets	Tablets	gsub
 phones_smart	Smart phones	gsub
@@ -65,8 +67,8 @@ re[_]t	t-value from RE^4^	grepl
 mmixinstr	Marketing-mix instrument	gsub
 Neffects	Number of estimates	grepl
 .*[_]sig	sig.	gsub
-[*] developed	     x developed country	grepl
-[*] emerging	     x emerging country	grepl
+[*] developed	     x developed market	grepl
+[*] emerging	     x emerging market	grepl
 [*] gcifactor	     x GCI component score	grepl
 necessity	Appliance (vs. electronics)	gsub
 appliance	Appliance (vs. electronics)	gsub
@@ -80,8 +82,8 @@ ln_overall[_]ms[_]mc	Log of brand-level market share	gsub
 ln_overall[_]prindex[_]mc	Log of price index	gsub
 ln_overall[_]prindexavg[_]mc	Log of price index	gsub
 ^overall[_]prindex	Price index	grepl
-local_to_market	Domestic single-market (vs. foreign) brand	grepl
-local_multip_market	Domestic multiple markets brand	grepl
+local_to_market	Domestic (vs. foreign) brand	grepl
+local_multip_market	Domestic (multiple markets brand)	grepl
 sbbelt|sbbelt[_]mc	Brand equity (long-term, not standardized)	gsub
 sbbe[_]std|sbbe[_]std[_]mc	Brand equity	gsub
 sbbe|sbbe[_]mc	Brand equity (short-term, not standardized)	gsub
@@ -100,8 +102,8 @@ perc_negative	%-negative and significant	gsub
 perc_null	%-insignificant	gsub
 Northamerica	North America	gsub
 nbrands	Number of brands	gsub
-^emerging	Emerging country indicator	grepl
-^developed	Developed country indicator	grepl
+^emerging	Emerging market indicator	grepl
+^developed	Developed market indicator	grepl
 country[_]of[_]origin	Country of origin	gsub
 Country[_]of[_]origin	Country of origin	gsub
 asian[_]brand	Asian brand	gsub
@@ -118,4 +120,5 @@ gci[_]00.03[_]gdppercap_s[_]mc|gci[_]00.03[_]gdppercap[_]s	GDP per capita	gsub
 ln[_]gci[_]overall[_]s[_]mc	Log global competitiveness index	gsub
 variable	Variable	gsub
 meanglobalx[_]mc	Variable mean	gsub
-gini[_]mc	Gini coefficient	gsub
+gini[_]mc	Gini index	gsub
+^gini	Gini index	gsub

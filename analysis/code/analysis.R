@@ -18,22 +18,23 @@
 # |___________________|_____|
 
 
-if (1==1) quit()
+#if (1==1) quit()
 
 ### LOAD DATA SETS
 library(data.table)
 require(bit64)
 library(parallel)
 
+dir.create('../output')
+
 ## Load panel data
 	brand_panel=fread('../temp/preclean.csv')
 	brand_panel[, ':=' (date = as.Date(date))]
 
 ## Obs per market
-	tmp=brand_panel[, list(obs=length(unique(date[!is.na(nov6)]))),by=c('market_id','category','country')]
+	tmp=brand_panel[, list(obs=length(unique(date[!is.na(nov12)]))),by=c('market_id','category','country')]
 	setorder(tmp, obs)
-	
-	
+
 ## How many brands are active in multiple countries
 	tmp = brand_panel[, list(N=.N), by = c('brand', 'country')]
 	tmp[, Ncountries := .N, by = c('brand')]
@@ -54,12 +55,12 @@ library(parallel)
 
 	setorder(markets,market_id)
 	analysis_markets <- unique(markets$market_id)
-
+  length(analysis_markets)
+  
 ### Run specs
 	run_manual=TRUE
 	run_cluster=TRUE
-	ncpu = 11 #4
-	analysis_markets#=analysis_markets[1:2]
+	ncpu = 11 
 	
 ### Function to initialize all required functions (on a cluster)
 	init <- function() {
@@ -84,7 +85,7 @@ library(parallel)
 	m1 <- list(setup_y=c(usalessh = 'usalessh'),
 		   setup_x=c(price = 'rwpspr', dist = 'wpswdst', llen = 'llen', nov = 'nov6sh'),
 		   setup_endogenous = c('rwpspr', 'wpswdst','llen','nov6sh'),
-		   plusx = c('nov6sh', 'wpswdst'),
+		   plusx = c('nov6sh', 'wpswdst', 'llen'),
 		   trend='always', # choose from: always, ur, none.
 		   pval = .1, max.lag = 12, min.t = 36, descr = 'model',
 		   fn = 'model', benchmarkb = NULL, estmethod = "FGLS",

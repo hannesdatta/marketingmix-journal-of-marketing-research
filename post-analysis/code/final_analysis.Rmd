@@ -8,14 +8,15 @@ date: "`r format(Sys.time(), '%d %B %Y')`"
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
-libs_to_load <- c('data.table', 'stargazer', 'knitr', 'xtable', 'lme4', 'car', 'kableExtra', 'stringi', 'ggplot2', 'ggpubr', 'plyr')
+libs_to_load <- c('data.table', 'stargazer', 'knitr', 'xtable', 'car', 'kableExtra', 'stringi', 'ggplot2', 'ggpubr', 'plyr', 'gridExtra', 'grid', 'lme4') #'blme' 
+
 for (lib in libs_to_load) eval(parse(text=paste('library(', lib, ')')))
 
 options(xtable.comment = FALSE)
 options(knitr.kable.NA = '')
 
 # Load data
-  elast <- fread('../externals/elast_results_nov12sh.csv')#[globalbrand==T]
+  elast <- fread('../externals/elast_results_nov12sh.csv') #[globalbrand==T]
   #elast <- fread('../externals/elast_results_nov12sh.csv')#[category%in%c('camera_slr', 'tablets')]
 
   brand_panel=fread('../../analysis/temp/preclean.csv')
@@ -63,11 +64,16 @@ names(ordered_vars) <- paste0(unlist(sanitize_table(data.frame(ordered_vars))), 
 #elast[is.na(country_of_origin), ':=' (local_to_market=0, cntrymissing=1, country_of_origin='missing')]
 
 # formulas for models
-form_main_model = .~1+ (1|brand) + (1|category) + (1|country) + emerging + appliance + ln_market_growth_mc + ln_herf_mc + local_to_market + local_multip_market + ln_overall_prindexavg_mc + gini_mc + meanglobalx + sbbe_std_mc
+form_main_model = .~1+ (1|brand) + (1|category) + (1|country) + emerging +  ln_market_growth_mc + ln_herf_mc + local_to_market + sbbe_std_mc + ln_overall_prindexavg_mc + appliance + gini_mc
 
+form_main_model_selected_interact = .~1+ (1|brand) + (1|category) + (1|country) + emerging +  ln_market_growth_mc + I(ln_market_growth_mc*emerging) + ln_herf_mc + I(ln_herf_mc*emerging) + local_to_market + I(local_to_market*emerging) + sbbe_std_mc + I(sbbe_std_mc*emerging) + ln_overall_prindexavg_mc + appliance + gini_mc
+
+#meanglobalx local_multip_market
 #local_multip_market +
+
 form_interact = ~1+ (1|brand) + (1|category) + (1|country) + emerging + appliance + I(appliance*emerging) + ln_market_growth_mc + I(ln_market_growth_mc*emerging) + ln_herf_mc + I(ln_herf_mc*emerging) + local_to_market + I(local_to_market*emerging) + ln_overall_prindexavg_mc + I(ln_overall_prindexavg_mc*emerging) + sbbe_std_mc + I(sbbe_std_mc*emerging)
 
+lmerctrl = lmerControl(optimizer ="Nelder_Mead", check.conv.singular="ignore")
 
 #estimtype = 'winsor-onesided'
 #estimtype = 'winsor-twosided'
@@ -109,6 +115,8 @@ if (estimtype=='weighted') {
   for (.var in c('elast', 'elastlt')) {
 
     elast[!is.na(get(.var)), paste0('w_', .var) := 1/get(paste0(.var, '_se'))]
+    # rescale
+    elast[!is.na(get(.var)), paste0('w_', .var) := get(paste0('w_', .var))/max(get(paste0('w_', .var)))]
     elast[!is.na(get(.var)), paste0('z_', .var) := get(.var)/get(paste0(.var, '_se'))]
   }
    
@@ -176,7 +184,7 @@ kable(sanitize_table(tmp), format='html', initial.zero = FALSE, caption=tab('Dev
 tmp=data.table(elast)
 tmp[, ncountries:=length(unique(country)),by=c('category')]
 
-tmp=tmp[, list(overall_ms=mean(overall_ms), ncountries=mean(ncountries)), by = c('category', 'appliance', 'brand')]
+tmp=tmp[!grepl('allothers|unbranded', brand,ignore.case=T), list(overall_ms=mean(overall_ms), ncountries=mean(ncountries)), by = c('category', 'appliance', 'brand')]
 
 setorderv(tmp, c('category', 'appliance', 'overall_ms'), order=-1L)
 tmp[!brand%in%c('unbranded','local'), rank:=1:.N, by = c('category')]
@@ -214,6 +222,7 @@ New product activity | Number of SKUs introduced by brand *i* in a rolling windo
 elast_all=data.table(elast)
 elast=elast[!is.na(country_of_origin)&!tolower(brand)%in%c('unbranded')]
 excluded_brands=setdiff(unique(elast_all$brand), unique(elast$brand))
+excluded_brands<-unique(gsub('Allothers.*', 'Composite brands (allothers)', excluded_brands))
 
 ```
 
@@ -236,6 +245,7 @@ Reported for a sample of `r length(unique(elast$brand))` unique brands (excludin
     # different t-tests
   
     diff_tests=lapply(c(ttest='ttest', wls='wls',re='re'), function(tvalrep) {
+      
       if (tvalrep=='wls') {
       # OLS-based p values   
       diff_tests=rbindlist(lapply(unique(elast$variable), function(.var) {
@@ -248,7 +258,7 @@ Reported for a sample of `r length(unique(elast$brand))` unique brands (excludin
       if (tvalrep=='re') {
       # random effects based p values
         diff_tests=rbindlist(lapply(unique(tmp$variable), function(.var) {
-        data.table(variable=.var, effect=c('constant', 'emerging'), summary(lmer(val~1+(1|category) + (1|country) + (1|brand) + emerging, weights=val_w,data=tmp[variable==.var]))$coefficients)[, p:=2*(1-pnorm(abs(get('t value'))))]
+        data.table(variable=.var, effect=c('constant', 'emerging'), summary(lmer(val~1+(1|category) + (1|country) + (1|brand) + emerging, weights=val_w,control = lmerctrl, data=tmp[variable==.var]))$coefficients)[, p:=2*(1-pnorm(abs(get('t value'))))]
       }))
         taddition = paste0('Test on differences carried out by regressing elasticities (', estimnoteshort, ') on an intercept, an emerging country indicator variable and three random effects, for brands, categories, and countries, respectively. Reported t-value is obtained from the estimate of the emerging country indicator.')
   
@@ -323,6 +333,56 @@ for (iter in iters) {
   
 ```
 
+```{r testconvergence, eval=FALSE, echo=FALSE, include=FALSE}
+obj=c('elast', 'w_elast', 'z_elast')
+  
+tmp = elast[!is.na(get(obj[1]))][, ':=' (val=get(obj[1]), 
+                                       val_w=get(obj[2]),
+                                       val_z=get(obj[3]))]
+    # random effects based p values
+        diff_tests=rbindlist(lapply(unique(tmp$variable), function(.var) {
+          #print(.var)
+        data.table(variable=.var, effect=c('constant', 'emerging'), summary(lmer(val~1+(1|category) + (1|country) + (1|brand) + emerging, weights=val_w,REML=FALSE,control = lmerctrl, data=tmp[variable==.var]))$coefficients)[, p:=2*(1-pnorm(abs(get('t value'))))]
+      }))
+   
+ obj=c('elastlt','w_elastlt', 'z_elastlt')
+       
+obj=c('elastlt','w_elastlt', 'z_elastlt')
+#summary(blmer(val~1+(1|category) + (1|country) + (1|brand) + emerging, weights=val_w,data= tmp[variable=='llen'],control = lmerControl(optimizer ="Nelder_Mead")))
+
+
+#summary(lmer(val~1+(1|category) + (1|country) + (1|brand) + emerging, weights=val_w,data= tmp[variable=='llen'], REML = FALSE))
+
+
+#summary(lmer(val~1+(1|category) + (1|country) + (1|brand) + emerging, weights=val_w,data= tmp[variable=='nov12sh'], REML = FALSE))
+
+
+# one with singular fit
+
+
+# singular
+obj=c('elastlt','w_elastlt', 'z_elastlt')
+tmp = elast[!is.na(get(obj[1]))][, ':=' (val=get(obj[1]), 
+                                       val_w=get(obj[2]),
+                                       val_z=get(obj[3]))]
+#m<-lmer(val~1+(1|category) + (1|country) + emerging, data= tmp[variable=='rwpspr'])
+
+
+#summary(m)
+#m2<-blmer(val~1+(1|category) + (1|country) + emerging, data= tmp[variable=='rwpspr'], cov.prior=wishart)
+#summary(m2)
+
+             
+ #+ (1|brand) 
+
+#singluar fit
+#lmer(elast~1+ (1|brand) + (1|category) + (1|country) + emerging + appliance + ln_market_growth_mc + ln_herf_mc + local_to_market + ln_overall_prindexavg_mc + gini_mc + sbbe_std_mc,data=elast[variable=='rwpspr'],weights=1/elast_se)
+
+#lmer(elastlt~1+ (1|brand) + (1|category) + (1|country) + emerging + appliance + ln_market_growth_mc + ln_herf_mc + local_to_market + ln_overall_prindexavg_mc + gini_mc + sbbe_std_mc,data=elast[variable=='llen'],weights=1/elastlt_se)
+
+     
+```
+
 # Second-stage analysis
 
 `r tab("Variable operationalization^1^")`
@@ -335,6 +395,7 @@ Category concentration     | Herfindahl index in a market (category/country comb
 Domestic versus foreign brand | Dummy, equaling 1 if a brand's headquarter is located in the focal country, 0 if not.
 Price index | Brand's average price (deflated sales value divided by the brand's sales volume over the observation period), indexed by the average price in a given category and country.
 Brand equity               | Sales-based brand equity, derived from the market share attraction model, standardized by category. | Datta, Ailawadi, and van Heerde (2017)
+Gini index                | Gini index in a country.
 
 ^1^ All continuous variables are first logged and then mean-centered before model estimation (except brand equity, which is only mean-centered as this variable can take on negative values). 
 
@@ -342,7 +403,7 @@ Brand equity               | Sales-based brand equity, derived from the market s
 
 ```{r summarystats, echo=FALSE, results='asis'}
 
-covars <- c('appliance', 'market_growth', 'herf', 'local_to_market', 'overall_prindexavg', 'sbbe_std', 'brandz')
+covars <- c('appliance', 'market_growth', 'herf', 'local_to_market', 'overall_prindexavg', 'sbbe_std', 'brandz', 'gini')
 
 tmp=data.table(elast)
 nbrands=length(unique(tmp$brand))
@@ -387,28 +448,26 @@ print(kable(dtf, format='html', initial.zero = FALSE, digits=3,caption = tab(pas
 ```{r main_regs, echo = FALSE, results='asis'}
 
 
-# formulas for models
-#form_main_model = .~ 1 + (1|brand) + (1|category) + (1|country) + emerging + appliance + ln_market_growth_mc + #ln_herf_mc + local_to_market + ln_overall_prindexavg_mc #+ sbbe_std_mc
-#
-
 out1=regmodel(formula=c(main=form_main_model), dat=elast, model='lmer')
-
 # keep only models that belong to one type (so that each table only features the rows that were actually estimated)
-
 main = lapply(out1, function(x) {x$lt <- list(x$lt$main); x$st <- list(x$st$main); x})
 
-# assemble all variables
-#sink('../temp/secondstage.html')
+out2=regmodel(formula=c(main=form_main_model_selected_interact), dat=elast, model='lmer')
+# keep only models that belong to one type (so that each table only features the rows that were actually estimated)
+main_interact = lapply(out2, function(x) {x$lt <- list(x$lt$main); x$st <- list(x$st$main); x})
 
 # MAIN MODEL
 cat("<P style='page-break-before: always'>")
 printout(main, 'stlt', title = tab('Regression with short- and long-term elasticities in a pooled sample of developed and emerging countries'), vars=ordered_vars,  notes=gsub('long[-]term', 'short- and long-term', notes_base))
 
-#sink()
+# MAIN MODEL WITH SELECTED INTERACTIONS
+cat("<P style='page-break-before: always'>")
+printout(main_interact, 'stlt', title = tab('Regression with short- and long-term elasticities in a pooled sample of developed and emerging countries, with selected interactions'), vars=ordered_vars,  notes=gsub('long[-]term', 'short- and long-term', notes_base))
+
 
 ```
 
-```{r main_regs_both, echo = FALSE, results='asis'}
+```{r main_regs_both, echo = FALSE, results='asis', include=TRUE}
 
 interactions=grep('I[(]', unlist(strsplit(as.character(form_interact), ' [+] ')),value=T)
 
@@ -477,7 +536,7 @@ for (elasttype in c('st', 'lt')) {
   # MAIN MODEL
   #sink('../temp/test.html')
   cat("<P style='page-break-before: always'>")
-  printout(mod_out, elasttype, title = tab(paste('Regression with ', ifelse(elasttype=='st', 'short-term', 'long-term'), ' elasticities in a pooled sample of developed and emerging countries: main model, model with full interaction terms, and model with selected interaction terms')), vars=ordered_vars, notes=paste0(ifelse(elasttype=='st', gsub('long[-]term', 'short-term', notes_base), notes_base),  ' For each variable, the first column reports a model without interactions (our main model); the second column reports a model with full interactions; the third column reports a model in which only interactions are added that were significant in an auxilary regression with all main effects, and only one of the relevant interaction terms each.'))
+  printout(mod_out, elasttype, title = tab(paste('Regression with ', ifelse(elasttype=='st', 'short-term', 'long-term'), ' elasticities in a pooled sample of developed and emerging countries: main model, model with full interaction terms, and model with model-based selected interaction terms')), vars=ordered_vars, notes=paste0(ifelse(elasttype=='st', gsub('long[-]term', 'short-term', notes_base), notes_base),  ' For each variable, the first column reports a model without interactions (our main model); the second column reports a model with full interactions; the third column reports a model in which only interactions are added that were significant in an auxilary regression with all main effects, and only one of the relevant interaction terms each.'))
   #sink()
 
 }
@@ -492,7 +551,12 @@ for (elasttype in c('st', 'lt')) {
 modellist = lapply(c('developed', 'ln_gci_00.03_gdppercap_s_mc', 'ln_gci_overall_s_mc', 'ln_hdi2010_mc', 'gcifactor_mc'), 
                    function(x) update.formula(update.formula(form_main_model, .~.-emerging), as.formula(paste0('.~. +', x))))
 
+modellist2 = lapply(c('developed', 'ln_gci_00.03_gdppercap_s_mc', 'ln_gci_overall_s_mc', 'ln_hdi2010_mc', 'gcifactor_mc'), 
+                   function(x) update.formula(update.formula(form_main_model_selected_interact, .~.-emerging), as.formula(paste0('.~. +', x))))
+
 out1=regmodel(formula=modellist, dat=elast, model='lmer')
+
+out2=regmodel(formula=modellist2, dat=elast, model='lmer')
 
 #sink('../temp/test.html')
 
@@ -503,6 +567,13 @@ printout(out1, 'lt', vars=ordered_vars[1:2], title = tab('Regression with long-t
 
 cat("<P style='page-break-before: always'>")
 printout(out1, 'lt', vars=ordered_vars[3:4], title = tab('Regression with long-term elasticities on covariates and different indicators for a country\'s state of development'),  notes=notes)
+#sink()
+
+cat("<P style='page-break-before: always'>")
+printout(out2, 'lt', vars=ordered_vars[1:2], title = tab('Regression with long-term elasticities on covariates and different indicators for a country\'s state of development, with selected interactions'),  notes=notes)
+
+cat("<P style='page-break-before: always'>")
+printout(out2, 'lt', vars=ordered_vars[3:4], title = tab('Regression with long-term elasticities on covariates and different indicators for a country\'s state of development, with selected interactions'),  notes=notes)
 #sink()
 
 ```
@@ -729,14 +800,85 @@ corstars(printtmp, method=c("pearson"),result='html', caption = tab('Correlation
 ```
 
 
-# plot variables
+```{r plot_2x2, echo=FALSE, include=FALSE}
 
-```{r plotvars,echo=FALSE}
+out1=regmodel(formula=c(main=form_main_model), dat=elast, model='lmer')
+
+# keep only models that belong to one type (so that each table only features the rows that were actually estimated)
+
+main = lapply(out1, function(x) x$lt$main)
+
+# example data
+index=1
+
+shifter = lapply(main, function(i) {
+  vars = grep('_mc|category|country|brand|^elast|(weights)', colnames(i@frame),value=T, invert=T)
+  means=sapply(vars, function(x) mean(i@frame[, x]))
+  coefs = data.frame(summary(i)$coefficients)
+
+  shifter = coefs['(Intercept)',]$Estimate+coefs['appliance',]$Estimate*means['appliance']
+  return(shifter)
+})
+
+shifter=unlist(shifter)
+names(shifter)=names(main)
+
+modvarq=quantile(elast$sbbe_std_mc,c(.2,.8))
+emerging = c(0,1)
+local=c(0,1)
+
+simdata=data.table(expand.grid(modvar=modvarq, emerging=emerging,local_to_market=local))
+
+require(car)
+
+
+sims=rbindlist(lapply(names(main), function(mod) {
+  simdata[, form:=paste0(shifter[mod], '+emerging*', emerging,'+local_to_market*', local_to_market,'+sbbe_std_mc*', modvar)]
+
+  rbindlist(lapply(1:nrow(simdata), function(r) {
+    
+    tmp=deltaMethod(main[[mod]], simdata[r]$form)
+    cbind(model=mod, simdata[r], est=tmp$Estimate, se=tmp$SE)
+  }))
+}))
+
+
+```
+
+## 2x2 plots of estimated elasticities
+
+```{r outputbar, echo=F}
+
+#ggplot(sims, aes(x=emerging, y=est, fill=local_to_market)) + geom_bar(stat="identity", position=position_dodge())
+sims[, ':=' (l_emerging=ifelse(emerging==1,'EM','DM'),
+             l_brandequity=ifelse(modvar==max(modvar), 'high brand equity','low brand equity'),
+             l_local=ifelse(local_to_market==1,'domestic brand','foreign brand'))]
+
+for (mod in unique(sims$model)) {
+simtmp=sims[model==mod]
+
+#png(paste0('../audit/plot_', mod, '.png'), res=150, units='in', height=4, width=4)
+p<-ggplot(simtmp, aes(x=l_emerging,y=est))+geom_bar(stat="identity")+facet_grid(l_brandequity~l_local, switch='y') + ggtitle(paste0(rename.fkt(unique(simtmp$model)), ' elasticities')) + xlab('Development status') + ylab('Mean elasticity')
+#+  geom_errorbar(aes(ymin=est-1.69*se,ymax=est+1.69*se),width=.1)
+print(p)
+#dev.off()
+
+}
+
+
+       
+
+
+```
+
+## Means of marketing mix instruments per brand
+
+...to illustrate whether level effects may drive our effects.
+
+```{r plotvars,echo=FALSE, include=TRUE}
 vars=c('nov12sh','nwprd','llen','wpswdst')
-library(gridExtra)
 
 cats = unique(brand_panel$category)
-#dir.create('../audit')
 
 for (cat in cats) {
   tmp=brand_panel[category==cat][, lapply(.SD,mean,na.rm=T), .SDcols=vars,by=c('country','brand')]
@@ -763,69 +905,9 @@ pl<-lapply(vars, function(v) {
   theme(axis.text.x=element_text(angle=90, hjust=1, size=8)))
 })
 
-#png(paste0('../audit/ranges_', cat, '.png'), res=200, units='in', height=8, width=12)
 
-print(grid.arrange(pl[[1]], pl[[2]], pl[[3]], pl[[4]], top = cat, bottom = "Note: Plot shows variable means for each brand in a given country and category; countries ranked by GDP per capita (2010)"))
-#dev.off()
-}
-
-```
-
-```{r plot_2x2, echo=FALSE}
-
-
-out1=regmodel(formula=c(main=form_main_model), dat=elast, model='lmer')
-
-# keep only models that belong to one type (so that each table only features the rows that were actually estimated)
-
-main = lapply(out1, function(x) x$lt$main)
-
-# example data
-main$llen
-
-modvarq=quantile(elast$sbbe_std_mc,c(.2,.8))
-
-emerging = c(0,1)
-local=c(0,1)
-
-simdata=data.table(expand.grid(modvar=modvarq, emerging=emerging,local_to_market=local))
-require(car)
-
-simdata[, form:=paste0('emerging*', emerging,'+local_to_market*', local_to_market,'+sbbe_std_mc*', modvar)]
-
-sims=rbindlist(lapply(names(main), function(mod) {
-  rbindlist(lapply(1:nrow(simdata), function(r) {
-    tmp=deltaMethod(main[[mod]], simdata[r]$form)
-    cbind(model=mod, simdata[r], est=tmp$Estimate, se=tmp$SE)
-  }))
-}))
-
-
-```
-
-```{r outputbar, echo=F}
-
-
-#ggplot(sims, aes(x=emerging, y=est, fill=local_to_market)) + geom_bar(stat="identity", position=position_dodge())
-sims[, ':=' (l_emerging=ifelse(emerging==1,'EM','DM'),
-             l_brandequity=ifelse(modvar==max(modvar), 'high brand equity','low brand equity'),
-             l_local=ifelse(local_to_market==1,'domestic brand','foreign brand'))]
-dir.create('../audit')
-
-for (mod in unique(sims$model)) {
-simtmp=sims[model==mod]
-
-png(paste0('../audit/plot_', mod, '.png'), res=150, units='in', height=4, width=4)
-p<-ggplot(simtmp, aes(x=l_emerging,y=est))+geom_bar(stat="identity")+facet_grid(l_brandequity~l_local, switch='y') + ggtitle(paste0(rename.fkt(unique(simtmp$model)), ' elasticities')) + xlab('Development status') + ylab('Change in mean elasticity')
-#+  geom_errorbar(aes(ymin=est-1.69*se,ymax=est+1.69*se),width=.1)
-print(p)
-dev.off()
+grid.arrange(pl[[1]], pl[[2]], pl[[3]], pl[[4]], top = cat, bottom = textGrob("Note: Plot shows variable means for each brand in a given country and category; countries ranked by GDP per capita (2010).", gp=gpar(fontsize=8)))
 
 }
 
-
-       
-
-
 ```
-

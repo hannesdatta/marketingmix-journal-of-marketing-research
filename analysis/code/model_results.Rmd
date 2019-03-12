@@ -19,7 +19,7 @@ library(metap)
 options(xtable.comment = FALSE)
 
 # Load results
-load(file = c('../output/results14june2018.RData'))
+load(file = c('../output/results.RData'))
 
 # determine model to analyze
   results_brands <-  results_nov12sh 
@@ -53,6 +53,16 @@ load(file = c('../output/results14june2018.RData'))
 	brand_panel=fread('../temp/preclean.csv')
 	brand_panel[, ':=' (date = as.Date(date))]
 
+	if(0){
+	# verify how often it occurs that only one brand remains in the market
+	tmp=brand_panel[, list(.N),by=c('category','country','market_id','date')]
+	tmp[1:.N]
+	
+	tmp2=dcast(tmp, category+country+market_id~date, value.var='N',fill='')
+	
+	write.table(tmp2, 'clipboard',row.names=F,sep='\t', fill='')
+	}
+	
 
 # get an idea which brands
 tableno<<-0
@@ -127,7 +137,7 @@ zval=1.64
 	tmp <- rbindlist(lapply(results_brands[!checks=='try-error'], function(x) x$model@coefficients))
 	tmp <- tmp[grepl('lagunitsales[_]', varname)]
 	# check markets
-	carryover <- data.table(market_id=unlist(lapply(results_brands, function(x) x$market_id)))
+	carryover <- data.table(market_id=unlist(lapply(results_brands[!checks=='try-error'], function(x) x$market_id)))
 	setkey(carryover, market_id)
 	setkey(tmp, market_id)
 	carryover[tmp, coef:=i.coef]
@@ -192,4 +202,14 @@ hist(carryover$coef, main = 'Distribution of carry-over coefficients')
 test_results=ur_by[, list(N=length(which(!is.na(pval))), N_stationary = length(which(pval<=.1)), N_UR = length(which(pval>.1))), by = c('by','test')]
 
 kable(test_results, caption='Summary of UR tests on the log ratio of market shares')
+```
+
+```{r plot_distributions, echo=FALSE}
+
+for (var in unique(elast$variable)) {
+  par(mfrow=c(1,2))
+  hist(elast[variable==var]$elast, main = paste0('Histogram for ', var))
+  boxplot(elast[variable==var]$elast, main = paste0('Boxplot for ', var))
+}
+
 ```

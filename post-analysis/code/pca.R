@@ -5,6 +5,8 @@
 library(psych)
 library(data.table)
 
+dir.create('../output')
+
 source('corstars.R')
 
 ds <- fread('../temp/gci_pca.csv')
