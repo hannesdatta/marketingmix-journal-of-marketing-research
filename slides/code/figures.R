@@ -1,3 +1,9 @@
+library(data.table)
+library(latticeExtra)
+library(lattice)
+library(ggplot2)
+library(ggthemes)
+
 # Setup
   dir.create('../output')
 
@@ -7,11 +13,11 @@
 
   # Results
   elast <- fread('../../post-analysis/externals/elast_results_nov12sh.csv')
-  
+  elast=elast[!grepl('unbranded|local|amazon|super|allother', brand)]
 
 # Plot: Market concentration in HK - Tablets
   
-  load(file='../derived/temp/select.RData')
+  load(file='../../derived/temp/select.RData')
   
   tmp=tmp_brands_select[category=='tablets'&country=='HONG KONG']
   sum(tmp$marketshare)
@@ -52,12 +58,10 @@
   setorder(tmp, V1)
   
 # Plot: Top 5 brands Smart phones Malaysia
-  require(latticeExtra)
   tmp=brand_panel[country=='malaysia'&category=='phones_smart'&!brand=='allothers']
   tmp[, ms:=mean(usalessh,na.rm=T),by=c('brand')]
   unique(tmp, by='brand')
   
-  require(lattice)
   tmp[, nov12sh:=nov12/llen]
   vars = list(c('usalessh','Market share'), c('rwpspr', 'Price (local currency)'),
               c('llen', 'Line length'), c('wpswdst', 'Distribution'), c('nov12sh', 'New product activity'))
@@ -107,11 +111,8 @@
     
     tmp[, cat:=factor(cat, levels=tmp$cat)]
     
-    print(barchart(elastlt~cat,data=tmp,scales=list(x=list(rot=45)),
-                   ylab='Elasticity', main = paste0(var[2], ' elasticity'),
-                   par.settings = theEconomist.theme(box = "transparent"),
-                   lattice.options = theEconomist.opts()))
-          
+    g<-ggplot(tmp, aes(x=cat, y=elastlt)) + geom_bar(stat='identity') + coord_flip() + ggtitle(paste0(var[2], ' elasticity')) + xlab('') + ylab('Elasticity')
+    print(g)   
     dev.off()
   }
   
@@ -119,22 +120,27 @@
   
   for (var in vars[-1]) {
     print(var[1])
-    png(paste0('../output/variation-cntry_',var[1],'.png'), res=150, units='in', height=3, width=6)
     elast[, w:=1/elastlt_se]
     
-    tmp=elast[variable==var[1], list(elastlt=sum(elastlt*w)/sum(w)), by = 'country']
+    tmp=elast[variable==var[1], list(elastlt=sum(elastlt*w)/sum(w), N=.N), by = c('country', 'country_class')]
     setorder(tmp, elastlt)
     tmp[, cat:=rename.fkt(country, dictionary=c('../../post-analysis/code/renaming.txt'))]
     
     tmp[, cat:=factor(cat, levels=tmp$cat)]
+ 
+    png(paste0('../output/variation-cntry_',var[1],'.png'), res=150, units='in', height=3, width=6)
+    g<-ggplot(tmp, aes(x=cat, y=elastlt)) + geom_bar(stat='identity') + coord_flip() + ggtitle(paste0(var[2], ' elasticity')) + xlab('') + ylab('Long-term elasticity')
+    print(g)
+    dev.off()
     
+    png(paste0('../output/color-cntry_',var[1],'.png'), res=600, units='in', height=5, width=10)
     
-    print(barchart(elastlt~cat,data=tmp,scales=list(x=list(rot=45)),
-                   ylab='Elasticity', main = paste0(var[2], ' elasticity'),
-                   par.settings = theEconomist.theme(box = "transparent"),
-                   lattice.options = theEconomist.opts()))
+    g<-ggplot(tmp, aes(x=cat, y=elastlt, fill=country_class)) + geom_bar(stat='identity') + ggtitle(paste0('Long-term elasticity of ', tolower(var[2])), paste0('N=', prettyNum(sum(tmp$N), big.mark=','))) + 
+      xlab('') + ylab('Long-term elasticity') + theme(legend.position='none', axis.text.x=element_text(angle=45, hjust=1,size=12)) + scale_fill_manual(values=c('red','darkblue') )
+    print(g)
     
     dev.off()
+    
   }
   
   
