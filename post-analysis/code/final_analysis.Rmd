@@ -8,7 +8,7 @@ date: "`r format(Sys.time(), '%d %B %Y')`"
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
-libs_to_load <- c('data.table', 'stargazer', 'knitr', 'xtable', 'car', 'kableExtra', 'stringi', 'ggplot2', 'ggpubr', 'plyr', 'gridExtra', 'grid', 'lme4') #'blme' 
+libs_to_load <- c('data.table', 'stargazer', 'knitr', 'xtable', 'car', 'kableExtra', 'stringi', 'ggplot2', 'ggpubr', 'plyr', 'gridExtra', 'grid', 'lme4', 'sjstats') #'blme' 
 
 for (lib in libs_to_load) eval(parse(text=paste('library(', lib, ')')))
 
@@ -940,7 +940,7 @@ for (i in .vars) {
 	ymin = min(c(tmp_bycntry$w_elast, tmp_bycat$w_elast,tmp_bybrand$w_elast))
 	ymax = max(c(tmp_bycntry$w_elast, tmp_bycat$w_elast,tmp_bybrand$w_elast))
 	
-  cat(paste0('Variable: ', i, '\n'))
+  #cat(paste0('Variable: ', i, '\n'))
   
   elast_name=paste0(rename.fkt(i, dictionary=dic), ' elasticities')
   
