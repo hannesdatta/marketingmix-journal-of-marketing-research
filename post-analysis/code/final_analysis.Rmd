@@ -877,7 +877,7 @@ print(p)
 
 ...to illustrate whether level effects may drive our effects.
 
-```{r plotvars,echo=FALSE, include=TRUE}
+```{r plotvars,echo=FALSE, include=FALSE}
 vars=c('nov12sh','nwprd','llen','wpswdst')
 
 cats = unique(brand_panel$category)
@@ -911,5 +911,47 @@ pl<-lapply(vars, function(v) {
 grid.arrange(pl[[1]], pl[[2]], pl[[3]], pl[[4]], top = cat, bottom = textGrob("Note: Plot shows variable means for each brand in a given country and category; countries ranked by GDP per capita (2010).", gp=gpar(fontsize=8)))
 
 }
+
+```
+
+
+### Plots for long-term elasticities
+```{r plots_elastlt, echo=FALSE, fig.pos="H", include = TRUE,fig.width=8, fig.height=5,dpi=300}
+source('../../post-analysis/code/proc_rename.R')
+ 
+.vars=c('rwpspr','wpswdst','llen','nov12sh')
+
+for (i in .vars) {
+  par(mfrow=c(1,3))
+  dic=c('../../post-analysis/code/renaming.txt')
+  
+  # by country
+  tmp=elast[!is.na(elastlt)&variable==i]
+  
+  tmp_bycntry=tmp[,list(w_elast = sum(elastlt/elastlt_se)/sum(1/elastlt_se)), by=c('variable','country')]
+  setorderv(tmp_bycntry, 'w_elast', ifelse(i=='rwpspr', 1,-1))
+  
+	tmp_bycat=tmp[, list(w_elast = sum(elastlt/elastlt_se)/sum(1/elastlt_se)), by=c('variable','category')]
+	setorderv(tmp_bycat, 'w_elast', ifelse(i=='rwpspr', 1,-1))
+	
+	tmp_bybrand=tmp[, list(w_elast = sum(elastlt/elastlt_se)/sum(1/elastlt_se)), by=c('variable','brand')]
+	setorderv(tmp_bybrand, 'w_elast', ifelse(i=='rwpspr', 1,-1))
+	
+	ymin = min(c(tmp_bycntry$w_elast, tmp_bycat$w_elast,tmp_bybrand$w_elast))
+	ymax = max(c(tmp_bycntry$w_elast, tmp_bycat$w_elast,tmp_bybrand$w_elast))
+	
+  cat(paste0('Variable: ', i, '\n'))
+  
+  elast_name=paste0(rename.fkt(i, dictionary=dic), ' elasticities')
+  
+  barplot(tmp_bycntry$w_elast,names.arg=rename.fkt(tmp_bycntry$country, dictionary=dic), las=2, cex.names=.8, main = fig(paste0(elast_name, ', by countries')),cex.main=.8, ylim = c(ymin, ymax), ylab = 'Long-term elasticity (weighted by inv. SEs)')
+	barplot(tmp_bycat$w_elast,names.arg=rename.fkt(tmp_bycat$category, dictionary=dic), las=2, cex.names=.8, main = fig(paste0(elast_name, ', by categories')),cex.main=.8, ylim = c(ymin, ymax), ylab = 'Long-term elasticity (weighted by inv. SEs)')
+	barplot(tmp_bybrand$w_elast,names.arg=NULL, las=2, cex.names=.8, main = fig(paste0(elast_name, ', by brands')),cex.main=.8, ylim = c(ymin, ymax), ylab = 'Long-term elasticity (weighted by inv. SEs)')
+	
+	hist(tmp_bycntry$w_elast, las=2,main = fig(paste0(elast_name, ', by countries')), xlab = 'Long-term elasticity (weighted by inv. SEs)')
+	hist(tmp_bycat$w_elast, las=2,main = fig(paste0(elast_name, ', by categories')), xlab = 'Long-term elasticity (weighted by inv. SEs)')
+	hist(tmp_bybrand$w_elast, las=2,main = fig(paste0(elast_name, ', by brands')), xlab = 'Long-term elasticity (weighted by inv. SEs)')
+	
+	 }
 
 ```
