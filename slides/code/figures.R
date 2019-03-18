@@ -3,6 +3,7 @@ library(latticeExtra)
 library(lattice)
 library(ggplot2)
 library(ggthemes)
+library(bit64)
 
 # Setup
   dir.create('../output')
@@ -65,19 +66,20 @@ library(ggthemes)
   tmp[, nov12sh:=nov12/llen]
   vars = list(c('usalessh','Market share'), c('rwpspr', 'Price (local currency)'),
               c('llen', 'Line length'), c('wpswdst', 'Distribution'), c('nov12sh', 'New product activity'))
+  minms=.05
   
   for (var in vars) {
     tmp[, v:=get(var[1])]
     png(paste0('../output/dataplot_',var[1],'.png'), res=150, units='in', height=3, width=3)
     
-    print(xyplot(v~date, groups=brand, data=tmp[ms>.08], type='spline',
+    print(xyplot(v~date, groups=brand, data=tmp[ms>minms], type='spline',
          par.settings = theEconomist.theme(box = "transparent"),
          lattice.options = theEconomist.opts(), xlab= 'Date', ylab=var[2]))#,auto.key=T))
     dev.off()
   }
   png(paste0('../output/dataplot_legend.png'), res=150, units='in', height=3, width=3)
   
-  print(xyplot(v~date, groups=brand, data=tmp[ms>.08], type='spline',
+  print(xyplot(v~date, groups=brand, data=tmp[ms>minms], type='spline',
                par.settings = theEconomist.theme(box = "transparent"),
                lattice.options = theEconomist.opts(), xlab= 'Date', ylab=var[2],auto.key=T))
   dev.off()
@@ -107,11 +109,12 @@ library(ggthemes)
     
     tmp=elast[variable==var[1], list(elastlt=sum(elastlt*w)/sum(w)), by = 'category']
     setorder(tmp, elastlt)
+    if(var[1]=='rwpspr') tmp=setorderv(tmp, 'elastlt', order=-1L)
     tmp[, cat:=rename.fkt(category, dictionary=c('../../post-analysis/code/renaming.txt'))]
     
     tmp[, cat:=factor(cat, levels=tmp$cat)]
     
-    g<-ggplot(tmp, aes(x=cat, y=elastlt)) + geom_bar(stat='identity') + coord_flip() + ggtitle(paste0(var[2], ' elasticity')) + xlab('') + ylab('Elasticity')
+    g<-ggplot(tmp, aes(x=cat, y=elastlt, fill = T)) + geom_bar(stat='identity') + coord_flip() + ggtitle(paste0(var[2], ' elasticity')) + xlab('') + ylab('Elasticity') + scale_fill_manual(values=c('darkblue')) + theme(legend.position='none')
     print(g)   
     dev.off()
   }
@@ -133,14 +136,21 @@ library(ggthemes)
     print(g)
     dev.off()
     
-    png(paste0('../output/color-cntry_',var[1],'.png'), res=600, units='in', height=5, width=10)
+    for (colored in c(T,F)) {
+    png(paste0('../output/color-cntry_',ifelse(colored==T, 'col', 'nocol'),'_',var[1],'.png'), res=600, units='in', height=5, width=10)
     
-    g<-ggplot(tmp, aes(x=cat, y=elastlt, fill=country_class)) + geom_bar(stat='identity') + ggtitle(paste0('Long-term elasticity of ', tolower(var[2])), paste0('N=', prettyNum(sum(tmp$N), big.mark=','))) + 
-      xlab('') + ylab('Long-term elasticity') + theme(legend.position='none', axis.text.x=element_text(angle=45, hjust=1,size=12)) + scale_fill_manual(values=c('red','darkblue') )
+    if (colored==T) {
+      g<-ggplot(tmp, aes(x=cat, y=elastlt, fill=country_class)) + geom_bar(stat='identity') + ggtitle(paste0('Long-term elasticity of ', tolower(var[2])), paste0('N=', prettyNum(sum(tmp$N), big.mark=','))) + 
+        xlab('') + ylab('Long-term elasticity') + theme(legend.position='none', axis.text.x=element_text(angle=45, hjust=1,size=12)) + scale_fill_manual(values=c('darkblue','red') )
+    }else{
+      g<-ggplot(tmp, aes(x=cat, y=elastlt, fill=T)) + geom_bar(stat='identity') + ggtitle(paste0('Long-term elasticity of ', tolower(var[2])), paste0('N=', prettyNum(sum(tmp$N), big.mark=','))) + 
+        xlab('') + ylab('Long-term elasticity') + theme(legend.position='none', axis.text.x=element_text(angle=45, hjust=1,size=12)) + scale_fill_manual(values=c('darkblue') )
+      
+    }
     print(g)
     
     dev.off()
-    
+    }
   }
   
   
