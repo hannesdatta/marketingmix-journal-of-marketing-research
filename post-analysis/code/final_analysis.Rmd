@@ -955,3 +955,15 @@ for (i in .vars) {
 	 }
 
 ```
+### ANOVAs for long-term elasticities
+```{r anova2lt, echo=FALSE,results='asis', warning=FALSE}
+.vars=c('rwpspr','wpswdst','llen','nov12sh')
+source('../../post-analysis/code/proc_rename.R')
+dic=c('../../post-analysis/code/renaming.txt')
+
+for (i in .vars) {
+  m<-aov(elastlt~brand+country+category, data=elast, subset=variable==i, weights=1/elastlt_se)
+  
+  print(xtable(anova_stats(m), caption = tab(paste0("ANOVA for long-term marketing mix elasticity for ", rename.fkt(i,dic), ''))),type='html',caption.placement='top')
+}
+```
