@@ -421,13 +421,13 @@ setnames(diff_tests, c('variable', 'effect', 'diff_est', 'diff_se', 'diff_t','di
 diff_tests=diff_tests[effect=='emerging'][, effect:=NULL]
 
 
-tmp=tmp[, lapply(.SD, function(x) c(min=min(x,na.rm=T), max=max(x,na.rm=T), mean=mean(x,na.rm=T),sd=sd(x,na.rm=T))), by = c('emerging'), .SDcols=c(covars)]
-tmp[, var:=rep(c('min', 'max','mean', 'sd'),2)]
+tmp=tmp[, lapply(.SD, function(x) c(mean=mean(x,na.rm=T),sd=sd(x,na.rm=T),min=min(x,na.rm=T), max=max(x,na.rm=T))), by = c('emerging'), .SDcols=c(covars)]
+tmp[, var:=rep(c('mean', 'sd','min', 'max'),2)]
 tmp=melt(tmp, id.var=c('emerging', 'var'))
 tmp[, emerging_label:=ifelse(emerging==1, 'emerging', 'developed')]
 
 dtf=dcast(tmp, variable~emerging_label+var)
-setcolorder(dtf, c('variable', paste0(rep(c('emerging_', 'developed_'), each=4), rep(c('min', 'max', 'mean', 'sd'),2))))
+setcolorder(dtf, c('variable', paste0(rep(c('emerging_', 'developed_'), each=4), rep(c('mean', 'sd', 'min','max'),2))))
 
 setnames(dtf, gsub('emerging_', '', colnames(dtf)))
 setnames(dtf, gsub('developed_', '', colnames(dtf)))
@@ -439,8 +439,10 @@ dtf[diff_tests, ':=' (comb_t=i.diff_t, comb_sig=gsub('[*]', '\\*', psignstars(i.
 
 dtf=sanitize_table(dtf)
 
+#sink('table.htm')
 print(kable(dtf, format='html', initial.zero = FALSE, digits=3,caption = tab(paste0('Summary statistics for covariates in second-stage analysis, split by a country\'s development status^1^'))
       ) %>% kable_styling() %>% footnote(number=c(paste0('Summary statistics for variables (unlogged and not mean-centered), computed across ', nobs, ' observations in our sample.'),'Test on differences carried out by regressing variables on an intercept and an emerging country indicator variable. Reported t-value is obtained from the estimate of the emerging country indicator.')) %>% add_header_above(c(" " = 1, "Emerging countries" = 4, "Developed countries" = 4, "Test on differences^2^"=2)))
+#sink()
 
 
 ```
