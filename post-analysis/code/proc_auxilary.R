@@ -51,7 +51,7 @@ rsq <- function(m) {
 
 
 # Function to plot model results (next to each other)
-printout = function(x, type='st', vars=NULL, omit=NULL, title='', printtype='html', notes=NULL, dep.var.labels.include=FALSE, table.layout=c('-c#m-t-a-n'), ...) {
+printout = function(x, type='st', vars=NULL, omit=NULL, title='', printtype='html', notes=NULL, dep.var.labels.include=FALSE, table.layout=c('-c#m-t-a-n'), covariate_choices=NULL, ...) {
   
   if (is.null(vars)) vars=seq(along=x)
   
@@ -74,7 +74,10 @@ printout = function(x, type='st', vars=NULL, omit=NULL, title='', printtype='htm
   }
   
   # get all variable names
-  covlabels= lapply(res, function(x) colnames(x@pp$X))
+  covlabels= lapply(res, function(x) {
+    if(class(x)=='lmerMod') return(colnames(x@pp$X))
+    if(class(x)=='lm') return(names(x$coefficients))
+  })
   
   # take order of variables of model with most variables
   llabels=unlist(lapply(covlabels, length))
@@ -84,6 +87,9 @@ printout = function(x, type='st', vars=NULL, omit=NULL, title='', printtype='htm
   for (i in seq(along=covlabels)) chose_labels=union(chose_labels, covlabels[[i]])
   #chose_labels=rev(chose_labels)
   
+  # add custom labels if necessary
+  if (!is.null(covariate_choices)) chose_labels=covariate_choices[covariate_choices%in%chose_labels]
+    
   chose_labels=chose_labels[!chose_labels%in%c('(Intercept)')]
   covlabels_print = unlist(sanitize_table(data.frame(chose_labels)))
   covlabels_print=c(covlabels_print, 'Constant')
@@ -93,7 +99,6 @@ printout = function(x, type='st', vars=NULL, omit=NULL, title='', printtype='htm
   chose_labels=gsub('[*]', '[*]', chose_labels)
   
   covlabels_print_order=paste0("^", chose_labels , "$")
-  
   
 
   keep_alpha <- function(x) gsub("[^[:alnum:][:space:][,]]","",x)
@@ -112,6 +117,7 @@ printout = function(x, type='st', vars=NULL, omit=NULL, title='', printtype='htm
     gsub('\\\\[*]', '*', x)
   }
   
+
   stargazer(res, type = printtype, omit=omit, title = paste0(title, '<sup>1</sup>'), 
             column.labels=collabels, 
             dep.var.caption=NULL, 

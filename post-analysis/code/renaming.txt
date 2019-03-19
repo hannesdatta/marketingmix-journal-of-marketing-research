@@ -67,9 +67,15 @@ re[_]t	t-value from RE^4^	grepl
 mmixinstr	Marketing-mix instrument	gsub
 Neffects	Number of estimates	grepl
 .*[_]sig	sig.	gsub
-[*] developed	     x developed market	grepl
-[*] emerging	     x emerging market	grepl
-[*] gcifactor	     x GCI component score	grepl
+[*] developed	     * developed market	gsub
+[*] emerging	     * emerging market	gsub
+^I[(]		gsub
+)$		gsub
+[*] gcifactor	     * GCI component score	grepl
+^hinc	Developed Markets	grepl
+^linc	Emerging Markets	grepl
+^Country[_]class	Development status	gsub
+EMPTY		grepl
 necessity	Appliance (vs. electronics)	gsub
 appliance	Appliance (vs. electronics)	gsub
 western[_]brand	Western brand	grepl
@@ -107,18 +113,19 @@ nbrands	Number of brands	gsub
 country[_]of[_]origin	Country of origin	gsub
 Country[_]of[_]origin	Country of origin	gsub
 asian[_]brand	Asian brand	gsub
+ln[_]gci[_]overall[_]s[_]mc	Log Global Competitiveness Index	gsub
 gci[_]overall	Global Competitiveness Index	grepl
 gci[_]sub[_]basicrequire	Subindex basic requirements	grepl
 gci[_]sub[_]efficiencyenhance	Subindex efficiency enhancers	grepl
 gci[_]sub[_]innovation	Subindex innovation and sophistication factors	grepl
 all[_]brands	List of brands	gsub
 other[_]brand	Brand from other country	gsub
-brandz	BrandZ listing indicator	gsub
+brandz	Brand equity (Top brand versus not)	gsub
 gcifactor[_]mc|gcifactor	GCI component (score from PCA)	grepl
 ln[_]gci[_]00.03[_]gdppercap_s[_]mc	Log GDP per capita	gsub
 gci[_]00.03[_]gdppercap_s[_]mc|gci[_]00.03[_]gdppercap[_]s	GDP per capita	gsub
-ln[_]gci[_]overall[_]s[_]mc	Log global competitiveness index	gsub
 variable	Variable	gsub
 meanglobalx[_]mc	Variable mean	gsub
-gini[_]mc	Gini index	gsub
-^gini	Gini index	gsub
+ln[_]gini[_]mc	Log Income Inequality	gsub
+gini[_]mc	Income inequality	gsub
+XXX^gini	Income inequality	gsub
