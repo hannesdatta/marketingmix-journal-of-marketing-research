@@ -16,38 +16,11 @@ options(xtable.comment = FALSE)
 options(knitr.kable.NA = '')
 
 # Load data
-  elast <- fread('../externals/elast_results_nov12sh.csv') #[globalbrand==T]
-  #elast <- fread('../externals/elast_results_nov12sh.csv')#[category%in%c('camera_slr', 'tablets')]
+  elast <- fread('../externals/elast_results_nov12sh.csv') 
 
   brand_panel=fread('../../analysis/temp/preclean.csv')
-
-  if (0) {
-tmp=brand_panel[, list(avgprice=mean(rwpsprd)),by=c('market_id','category','country','brand')][, list(pricedispersion=(max(avgprice)-min(avgprice))/mean(avgprice)),by=c('market_id','category','country')]
-setorder(tmp, pricedispersion)
-tmp[, rank:=rank(pricedispersion)/.N]
-
-setkey(tmp, market_id)
-setkey(brand_panel, market_id)
-setkey(elast, market_id)
-brand_panel[tmp, rankquantile:=i.rank]
-
-elast[tmp, rankquantile:=i.rank]
-
-
-elast <- elast[rankquantile>=.2]
-  }
-
-
-brand_panel[, ':=' (date = as.Date(date))]
+  brand_panel[, ':=' (date = as.Date(date))]
   
-mean_usd = brand_panel[, lapply(.SD, mean,na.rm=T), .SDcols=c('llen','nov12sh','nwprd','wpswdst'), by = c('market_id','brand')]
-mean_usd2 = melt(mean_usd, id.vars=c('market_id','brand'))
-mean_usd2[variable=='nwprd',variable:='rwpspr']
-
-setkey(mean_usd2, market_id,brand,variable)
-setkey(elast, market_id, brand, variable)
-elast[mean_usd2, meanglobalx:=i.value]
-
 # Load auxilary functions
   source('proc_auxilary.R')
   source('proc_rename.R')
@@ -58,10 +31,6 @@ elast[mean_usd2, meanglobalx:=i.value]
 # set order of variables to appear in figures and tables
 ordered_vars = c('rwpspr', 'wpswdst','llen','nov12sh')
 names(ordered_vars) <- paste0(unlist(sanitize_table(data.frame(ordered_vars))), ' elasticity')
-
-#elast[, cntrymissing:=0]
-
-#elast[is.na(country_of_origin), ':=' (local_to_market=0, cntrymissing=1, country_of_origin='missing')]
 
 # formulas for models
 form_main_model = .~1+ (1|brand) + (1|category) + (1|country) + emerging + sbbe_std_mc + local_to_market + ln_herf_mc +ln_market_growth_mc +  ln_overall_prindexavg_mc + appliance + gini_mc
@@ -141,22 +110,6 @@ if (estimtype=='nonweighted') {
 
 
 notes_base = paste0("^1^ Regression of long-term elasticities on explanatory variables and three random effects, for brands, categories, and countries, respectively. Estimated using a linear mixed-effects model. ", estimnote, " Standard errors in parentheses.")
-
-
-# check correlation between llen and nov
-#brand_panel=fread('../../analysis/temp/preclean.csv')
-#brand_panel[, ':=' (date = as.Date(date))]
-
-vars <- c('nov6sh', 'nov6', 'nov3sh', 'nov3', 'nov12sh','nov12')
-tmp=rbindlist(lapply(vars, function(.var) {
-  print(.var)
-  
-  cor1=with(brand_panel, eval(parse(text=paste0('cor(llen,', .var, ')'))))
-  cor2=mean(brand_panel[, (cor = cor(llen,get(.var))), by = c('market_id')]$V1)
-  cor3=mean(brand_panel[, (cor = cor(llen,get(.var), use='pairwise')), by = c('market_id', 'brand')]$V1,na.rm=T)
-  #hist(tmp$V1,xlim=c(-1,1),xlab=c('correlation coefficient'), main = 'correlation between llen and nov6sh')
-  data.table(variable=.var, cor_overall=cor1, cor_by_market=cor2, cor_by_brand_market=cor3)
-}))
 
 ```
 
