@@ -289,7 +289,7 @@ for (iter in iters) {
   
 ```
 
-```{r 2by2, echo = FALSE}
+```{r 2by2, echo = FALSE, results = 'asis'}
 
 elast[, ':=' (highbe=sbbe>median(sbbe), brandeq_label=ifelse(sbbe>median(sbbe), 'High Brand Equity','Low Brand Equity')), by = c('market_id')]
 
@@ -314,8 +314,8 @@ for (var in ordered_vars) {
   dtf=dcast(tmp[variable==var], country_class~brandeq_label, value.var='melast')
   nobs=sum(tmp[variable==var]$Neffects)
   colnames(dtf)[1]='EMPTY'
-print(kable(sanitize_table(dtf), format='html', initial.zero = FALSE, digits=3,caption = tab(paste0('Weighted mean ', gsub('ity', 'ities', names(var)), ' by brand equity and a country\'s development status^1^'))
-      ) %>% kable_styling() %>% footnote(number=c(paste0('Computed across ', nobs, ' observations in our sample.'))))#,'Test on differences carried out by regressing variables on an intercept and an emerging country indicator variable. Reported t-value is obtained from the estimate of the emerging country indicator.')) %>% add_header_above(c(" " = 1, "Emerging countries" = 4, "Developed countries" = 4, "Test on differences^2^"=2)))
+print(kable(sanitize_table(dtf), format='html', initial.zero = FALSE, digits=3,caption = tab(paste0('Mean ', gsub('ity', 'ities', names(var)), ' by brand equity and a country\'s development status^1^'))
+      ) %>% kable_styling() %>% footnote(number=c(paste0('Computed across ', nobs, ' observations in our sample. ', estimnote))))
 
 }
 
@@ -371,60 +371,34 @@ covars = c("(Intercept)", "emerging", "ln_gci_00.03_gdppercap_s_mc","ln_gci_over
   "ln_gini_mc",
   "local_to_market")
 
-notes_new = "^1^ Elasticities are weighted by inverse standard errors. Standard errors in parentheses. Continuous variables have been mean-centered; constant to be interpreted as (weighted) mean elasticity in developed markets."
-
-sink('test.htm')
+notes_new = paste0("^1^ ", estimnote, " Standard errors in parentheses. Continuous variables have been mean-centered.")
 
 
-printout(outx, 'lt', title = tab('Regression with long-term elasticities'), vars=ordered_vars,  notes=gsub('long[-]term', 'short- and long-term', notes_new), covariate_choices = covars)
-sink()
-
-
-# MAIN MODEL
+#sink('test.htm')
 cat("<P style='page-break-before: always'>")
-printout(main, 'stlt', title = tab('Regression with short- and long-term elasticities in a pooled sample of developed and emerging countries'), vars=ordered_vars,  notes=gsub('long[-]term', 'short- and long-term', notes_base))
 
-# formulas for models
-form_main_model = .~1+ (1|brand) + (1|category) + (1|country) + emerging + sbbe_std_mc + local_to_market + ln_herf_mc +ln_market_growth_mc +  ln_overall_prindexavg_mc + appliance + gini_mc
+printout(outx, 'lt', title = tab('Regression with long-term elasticities'), vars=ordered_vars[1:2],  notes=gsub('long[-]term', 'short- and long-term', notes_new), covariate_choices = covars)
 
-form_main_model_selected_interact = .~1+ (1|brand) + (1|category) + (1|country) + emerging + sbbe_std_mc + I(sbbe_std_mc*emerging) + local_to_market + I(local_to_market*emerging) + ln_herf_mc + I(ln_herf_mc*emerging) + ln_market_growth_mc + I(ln_market_growth_mc*emerging) + ln_overall_prindexavg_mc + appliance + gini_mc
-
-
-
-out1=regmodel(formula=c(main=form_main_model), dat=elast, model='lmer')
-# keep only models that belong to one type (so that each table only features the rows that were actually estimated)
-main = lapply(out1, function(x) {x$lt <- list(x$lt$main); x$st <- list(x$st$main); x})
-
-out2=regmodel(formula=c(main=form_main_model_selected_interact), dat=elast, model='lmer')
-# keep only models that belong to one type (so that each table only features the rows that were actually estimated)
-main_interact = lapply(out2, function(x) {x$lt <- list(x$lt$main); x$st <- list(x$st$main); x})
-
-# MAIN MODEL
 cat("<P style='page-break-before: always'>")
-printout(main, 'stlt', title = tab('Regression with short- and long-term elasticities in a pooled sample of developed and emerging countries'), vars=ordered_vars,  notes=gsub('long[-]term', 'short- and long-term', notes_base))
+printout(outx, 'lt', title = tab('Regression with long-term elasticities'), vars=ordered_vars[3:4],  notes=gsub('long[-]term', 'short- and long-term', notes_new), covariate_choices = covars)
 
-#meanglobalx local_multip_market
-#local_multip_market +
+#sink()
 
-form_interact = ~1+ (1|brand) + (1|category) + (1|country) + emerging + sbbe_std_mc + I(sbbe_std_mc*emerging) + local_to_market + I(local_to_market*emerging)  +  ln_herf_mc + I(ln_herf_mc*emerging) + ln_market_growth_mc + I(ln_market_growth_mc*emerging) + appliance + I(appliance*emerging) + ln_overall_prindexavg_mc + I(ln_overall_prindexavg_mc*emerging) + gini_mc + I(gini_mc*emerging)
 
 ```
 
-
-
-# Second-stage analysis
 
 `r tab("Variable operationalization^1^")`
 
 Construct                  | Operationalization                                     | References
 ------------------------- | --------------------------------------------------------|----------
-Appliance (versus electronics)| Dummy, equaling 1 for appliances (washing machines, microwaves and refrigerators), 0 for all other categories.
+Brand equity               | Sales-based brand equity, derived from the market share attraction model, standardized by category. | Datta, Ailawadi, and van Heerde (2017)
+Brand equity (top brand) | Indicator variable, whether brand has been listed in BrandZ's Global Top 100 or China Top 50 in 2010.
 Category growth       | Average geometric growth rate in a market (category/country combination).^2^
 Category concentration     | Herfindahl index in a market (category/country combination).
-Domestic versus foreign brand | Dummy, equaling 1 if a brand's headquarter is located in the focal country, 0 if not.
-Price index | Brand's average price (deflated sales value divided by the brand's sales volume over the observation period), indexed by the average price in a given category and country.
-Brand equity               | Sales-based brand equity, derived from the market share attraction model, standardized by category. | Datta, Ailawadi, and van Heerde (2017)
-Gini index                | Gini index in a country.
+Appliance (vs. electronics)| Dummy, equaling 1 for appliances (washing machines, microwaves and refrigerators), 0 for all other categories.
+Income inequality          | Gini index in a country.
+Domestic (vs. foreign brand) | Dummy, equaling 1 if a brand's headquarter is located in the focal country, 0 if not.
 
 ^1^ All continuous variables are first logged and then mean-centered before model estimation (except brand equity, which is only mean-centered as this variable can take on negative values). 
 
@@ -432,7 +406,7 @@ Gini index                | Gini index in a country.
 
 ```{r summarystats, echo=FALSE, results='asis'}
 
-covars <- c('sbbe_std', 'brandz','local_to_market', 'herf', 'market_growth', 'appliance', 'overall_prindexavg', 'gini')
+covars <- c('sbbe_std', 'brandz','herf', 'market_growth', 'appliance', 'gini', 'local_to_market')
 
 tmp=data.table(elast)
 nbrands=length(unique(tmp$brand))
@@ -475,6 +449,10 @@ print(kable(dtf, format='html', initial.zero = FALSE, digits=3,caption = tab(pas
 
 
 ```
+
+
+# Legacy models
+
 
 ```{r main_regs, echo = FALSE, results='asis'}
 
@@ -574,8 +552,6 @@ for (elasttype in c('st', 'lt')) {
   
 
 ```
-
-# Robustness checks
 
 ```{r robustness_regs, echo = FALSE, results='asis'}
 
@@ -791,7 +767,9 @@ kable(tabl, caption = tab('Overview of markets (category/country combination) in
 
 ```{r sample_overview, echo=FALSE, results='asis'}
 #, headquarter_region=unique(country_of_origin)
-tmp=elast[, list(active_in_countries=length(unique(country)), active_in_categories=length(unique(category)), headquarter_location=unique(country_of_origin)), by = c('brand')]
+tmp=elast[, list(active_in_countries=length(unique(country)), active_in_categories=length(unique(category)), 
+                 headquarter_location=unique(country_of_origin), brandz=ifelse(unique(brandz)==TRUE, 'yes', '')), by = c('brand')]
+
 setorderv(tmp, c('active_in_countries','active_in_categories', 'brand'),order=-1L)
 
 tmp[, ':=' (headquarter_location=stri_trans_totitle(headquarter_location))]#, #headquarter_region=stri_trans_totitle(headquarter_region))]
