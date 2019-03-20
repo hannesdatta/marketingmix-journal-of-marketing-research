@@ -385,14 +385,13 @@ upd_models2 = list(m3 = .~1 + emerging + sbbe_std_mc + I(sbbe_std_mc*emerging)+(
                    m5 = .~1 + ln_gci_00.03_gdppercap_s_mc + sbbe_std_mc + I(sbbe_std_mc*ln_gci_00.03_gdppercap_s_mc)+ (1|brand) + (1|category) + (1|country) + ln_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market,
                    m6 = .~1 + ln_gci_overall_s_mc + sbbe_std_mc + I(sbbe_std_mc*ln_gci_overall_s_mc)+ (1|country) + (1|category) + (1|brand) + ln_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market,
                    m7 = .~1 + ln_hdi2010_mc + sbbe_std_mc + I(sbbe_std_mc*ln_hdi2010_mc)+ (1|country) + (1|category) + (1|brand) + ln_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market,
-                   m8 = .~1 + emerging + brandz + I(brandz*emerging)+ (1|country) + (1|category) + (1|brand) + ln_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market)
-      
-#local_to_market?             
-                
+                   m8 = .~1 + emerging + brandz + I(brandz*emerging)+ (1|country) + (1|category) + (1|brand) + ln_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market,
+                   m9 = .~1 + emerging + brandz_global_alltime + I(brandz_global_alltime*emerging)+ (1|country) + (1|category) + (1|brand) + ln_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market,
+                   m10 = .~1 + emerging + brandz_financial500 + I(brandz_financial500*emerging)+ (1|country) + (1|category) + (1|brand) + ln_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market
+                   
+                   )
+
 out2=regmodel(formula=c(upd_models2), dat=elast, model='lmer')
-#sink('test.htm')
-#printout(out2, type ='lt', vars =ordered_vars)
-#sink()
 
 outx = NULL
 
@@ -406,12 +405,14 @@ for (out in list(out1, out2)) {
 #main_interact = lapply(out2, function(x) {x$lt <- list(x$lt$main); x$st <- list(x$st$main); x})
 
 covars = c("(Intercept)", "emerging", "ln_gci_00.03_gdppercap_s_mc","ln_gci_overall_s_mc", "ln_hdi2010_mc",
-  "sbbe_std_mc", "brandz",
+  "sbbe_std_mc", "brandz", 'brandz_global_alltime', 'brandz_financial500',
   "I(sbbe_std_mc * emerging)",
   "I(sbbe_std_mc * ln_gci_00.03_gdppercap_s_mc)",
   "I(sbbe_std_mc * ln_gci_overall_s_mc)",
   "I(sbbe_std_mc * ln_hdi2010_mc)",
   "I(brandz * emerging)",
+  "I(brandz_global_alltime * emerging)",
+  "I(brandz_financial500 * emerging)",
   "ln_herf_mc",
   "ln_market_growth_mc",
   "appliance",
@@ -428,6 +429,72 @@ printout(outx, 'lt', title = tab('Regression with long-term elasticities'), vars
 
 cat("<P style='page-break-before: always'>")
 printout(outx, 'lt', title = tab('Regression with long-term elasticities'), vars=ordered_vars[3:4],  notes=gsub('long[-]term', 'short- and long-term', notes_new), covariate_choices = covars)
+
+#sink()
+
+
+```
+
+
+```{r newanalysis_nomc, results = 'asis', include = TRUE, echo=FALSE}
+
+#re-meancenter SBBE
+
+# formulas for models
+upd_models = list(m1=.~1+ emerging,
+                  m2 = .~1 + emerging + sbbe_mc + I(sbbe_mc*emerging))
+
+out1=regmodel(formula=c(upd_models), dat=elast, model='lm')
+
+upd_models2 = list(m3 = .~1 + emerging + sbbe_mc + I(sbbe_mc*emerging)+(1|country) + (1|category) + (1|brand),
+                   m4 = .~1 + emerging + sbbe_mc + I(sbbe_mc*emerging)+ (1|country) + (1|category) + (1|brand) + ln_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market,
+                   m5 = .~1 + ln_gci_00.03_gdppercap_s_mc + sbbe_mc + I(sbbe_mc*ln_gci_00.03_gdppercap_s_mc)+ (1|brand) + (1|category) + (1|country) + ln_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market,
+                   m6 = .~1 + ln_gci_overall_s_mc + sbbe_mc + I(sbbe_mc*ln_gci_overall_s_mc)+ (1|country) + (1|category) + (1|brand) + ln_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market,
+                   m7 = .~1 + ln_hdi2010_mc + sbbe_mc + I(sbbe_mc*ln_hdi2010_mc)+ (1|country) + (1|category) + (1|brand) + ln_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market,
+                   m8 = .~1 + emerging + brandz + I(brandz*emerging)+ (1|country) + (1|category) + (1|brand) + ln_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market,
+                   m9 = .~1 + emerging + brandz_global_alltime + I(brandz_global_alltime*emerging)+ (1|country) + (1|category) + (1|brand) + ln_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market,
+                   m10 = .~1 + emerging + brandz_financial500 + I(brandz_financial500*emerging)+ (1|country) + (1|category) + (1|brand) + ln_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market
+                   
+                   )
+
+out2=regmodel(formula=c(upd_models2), dat=elast, model='lmer')
+
+outx = NULL
+
+for (out in list(out1, out2)) {
+  for (mod in names(out)) {
+    outx[[mod]]$variable=out[[mod]]$variable
+    outx[[mod]]$st=c(outx[[mod]]$st, out[[mod]]$st)
+    outx[[mod]]$lt=c(outx[[mod]]$lt, out[[mod]]$lt)
+  }
+}
+#main_interact = lapply(out2, function(x) {x$lt <- list(x$lt$main); x$st <- list(x$st$main); x})
+
+covars = c("(Intercept)", "emerging", "ln_gci_00.03_gdppercap_s_mc","ln_gci_overall_s_mc", "ln_hdi2010_mc",
+  "sbbe_mc", "brandz", 'brandz_global_alltime', 'brandz_financial500',
+  "I(sbbe_mc * emerging)",
+  "I(sbbe_mc * ln_gci_00.03_gdppercap_s_mc)",
+  "I(sbbe_mc * ln_gci_overall_s_mc)",
+  "I(sbbe_mc * ln_hdi2010_mc)",
+  "I(brandz * emerging)",
+  "I(brandz_global_alltime * emerging)",
+  "I(brandz_financial500 * emerging)",
+  "ln_herf_mc",
+  "ln_market_growth_mc",
+  "appliance",
+  "ln_gini_mc",
+  "local_to_market")
+
+notes_new = paste0("^1^ ", estimnote, " Standard errors in parentheses. Continuous variables have been mean-centered.")
+
+
+#sink('test2.htm')
+cat("<P style='page-break-before: always'>")
+
+printout(outx, 'lt', title = tab('Regression with long-term elasticities - with non-standardized SBBE'), vars=ordered_vars[1:2],  notes=gsub('long[-]term', 'short- and long-term', notes_new), covariate_choices = covars)
+
+cat("<P style='page-break-before: always'>")
+printout(outx, 'lt', title = tab('Regression with long-term elasticities - with non-standardized SBBE'), vars=ordered_vars[3:4],  notes=gsub('long[-]term', 'short- and long-term', notes_new), covariate_choices = covars)
 
 #sink()
 

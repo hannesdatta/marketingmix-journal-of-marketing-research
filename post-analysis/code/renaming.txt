@@ -92,7 +92,7 @@ local_to_market	Domestic (vs. foreign) brand	grepl
 local_multip_market	Domestic (multiple markets brand)	grepl
 sbbelt|sbbelt[_]mc	Brand equity (long-term, not standardized)	gsub
 sbbe[_]std|sbbe[_]std[_]mc	Brand equity	gsub
-sbbe|sbbe[_]mc	Brand equity (short-term, not standardized)	gsub
+sbbe|sbbe[_]mc	Brand equity (not standardized)	gsub
 active_in_countries	Number of countries with data	gsub
 active_in_categories	Number of categories with data 	gsub
 headquarter_location	Location of headquarter	gsub
@@ -120,6 +120,8 @@ gci[_]sub[_]efficiencyenhance	Subindex efficiency enhancers	grepl
 gci[_]sub[_]innovation	Subindex innovation and sophistication factors	grepl
 all[_]brands	List of brands	gsub
 other[_]brand	Brand from other country	gsub
+brandz[_]financial500	Brand Equity (Brand Finance 500)	gsub
+brandz[_]global[_]alltime	Brand Equity (Top brand, all time)	gsub
 brandz	Brand equity (Top brand versus not)	gsub
 gcifactor[_]mc|gcifactor	GCI component (score from PCA)	grepl
 ln[_]gci[_]00.03[_]gdppercap_s[_]mc	Log GDP per capita	gsub
