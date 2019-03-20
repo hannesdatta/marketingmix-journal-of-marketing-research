@@ -291,31 +291,78 @@ for (iter in iters) {
 
 ```{r 2by2, echo = FALSE, results = 'asis'}
 
-elast[, ':=' (highbe=sbbe>median(sbbe), brandeq_label=ifelse(sbbe>median(sbbe), 'High Brand Equity','Low Brand Equity')), by = c('market_id')]
+elast[, ':=' (highbe=sbbe>median(sbbe), highbe_label=ifelse(sbbe>median(sbbe), 'High Brand Equity','Low Brand Equity')), by = c('market_id')]
+elast[, ':=' (brandz_label=ifelse(brandz==1, 'High Brand Equity','Low Brand Equity')), by = c('market_id')]
+elast[, ':=' (brandz_globalonly_label=ifelse(brandz_globalonly==1, 'High Brand Equity','Low Brand Equity')), by = c('market_id')]
+elast[, ':=' (brandz_chinaonly_label=ifelse(brandz_chinaonly==1, 'High Brand Equity','Low Brand Equity')), by = c('market_id')]
 
+elast[, ':=' (brandz_financial500_label=ifelse(brandz_financial500==1, 'High Brand Equity','Low Brand Equity')), by = c('market_id')]
+elast[, ':=' (brandz_global_alltime_label=ifelse(brandz_global_alltime==1, 'High Brand Equity','Low Brand Equity')), by = c('market_id')]
 
-sigvalue = .1 # .1-level of significance
   
-zval = qnorm(1-sigvalue/2)
-
+# use long-term elasticities
 obj=c('elastlt','w_elastlt', 'z_elastlt')
-   
-tmp = elast[!is.na(get(obj[1]))][, ':=' (val=get(obj[1]), 
+
+for (it in c('sbbe', 'brandz100','brandz', 'brandzchina', 'brandz_all', 'brandz500')) {
+  tmp = elast[!is.na(get(obj[1]))][, ':=' (val=get(obj[1]), 
                                        val_w=get(obj[2]),
                                        val_z=get(obj[3]))]
-    
-tmp=tmp[, list(Neffects= .N, 
-                 melast = sum(val*val_w)/sum(val_w),
-						 		 z = sum(val_z,na.rm=T)/sqrt(.N)), by = c('variable', 'country_class','highbe', 'brandeq_label')]
 
-# add N
+  if (it == 'sbbe') {
+    key = c('highbe', 'highbe_label')
+    tablelabel = '(SBBE definition)'
+    tmp[, label:=get(rev(key)[1])]
+    form=val~country_class*label
+   }
+  if (it == 'brandz') {
+    key = c('brandz', 'brandz_label')
+    tablelabel = '(BrandZ definition: global 100 & china 50)'
+    tmp[, label:=get(rev(key)[1])]
+    form=val~country_class*label
+   }
+  if (it == 'brandz100') {
+    key = c('brandz_globalonly', 'brandz_globalonly_label')
+    tablelabel = '(BrandZ definition: global 100)'
+    tmp[, label:=get(rev(key)[1])]
+    form=val~country_class*label
+   }
+  if (it == 'brandzchina') {
+    key = c('brandz_chinaonly', 'brandz_chinaonly_label')
+    tablelabel = '(BrandZ definition: China 50 - estimated only in Chinese)'
+    tmp[, label:=get(rev(key)[1])]
+    tmp=tmp[country=='china']
+    form=val~label
+   }
+  if (it == 'brandz500') {
+    key = c('brandz_financial500', 'brandz_financial500_label')
+    tablelabel = '(Brand Finance 500)'
+    tmp[, label:=get(rev(key)[1])]
+    form=val~country_class*label
+   }
+  if (it == 'brandz_all') {
+    key = c('brandz_global_alltime', 'brandz_global_alltime_label')
+    tablelabel = '(BrandZ: Top 100 2006-2013)'
+    tmp[, label:=get(rev(key)[1])]
+    form=val~country_class*label
+   }
+  
+  
+  tmpdat=tmp[, list(Neffects= .N, 
+                 melast = sum(val*val_w)/sum(val_w),
+						 		 z = sum(val_z,na.rm=T)/sqrt(.N)), by = c('variable', 'country_class', key, 'label')]
 
 for (var in ordered_vars) {
-  dtf=dcast(tmp[variable==var], country_class~brandeq_label, value.var='melast')
-  nobs=sum(tmp[variable==var]$Neffects)
+  maov <- aov(form, data= tmp[variable==var], weights=val_w)
+  
+  dtf=dcast(tmpdat[variable==var], country_class~label, value.var='melast')
+  nobs=sum(tmpdat[variable==var]$Neffects)
   colnames(dtf)[1]='EMPTY'
-print(kable(sanitize_table(dtf), format='html', initial.zero = FALSE, digits=3,caption = tab(paste0('Mean ', gsub('ity', 'ities', names(var)), ' by brand equity and a country\'s development status^1^'))
+  
+print(kable(sanitize_table(dtf), format='html', initial.zero = FALSE, digits=3,caption = tab(paste0('Mean ', gsub('asticity', 'asticies', names(ordered_vars)[match(var, ordered_vars)]), ' by brand equity and a country\'s development status ', tablelabel, '^1^'))
       ) %>% kable_styling() %>% footnote(number=c(paste0('Computed across ', nobs, ' observations in our sample. ', estimnote))))
+
+print(xtable(anova_stats(maov), caption = tab(paste0("ANOVA for long-term marketing mix elasticity for ", names(ordered_vars)[match(var, ordered_vars)], ' ', tablelabel, ''))),type='html',caption.placement='top')
+}
 
 }
 

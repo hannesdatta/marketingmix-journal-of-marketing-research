@@ -103,6 +103,23 @@ elast[, brandz:=0]
 brandz_brands<-c('samsung', 'sony', 'apple', 'hp', 'nokia', 'dell','blackberry', 'ge', 'siemens', 'ibm','vodafone','lenovo', 'haier', 'midea', 'hisense')
 elast[brand%in%brandz_brands, brandz:=1]
 
+elast[, brandz_globalonly:=0]
+brandz_brands_globalonly<-c('samsung', 'sony', 'apple', 'hp', 'nokia', 'dell','blackberry', 'ge', 'siemens', 'ibm','vodafone')
+elast[brand%in%brandz_brands_globalonly, brandz_globalonly:=1]
+
+elast[, brandz_chinaonly:=0]
+elast[brand%in%c('lenovo', 'haier', 'midea', 'hisense'), brandz_chinaonly:=1]
+
+elast[, brandz_global_alltime:=0]
+brandz_brands_all<-c('samsung', 'sony', 'apple', 'hp', 'nokia', 'dell','blackberry', 'ge', 'siemens', 'ibm','vodafone', 'canon', 'motorola')
+elast[brand%in%brandz_brands_all, brandz_global_alltime:=1]
+
+elast[, brandz_financial500:=0]
+brandz_brands_fin<-c('samsung', 'sony', 'apple', 'hp', 'nokia', 'dell','blackberry', 'ge', 'siemens', 'ibm','vodafone', 'canon', 'motorola',
+                     'fujifilm', 'huawei', 'lenovo', 'lg', 'panasonic', 'philips', 'toshiba', 'zte')
+elast[brand%in%brandz_brands_fin, brandz_financial500:=1]
+
+
 elast[, brand:=my_capitalize(brand)]
 
 #elast <- elast[country=='india', ':=' (elastlt=NA, elastlt_se=NA, elast=NA, elast_se=NA)]
