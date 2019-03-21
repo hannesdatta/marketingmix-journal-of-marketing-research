@@ -685,6 +685,14 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
   names(.tmpcoefs)<-paste0('x',1:length(.tmpcoefs))
   .varcovar = res$model@varcovar
   
+  elasticities[, beta := as.numeric(NA)]
+  elasticities[!is.na(index_current), beta := res$model@coefficients$coef[index_current]]
+  elasticities[, beta_lag := as.numeric(NA)]
+  elasticities[!is.na(index_lagged), beta_lag := res$model@coefficients$coef[index_lagged]]
+  elasticities[, gamma_lagms := as.numeric(NA)]
+  elasticities[!is.na(index_lagms), gamma_lagms := res$model@coefficients$coef[index_lagms]]
+  
+  
   # check: can we actually calculate an LT elasticity if the carry over is negative??!?!
   
 	if (attraction_model=="MNL") {
