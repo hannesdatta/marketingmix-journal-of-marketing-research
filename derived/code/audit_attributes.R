@@ -8,8 +8,9 @@
 # Table of product attributes per category  #
 # and summary stats  						#
 #############################################
+dir.create('../output')
+sink('../output/attributes.txt')	
 
-sink('../audit/attributes.txt')	
 for (i in 1:length(attribs)) {
 	cat('////////////////////////////////////////////////////\n')
 	cat(paste0('Category: ', names(attribs)[i],'\n'))
