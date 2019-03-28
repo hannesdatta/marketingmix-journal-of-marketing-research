@@ -131,3 +131,5 @@ meanglobalx[_]mc	Variable mean	gsub
 ln[_]gini[_]mc	Log Income Inequality	gsub
 gini[_]mc	Income inequality	gsub
 XXX^gini	Income inequality	gsub
+^lnmean[_]ms[_]mc	Log of brand mean market share	gsub
+mean[_]ms[_]mc	Brand mean market share	gsub
