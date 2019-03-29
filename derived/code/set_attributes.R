@@ -17,7 +17,7 @@ for (i in 1:length(datlist_final)) {
 			
 		
 		# define attributes per unique model (i.e., aggregate information)
-		attr_cols <- colnames(datlist_final[[i]])[!colnames(datlist_final[[i]])%in%c('period','country', 'category','brand', 'model', 'firstactivity', 'price_lc', 'price_eur', 'price_usd', 'sales_units', 'numeric_distribution', 'weighted_distribution', 'source', 'date', 'used', 'catname')]
+		attr_cols <- colnames(datlist_final[[i]])[!colnames(datlist_final[[i]])%in%c('period','country', 'category','market_id', 'brand', 'model', 'firstactivity', 'price_lc', 'price_eur', 'price_usd', 'sales_units', 'numeric_distribution', 'weighted_distribution', 'source', 'date', 'used', 'catname')]
 		
 		
 		attrs <- lapply(attr_cols, function(.col) {
@@ -156,7 +156,11 @@ for (i in 1:length(attribs)) {
 			
 	if (category_name=='phones_mobile') {
 		attribs[[i]][, attr_touchscreen := as.factor(touchscreen)]
-		attribs[[i]][, attr_bluetooth := as.factor(bluetooth)]
+		attribs[[i]][, attr_bluetoothX := as.factor(bluetooth)]
+		
+		attribs[[i]][, attr_bluetooth := as.factor(ifelse(attr_bluetoothX=='YES', 'YES', 'NO'))]
+		attribs[[i]][, attr_bluetoothX := NULL]
+		
 		attribs[[i]][, attr_wifi := as.factor(wifi)]
 		
 		attribs[[i]][, attr_internet := as.character(digital_stand)]
@@ -185,8 +189,7 @@ for (i in 1:length(attribs)) {
 		}
 
 	if (category_name=='dvd') {
-		attribs[[i]][, attr_blueray:=ifelse(blu_ray_play=='BLU-RAY PLAY.', "PLAY", "NO")]
-	#  attribs[[i]][, attr_blueray:=as.factor(ifelse(grepl('PLAY', attr_blueray), 'YES', 'NO'))]
+		attribs[[i]][, attr_blueray:=as.factor(ifelse(grepl('PLAY', blu_ray_play), 'YES', 'NO'))]
 	  
 		attribs[[i]][blu_ray_record=='BLU-RAY REC.', attr_blueray:='PLAY+RECORD']
 		attribs[[i]][, attr_blueray:=as.factor(attr_blueray)]
@@ -202,7 +205,7 @@ for (i in 1:length(attribs)) {
 		attribs[[i]][, attr_power := as.numeric(power_watts)]
 		attribs[[i]][, attr_power := ifelse(is.na(attr_power)|attr_power==0, mean(attr_power,na.rm=T), attr_power)]
 				
-		attribs[[i]][, attr_timecontrol := as.factor(time_control)]
+		attribs[[i]][, attr_timecontrol := as.factor(ifelse(grepl('DIGITAL', time_control), 'DIGTIAL', 'OTHERS'))]
 		}
 		
 	if (category_name=='cooling') {
