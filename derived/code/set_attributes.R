@@ -285,12 +285,14 @@ xattribs <- NULL
 for (i in 1:length(attribs)) {
   vars=grep('^attr',colnames(attribs[[i]]),value=T)
   types=unlist(lapply(attribs[[i]],class))
-  res=NULL
-  for (var in vars) {
-    tmp = eval(parse(text=paste0('model.matrix(~-1+', var, ',data=attribs[[i]])')))
-    if (types[var]=='factor') tmp=tmp[,-ncol(tmp)]
-    res=cbind(res,tmp)
-  }
+  
+  res=do.call('cbind', lapply(vars, function(var) {
+    tmp = data.table(eval(parse(text=paste0('model.matrix(~-1+', var, ',data=attribs[[i]])'))))
+    if (types[var]=='factor') tmp=tmp[,rev(colnames(tmp))[1]:=NULL]
+    tmp
+  
+  }))
+  
   xattribs[[i]]<-cbind(attribs[[i]][, c('country','brand', 'model')], category=names(attribs)[i], res)
   
 }

@@ -27,6 +27,7 @@ gdponly: $(TEMP_DIR)/gdppercap.RData
 uniq: $(TEMP_DIR)/uniqueness_and_lagsales.RData
 exatt: $(TEMP_DIR)/extract_attributes.RData 
 setatt: $(TEMP_DIR)/attributes.RData
+metr: $(TEMP_DIR)/brand_metrics.RData
 
 ###### DATA PREPARATION ######
 
