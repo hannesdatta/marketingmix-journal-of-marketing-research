@@ -3,7 +3,7 @@ library(data.table)
 
 
 # Prepare flat CSV file with data
-brand_panel=rbindlist(lapply(all_data, function(x) rbindlist(x$data_cleaned)))
+brand_panel=rbindlist(lapply(all_data, function(x) rbindlist(x$data_cleaned)),fill=T)
 setorder(brand_panel, market_id, category,country,brand,date)
 
 brand_panel[which(!is.na(usales) & selected_t_brand==T & selected_brand == T), prelim_selected:=T, by=c('category', 'country', 'brand')]
@@ -18,13 +18,13 @@ tmp[, below:=as.numeric(1:.N%in%(1+last(which(nbrand>1))))*(-1), by=c('category'
 tmp[, obs:=cumsum(above+below),by=c('category','country')]
 
 dir.create('../audit')
-dir.create('../audit/1-brand-markets')
-unlink('../audit/1-brand-markets/*')
+dir.create('../audit/time-selection')
+unlink('../audit/time-selection/*')
 
 for (i in unique(tmp$market_id)) {
   fn=paste0(unique(tmp[market_id==i]$category), ' - ', unique(tmp[market_id==i]$country), ' (', i, ')', ifelse(any(tmp[market_id==i]$nbrand==1),' - affected',''))
   
-  png(paste0('../audit/1-brand-markets/', fn,'.png'), res=200, units='in', height=8, width=16)
+  png(paste0('../audit/time-selection/', fn,'.png'), res=200, units='in', height=8, width=16)
   
   with(tmp[market_id==i], plot(x=date, y=sumsales, type='l', main = fn, xlab='date',ylab='sum of sales'))
   with(tmp[market_id==i], abline(v=date[which(above==1)],col='red'))
