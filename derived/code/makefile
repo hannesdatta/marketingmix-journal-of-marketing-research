@@ -18,7 +18,7 @@ all: build audit
 build: $(OUTPUT_DIR)/datasets.csv
 
 # audit
-audit: $(TEMP_DIR)/audit_rawplot.txt $(TEMP_DIR)/audit_markets.txt $(TEMP_DIR)/audit_brands.txt
+audit: $(TEMP_DIR)/audit_rawplot.txt $(TEMP_DIR)/audit_markets.txt $(TEMP_DIR)/audit_brands.txt $(TEMP_DIR)/audit_attributes.txt
 
 # building parts of the project
 unzip: $(TEMP_DIR)/unzipped.RData
@@ -86,3 +86,7 @@ $(TEMP_DIR)/audit_markets.txt: audit_markets.R $(OUTPUT_DIR)/datasets.csv
 # --> audit: create plots of brands
 $(TEMP_DIR)/audit_brands.txt: audit_brands.R $(OUTPUT_DIR)/datasets.csv
 	"$(RBIN64)Rterm.exe" --vanilla --args "" < "audit_brands.R"
+
+# --> audit: create plots of brands
+$(TEMP_DIR)/audit_attributes.txt: audit_attributes.R $(OUTPUT_DIR)/datasets.csv
+	"$(RBIN64)Rterm.exe" --vanilla --args "" < "audit_attributes.R"
