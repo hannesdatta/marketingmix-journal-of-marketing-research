@@ -18,6 +18,9 @@ require(data.table)
 # -> skus_by_date_list: sales data on a SKU-level by date
   load('..//temp//uniqueness_and_lagsales.RData') 
 
+# product attributes
+  load('..//temp//attributes.RData') 
+  
 # -> brand_selection: selection of brands
 	load('..//temp//select.RData') 
 
@@ -38,6 +41,7 @@ for (i in 1:length(skus_by_date_list)) {
 	
 	skus_by_date <- skus_by_date_list[[i]]
 	
+	xattr = xattribs[[match(names(skus_by_date_list)[i], names(xattribs))]]
 	#####################################
 	#### Aggregation to brand-level #####
 	#####################################
@@ -51,6 +55,7 @@ for (i in 1:length(skus_by_date_list)) {
 	
 	skus_by_date[brand_selection, ':=' (selected_brand=i.selected_brand, n_brands_selected=i.n_brands_selected, brand_rename=i.brand_rename, composite_included=i.composite_included)]
 	
+	# Rename brands to new aggregation level (e.g., composite brand)
 	setnames(skus_by_date, 'brand', 'brand_orig')
 	setnames(skus_by_date, 'brand_rename', 'brand')
 	
@@ -115,6 +120,13 @@ for (i in 1:length(skus_by_date_list)) {
   	
   	tmp[novelty, novelty_sum:=i.novel_sum]
 	
+  	setkey(tmp, category, country, brand_orig, model)
+  	setkey(xattr, category, country, brand, model)
+  	
+  	for (var in grep('^attr', colnames(xattr), value=T)) {
+  	  tmp[xattr, paste0(var):=get(var)]
+  	}
+       
   # Aggregate data
 	merged_attr_sales = tmp[, list( usales=sum(t_sales_units,na.rm=T),
 	                                         vsales = sum(t_value_sales,na.rm=T), 
@@ -141,6 +153,19 @@ for (i in 1:length(skus_by_date_list)) {
 	                                 ),
 	by=aggkey]
 
+  attrdata=lapply(grep('^attr', colnames(tmp),value=T), function(var) {
+    rtmp=tmp[, list(outcomevar=weigh_by_w(get(var), t_sales_units_rolled)), by = aggkey]
+    setnames(rtmp, 'outcomevar', var)
+    rtmp
+  })
+  
+  
+  merge.all <- function(x,y, ...) {merge(x,y, all.x=T,all.y=T, by=aggkey, ...)}
+  attrdata_merged=Reduce(merge.all, attrdata)
+  
+  merged_attr_sales = merge(merged_attr_sales, attrdata_merged, by=aggkey, all.x=T)
+  
+  
 	# transform novelty variables to shares; if llen = 0, set novelty share to 0.
 	novvars <- grep('nov[0-9].*', colnames(merged_attr_sales),value=T)
 	for (.var in novvars) merged_attr_sales[, (paste0(.var,'sh')) := ifelse(llen==0, 0, (get(.var)/llen)*100)]

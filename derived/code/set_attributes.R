@@ -328,5 +328,5 @@ for (i in 1:length(attribs)) {
 sink()
 
 
-save(attribs, file='..\\temp\\attributes.RData')
+save(attribs, xattribs, file='..\\temp\\attributes.RData')
 
