@@ -83,7 +83,7 @@ for (i in 1:length(attribs)) {
     
     attribs[[i]][, attr_touchscreen := as.factor(touchscreen)]
     
-    attribs[[i]][, attr_bluetooth := as.factor(ifelse(bluetooth=='YES', 'YES', 'NO'))]
+    #attribs[[i]][, attr_bluetooth := as.factor(ifelse(bluetooth=='YES', 'YES', 'NO'))]
     
     attribs[[i]][, attr_wifi := as.factor(wifi)]
     
@@ -139,7 +139,7 @@ for (i in 1:length(attribs)) {
   }
   
   if (category_name=='dvd') {
-    attribs[[i]][, attr_blueray:=as.factor(ifelse(grepl('NO', blu_ray_play), 'NO', 'YES'))]
+    attribs[[i]][, attr_blueray:=factor(ifelse(grepl('NO', blu_ray_play), 'NO', 'YES'), levels=c('YES','NO'))]
     attribs[[i]][, attr_function:=playerrecorder]
   }
   
@@ -156,7 +156,7 @@ for (i in 1:length(attribs)) {
   }
   
   if (category_name=='cooling') {
-    attribs[[i]][, attr_freezer:=as.factor(freez_position)]
+    attribs[[i]][, attr_freezer:=factor(ifelse(freez_position%in%'YES','YES','NO_OTHERS'), levels=c('YES','NO_OTHERS'))]
     attribs[[i]][, attr_numdoors:=as.numeric(as.character(no_of_doors))]
     attribs[[i]][, attr_numdoors:=ifelse(is.na(attr_numdoors)|attr_numdoors==0, quantile(attr_numdoors,.5,na.rm=T), attr_numdoors)]
     
@@ -229,7 +229,7 @@ for (i in 1:length(attribs)) {
 
         
     attribs[[i]][, attr_3d:=as.factor(ifelse(threedimensional=='3-D', 'YES','NO'))]
-    attribs[[i]][, attr_builtindvdorblueray:=as.factor(ifelse(built_in_dvd=='DVD'|blu_ray_play=='BLU-RAY PLAY.', 'YES','NO'))]
+    #attribs[[i]][, attr_builtindvdorblueray:=as.factor(ifelse(built_in_dvd=='DVD'|blu_ray_play=='BLU-RAY PLAY.', 'YES','NO'))]
     
   }
   
@@ -255,8 +255,8 @@ for (i in 1:length(attribs)) {
   	attribs[[i]][, attr_screensize := NULL]
 	
     attribs[[i]][, attr_3d:=as.factor(ifelse(threedimensional=='3-D', 'YES','NO'))]
-    attribs[[i]][, attr_builtindvd:=as.factor(ifelse(built_in_dvd=='DVD', 'YES','NO'))]
-    attribs[[i]][, attr_builtinbluray:=as.factor(ifelse(blu_ray_play=='BLU-RAY PLAY.', 'YES','NO'))]
+   # attribs[[i]][, attr_builtindvd:=as.factor(ifelse(built_in_dvd=='DVD', 'YES','NO'))]
+   # attribs[[i]][, attr_builtinbluray:=as.factor(ifelse(blu_ray_play=='BLU-RAY PLAY.', 'YES','NO'))]
   }
   
   if (category_name=='washing') {
