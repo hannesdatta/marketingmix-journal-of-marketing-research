@@ -55,7 +55,7 @@ $(TEMP_DIR)/categorized.RData : categorize.R $(TEMP_DIR)/unzipped.RData
 $(TEMP_DIR)/extract_attributes.RData : extract_attributes.R $(TEMP_DIR)/categorized.RData
 	"$(RBIN64)Rterm.exe" --vanilla --args "" < "extract_attributes.R"
 
-	# define attribute levels per category
+# define attribute levels per category
 $(TEMP_DIR)/attributes.RData : set_attributes.R $(TEMP_DIR)/extract_attributes.RData
 	"$(RBIN64)Rterm.exe" --vanilla --args "" < "set_attributes.R"
 
