@@ -57,11 +57,20 @@ savemodels <- function(fname) {
 analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend = 'none', pval = .05, max.lag = 12, min.t = 36, 
                               estmethod = "FGLS", benchmarkb = NULL, use_quarters = TRUE, maxiter=1000,
                               attraction_model = "MNL", takediff = 'alwaysdiff', plusx = NULL, squared = F, lag_heterog=F,
-                              carryover_zero=F) {
+                              carryover_zero=F, use_attributes = T) {
 	
 		cat('data preparation\n...')
 		
 		panel <<- brand_panel[market_id==i]
+		print(use_attributes)
+		if(use_attributes==T) {
+		  # which attributes to use? run a check
+		  retain_attr=unlist(lapply(panel[, grep('^attr',colnames(panel),value=T),with=F], function(x) !all(is.na(x))))
+		
+		  setup_x <- c(setup_x, names(retain_attr[which(retain_attr==T)]))
+		}
+		print(setup_x)
+		
 		
 		for (var in plusx) {
 		  panel[, (var):=get(var)+1]
@@ -102,6 +111,11 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 	  
 		# check whether variables qualify for estimation
 		melted_panel[, ts_selected := use_ts(value), by=c('country','category', 'brand', 'variable')]
+		
+		# on attribute variables, do a check across the entire panel
+		if (use_attributes==T) {
+		  melted_panel[grepl('^attr',variable), ts_selected := use_ts(value), by = c('country','category','variable')]
+		}
 		
 		# check whether lags of explanatory variables are included; verify these are kicked out!
 		
@@ -185,12 +199,14 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 		
 		if (carryover_zero==F) {
 		  m_form = as.formula(paste0(res$variables$y, ' ~ ', paste0(res$variables$x, collapse = '+'), ' + lagunitsales_sh'))
-		  m_form_heterog = as.formula(paste0('~ ', paste0(res$variables$x, collapse = '+'), ifelse(lag_heterog==T, ' + lagunitsales_sh', '')))
+		  #m_form_heterog = as.formula(paste0('~ ', paste0(res$variables$x, collapse = '+'), ifelse(lag_heterog==T, ' + lagunitsales_sh', '')))
+		  m_form_heterog = as.formula(paste0('~ ', paste0(grep('^attr', res$variables$x, value=T, invert=T), collapse = '+'), ifelse(lag_heterog==T, ' + lagunitsales_sh', '')))
 		}
 		
 		if (carryover_zero==T) {
 		  m_form = as.formula(paste0(res$variables$y, ' ~ ', paste0(res$variables$x, collapse = '+'), ''))
-		  m_form_heterog = as.formula(paste0('~ ', paste0(res$variables$x, collapse = '+'), ifelse(lag_heterog==T, '', '')))
+		  #m_form_heterog = as.formula(paste0('~ ', paste0(res$variables$x, collapse = '+'), ifelse(lag_heterog==T, '', '')))
+		  m_form_heterog = as.formula(paste0('~ ', paste0(grep('^attr', res$variables$x, value=T, invert=T), collapse = '+'), ifelse(lag_heterog==T, '', '')))
 		}
 		
 	  m_form_index = as.formula(~ brand + month)
@@ -246,17 +262,17 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 		  
 		  # conduct Enders procedure on all variables (i.e., DVs (ratio of marketshares), 
 		  # and explanatory variables (log X, and log(y focal), log(y benchmark)), 
-		  # but not the trend and not the copula terms)
+		  # but not the trend. not the copula terms, and not the product attributes.)
 		  
 			curr_brand = names(dat_by_brand)[z]
 			#print(curr_brand)
 			
-			vars = setdiff(colnames(dat_by_brand[[z]])[!colSums(abs(dat_by_brand[[z]]))==0 & !grepl('[_]dum|trend', colnames(dat_by_brand[[z]]))],'period')
+			vars = setdiff(colnames(dat_by_brand[[z]])[!colSums(abs(dat_by_brand[[z]]))==0 & !grepl('[_]dum|trend|attr[_]', colnames(dat_by_brand[[z]]))],'period')
 			
 			# verify whether, for any given brand/base brand combination, the minimum N constraint for number of observations (result of use_ts) is given.
 			delvars = vars[sapply(vars, function(xx) use_ts(ifelse(grepl(dtbb@benchmark, xx), -1, 1) * unlist(dat_by_brand[[z]][, xx])))==F]
 			
-			# also add copula and lagged values to deletion (doesn't make sense deleting the focal variable, but not its lagged term)
+			# for those variables that need to be deleted, also add corresponding copula and lagged values to deletion (doesn't make sense deleting the focal variable, but not its lagged term)
 			delvars = union(delvars, intersect(gsub('[_]', '_lag', delvars),vars))
 			delvars = union(delvars, intersect(gsub('[_]', '_cop_', delvars),vars))
 			
@@ -622,9 +638,14 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 	
 		vifs = rbindlist(lapply(split(1:nrow(index), as.character(index$brand)), function(ind) {
 			vifdf=as.matrix(X)[ind,]
-		
-			# drop zero columns
+		  # drop zero columns
 			vifdf = vifdf[,which(!colSums(vifdf)==0)]
+			
+			#apply(vifdf, 2, function(x) length(unique(x)))
+			
+			# any column (e.g., attribute) has no variation?
+			#apply(vifdf, 2, use_ts)
+			
 			vify = unlist(Y)[ind]
 			
 		  .vifvars = colnames(vifdf)
@@ -635,8 +656,15 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 		  .vifvars= colnames(df.cop)[!grepl('cop_',  colnames(df.cop))] # remove copula terms
 		  .vifvars= colnames(df.cop)[!grepl('cop_',  colnames(df.cop))] # remove benchmark brand terms
 		  
+		   varselvif=.vifvars[!.vifvars=='y' & !grepl('intercept|[_]dum', .vifvars)]
 		   
-		  m<-eval(parse(text=paste0('lm(y~1+', paste(.vifvars[!.vifvars=='y' & !grepl('intercept|[_]dum', .vifvars)],collapse='+'),', data=df.cop)')))
+		  m<-eval(parse(text=paste0('lm(y~1+', paste(varselvif,collapse='+'),', data=df.cop)')))
+		  # rerun without NAs
+		  if (length(which(is.na(m$coefficients)))>0) {
+		    varselvif=setdiff(varselvif,names(m$coefficients)[which(is.na(m$coefficients))])
+		    m<-eval(parse(text=paste0('lm(y~1+', paste(varselvif,collapse='+'),', data=df.cop)')))
+		    
+		  }
 		  data.frame(model_brand=as.character(index[ind[1],]$brand), vars = gsub('.', '@', names(vif(m)), fixed=T), vif=vif(m))
 		 }))
 		 
