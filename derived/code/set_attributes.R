@@ -53,9 +53,9 @@ for (i in 1:length(attribs)) {
     
     attribs[[i]][, attr_camera := as.factor(camera)]	
     
-    attribs[[i]][, attr_wifi := as.character(ifelse(!is.na(wireless_lan), as.character(wireless_lan), as.character(wifi)))]
-    attribs[[i]][, attr_wifi := as.factor(ifelse(is.na(attr_wifi)&attr_touchscreen=='NO', 'NO', as.character(attr_wifi)))]
-    attribs[[i]][, attr_wifi := as.factor(ifelse(is.na(attr_wifi)&attr_touchscreen=='YES', 'YES', as.character(attr_wifi)))]
+    #attribs[[i]][, attr_wifi := as.character(ifelse(!is.na(wireless_lan), as.character(wireless_lan), as.character(wifi)))]
+    #attribs[[i]][, attr_wifi := as.factor(ifelse(is.na(attr_wifi)&attr_touchscreen=='NO', 'NO', as.character(attr_wifi)))]
+    #attribs[[i]][, attr_wifi := as.factor(ifelse(is.na(attr_wifi)&attr_touchscreen=='YES', 'YES', as.character(attr_wifi)))]
     
   }
   
@@ -143,6 +143,11 @@ for (i in 1:length(attribs)) {
   if (category_name=='dvd') {
     attribs[[i]][, attr_blueray:=factor(ifelse(grepl('NO', blu_ray_play), 'NO', 'YES'), levels=c('YES','NO'))]
     attribs[[i]][, attr_recorder:=as.factor(ifelse(playerrecorder=='RECORDER','YES','NO'))]
+    
+    # insufficient variation in Vietnam; remove attributes here.
+    #attribs[[i]][country=='VIETNAM', attr_blueray := NA]
+    #attribs[[i]][country=='VIETNAM', attr_recorder := NA]
+    
   }
   
   if (category_name=='microwave') {
@@ -237,9 +242,8 @@ for (i in 1:length(attribs)) {
   if (category_name=='tv_gen3_lcd_only') {
     
     attribs[[i]][, attr_type:=as.factor(as.character(reportingproductgroup))]
-    attribs[[i]][, attr_frequency := as.character(frequency)]
-    attribs[[i]][, attr_frequency := as.factor(ifelse(attr_frequency=='PLASMA', 'OTHERS', attr_frequency))]
-    
+    #attribs[[i]][, attr_frequency := as.character(frequency)]
+    #attribs[[i]][, attr_frequency := as.factor(ifelse(attr_frequency=='PLASMA', 'OTHERS', attr_frequency))]
     
     attribs[[i]][, attr_screensize := as.character(screen_size)]
     attribs[[i]][, attr_screensize := as.factor(ifelse(attr_screensize=='', 'OTHERS', attr_screensize))]
