@@ -61,7 +61,7 @@ melast	Mean elasticity	grepl
 ^tval	t-value	gsub
 ^pval	p-value	gsub
 comb[_]t	t-value	grepl
-ttest[_]t	t-value from t-test^2^	grepl
+ttest[_]t	t-value from independent sample t-test^2^	grepl
 wls[_]t	t-value from WLS^3^	grepl
 re[_]t	t-value from RE^4^	grepl
 mmixinstr	Marketing-mix instrument	gsub
@@ -130,6 +130,7 @@ variable	Variable	gsub
 meanglobalx[_]mc	Variable mean	gsub
 ln[_]gini[_]mc	Log Income Inequality	gsub
 gini[_]mc	Income inequality	gsub
+^gini$	Income inequality	gsub
 XXX^gini	Income inequality	gsub
 ^lnmean[_]ms[_]mc	Log of brand mean market share	gsub
 mean[_]ms[_]mc	Brand mean market share	gsub
