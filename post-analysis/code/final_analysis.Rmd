@@ -219,7 +219,7 @@ for (iter in iters) {
 
 ```
 
-```{r elast_plots_category, echo=F, fig.height=6}
+```{r elast_plots_category, echo=F, fig.height=6, fig.width=10}
 
 out = lapply(ordered_vars, function(var) {
    
@@ -239,7 +239,7 @@ grid.arrange(out[[1]], out[[2]], out[[3]], out[[4]], nrow=2, top = fig('Elastici
   
 ```
 
-```{r elast_plots_countries, echo=F, fig.height=6}
+```{r elast_plots_countries, echo=F, fig.height=10}
  
 out = lapply(ordered_vars, function(var) {
     tmp=elast[variable==var, list(elastlt=sum(elastlt*w_elastlt)/sum(w_elastlt), N=.N), by = c('country', 'country_class')]
