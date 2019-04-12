@@ -160,6 +160,7 @@ kable(tmp, format='html', caption=tab('Category overview^1^')) %>%
 
 ```
 
+
 `r tab('Variable operationalization for market share attraction model')`
 
 
@@ -175,6 +176,7 @@ New product activity | Number of SKUs introduced by brand *i* in a rolling windo
 
 ^2^ Consumer price index obtained from Thomson Reuters Datastream.
 
+<P style='page-break-before: always'>
 # Results
 
 ```{r continue_with_selection, echo=FALSE}
@@ -189,8 +191,6 @@ Reported for a sample of `r length(unique(elast$brand))` unique brands (excludin
 
 
 ```{r elasts_full, echo=F,results='asis'}
-
-cat("<P style='page-break-before: always'>")
 
   sigvalue = .1 # .1-level of significance
   zval = qnorm(1-sigvalue/2)
@@ -212,10 +212,13 @@ cat("<P style='page-break-before: always'>")
   
 iters = list(st=c('st', 'Short-term'), lt=c('lt', 'Long-term'))
 for (iter in iters) {
+
   print(kable(sanitize_table(out[[iter[1]]]), digits=3, format='html', 
         caption=tab(paste0(iter[2], ' elasticities by marketing mix instrument^1^'),prefix='')) %>% kable_styling() %>% 
         footnote(number=paste0('Table reports ', tolower(iter[2]), ' elasticities. ', estimnote, ' Significance tested at *p*<',sigvalue, '.')))
-}
+  #cat("<P style='page-break-before: always'>")
+
+  }
 
 ```
 
@@ -239,7 +242,7 @@ grid.arrange(out[[1]], out[[2]], out[[3]], out[[4]], nrow=2, top = fig('Elastici
   
 ```
 
-```{r elast_plots_countries, echo=F, fig.height=10}
+```{r elast_plots_countries, echo=F, fig.height=6, fig.width=10}
  
 out = lapply(ordered_vars, function(var) {
     tmp=elast[variable==var, list(elastlt=sum(elastlt*w_elastlt)/sum(w_elastlt), N=.N), by = c('country', 'country_class')]
@@ -259,7 +262,7 @@ out = lapply(ordered_vars, function(var) {
 
 ```{r elast_by_cc, echo=F,results='asis', include=TRUE}
 #sink('cc.html')
-for (byvar in c('country','category')) {
+for (byvar in c('category','country')) {
   tmp=elast[!is.na(elastlt), list(elast = sum(elastlt*w_elastlt)/sum(w_elastlt)), by=c('variable', byvar)]
   setnames(tmp, byvar, 'byvar')
   
@@ -387,6 +390,11 @@ for (iter in iters) {
 ```
 
 
+<P style='page-break-before: always'>
+`r fig('Conceptual framework')`
+
+![](../externals/conceptualframework.png)
+
 
 `r tab("Variable operationalization^1^")`
 
@@ -509,14 +517,13 @@ for (i in 1:4) {
 
 ```
 
-# Appendix
-
 ```{r reset, echo=FALSE,results='asis'}
 tableno<<-0
 figureno<<-0
 cat("<P style='page-break-before: always'>")
   
 ```
+# Appendix
 
 ```{r sample_origin, echo=FALSE, results='asis'}
 
@@ -536,7 +543,7 @@ kable(tmp, caption = tab('Country-of-origins for brands in sample, ordered by th
 
 ```
 
-
+<P style='page-break-before: always'>
 ```{r VIFS, echo=FALSE,results='asis', include=FALSE}
 
 m1 = ~1+ appliance + ln_market_growth_mc + ln_herf_mc + local_to_market  + ln_overall_prindexavg_mc + sbbe_std_mc
@@ -568,20 +575,6 @@ kable(tabl, caption = tab('Overview of markets (category/country combination) in
 
 ```
 
-```{r sample_overview, echo=FALSE, results='asis', include = FALSE}
-#, headquarter_region=unique(country_of_origin)
-tmp=elast[, list(active_in_countries=length(unique(country)), active_in_categories=length(unique(category)), 
-                 headquarter_location=unique(country_of_origin), brandz=ifelse(unique(brandz)==TRUE, 'yes', '')), by = c('brand')]
-
-setorderv(tmp, c('active_in_countries','active_in_categories', 'brand'),order=-1L)
-
-tmp[, ':=' (headquarter_location=stri_trans_totitle(headquarter_location))]#, #headquarter_region=stri_trans_totitle(headquarter_region))]
-tmp=sanitize_table(tmp)
-
-
-kable(tmp, caption = tab('Overview of selected brands, ordered by the number of countries and categories they are included in estimation data', prefix ='A'))
-```
-
 ```{r correl, echo=FALSE, results = 'asis'}
 
 tmp = dcast(elast,market_id+brand~variable, value.var=c('elast', 'elastlt'))
@@ -590,23 +583,150 @@ for (var in grep('elast', colnames(tmp),value=T)) {
   tmp[, (paste0('mc_', var)):=get(var)-mean(get(var),na.rm=T), by = c('market_id')]
   }
 
-
-printtmp=tmp[, grep('mc[_]elast[_]', colnames(tmp),value=T) ,with=F]
-setnames(printtmp, gsub('mc[_]elast[_]','',colnames(printtmp)))
-setcolorder(printtmp, ordered_vars)
-setnames(printtmp, paste0(rename.fkt(colnames(printtmp)), ' elasticity'))
-
-
-corstars(printtmp, method=c("pearson"),result='html', caption = tab('Correlation among short-term marketing mix elasticities (mean-centered by market)'))
+if(0){
+  printtmp=tmp[, grep('mc[_]elast[_]', colnames(tmp),value=T) ,with=F]
+  setnames(printtmp, gsub('mc[_]elast[_]','',colnames(printtmp)))
+  setcolorder(printtmp, ordered_vars)
+  setnames(printtmp, paste0(rename.fkt(colnames(printtmp)), ' elasticity'))
+  
+  
+  corstars(printtmp, method=c("pearson"),result='html', caption = tab('Correlation among short-term marketing mix elasticities (mean-centered by market)'))
+}
 
 printtmp=tmp[, grep('mc[_]elastlt[_]', colnames(tmp),value=T) ,with=F]
 setnames(printtmp, gsub('mc[_]elastlt[_]','',colnames(printtmp)))
 setcolorder(printtmp, ordered_vars)
 setnames(printtmp, paste0(rename.fkt(colnames(printtmp)), ' elasticity'))
 
-corstars(printtmp, method=c("pearson"),result='html', caption = tab('Correlation among long-term marketing mix elasticities (mean-centered by market)'))
+corstars(printtmp, method=c("pearson"),result='html', caption = tab('Correlation among long-term marketing mix elasticities (mean-centered by market)', prefix='A'))
 
 #stargazer(cor(printtmp))
+
+
+```
+
+```{r newanalysis_beta, results = 'asis', include = TRUE, echo=FALSE}
+
+# formulas for models
+upd_models = list(m1=.~1+ developed,
+                  m2 = .~1 + developed + sbbe_std_mc + I(sbbe_std_mc*developed))
+
+elast_backup = data.table(elast)
+elast[is.na(gamma_lagms), gamma_lagms:=0]
+
+elast[, elastlt := beta/(1-gamma_lagms)]
+
+out1=regmodel(formula=c(upd_models), dat=elast, model='lm')
+
+upd_models2 = list(m3 = .~1 + developed + sbbe_std_mc + I(sbbe_std_mc*developed)+(1|country) + (1|category) + (1|brand),
+                   m4 = .~1 + developed + sbbe_std_mc + I(sbbe_std_mc*developed)+ (1|country) + (1|category) + (1|brand) + ln_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market,
+                   m5 = .~1 + ln_gci_00.03_gdppercap_s_mc + sbbe_std_mc + I(sbbe_std_mc*ln_gci_00.03_gdppercap_s_mc)+ (1|brand) + (1|category) + (1|country) + ln_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market,
+                   m6 = .~1 + ln_gci_overall_s_mc + sbbe_std_mc + I(sbbe_std_mc*ln_gci_overall_s_mc)+ (1|country) + (1|category) + (1|brand) + ln_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market,
+                   m7 = .~1 + ln_hdi2010_mc + sbbe_std_mc + I(sbbe_std_mc*ln_hdi2010_mc)+ (1|country) + (1|category) + (1|brand) + ln_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market
+                  
+                   )
+
+out2=regmodel(formula=c(upd_models2), dat=elast, model='lmer')
+
+outx = NULL
+
+for (out in list(out1, out2)) {
+  for (mod in names(out)) {
+    outx[[mod]]$variable=out[[mod]]$variable
+    outx[[mod]]$st=c(outx[[mod]]$st, out[[mod]]$st)
+    outx[[mod]]$lt=c(outx[[mod]]$lt, out[[mod]]$lt)
+  }
+}
+#main_interact = lapply(out2, function(x) {x$lt <- list(x$lt$main); x$st <- list(x$st$main); x})
+
+covars = c("(Intercept)", "developed", "ln_gci_00.03_gdppercap_s_mc","ln_gci_overall_s_mc", "ln_hdi2010_mc",
+  "sbbe_std_mc", "brandz", 'brandz_global_alltime', 'brandz_financial500',
+  "I(sbbe_std_mc * developed)",
+  "I(sbbe_std_mc * ln_gci_00.03_gdppercap_s_mc)",
+  "I(sbbe_std_mc * ln_gci_overall_s_mc)",
+  "I(sbbe_std_mc * ln_hdi2010_mc)",
+  "I(brandz * developed)",
+  "I(brandz_global_alltime * developed)",
+  "I(brandz_financial500 * developed)",
+  "ln_herf_mc",
+  "ln_market_growth_mc",
+  "appliance",
+  "ln_gini_mc",
+  "local_to_market")
+
+notes_new = paste0("^1^ ", estimnote, " Standard errors in parentheses. Continuous variables have been mean-centered.")
+
+
+#sink('test.htm')
+for (i in 1:4) {
+  cat("<P style='page-break-before: always'>")
+
+
+  printout(outx, 'lt', title = tab(paste0('Regression with beta/(1-lambda) for ', gsub('ity', 'ities', names(ordered_vars[i]))), prefix='A'), vars=ordered_vars[i],  notes=gsub('long[-]term', 'short- and long-term', notes_new), covariate_choices = covars)
+}
+#sink()
+
+
+```
+
+
+```{r newanalysis_control, results = 'asis', include = TRUE, echo=FALSE}
+elast = data.table(elast_backup)
+
+elast[!is.na(elastlt), mean_ms_mc := mean_ms-mean(mean_ms,na.rm=T), by = c('variable')]
+
+# formulas for models
+upd_models = list(m1=.~1+ developed + mean_ms_mc,
+                  m2 = .~1 + developed + sbbe_std_mc + I(sbbe_std_mc*developed) + mean_ms_mc)
+
+
+out1=regmodel(formula=c(upd_models), dat=elast, model='lm')
+
+upd_models2 = list(m3 = .~1 + developed + sbbe_std_mc + I(sbbe_std_mc*developed) + mean_ms_mc+(1|country) + (1|category) + (1|brand),
+                   m4 = .~1 + developed + sbbe_std_mc + I(sbbe_std_mc*developed) + mean_ms_mc+ (1|country) + (1|category) + (1|brand) + ln_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market + mean_ms_mc,
+                   m5 = .~1 + ln_gci_00.03_gdppercap_s_mc + sbbe_std_mc + I(sbbe_std_mc*ln_gci_00.03_gdppercap_s_mc)+ (1|brand) + (1|category) + (1|country) + ln_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market + mean_ms_mc,
+                   m6 = .~1 + ln_gci_overall_s_mc + sbbe_std_mc + I(sbbe_std_mc*ln_gci_overall_s_mc)+ (1|country) + (1|category) + (1|brand) + ln_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market + mean_ms_mc,
+                   m7 = .~1 + ln_hdi2010_mc + sbbe_std_mc + I(sbbe_std_mc*ln_hdi2010_mc)+ (1|country) + (1|category) + (1|brand) + ln_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market + mean_ms_mc
+                  
+                   )
+
+out2=regmodel(formula=c(upd_models2), dat=elast, model='lmer')
+
+outx = NULL
+
+for (out in list(out1, out2)) {
+  for (mod in names(out)) {
+    outx[[mod]]$variable=out[[mod]]$variable
+    outx[[mod]]$st=c(outx[[mod]]$st, out[[mod]]$st)
+    outx[[mod]]$lt=c(outx[[mod]]$lt, out[[mod]]$lt)
+  }
+}
+#main_interact = lapply(out2, function(x) {x$lt <- list(x$lt$main); x$st <- list(x$st$main); x})
+
+covars = c("(Intercept)", "developed", "ln_gci_00.03_gdppercap_s_mc","ln_gci_overall_s_mc", "ln_hdi2010_mc",
+  "sbbe_std_mc", "brandz", 'brandz_global_alltime', 'brandz_financial500',
+  "I(sbbe_std_mc * developed)",
+  "I(sbbe_std_mc * ln_gci_00.03_gdppercap_s_mc)",
+  "I(sbbe_std_mc * ln_gci_overall_s_mc)",
+  "I(sbbe_std_mc * ln_hdi2010_mc)",
+  "I(brandz * developed)",
+  "I(brandz_global_alltime * developed)",
+  "I(brandz_financial500 * developed)",
+  "ln_herf_mc",
+  "ln_market_growth_mc",
+  "appliance",
+  "ln_gini_mc",
+  "local_to_market",
+  "mean_ms_mc")
+
+notes_new = paste0("^1^ ", estimnote, " Standard errors in parentheses. Continuous variables have been mean-centered, except a brand's mean market share.")
+
+
+for (i in 1:4) {
+  cat("<P style='page-break-before: always'>")
+
+  printout(outx, 'lt', title = tab(paste0('Regression with long-term elasticities for ', gsub('ity', 'ities', names(ordered_vars[i])), ', controlling for market shares'), prefix='A'), vars=ordered_vars[i],  notes=gsub('long[-]term', 'short- and long-term', notes_new), covariate_choices = covars)
+}
 
 
 ```
