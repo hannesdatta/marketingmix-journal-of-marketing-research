@@ -218,23 +218,6 @@ for (iter in iters) {
 
 ```
 
-```{r elast_plots_countries, echo=F, fig.height=6, fig.width=10}
- 
-for (var in ordered_vars) {
-    tmp=elast[variable==var, list(elastlt=sum(elastlt*w_elastlt)/sum(w_elastlt), N=.N), by = c('country', 'country_class')]
-    setorder(tmp, elastlt)
-    tmp[, cat:=rename.fkt(country, dictionary=c('renaming.txt'))]
-    
-    tmp[, cat:=factor(cat, levels=tmp$cat)]
- 
-    g<-ggplot(tmp, aes(x=cat, y=elastlt, fill = country_class)) + geom_bar(stat='identity') + ggtitle(paste0(capitalize(gsub('icity', 'icity', names(ordered_vars)[match(var, ordered_vars)])), ' by country')) + xlab('') + ylab('Long-term elasticity') + scale_fill_manual(values=c('darkblue','red'))+ theme(legend.position='none', axis.text.x=element_text(angle=45, hjust=1,size=12)) + geom_text(aes(label = formatC(elastlt,digits=2), size = 3, hjust = 0.5, vjust = ifelse(var=='rwpspr', 1,-.5)))
-    #+ labs(caption='Developed economies shown in blue; emerging economies shown in red.')
-    print(g)
-}
-
-# grid.arrange(out[[1]], out[[2]], out[[3]], out[[4]], nrow=2, top = fig('Elasticities by country'), bottom = 'Developed economies shown in blue; emerging economies shown in red.')
- 
-```
 
 ```{r elast_by_cc, echo=F,results='asis', include=TRUE}
 #sink('cc.html')
@@ -342,8 +325,8 @@ for (byvar in c('country')) {
 				           em_melast = sum(val[developed==0]*val_w[developed==0])/sum(val_w[developed==0]),
 									 em_z = sum(val_z[developed==0])/sqrt(length(which(!is.na(val[developed==0])))),
 									 #em_sig = signstars(sum(val_z[developed==0])/sqrt(length(which(!is.na(val[developed==0]))))),
-									 ttest_t = unique(ttest_diff_t), ttest_sig = psignstars(unique(ttest_diff_p))#,
-									 #wls_t = unique(wls_diff_t), wls_sig = psignstars(unique(wls_diff_p))#,
+									 #ttest_t = unique(ttest_diff_t), ttest_sig = psignstars(unique(ttest_diff_p))#,
+									 wls_t = unique(wls_diff_t), wls_sig = psignstars(unique(wls_diff_p))#,
 									 #re_t = unique(re_diff_t), res_sig = psignstars(unique(re_diff_p))
 									                    ), by=c('variable')]
 
@@ -364,13 +347,6 @@ for (iter in iters) {
 }
   
 ```
-
-
-<P style='page-break-before: always'>
-`r fig('Conceptual framework')`
-
-![](../externals/conceptualframework.png)
-
 
 `r tab("Variable operationalization^1^")`
 
@@ -439,35 +415,23 @@ print(kable(dtf, format='html', initial.zero = FALSE, digits=3,caption = tab(pas
 #+ I(sbbe_std_mc*developed)
 
 # formulas for models
-upd_models = list(m1=.~1+ emerging,
-                  m2 = .~1 + emerging + sbbe_std_mc)
 
-out1=regmodel(formula=c(upd_models), dat=elast, model='lm')
-
-upd_models2 = list(m3 = .~1 + emerging + sbbe_std_mc +(1|country) + (1|category) + (1|brand),
-                   m4 = .~1 + emerging + sbbe_std_mc + (1|country) + (1|category) + (1|brand) + ln_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market,
-                   m5 = .~1 + emerging + sbbe_std_mc + I(sbbe_std_mc*emerging)+ (1|country) + (1|category) + (1|brand) + ln_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market)
+upd_models = list(m1 = .~1 + (1|country) + (1|category) + (1|brand) + ln_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market,
+                   m2 = .~1 + emerging + (1|country) + (1|category) + (1|brand) + ln_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market,
+                   m3 = .~1 + emerging + sbbe_std_mc + (1|country) + (1|category) + (1|brand) + ln_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market,
+                   m4 = .~1 + emerging + sbbe_std_mc + I(sbbe_std_mc*emerging)+ (1|country) + (1|category) + (1|brand) + ln_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market)
                    
-
-#,
-   #                m5 = .~1 + ln_gci_00.03_gdppercap_s_mc + sbbe_std_mc + I(sbbe_std_mc*ln_gci_00.03_gdppercap_s_mc)+ (1|brand) + (1|category) + (1|country) + ln_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market,
-#                   m6 = .~1 + ln_gci_overall_s_mc + sbbe_std_mc + I(sbbe_std_mc*ln_gci_overall_s_mc)+ (1|country) + (1|category) + (1|brand) + ln_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market,
- #                  m7 = .~1 + ln_hdi2010_mc + sbbe_std_mc + I(sbbe_std_mc*ln_hdi2010_mc)+ (1|country) + (1|category) + (1|brand) + ln_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market
-                  
-          #         )
-
-out2=regmodel(formula=c(upd_models2), dat=elast, model='lmer')
+out1=regmodel(formula=c(upd_models), dat=elast, model='lmer')
 
 outx = NULL
 
-for (out in list(out1, out2)) {
+for (out in list(out1)) {
   for (mod in names(out)) {
     outx[[mod]]$variable=out[[mod]]$variable
     outx[[mod]]$st=c(outx[[mod]]$st, out[[mod]]$st)
     outx[[mod]]$lt=c(outx[[mod]]$lt, out[[mod]]$lt)
   }
 }
-#main_interact = lapply(out2, function(x) {x$lt <- list(x$lt$main); x$st <- list(x$st$main); x})
 
 covars = c("(Intercept)", "emerging", "ln_gci_00.03_gdppercap_s_mc","ln_gci_overall_s_mc", "ln_hdi2010_mc",
   "sbbe_std_mc", "brandz", 'brandz_global_alltime', 'brandz_financial500',
@@ -486,7 +450,6 @@ covars = c("(Intercept)", "emerging", "ln_gci_00.03_gdppercap_s_mc","ln_gci_over
 
 notes_new = paste0("^1^ ", estimnote, " Standard errors in parentheses. Continuous variables have been mean-centered.")
 
-
 sink('test.htm')
 for (i in 1:4) {
   cat("<P style='page-break-before: always'>")
@@ -497,6 +460,32 @@ for (i in 1:4) {
 sink()
 
 
+```
+
+```{r median, echo=F,results='asis'}
+#ggplot(sims, aes(x=emerging, y=est, fill=local_to_market)) + geom_bar(stat="identity", position=position_dodge())
+elast[, ':=' (l_emerging=ifelse(emerging==1,'EM','DM'),
+             l_brandequity=ifelse(sbbe_std_mc>0, 'strong brand','weak brand'))]
+
+
+sims = elast[, list(est=sum(elastlt*w_elast)/sum(w_elast)), by = c('variable', 'l_brandequity', 'l_emerging')]
+
+
+#sims[, ':=' (l_emerging=ifelse(emerging==1,'EM','DM'),
+ #            l_brandequity=ifelse(modvar==max(modvar), 'strong brand','weak brand'))]
+#,
+ #            l_local=ifelse(local_to_market==1,'domestic brand','foreign brand'))]
+
+for (mod in unique(sims$variable)) {
+simtmp=sims[variable==mod]
+#png(paste0('../audit/plot_', mod, '.png'), res=150, units='in', height=4, width=4)
+p<-ggplot(simtmp, aes(x=l_brandequity,y=est, fill = l_emerging)) +geom_bar(stat="identity", position = 'dodge', width= .5) + ggtitle(paste0(rename.fkt(mod), ' elasticities')) + xlab('Brand strength') + ylab('Mean elasticity') + labs(fill="Development status") #+  geom_errorbar(position = position_dodge(0.5), aes(ymin=est-1.69*se,ymax=est+1.69*se),width=.25)
+print(p)
+cat("<P style='page-break-before: always'>")
+
+#dev.off()
+}
+       
 ```
 
 ```{r reset, echo=FALSE,results='asis'}
