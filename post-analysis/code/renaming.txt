@@ -90,9 +90,9 @@ ln_overall[_]prindexavg[_]mc	Log of price index	gsub
 ^overall[_]prindex	Price index	grepl
 local_to_market	Domestic (vs. foreign) brand	grepl
 local_multip_market	Domestic (multiple markets brand)	grepl
-sbbelt|sbbelt[_]mc	Brand equity (long-term, not standardized)	gsub
-sbbe[_]std|sbbe[_]std[_]mc	Brand equity	gsub
-sbbe|sbbe[_]mc	Brand equity (not standardized)	gsub
+sbbelt|sbbelt[_]mc	Brand strenth (long-term, not standardized)	gsub
+sbbe[_]std|sbbe[_]std[_]mc	Brand strength	gsub
+sbbe|sbbe[_]mc	Brand strength (not standardized)	gsub
 active_in_countries	Number of countries with data	gsub
 active_in_categories	Number of categories with data 	gsub
 headquarter_location	Location of headquarter	gsub
