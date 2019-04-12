@@ -206,7 +206,7 @@ Reported for a sample of `r length(unique(elast$brand))` unique brands (excludin
   return(tmp)
   })
   
-iters = list(st=c('st', 'Short-term'), lt=c('lt', 'Long-term'))
+iters = list(lt=c('lt', 'Long-term')) #st=c('st', 'Short-term'), 
 for (iter in iters) {
 
   print(kable(sanitize_table(out[[iter[1]]]), digits=3, format='html', 
@@ -227,7 +227,7 @@ for (var in ordered_vars) {
     
     tmp[, cat:=factor(cat, levels=tmp$cat)]
  
-    g<-ggplot(tmp, aes(x=cat, y=elastlt, fill = country_class)) + geom_bar(stat='identity') + ggtitle(paste0(capitalize(gsub('icity', 'icity', names(ordered_vars)[match(var, ordered_vars)])), ' by country')) + xlab('') + ylab('Long-term elasticity') + scale_fill_manual(values=c('darkblue','red'))+ theme(legend.position='none', axis.text.x=element_text(angle=45, hjust=1,size=12)) + geom_text(aes(label = formatC(elastlt,digits=2), size = 3, hjust = 0.5, vjust = 0))
+    g<-ggplot(tmp, aes(x=cat, y=elastlt, fill = country_class)) + geom_bar(stat='identity') + ggtitle(paste0(capitalize(gsub('icity', 'icity', names(ordered_vars)[match(var, ordered_vars)])), ' by country')) + xlab('') + ylab('Long-term elasticity') + scale_fill_manual(values=c('darkblue','red'))+ theme(legend.position='none', axis.text.x=element_text(angle=45, hjust=1,size=12)) + geom_text(aes(label = formatC(elastlt,digits=2), size = 3, hjust = 0.5, vjust = ifelse(var=='rwpspr', 1,-.5)))
     #+ labs(caption='Developed economies shown in blue; emerging economies shown in red.')
     print(g)
 }
@@ -342,8 +342,8 @@ for (byvar in c('country')) {
 				           em_melast = sum(val[developed==0]*val_w[developed==0])/sum(val_w[developed==0]),
 									 em_z = sum(val_z[developed==0])/sqrt(length(which(!is.na(val[developed==0])))),
 									 #em_sig = signstars(sum(val_z[developed==0])/sqrt(length(which(!is.na(val[developed==0]))))),
-									 ttest_t = unique(ttest_diff_t), ttest_sig = psignstars(unique(ttest_diff_p)),
-									 wls_t = unique(wls_diff_t), wls_sig = psignstars(unique(wls_diff_p))#,
+									 ttest_t = unique(ttest_diff_t), ttest_sig = psignstars(unique(ttest_diff_p))#,
+									 #wls_t = unique(wls_diff_t), wls_sig = psignstars(unique(wls_diff_p))#,
 									 #re_t = unique(re_diff_t), res_sig = psignstars(unique(re_diff_p))
 									                    ), by=c('variable')]
 
@@ -360,7 +360,7 @@ iters = list(lt=c('lt', 'Long-term'))
 for (iter in iters) {
   print(kable(sanitize_table(out[[iter[1]]]), digits=3, format='html', 
         caption=tab(paste0(iter[2], ' elasticities by marketing mix instrument^1^'))) %>% kable_styling() %>% 
-        footnote(number=c(paste0(notes_sig, ' ', estimnote, ' The number of observations differs slightly across marketing mix instruments because some brands in some markets (category/country combinations) do not have variation in these variables.'),notes[1],notes[2])) %>% add_header_above(c(" " = 1, "All countries" = 3, "Developed countries" = 3, "Emerging countries" = 3, 'Tests on differences' =4)))
+        footnote(number=c(paste0(notes_sig, ' ', estimnote, ' The number of observations differs slightly across marketing mix instruments because some brands in some markets (category/country combinations) do not have variation in these variables.'),notes[1])) %>% add_header_above(c(" " = 1, "All countries" = 3, "Developed countries" = 3, "Emerging countries" = 3, 'Tests on differences' =2)))
 }
   
 ```
@@ -376,14 +376,14 @@ for (iter in iters) {
 
 Construct                  | Operationalization                                     | References
 ------------------------- | --------------------------------------------------------|----------
-Brand equity               | Sales-based brand equity, derived from the market share attraction model, standardized by category. | Datta, Ailawadi, and van Heerde (2017)
+Brand strength               | Sales-based brand equity, derived from the market share attraction model, standardized by category. | Datta, Ailawadi, and van Heerde (2017)
 Category concentration     | Herfindahl index in a market (category/country combination).
 Category growth       | Average geometric growth rate in a market (category/country combination).^2^
 Appliance (vs. electronics)| Dummy, equaling 1 for appliances (washing machines, microwaves and refrigerators), 0 for all other categories.
 Income inequality          | Gini index in a country.
 Domestic (vs. foreign brand) | Dummy, equaling 1 if a brand's headquarter is located in the focal country, 0 if not.
 
-^1^ All continuous variables are first logged and then mean-centered before model estimation (except brand equity, which is only mean-centered as this variable can take on negative values). 
+^1^ All continuous variables are first logged and then mean-centered before model estimation (except brand strength, which is only mean-centered as this variable can take on negative values). 
 
 ^2^ Geometric growth rate is the n-th's square root of the ratio of the total number of unit sales in a market in the last year over total number of unit sales in the first year (both years having 12 months of data), where n is equal to the number of years in the observation window.
 

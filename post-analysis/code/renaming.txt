@@ -103,6 +103,7 @@ win_elast	Winsorized elasticity	gsub
 win1_elast	Winsorized elasticity (1 percent)	gsub
 win5_elast	Winsorized elasticity (5 percent)	gsub
 N_brands	Number of effects	gsub
+perc_oneside	%-significant (one-sided)	gsub
 perc_positive	%-positive and significant	gsub
 perc_negative	%-negative and significant	gsub
 perc_null	%-insignificant	gsub
