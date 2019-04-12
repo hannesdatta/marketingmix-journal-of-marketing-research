@@ -35,14 +35,14 @@ names(ordered_vars) <- paste0(unlist(sanitize_table(data.frame(ordered_vars))), 
 
   
 # formulas for models
-form_main_model = .~1+ (1|brand) + (1|category) + (1|country) + developed + sbbe_std_mc + local_to_market + ln_herf_mc +ln_market_growth_mc +  ln_overall_prindexavg_mc + appliance + gini_mc
+form_main_model = .~1+ (1|brand) + (1|category) + (1|country) + emerging + sbbe_std_mc + local_to_market + ln_herf_mc +ln_market_growth_mc +  ln_overall_prindexavg_mc + appliance + gini_mc
 
-form_main_model_selected_interact = .~1+ (1|brand) + (1|category) + (1|country) + developed + sbbe_std_mc + I(sbbe_std_mc*developed) + local_to_market + I(local_to_market*developed) + ln_herf_mc + I(ln_herf_mc*developed) + ln_market_growth_mc + I(ln_market_growth_mc*developed) + ln_overall_prindexavg_mc + appliance + gini_mc
+form_main_model_selected_interact = .~1+ (1|brand) + (1|category) + (1|country) + emerging + sbbe_std_mc + I(sbbe_std_mc*emerging) + local_to_market + I(local_to_market*emerging) + ln_herf_mc + I(ln_herf_mc*emerging) + ln_market_growth_mc + I(ln_market_growth_mc*emerging) + ln_overall_prindexavg_mc + appliance + gini_mc
 
 #meanglobalx local_multip_market
 #local_multip_market +
 
-form_interact = ~1+ (1|brand) + (1|category) + (1|country) + developed + sbbe_std_mc + I(sbbe_std_mc*developed) + local_to_market + I(local_to_market*developed)  +  ln_herf_mc + I(ln_herf_mc*developed) + ln_market_growth_mc + I(ln_market_growth_mc*developed) + appliance + I(appliance*developed) + ln_overall_prindexavg_mc + I(ln_overall_prindexavg_mc*developed) + gini_mc + I(gini_mc*developed)
+form_interact = ~1+ (1|brand) + (1|category) + (1|country) + emerging + sbbe_std_mc + I(sbbe_std_mc*emerging) + local_to_market + I(local_to_market*emerging)  +  ln_herf_mc + I(ln_herf_mc*emerging) + ln_market_growth_mc + I(ln_market_growth_mc*emerging) + appliance + I(appliance*emerging) + ln_overall_prindexavg_mc + I(ln_overall_prindexavg_mc*emerging) + gini_mc + I(gini_mc*emerging)
 
 lmerctrl = lmerControl(optimizer ="Nelder_Mead", check.conv.singular="ignore")
 
@@ -116,10 +116,6 @@ notes_base = paste0("^1^ Regression of long-term elasticities on explanatory var
 ```
 
 # Data
-
-`r fig('Data coverage')`
-
-![](../externals/worldmap.png)
 
 ```{r table1_countries, echo = FALSE}
 tmp=unique(elast, by='country')[, c('country','gci_00.03_gdppercap_s','gci_overall_s','hdi2010', 'developed'),with=F]
@@ -222,47 +218,27 @@ for (iter in iters) {
 
 ```
 
-```{r elast_plots_category, echo=F, fig.height=6, fig.width=10}
-
-out = lapply(ordered_vars, function(var) {
-   
-    tmp=elast[variable==var, list(elastlt=sum(elastlt*w_elastlt)/sum(w_elastlt)), by = 'category']
-    setorder(tmp, elastlt)
-    if(var=='rwpspr') tmp=setorderv(tmp, 'elastlt', order=-1L)
-    tmp[, cat:=rename.fkt(category, dictionary=c('renaming.txt'))]
-    tmp[, cat:=factor(cat, levels=tmp$cat)]
-    
-    g<-ggplot(tmp, aes(x=cat, y=elastlt, fill = T)) + geom_bar(stat='identity') + coord_flip() + ggtitle(capitalize(gsub('icity', 'icity', names(ordered_vars)[match(var, ordered_vars)]))) + xlab('') + ylab('Elasticity') + scale_fill_manual(values=c('darkblue')) + theme(legend.position='none')
-    return(g)   
-
-  }) 
-
-grid.arrange(out[[1]], out[[2]], out[[3]], out[[4]], nrow=2, top = fig('Elasticities by category'), bottom = '')
- 
-  
-```
-
 ```{r elast_plots_countries, echo=F, fig.height=6, fig.width=10}
  
-out = lapply(ordered_vars, function(var) {
+for (var in ordered_vars) {
     tmp=elast[variable==var, list(elastlt=sum(elastlt*w_elastlt)/sum(w_elastlt), N=.N), by = c('country', 'country_class')]
     setorder(tmp, elastlt)
     tmp[, cat:=rename.fkt(country, dictionary=c('renaming.txt'))]
     
     tmp[, cat:=factor(cat, levels=tmp$cat)]
  
-    g<-ggplot(tmp, aes(x=cat, y=elastlt, fill = country_class)) + geom_bar(stat='identity') + coord_flip() + ggtitle(capitalize(gsub('icity', 'icity', names(ordered_vars)[match(var, ordered_vars)]))) + xlab('') + ylab('Long-term elasticity') + scale_fill_manual(values=c('darkblue','red'))+ theme(legend.position='none', axis.text.x=element_text(angle=45, hjust=1,size=12)) 
+    g<-ggplot(tmp, aes(x=cat, y=elastlt, fill = country_class)) + geom_bar(stat='identity') + ggtitle(paste0(capitalize(gsub('icity', 'icity', names(ordered_vars)[match(var, ordered_vars)])), ' by country')) + xlab('') + ylab('Long-term elasticity') + scale_fill_manual(values=c('darkblue','red'))+ theme(legend.position='none', axis.text.x=element_text(angle=45, hjust=1,size=12)) + geom_text(aes(label = formatC(elastlt,digits=2), size = 3, hjust = 0.5, vjust = 0))
     #+ labs(caption='Developed economies shown in blue; emerging economies shown in red.')
-    return(g)
-})
+    print(g)
+}
 
- grid.arrange(out[[1]], out[[2]], out[[3]], out[[4]], nrow=2, top = fig('Elasticities by country'), bottom = 'Developed economies shown in blue; emerging economies shown in red.')
+# grid.arrange(out[[1]], out[[2]], out[[3]], out[[4]], nrow=2, top = fig('Elasticities by country'), bottom = 'Developed economies shown in blue; emerging economies shown in red.')
  
 ```
 
 ```{r elast_by_cc, echo=F,results='asis', include=TRUE}
 #sink('cc.html')
-for (byvar in c('category','country')) {
+for (byvar in c('country')) {
   tmp=elast[!is.na(elastlt), list(elast = sum(elastlt*w_elastlt)/sum(w_elastlt)), by=c('variable', byvar)]
   setnames(tmp, byvar, 'byvar')
   
@@ -304,18 +280,18 @@ for (byvar in c('category','country')) {
       if (tvalrep=='wls') {
       # OLS-based p values   
       diff_tests=rbindlist(lapply(unique(elast$variable), function(.var) {
-        data.table(variable=.var, effect=c('constant', 'developed'), summary(lm(val~1+developed, weights=val_w,data=tmp[variable==.var]))$coefficients)
+        data.table(variable=.var, effect=c('constant', 'emerging'), summary(lm(val~1+emerging, weights=val_w,data=tmp[variable==.var]))$coefficients)
       }))
-            taddition = paste0('Test on differences carried out by regressing elasticities (', estimnoteshort, ') on an intercept and a developed country indicator variable. Reported t-value is obtained from the estimate of the developed country indicator.')
+            taddition = paste0('Test on differences carried out by regressing elasticities (', estimnoteshort, ') on an intercept and an emerging country indicator variable. Reported t-value is obtained from the estimate of the emerging country indicator.')
   
             }
     
       if (tvalrep=='re') {
       # random effects based p values
         diff_tests=rbindlist(lapply(unique(tmp$variable), function(.var) {
-        data.table(variable=.var, effect=c('constant', 'developed'), summary(lmer(val~1+(1|category) + (1|country) + (1|brand) + developed, weights=val_w,control = lmerctrl, data=tmp[variable==.var]))$coefficients)[, p:=2*(1-pnorm(abs(get('t value'))))]
+        data.table(variable=.var, effect=c('constant', 'emerging'), summary(lmer(val~1+(1|category) + (1|country) + (1|brand) + emerging, weights=val_w,control = lmerctrl, data=tmp[variable==.var]))$coefficients)[, p:=2*(1-pnorm(abs(get('t value'))))]
       }))
-        taddition = paste0('Test on differences carried out by regressing elasticities (', estimnoteshort, ') on an intercept, a developed country indicator variable and three random effects, for brands, categories, and countries, respectively. Reported t-value is obtained from the estimate of the developed country indicator.')
+        taddition = paste0('Test on differences carried out by regressing elasticities (', estimnoteshort, ') on an intercept, an emerging country indicator variable and three random effects, for brands, categories, and countries, respectively. Reported t-value is obtained from the estimate of the emerging country indicator.')
   
             }
     
@@ -323,19 +299,19 @@ for (byvar in c('category','country')) {
        
     # random effects based p values
       diff_tests=rbindlist(lapply(unique(tmp$variable), function(.var) {
-        xemerg=tmp[variable==.var&developed==1]$val
-        xdevel=tmp[variable==.var&developed==0]$val
+        xemerg=tmp[variable==.var&emerging==1]$val
+        xdevel=tmp[variable==.var&emerging==0]$val
         
         tout = t.test(xemerg,xdevel)
         
-      data.table(variable=.var, effect=c('developed'), NA, NA, tout$statistic, tout$p.value)
+      data.table(variable=.var, effect=c('emerging'), NA, NA, tout$statistic, tout$p.value)
       }))
       
       taddition = paste0('Test on differences carried out using a two-sided t-test.')
      }
   
     setnames(diff_tests, c('variable', 'effect', 'diff_est', 'diff_se', 'diff_t','diff_p'))
-    diff_tests=diff_tests[effect=='developed'][, effect:=NULL]
+    diff_tests=diff_tests[effect=='emerging'][, effect:=NULL]
     diff_tests[,testtype:=tvalrep]
     return(list(diff_tests=diff_tests, notes=taddition))
     })
@@ -418,26 +394,26 @@ covars <- c('sbbe_std', 'herf', 'market_growth', 'appliance', 'gini', 'local_to_
 tmp=data.table(elast)
 nbrands=length(unique(tmp$brand))
 nmarkets=length(unique(tmp$market_id))
-tmp = unique(tmp, by = c('market_id','brand', 'developed'))
+tmp = unique(tmp, by = c('market_id','brand', 'emerging'))
 nobs=nrow(tmp)
 
 # test for differences in means
 diff_tests=rbindlist(lapply(covars, function(.var) {
       tmp[, val:=get(.var)]
-      data.table(variable=.var, effect=c('constant', 'developed'), summary(lm(val~1+developed,data=tmp))$coefficients)
+      data.table(variable=.var, effect=c('constant', 'emerging'), summary(lm(val~1+emerging,data=tmp))$coefficients)
     }))
 
 setnames(diff_tests, c('variable', 'effect', 'diff_est', 'diff_se', 'diff_t','diff_p'))
-diff_tests=diff_tests[effect=='developed'][, effect:=NULL]
+diff_tests=diff_tests[effect=='emerging'][, effect:=NULL]
 
 
-tmp=tmp[, lapply(.SD, function(x) c(mean=mean(x,na.rm=T),sd=sd(x,na.rm=T),min=min(x,na.rm=T), max=max(x,na.rm=T))), by = c('developed'), .SDcols=c(covars)]
+tmp=tmp[, lapply(.SD, function(x) c(mean=mean(x,na.rm=T),sd=sd(x,na.rm=T),min=min(x,na.rm=T), max=max(x,na.rm=T))), by = c('emerging'), .SDcols=c(covars)]
 tmp[, var:=rep(c('mean', 'sd','min', 'max'),2)]
-tmp=melt(tmp, id.var=c('developed', 'var'))
-tmp[, developed_label:=ifelse(developed==1, 'developed', 'emerging')]
+tmp=melt(tmp, id.var=c('emerging', 'var'))
+tmp[, emerging_label:=ifelse(emerging==1, 'emerging', 'developed')]
 
-dtf=dcast(tmp, variable~developed_label+var)
-setcolorder(dtf, c('variable', paste0(rep(c('developed_', 'emerging_'), each=4), rep(c('mean', 'sd', 'min','max'),2))))
+dtf=dcast(tmp, variable~emerging_label+var)
+setcolorder(dtf, c('variable', paste0(rep(c('emerging_', 'developed_'), each=4), rep(c('mean', 'sd', 'min','max'),2))))
 
 setnames(dtf, gsub('developed_', '', colnames(dtf)))
 setnames(dtf, gsub('emerging_', '', colnames(dtf)))
@@ -451,7 +427,7 @@ dtf=sanitize_table(dtf)
 
 #sink('table.htm')
 print(kable(dtf, format='html', initial.zero = FALSE, digits=3,caption = tab(paste0('Summary statistics for covariates in second-stage analysis, split by a country\'s development status^1^'))
-      ) %>% kable_styling() %>% footnote(number=c(paste0('Summary statistics for variables (unlogged and not mean-centered), computed across ', nobs, ' observations in our sample.'),'Test on differences carried out by regressing variables on an intercept and a developed country indicator variable. Reported t-value is obtained from the estimate of the developed country indicator.')) %>% add_header_above(c(" " = 1, "Developed countries" = 4, "Emerging countries" = 4, "Test on differences^2^"=2)))
+      ) %>% kable_styling() %>% footnote(number=c(paste0('Summary statistics for variables (unlogged and not mean-centered), computed across ', nobs, ' observations in our sample.'),'Test on differences carried out by regressing variables on an intercept and an emerging country indicator variable. Reported t-value is obtained from the estimate of the emerging country indicator.')) %>% add_header_above(c(" " = 1, "Emerging countries" = 4, "Developed countries" = 4, "Test on differences^2^"=2)))
 #sink()
 
 
@@ -459,20 +435,26 @@ print(kable(dtf, format='html', initial.zero = FALSE, digits=3,caption = tab(pas
 
 
 ```{r newanalysis, results = 'asis', include = TRUE, echo=FALSE}
+# + I(sbbe_std_mc*developed))
+#+ I(sbbe_std_mc*developed)
 
 # formulas for models
-upd_models = list(m1=.~1+ developed,
-                  m2 = .~1 + developed + sbbe_std_mc + I(sbbe_std_mc*developed))
+upd_models = list(m1=.~1+ emerging,
+                  m2 = .~1 + emerging + sbbe_std_mc)
 
 out1=regmodel(formula=c(upd_models), dat=elast, model='lm')
 
-upd_models2 = list(m3 = .~1 + developed + sbbe_std_mc + I(sbbe_std_mc*developed)+(1|country) + (1|category) + (1|brand),
-                   m4 = .~1 + developed + sbbe_std_mc + I(sbbe_std_mc*developed)+ (1|country) + (1|category) + (1|brand) + ln_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market,
-                   m5 = .~1 + ln_gci_00.03_gdppercap_s_mc + sbbe_std_mc + I(sbbe_std_mc*ln_gci_00.03_gdppercap_s_mc)+ (1|brand) + (1|category) + (1|country) + ln_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market,
-                   m6 = .~1 + ln_gci_overall_s_mc + sbbe_std_mc + I(sbbe_std_mc*ln_gci_overall_s_mc)+ (1|country) + (1|category) + (1|brand) + ln_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market,
-                   m7 = .~1 + ln_hdi2010_mc + sbbe_std_mc + I(sbbe_std_mc*ln_hdi2010_mc)+ (1|country) + (1|category) + (1|brand) + ln_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market
+upd_models2 = list(m3 = .~1 + emerging + sbbe_std_mc +(1|country) + (1|category) + (1|brand),
+                   m4 = .~1 + emerging + sbbe_std_mc + (1|country) + (1|category) + (1|brand) + ln_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market,
+                   m5 = .~1 + emerging + sbbe_std_mc + I(sbbe_std_mc*emerging)+ (1|country) + (1|category) + (1|brand) + ln_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market)
+                   
+
+#,
+   #                m5 = .~1 + ln_gci_00.03_gdppercap_s_mc + sbbe_std_mc + I(sbbe_std_mc*ln_gci_00.03_gdppercap_s_mc)+ (1|brand) + (1|category) + (1|country) + ln_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market,
+#                   m6 = .~1 + ln_gci_overall_s_mc + sbbe_std_mc + I(sbbe_std_mc*ln_gci_overall_s_mc)+ (1|country) + (1|category) + (1|brand) + ln_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market,
+ #                  m7 = .~1 + ln_hdi2010_mc + sbbe_std_mc + I(sbbe_std_mc*ln_hdi2010_mc)+ (1|country) + (1|category) + (1|brand) + ln_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market
                   
-                   )
+          #         )
 
 out2=regmodel(formula=c(upd_models2), dat=elast, model='lmer')
 
@@ -487,15 +469,15 @@ for (out in list(out1, out2)) {
 }
 #main_interact = lapply(out2, function(x) {x$lt <- list(x$lt$main); x$st <- list(x$st$main); x})
 
-covars = c("(Intercept)", "developed", "ln_gci_00.03_gdppercap_s_mc","ln_gci_overall_s_mc", "ln_hdi2010_mc",
+covars = c("(Intercept)", "emerging", "ln_gci_00.03_gdppercap_s_mc","ln_gci_overall_s_mc", "ln_hdi2010_mc",
   "sbbe_std_mc", "brandz", 'brandz_global_alltime', 'brandz_financial500',
-  "I(sbbe_std_mc * developed)",
+  "I(sbbe_std_mc * emerging)",
   "I(sbbe_std_mc * ln_gci_00.03_gdppercap_s_mc)",
   "I(sbbe_std_mc * ln_gci_overall_s_mc)",
   "I(sbbe_std_mc * ln_hdi2010_mc)",
-  "I(brandz * developed)",
-  "I(brandz_global_alltime * developed)",
-  "I(brandz_financial500 * developed)",
+  "I(brandz * emerging)",
+  "I(brandz_global_alltime * emerging)",
+  "I(brandz_financial500 * emerging)",
   "ln_herf_mc",
   "ln_market_growth_mc",
   "appliance",
@@ -505,14 +487,14 @@ covars = c("(Intercept)", "developed", "ln_gci_00.03_gdppercap_s_mc","ln_gci_ove
 notes_new = paste0("^1^ ", estimnote, " Standard errors in parentheses. Continuous variables have been mean-centered.")
 
 
-#sink('test.htm')
+sink('test.htm')
 for (i in 1:4) {
   cat("<P style='page-break-before: always'>")
 
 
   printout(outx, 'lt', title = tab(paste0('Regression with long-term ', gsub('ity', 'ities', names(ordered_vars[i])))), vars=ordered_vars[i],  notes=gsub('long[-]term', 'short- and long-term', notes_new), covariate_choices = covars)
 }
-#sink()
+sink()
 
 
 ```
@@ -601,6 +583,85 @@ setnames(printtmp, paste0(rename.fkt(colnames(printtmp)), ' elasticity'))
 corstars(printtmp, method=c("pearson"),result='html', caption = tab('Correlation among long-term marketing mix elasticities (mean-centered by market)', prefix='A'))
 
 #stargazer(cor(printtmp))
+
+
+```
+
+
+```{r elast_by_cc2, echo=F,results='asis', include=TRUE}
+#sink('cc.html')
+for (byvar in c('category')) {
+  tmp=elast[!is.na(elastlt), list(elast = sum(elastlt*w_elastlt)/sum(w_elastlt)), by=c('variable', byvar)]
+  setnames(tmp, byvar, 'byvar')
+  
+  tmp=dcast(tmp,byvar~variable,value.var='elast')
+  setnames(tmp, 'byvar', byvar)
+  setcolorder(tmp, c(byvar, ordered_vars))
+  
+  tmp=sanitize_table(tmp)
+  setorderv(tmp, colnames(tmp)[1])
+  
+  cat("<P style='page-break-before: always'>")
+  {print(kable(tmp, digits=3, caption = tab(paste0('Long-term elasticities (means by ', byvar, ')^1^'), prefix='A'), format='html', initial.zero = FALSE) %>%
+        kable_styling() %>% footnote(number=paste0(estimnote, ' Reported by ', ifelse(byvar=='country', 'countries', 'categories'), ' in alphabetical order.')))
+  }
+}
+#sink() 
+
+```	
+
+```{r newanalysis_robust, results = 'asis', include = TRUE, echo=FALSE}
+# formulas for models
+
+upd_models2 = list(m1 = .~1 + developed + sbbe_std_mc + (1|country) + (1|category) + (1|brand) + ln_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market,
+                   m2 = .~1 + ln_gci_00.03_gdppercap_s_mc + sbbe_std_mc + (1|brand) + (1|category) + (1|country) + ln_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market,
+                   m3 = .~1 + ln_gci_overall_s_mc + sbbe_std_mc + (1|country) + (1|category) + (1|brand) + ln_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market,
+                  m4 = .~1 + ln_hdi2010_mc + sbbe_std_mc + (1|country) + (1|category) + (1|brand) + ln_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market,
+                  m5 = .~1 + developed + sbbe_std_mc + I(sbbe_std_mc*developed)+ (1|country) + (1|category) + (1|brand) + ln_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market,
+                   m6 = .~1 + ln_gci_00.03_gdppercap_s_mc + sbbe_std_mc + I(sbbe_std_mc*ln_gci_00.03_gdppercap_s_mc)+ (1|brand) + (1|category) + (1|country) + ln_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market,
+                   m7 = .~1 + ln_gci_overall_s_mc + sbbe_std_mc + I(sbbe_std_mc*ln_gci_overall_s_mc)+ (1|country) + (1|category) + (1|brand) + ln_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market,
+                  m8 = .~1 + ln_hdi2010_mc + sbbe_std_mc + I(sbbe_std_mc*ln_hdi2010_mc)+ (1|country) + (1|category) + (1|brand) + ln_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market)
+       
+
+out2=regmodel(formula=c(upd_models2), dat=elast, model='lmer')
+
+outx = NULL
+
+for (out in list(out2)) {
+  for (mod in names(out)) {
+    outx[[mod]]$variable=out[[mod]]$variable
+    outx[[mod]]$st=c(outx[[mod]]$st, out[[mod]]$st)
+    outx[[mod]]$lt=c(outx[[mod]]$lt, out[[mod]]$lt)
+  }
+}
+#main_interact = lapply(out2, function(x) {x$lt <- list(x$lt$main); x$st <- list(x$st$main); x})
+
+covars = c("(Intercept)", "developed", "ln_gci_00.03_gdppercap_s_mc","ln_gci_overall_s_mc", "ln_hdi2010_mc",
+  "sbbe_std_mc", "brandz", 'brandz_global_alltime', 'brandz_financial500',
+  "I(sbbe_std_mc * developed)",
+  "I(sbbe_std_mc * ln_gci_00.03_gdppercap_s_mc)",
+  "I(sbbe_std_mc * ln_gci_overall_s_mc)",
+  "I(sbbe_std_mc * ln_hdi2010_mc)",
+  "I(brandz * developed)",
+  "I(brandz_global_alltime * developed)",
+  "I(brandz_financial500 * developed)",
+  "ln_herf_mc",
+  "ln_market_growth_mc",
+  "appliance",
+  "ln_gini_mc",
+  "local_to_market")
+
+notes_new = paste0("^1^ ", estimnote, " Standard errors in parentheses. Continuous variables have been mean-centered.")
+
+
+sink('test.htm')
+for (i in 1:4) {
+  cat("<P style='page-break-before: always'>")
+
+
+  printout(outx, 'lt', title = tab(paste0('Robustness check with long-term ', gsub('ity', 'ities', names(ordered_vars[i])), ' and alternative metrics for a country\'s development degree'), prefix='A'), vars=ordered_vars[i],  notes=gsub('long[-]term', 'short- and long-term', notes_new), covariate_choices = covars)
+}
+sink()
 
 
 ```
