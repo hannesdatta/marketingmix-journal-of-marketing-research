@@ -56,7 +56,8 @@ cattype	Category type	gsub
 ncountries	Number of countries with data	gsub
 exemplary_brand_names	Top 5 brands	gsub
 welast	Weighted elasticity	grepl
-melast	Mean elasticity	grepl
+^melast|[_]melast	Mean elasticity	grepl
+ftmelast	Mean elasticity^2^	grepl
 [_]z	Meta-analytic z	grepl
 ^tval	t-value	gsub
 ^pval	p-value	gsub
@@ -67,6 +68,8 @@ re[_]t	t-value from RE^4^	grepl
 mmixinstr	Marketing-mix instrument	gsub
 Neffects	Number of estimates	grepl
 .*[_]sig	sig.	gsub
+.*[_]2sig	sig.^2^	gsub
+.*[_]3sig	sig.^3^	gsub
 [*] developed	     * developed market	gsub
 [*] emerging	     * emerging market	gsub
 ^I[(]		gsub
@@ -135,3 +138,4 @@ gini[_]mc	Income inequality	gsub
 XXX^gini	Income inequality	gsub
 ^lnmean[_]ms[_]mc	Log of brand mean market share	gsub
 mean[_]ms[_]mc	Brand mean market share	gsub
+interval90	90%-interval of estimated elasticities	gsub

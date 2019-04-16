@@ -57,9 +57,15 @@ printout = function(x, type='st', vars=NULL, omit=NULL, title='', printtype='htm
   
   dep.var.labels=NULL
   
+  #table.layout=c('-c#m-t-a-n')
+  
+  table.layout=c('-#m-t-a-n')
+  if (length(vars)>1) table.layout=c('-c#m-t-a-n')
+  
   if (type=='st') {
     res = do.call('c', lapply(x[unique(vars)], function(m) m$st))
     colsep = unlist(lapply(x[unique(vars)], function(x) length(x$st)))
+    
   }
   if (type=='lt') {
     res = do.call('c', lapply(x[unique(vars)], function(m) m$lt))
@@ -70,7 +76,8 @@ printout = function(x, type='st', vars=NULL, omit=NULL, title='', printtype='htm
     colsep = unlist(lapply(x[unique(vars)], function(x) length(x$st)+length(x$lt)))
     dep.var.labels.include=T
     dep.var.labels=rep(c('short-term', 'long-term'),length(unique(vars)))
-    table.layout=c('-c#dm-t-a-n')
+    
+    table.layout=gsub('[#]m', '#dm', table.layout)
   }
   
   # get all variable names
@@ -117,9 +124,10 @@ printout = function(x, type='st', vars=NULL, omit=NULL, title='', printtype='htm
     gsub('\\\\[*]', '*', x)
   }
   
-
+  #print(table.layout)
   stargazer(res, type = printtype, omit=omit, title = paste0(title, '<sup>1</sup>'), 
             column.labels=collabels, 
+            digits=3, digit.separate = 3, digit.separator = ',',
             dep.var.caption=NULL, 
             initial.zero=FALSE,
             notes.align='l',
