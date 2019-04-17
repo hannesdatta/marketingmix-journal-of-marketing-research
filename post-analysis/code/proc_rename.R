@@ -22,16 +22,22 @@ rename.fkt.break = function(x) rename.fkt(x, textbreak=T)
 
 
 
-sanitize_table <- function(x, dictionary='renaming.txt') {
+sanitize_table <- function(x, dictionary='renaming.txt', drop_leading_zero=T) {
   res=x
   # check factor or character columns
   for (col in seq(along=res)) {
     colclass=unlist(lapply(res,class))[col]
+    coln=colnames(res)[col]
     
     if (colclass%in%c('character', 'factor')) {
-      coln=colnames(res)[col]
+      
       eval(parse(text=paste0('res$', coln, '=rename.fkt(res$', coln,', dictionary=dictionary)')))
     }
+    #if (colclass%in%c('numeric')) {
+    #  drop_zero <- function(x) gsub("^0\\.", "\\.", gsub("^-0\\.", "-\\.", sprintf("%.3f", x)))
+    #  eval(parse(text=paste0('res$', coln, '=drop_zero(res$', coln,')')))
+    #  
+    #}
   }
   if (!is.null(colnames(res))) colnames(res)<-rename.fkt(colnames(res))
   if (!is.null(rownames(res))) rownames(res)<-rename.fkt(rownames(res))

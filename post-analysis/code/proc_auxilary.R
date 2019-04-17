@@ -51,13 +51,13 @@ rsq <- function(m) {
 
 
 # Function to plot model results (next to each other)
-printout = function(x, type='st', vars=NULL, omit=NULL, title='', printtype='html', notes=NULL, dep.var.labels.include=FALSE, table.layout=c('-c#m-t-a-n'), covariate_choices=NULL, ...) {
+printout = function(x, type='st', vars=NULL, omit=NULL, title='', printtype='html', notes=NULL, dep.var.labels.include=FALSE, table.layout=c('-c#m-t-a-n'), covariate_choices=NULL,colnames_overwrite=NULL, colsep_overwrite = NULL, table.layout.overwrite=NULL, ...) {
   
   if (is.null(vars)) vars=seq(along=x)
   
   dep.var.labels=NULL
   
-  #table.layout=c('-c#m-t-a-n')
+  
   
   table.layout=c('-#m-t-a-n')
   if (length(vars)>1) table.layout=c('-c#m-t-a-n')
@@ -79,7 +79,7 @@ printout = function(x, type='st', vars=NULL, omit=NULL, title='', printtype='htm
     
     table.layout=gsub('[#]m', '#dm', table.layout)
   }
-  
+  if (!is.null(table.layout.overwrite)) table.layout=table.layout.overwrite ##table.layout=c('-c#m-t-a-n')
   # get all variable names
   covlabels= lapply(res, function(x) {
     if(class(x)=='lmerMod') return(colnames(x@pp$X))
@@ -116,6 +116,11 @@ printout = function(x, type='st', vars=NULL, omit=NULL, title='', printtype='htm
   if (!is.null(notes)) note_text=notes
   
   if (!is.null(vars)) collabels=names(vars) else collabels=names(res)
+  
+  if (!is.null(colnames_overwrite)) {
+    collabels=colnames_overwrite
+    colsep = colsep_overwrite
+  }
   
   r2s = c('R-squared', sub('^(-)?0[.]', '\\1.', formatC(sapply(res, rsq), digits=3, format='f', flag='#')))
   obs = c('Observations', sapply(res, function(x) length(residuals(x))))
@@ -193,15 +198,17 @@ corstars <-function(x, method=c("pearson", "spearman"), removeTriangle=c("upper"
   
   ### remove upper triangle of correlation matrix
   if(removeTriangle[1]=="upper"){
+    
     Rnew <- as.matrix(Rnew)
-    Rnew[upper.tri(Rnew, diag = TRUE)]# <- ""
+    Rnew[upper.tri(Rnew, diag = TRUE)] <- ""
     Rnew <- as.data.frame(Rnew)
+    
   }
   
   ## remove lower triangle of correlation matrix
   else if(removeTriangle[1]=="lower"){
     Rnew <- as.matrix(Rnew)
-    Rnew[lower.tri(Rnew, diag = TRUE)]# <- ""
+    Rnew[lower.tri(Rnew, diag = TRUE)] <- ""
     Rnew <- as.data.frame(Rnew)
   }
   
