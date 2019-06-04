@@ -289,10 +289,21 @@ xattribs <- NULL
 for (i in 1:length(attribs)) {
   vars=grep('^attr',colnames(attribs[[i]]),value=T)
   types=unlist(lapply(attribs[[i]],class))
+  types=types[names(types)%in%vars]
   
   res=do.call('cbind', lapply(vars, function(var) {
     tmp = data.table(eval(parse(text=paste0('model.matrix(~-1+', var, ',data=attribs[[i]])'))))
-    if (types[var]=='factor') tmp=tmp[,rev(colnames(tmp))[1]:=NULL]
+    if (types[var]=='factor') {
+      # which columns to drop?
+      rownames=data.table(name=colnames(tmp), disqualifier=0)
+      rownames[grepl('NO$',name), disqualifier:=disqualifier+1]
+      rownames[grepl('OTHERS$|OTHER$',name), disqualifier:=disqualifier+.5]
+      rownames[grepl('ANALOG$',name), disqualifier:=disqualifier+1]
+      setorder(rownames,disqualifier)
+      kickout=rev(rownames$name)[1]
+      tmp=tmp[,(kickout):=NULL]
+      
+      }
     tmp
   
   }))
