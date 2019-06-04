@@ -15,6 +15,9 @@
 
 require(data.table)
 
+sink('log.txt')
+sink()
+
 # -> skus_by_date_list: sales data on a SKU-level by date
   load('..//temp//uniqueness_and_lagsales.RData') 
 
@@ -214,11 +217,28 @@ for (i in 1:length(skus_by_date_list)) {
 		
 		# set some columns to NA before interpolating
 		for (.var in grep('spr', all_cols,value=T)) {
+		  lneg = nrow(merged_attr_sales[which(get(.var)<=0)])
+		  if (lneg>0) {
+		    sink('log.txt',append=T)
+		    cat(paste0('negative price!', i, '\n'))
+		    sink()
+		  
+		  }
+		  
 		  eval(parse(text=paste0('merged_attr_sales[which(', .var,'<=0), ', .var, ':=NA]')))
 		}
 		
 		# set sales columns to NA if they are below 0.
 		for (.var in grep('sales$|salesd$|dst$', all_cols, value=T)) {
+		  
+		  lneg = nrow(merged_attr_sales[which(get(.var)<0)])
+		  if (lneg>0) {
+		    sink('log.txt',append=T)
+		    cat(paste0('negative sales!', i, '\n'))
+		    sink()
+		    
+		  }
+		  
 		  eval(parse(text=paste0('merged_attr_sales[, ', .var, ' := ifelse(', .var, '<0, NA, ', .var,')]')))
 		}
 		
@@ -234,6 +254,14 @@ for (i in 1:length(skus_by_date_list)) {
 		unequal = rowSums(!is.na(dframe_interp))-rowSums(!is.na(dframe_noninterp))
 		# add an indicator which rows contain at least one interpolated value
 		dframe_interp[, interpolated:= !unequal==0]
+		
+		lneg = sum(dframe_interp$interpolated,na.rm=T)
+		if (lneg>0) {
+		  sink('log.txt',append=T)
+		  cat(paste0('interpolated! ', i))
+		  sink()
+		  
+		}
 		
 		# add market share metrics
 		dframe_interp[,':=' (usalessh = as.numeric(usales/sum(usales,na.rm=T)),
