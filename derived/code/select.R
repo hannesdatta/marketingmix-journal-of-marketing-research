@@ -177,7 +177,7 @@ stopifnot(nrow(rbindlist(lapply(skus_by_date_list, function(x) x[, list(N=.N), b
 	
 	cat(paste0('Number of total market-brands: ', sum(tmp[selected_market==T]$n_brands_total),'\n'))
 	cat(paste0('Number of selected market-brands (excluding composite brands): ', sum(tmp[selected_market==T]$n_brands_selected),'\n'))
-	cat(paste0('Number of selected unique brands: ', length(unique(tmp_brands_select[n_brands_selected>1&selected_brand==T&!grepl('ALLOTHERS',brand_rename)]$brand)),'\n'))
+	cat(paste0('Number of selected unique brands (excluding composite brands): ', length(unique(tmp_brands_select[n_brands_selected>1&selected_brand==T&!grepl('ALLOTHERS',brand_rename)]$brand)),'\n'))
 	
 	cat('\n')
 	
