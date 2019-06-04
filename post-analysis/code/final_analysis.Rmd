@@ -239,7 +239,7 @@ for (iter in iters) {
 
 
 ```{r elast_by_cc, echo=F,results='asis', include=TRUE}
-#sink('cc.html')
+
 for (byvar in c('country')) {
   tmp=elast[!is.na(elastlt), list(elast = sum(elastlt*w_elastlt)/sum(w_elastlt)), by=c('variable', byvar)]
   setnames(tmp, byvar, 'byvar')
@@ -256,7 +256,6 @@ for (byvar in c('country')) {
         kable_styling() %>% footnote(number=paste0(estimnote, ' Reported by ', ifelse(byvar=='country', 'countries', 'categories'), ' in alphabetical order.')))
   }
 }
-#sink() 
 
 ```	
 
@@ -405,10 +404,9 @@ dtf[diff_tests, ':=' (comb_t=i.diff_t, comb_sig=gsub('[*]', '\\*', psignstars(i.
 
 dtf=sanitize_table(dtf)
 
-#sink('table.htm')
+
 print(kable(dtf, format='html', initial.zero = FALSE, digits=3,caption = tab(paste0('Summary statistics for covariates in second-stage analysis, split by a country\'s development status^1^'))
       ) %>% kable_styling() %>% footnote(number=c(paste0('Summary statistics for variables (unlogged and not mean-centered), computed across ', nobs, ' observations in our sample.'),'Tests on differences carried out by regressing variables on an intercept and an emerging country indicator variable. Reported t-value is obtained from the estimate of the emerging country indicator.')) %>% add_header_above(c(" " = 1, "Emerging countries" = 4, "Developed countries" = 4, "Test on differences^2^"=2)))
-#sink()
 
 
 ```
@@ -452,14 +450,14 @@ covars = c("(Intercept)", "emerging", "ln_gci_00.03_gdppercap_s_mc","ln_gci_over
 
 notes_new = paste0("", notes_base, ' Continuous variables have been mean-centered.')
 
-sink('test.htm')
+
 for (i in 1:4) {
   cat("<P style='page-break-before: always'>")
 
 
   printout(outx, 'lt', title = tab(paste0('Regression with long-term ', gsub('ity', 'ities', names(ordered_vars[i])))), vars=ordered_vars[i],  notes=paste0(gsub('long[-]term', 'short- and long-term', notes_new), ''), covariate_choices = covars)
 }
-sink()
+
 
 #notes_base = paste0("^1^ Regression of long-term elasticities on explanatory variables and three random effects, for brands, categories, and countries, respectively. Estimated using a linear mixed-effects model. ", estimnote, " Standard errors in parentheses.")
 
@@ -572,7 +570,7 @@ kable(tmp2, format='html', caption=tab('Correlation among long-term marketing mi
 
 
 ```{r elast_by_cc2, echo=F,results='asis', include=TRUE}
-#sink('cc.html')
+
 for (byvar in c('category')) {
   tmp=elast[!is.na(elastlt), list(elast = sum(elastlt*w_elastlt)/sum(w_elastlt)), by=c('variable', byvar)]
   setnames(tmp, byvar, 'byvar')
@@ -589,7 +587,7 @@ for (byvar in c('category')) {
         kable_styling() %>% footnote(number=paste0(estimnote, ' Reported by ', ifelse(byvar=='country', 'countries', 'categories'), ' in alphabetical order.')))
   }
 }
-#sink() 
+
 
 ```	
 
@@ -640,7 +638,7 @@ covars = c("(Intercept)", "developed", "ln_gci_00.03_gdppercap_s_mc","ln_gci_ove
 notes_new = paste0("", notes_base, ' Continuous variables have been mean-centered.')
 
 
-sink('test.htm')
+
 for (i in 1:4) {
   cat("<P style='page-break-before: always'>")
 
@@ -648,7 +646,7 @@ for (i in 1:4) {
   printout(outx, 'lt', title = tab(paste0('Robustness check for ', gsub('ity', 'ities', names(ordered_vars[i])), ': The role of market share'), prefix='A'), vars=ordered_vars[i],  notes=paste0(gsub('long[-]term', 'short- and long-term', notes_new), ''), covariate_choices = covars, table.layout.overwrite=c('-c#m-t-a-n'),
            colnames_overwrite=c('Long-term elasticity', 'Long-term elasticity', 'beta/(1-gamma)'), colsep_overwrite = c(1,1,1))
 }
-sink()
+
 
 
 ```
