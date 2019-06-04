@@ -31,6 +31,21 @@ dir.create('../output')
 	brand_panel=fread('../temp/preclean.csv')
 	brand_panel[, ':=' (date = as.Date(date))]
 
+	# preprocess brand_panel attr
+	for (var in grep('^attr', colnames(brand_panel),value=T)) {
+	if (min(brand_panel[, var,with=F],na.rm=T)==0&max(brand_panel[, var,with=F],na.rm=T)<=1) {
+	  brand_panel[, (paste0(var)):=get(var)*100+1]
+	}  
+	}
+	
+	# preprocess brand_panel attr
+	for (var in grep('^attr', colnames(brand_panel),value=T)) {
+	  if (min(brand_panel[, var,with=F],na.rm=T)==0&max(brand_panel[, var,with=F],na.rm=T)>1) {
+	    brand_panel[, (paste0(var)):=get(var)+.001]
+	  }  
+	}
+	
+	
 ## Obs per market
 	tmp=brand_panel[, list(obs=length(unique(date[!is.na(nov12)]))),by=c('market_id','category','country')]
 	setorder(tmp, obs)
@@ -92,7 +107,7 @@ dir.create('../output')
 		   attraction_model = "MCI", takediff = 'none', # choose from flexible (UR approach), none, alwaysdiff
 		   use_quarters = T, lag_heterog = F,
 		   squared=F, maxiter = 400,
-		   carryover_zero=F)
+		   carryover_zero=F, use_attributes = T)
 
 	#m1d <- m1
 	#m1d$setup_x['nov'] <- 'nov3sh'
@@ -132,7 +147,8 @@ if(run_manual==T) {
 		                                             attraction_model = attraction_model, 
 		                                             plusx=plusx, use_quarters=use_quarters, 
 		                                             squared=squared, takediff=takediff, 
-		                                             lag_heterog=lag_heterog, carryover_zero=carryover_zero), silent=T)
+		                                             lag_heterog=lag_heterog, carryover_zero=carryover_zero,
+		                                             use_attributes = use_attributes), silent=T)
 		
 		assign_model(m1, del = TRUE)
 		
@@ -164,13 +180,15 @@ if(run_cluster==T) {
 	assign_model(m1)
 	clusterExport(cl,names(m1))
 	
+	if(0) {
 	results_MCI_wolag_trend <- parLapplyLB(cl, analysis_markets, function(i) {
 	  for (carry in c(F, T)) {
 	  tmp=try(analyze_by_market(i, estmethod=estmethod, setup_y = setup_y, setup_x = setup_x, 
 	                        setup_endogenous = setup_endogenous, trend = trend, pval = pval, 
 	                        max.lag = max.lag, min.t = min.t, maxiter = maxiter, 
 	                        use_quarters=use_quarters, plusx=plusx, attraction_model=attraction_model, 
-	                        squared=squared, takediff=takediff, lag_heterog=lag_heterog,carryover_zero=carry), silent=T)
+	                        squared=squared, takediff=takediff, lag_heterog=lag_heterog,carryover_zero=carry,
+	                        use_attributes=use_attributes), silent=T)
 	  
 	  if (!class(tmp)=='try-error') {
 	    coef=data.table(tmp$model@coefficients)[grepl('lagunitsales', variable)]$coef
@@ -180,7 +198,8 @@ if(run_cluster==T) {
 	  }
 	  return(tmp)
 	})
-	  
+	}
+	
 	savemodels(fname)
 	
 	# Estimate with lagged Xs, without trend
@@ -191,13 +210,17 @@ if(run_cluster==T) {
 	assign_model(m1e)
 	clusterExport(cl,names(m1e))
 	
+	#err=which(unlist(lapply(results_nov12sh,class))=='try-error')
+	#tmp=unique(brand_panel[market_id%in%analysis_markets[err]],by=c('market_id'))[, c('category','country','market_id'),with=F]
+	
 	results_nov12sh <- parLapplyLB(cl, analysis_markets, function(i) {
 	    for (carry in c(F, T)) {
 	      tmp=try(analyze_by_market(i, estmethod=estmethod, setup_y = setup_y, setup_x = setup_x, 
 	                                setup_endogenous = setup_endogenous, trend = trend, pval = pval, 
 	                                max.lag = max.lag, min.t = min.t, maxiter = maxiter, 
 	                                use_quarters=use_quarters, plusx=plusx, attraction_model=attraction_model, 
-	                                squared=squared, takediff=takediff, lag_heterog=lag_heterog,carryover_zero=carry), silent=T)
+	                                squared=squared, takediff=takediff, lag_heterog=lag_heterog,carryover_zero=carry,
+	                                use_attributes=use_attributes), silent=T)
 	      
 	      if (!class(tmp)=='try-error') {
 	        coef=data.table(tmp$model@coefficients)[grepl('lagunitsales', variable)]$coef
@@ -211,40 +234,5 @@ if(run_cluster==T) {
 	
 	
 	savemodels(fname)
-	
-	assign_model(m1e, del = TRUE)
-	
-	
-	
-####
-	
-	if(0){
-	assign_model(m2)
-	clusterExport(cl,names(m2))
-	
-	results_MCI_wlag_wotrend <- parLapplyLB(cl, analysis_markets, function(i) {
-	  # note: TV1 in australia can only be estimated without the lagged vars for novelty and llen
-	  try(analyze_by_market(i, estmethod=estmethod, setup_y = setup_y, setup_x = if(!i==138) setup_x else setup_x[c(1:6)],
-	                        setup_endogenous = setup_endogenous, trend = trend, pval = pval, 
-	                        max.lag = max.lag, min.t = min.t, maxiter = maxiter, 
-	                        use_quarters=use_quarters, plusx=plusx, attraction_model=attraction_model, 
-	                        squared=squared, takediff=takediff, lag_heterog=lag_heterog, carryover_zero=carryover_zero), silent=T)
-	})
-	
-	if(0){
-	# inspecting the carry-overs yields a negative one in NZ; set to zero
-	if(results_MCI_wlag_wotrend[[27]]$market_id==31 & data.table(results_MCI_wlag_wotrend[[27]]$model@coefficients)[grepl('lagunitsales',variable)]$coef<0) {
-	 
-	results_MCI_wlag_wotrend[[27]] <- try(analyze_by_market(31, estmethod=estmethod, setup_y = setup_y, setup_x = if(!31==138) setup_x else setup_x[c(1:6)],
-	                                                         setup_endogenous = setup_endogenous, trend = trend, pval = pval, 
-	                                                         max.lag = max.lag, min.t = min.t, maxiter = maxiter, 
-	                                                         use_quarters=use_quarters, plusx=plusx, attraction_model=attraction_model, 
-	                                                         squared=squared, takediff=takediff, lag_heterog=lag_heterog,carryover_zero=T), silent=T)
-		}
-	}
-	
-	savemodels(fname)
-  }
-	
-	
+
 }

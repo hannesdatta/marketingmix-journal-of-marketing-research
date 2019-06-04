@@ -51,15 +51,21 @@ rsq <- function(m) {
 
 
 # Function to plot model results (next to each other)
-printout = function(x, type='st', vars=NULL, omit=NULL, title='', printtype='html', notes=NULL, dep.var.labels.include=FALSE, table.layout=c('-c#m-t-a-n'), covariate_choices=NULL, ...) {
+printout = function(x, type='st', vars=NULL, omit=NULL, title='', printtype='html', notes=NULL, dep.var.labels.include=FALSE, table.layout=c('-c#m-t-a-n'), covariate_choices=NULL,colnames_overwrite=NULL, colsep_overwrite = NULL, table.layout.overwrite=NULL, ...) {
   
   if (is.null(vars)) vars=seq(along=x)
   
   dep.var.labels=NULL
   
+  
+  
+  table.layout=c('-#m-t-a-n')
+  if (length(vars)>1) table.layout=c('-c#m-t-a-n')
+  
   if (type=='st') {
     res = do.call('c', lapply(x[unique(vars)], function(m) m$st))
     colsep = unlist(lapply(x[unique(vars)], function(x) length(x$st)))
+    
   }
   if (type=='lt') {
     res = do.call('c', lapply(x[unique(vars)], function(m) m$lt))
@@ -70,9 +76,10 @@ printout = function(x, type='st', vars=NULL, omit=NULL, title='', printtype='htm
     colsep = unlist(lapply(x[unique(vars)], function(x) length(x$st)+length(x$lt)))
     dep.var.labels.include=T
     dep.var.labels=rep(c('short-term', 'long-term'),length(unique(vars)))
-    table.layout=c('-c#dm-t-a-n')
+    
+    table.layout=gsub('[#]m', '#dm', table.layout)
   }
-  
+  if (!is.null(table.layout.overwrite)) table.layout=table.layout.overwrite ##table.layout=c('-c#m-t-a-n')
   # get all variable names
   covlabels= lapply(res, function(x) {
     if(class(x)=='lmerMod') return(colnames(x@pp$X))
@@ -110,6 +117,11 @@ printout = function(x, type='st', vars=NULL, omit=NULL, title='', printtype='htm
   
   if (!is.null(vars)) collabels=names(vars) else collabels=names(res)
   
+  if (!is.null(colnames_overwrite)) {
+    collabels=colnames_overwrite
+    colsep = colsep_overwrite
+  }
+  
   r2s = c('R-squared', sub('^(-)?0[.]', '\\1.', formatC(sapply(res, rsq), digits=3, format='f', flag='#')))
   obs = c('Observations', sapply(res, function(x) length(residuals(x))))
   
@@ -117,9 +129,10 @@ printout = function(x, type='st', vars=NULL, omit=NULL, title='', printtype='htm
     gsub('\\\\[*]', '*', x)
   }
   
-
+  #print(table.layout)
   stargazer(res, type = printtype, omit=omit, title = paste0(title, '<sup>1</sup>'), 
             column.labels=collabels, 
+            digits=3, digit.separate = 3, digit.separator = ',',
             dep.var.caption=NULL, 
             initial.zero=FALSE,
             notes.align='l',
@@ -185,15 +198,17 @@ corstars <-function(x, method=c("pearson", "spearman"), removeTriangle=c("upper"
   
   ### remove upper triangle of correlation matrix
   if(removeTriangle[1]=="upper"){
+    
     Rnew <- as.matrix(Rnew)
-    Rnew[upper.tri(Rnew, diag = TRUE)]# <- ""
+    Rnew[upper.tri(Rnew, diag = TRUE)] <- ""
     Rnew <- as.data.frame(Rnew)
+    
   }
   
   ## remove lower triangle of correlation matrix
   else if(removeTriangle[1]=="lower"){
     Rnew <- as.matrix(Rnew)
-    Rnew[lower.tri(Rnew, diag = TRUE)]# <- ""
+    Rnew[lower.tri(Rnew, diag = TRUE)] <- ""
     Rnew <- as.data.frame(Rnew)
   }
   

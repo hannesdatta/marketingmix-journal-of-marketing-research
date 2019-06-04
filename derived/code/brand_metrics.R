@@ -15,9 +15,15 @@
 
 require(data.table)
 
+sink('log.txt')
+sink()
+
 # -> skus_by_date_list: sales data on a SKU-level by date
   load('..//temp//uniqueness_and_lagsales.RData') 
 
+# product attributes
+  load('..//temp//attributes.RData') 
+  
 # -> brand_selection: selection of brands
 	load('..//temp//select.RData') 
 
@@ -38,6 +44,7 @@ for (i in 1:length(skus_by_date_list)) {
 	
 	skus_by_date <- skus_by_date_list[[i]]
 	
+	xattr = xattribs[[match(names(skus_by_date_list)[i], names(xattribs))]]
 	#####################################
 	#### Aggregation to brand-level #####
 	#####################################
@@ -51,6 +58,7 @@ for (i in 1:length(skus_by_date_list)) {
 	
 	skus_by_date[brand_selection, ':=' (selected_brand=i.selected_brand, n_brands_selected=i.n_brands_selected, brand_rename=i.brand_rename, composite_included=i.composite_included)]
 	
+	# Rename brands to new aggregation level (e.g., composite brand)
 	setnames(skus_by_date, 'brand', 'brand_orig')
 	setnames(skus_by_date, 'brand_rename', 'brand')
 	
@@ -115,6 +123,13 @@ for (i in 1:length(skus_by_date_list)) {
   	
   	tmp[novelty, novelty_sum:=i.novel_sum]
 	
+  	setkey(tmp, category, country, brand_orig, model)
+  	setkey(xattr, category, country, brand, model)
+  	
+  	for (var in grep('^attr', colnames(xattr), value=T)) {
+  	  tmp[xattr, paste0(var):=get(var)]
+  	}
+       
   # Aggregate data
 	merged_attr_sales = tmp[, list( usales=sum(t_sales_units,na.rm=T),
 	                                         vsales = sum(t_value_sales,na.rm=T), 
@@ -141,6 +156,19 @@ for (i in 1:length(skus_by_date_list)) {
 	                                 ),
 	by=aggkey]
 
+  attrdata=lapply(grep('^attr', colnames(tmp),value=T), function(var) {
+    rtmp=tmp[, list(outcomevar=weigh_by_w(get(var), t_sales_units_rolled)), by = aggkey]
+    setnames(rtmp, 'outcomevar', var)
+    rtmp
+  })
+  
+  
+  merge.all <- function(x,y, ...) {merge(x,y, all.x=T,all.y=T, by=aggkey, ...)}
+  attrdata_merged=Reduce(merge.all, attrdata)
+  
+  merged_attr_sales = merge(merged_attr_sales, attrdata_merged, by=aggkey, all.x=T)
+  
+  
 	# transform novelty variables to shares; if llen = 0, set novelty share to 0.
 	novvars <- grep('nov[0-9].*', colnames(merged_attr_sales),value=T)
 	for (.var in novvars) merged_attr_sales[, (paste0(.var,'sh')) := ifelse(llen==0, 0, (get(.var)/llen)*100)]
@@ -189,11 +217,28 @@ for (i in 1:length(skus_by_date_list)) {
 		
 		# set some columns to NA before interpolating
 		for (.var in grep('spr', all_cols,value=T)) {
+		  lneg = nrow(merged_attr_sales[which(get(.var)<=0)])
+		  if (lneg>0) {
+		    sink('log.txt',append=T)
+		    cat(paste0('negative price!', i, '\n'))
+		    sink()
+		  
+		  }
+		  
 		  eval(parse(text=paste0('merged_attr_sales[which(', .var,'<=0), ', .var, ':=NA]')))
 		}
 		
 		# set sales columns to NA if they are below 0.
 		for (.var in grep('sales$|salesd$|dst$', all_cols, value=T)) {
+		  
+		  lneg = nrow(merged_attr_sales[which(get(.var)<0)])
+		  if (lneg>0) {
+		    sink('log.txt',append=T)
+		    cat(paste0('negative sales!', i, '\n'))
+		    sink()
+		    
+		  }
+		  
 		  eval(parse(text=paste0('merged_attr_sales[, ', .var, ' := ifelse(', .var, '<0, NA, ', .var,')]')))
 		}
 		
@@ -209,6 +254,14 @@ for (i in 1:length(skus_by_date_list)) {
 		unequal = rowSums(!is.na(dframe_interp))-rowSums(!is.na(dframe_noninterp))
 		# add an indicator which rows contain at least one interpolated value
 		dframe_interp[, interpolated:= !unequal==0]
+		
+		lneg = sum(dframe_interp$interpolated,na.rm=T)
+		if (lneg>0) {
+		  sink('log.txt',append=T)
+		  cat(paste0('interpolated! ', i))
+		  sink()
+		  
+		}
 		
 		# add market share metrics
 		dframe_interp[,':=' (usalessh = as.numeric(usales/sum(usales,na.rm=T)),

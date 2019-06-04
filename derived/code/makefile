@@ -18,13 +18,16 @@ all: build audit
 build: $(OUTPUT_DIR)/datasets.csv
 
 # audit
-audit: $(TEMP_DIR)/audit_rawplot.txt $(TEMP_DIR)/audit_markets.txt $(TEMP_DIR)/audit_brands.txt
+audit: $(TEMP_DIR)/audit_rawplot.txt $(TEMP_DIR)/audit_markets.txt $(TEMP_DIR)/audit_brands.txt $(TEMP_DIR)/audit_attributes.txt
 
 # building parts of the project
 unzip: $(TEMP_DIR)/unzipped.RData
 categorize: $(TEMP_DIR)/categorized.RData
 gdponly: $(TEMP_DIR)/gdppercap.RData
 uniq: $(TEMP_DIR)/uniqueness_and_lagsales.RData
+exatt: $(TEMP_DIR)/extract_attributes.RData 
+setatt: $(TEMP_DIR)/attributes.RData
+metr: $(TEMP_DIR)/brand_metrics.RData
 
 ###### DATA PREPARATION ######
 
@@ -48,8 +51,16 @@ $(TEMP_DIR)/gdppercap.RData : gdp.R
 $(TEMP_DIR)/categorized.RData : categorize.R $(TEMP_DIR)/unzipped.RData
 	"$(RBIN64)Rterm.exe" --vanilla --args "" < "categorize.R"
 
+# extract attribute levels per category
+$(TEMP_DIR)/extract_attributes.RData : extract_attributes.R $(TEMP_DIR)/categorized.RData
+	"$(RBIN64)Rterm.exe" --vanilla --args "" < "extract_attributes.R"
+
+# define attribute levels per category
+$(TEMP_DIR)/attributes.RData : set_attributes.R $(TEMP_DIR)/extract_attributes.RData
+	"$(RBIN64)Rterm.exe" --vanilla --args "" < "set_attributes.R"
+
 # calculate uniqueness metrics and lagged sales measure for re-weighing SKUs
-$(TEMP_DIR)/uniqueness_and_lagsales.RData : uniqueness_and_lagsales.R proc_functions.R $(TEMP_DIR)/categorized.RData
+$(TEMP_DIR)/uniqueness_and_lagsales.RData : uniqueness_and_lagsales.R proc_functions.R $(TEMP_DIR)/categorized.RData $(TEMP_DIR)/attributes.RData
 	"$(RBIN64)Rterm.exe" --vanilla --args "" < "uniqueness_and_lagsales.R"
 
 # select periods in which category sales are meaningful; select brands vs. grouped "other" brands
@@ -75,3 +86,7 @@ $(TEMP_DIR)/audit_markets.txt: audit_markets.R $(OUTPUT_DIR)/datasets.csv
 # --> audit: create plots of brands
 $(TEMP_DIR)/audit_brands.txt: audit_brands.R $(OUTPUT_DIR)/datasets.csv
 	"$(RBIN64)Rterm.exe" --vanilla --args "" < "audit_brands.R"
+
+# --> audit: create plots of brands
+$(TEMP_DIR)/audit_attributes.txt: audit_attributes.R $(OUTPUT_DIR)/datasets.csv
+	"$(RBIN64)Rterm.exe" --vanilla --args "" < "audit_attributes.R"

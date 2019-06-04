@@ -56,17 +56,20 @@ cattype	Category type	gsub
 ncountries	Number of countries with data	gsub
 exemplary_brand_names	Top 5 brands	gsub
 welast	Weighted elasticity	grepl
-melast	Mean elasticity	grepl
+^melast|[_]melast	Mean elasticity	grepl
+ftmelast	Mean elasticity^2^	grepl
 [_]z	Meta-analytic z	grepl
 ^tval	t-value	gsub
 ^pval	p-value	gsub
 comb[_]t	t-value	grepl
-ttest[_]t	t-value from t-test^2^	grepl
+ttest[_]t	t-value from independent sample t-test^2^	grepl
 wls[_]t	t-value from WLS^3^	grepl
 re[_]t	t-value from RE^4^	grepl
 mmixinstr	Marketing-mix instrument	gsub
 Neffects	Number of estimates	grepl
 .*[_]sig	sig.	gsub
+.*[_]2sig	sig.^2^	gsub
+.*[_]3sig	sig.^3^	gsub
 [*] developed	     * developed market	gsub
 [*] emerging	     * emerging market	gsub
 ^I[(]		gsub
@@ -90,9 +93,9 @@ ln_overall[_]prindexavg[_]mc	Log of price index	gsub
 ^overall[_]prindex	Price index	grepl
 local_to_market	Domestic (vs. foreign) brand	grepl
 local_multip_market	Domestic (multiple markets brand)	grepl
-sbbelt|sbbelt[_]mc	Brand equity (long-term, not standardized)	gsub
-sbbe[_]std|sbbe[_]std[_]mc	Brand equity	gsub
-sbbe|sbbe[_]mc	Brand equity (not standardized)	gsub
+sbbelt|sbbelt[_]mc	Brand strenth (long-term, not standardized)	gsub
+sbbe[_]std|sbbe[_]std[_]mc	Brand strength	gsub
+sbbe|sbbe[_]mc	Brand strength (not standardized)	gsub
 active_in_countries	Number of countries with data	gsub
 active_in_categories	Number of categories with data 	gsub
 headquarter_location	Location of headquarter	gsub
@@ -103,6 +106,7 @@ win_elast	Winsorized elasticity	gsub
 win1_elast	Winsorized elasticity (1 percent)	gsub
 win5_elast	Winsorized elasticity (5 percent)	gsub
 N_brands	Number of effects	gsub
+perc_oneside	%-significant (one-sided)	gsub
 perc_positive	%-positive and significant	gsub
 perc_negative	%-negative and significant	gsub
 perc_null	%-insignificant	gsub
@@ -130,4 +134,8 @@ variable	Variable	gsub
 meanglobalx[_]mc	Variable mean	gsub
 ln[_]gini[_]mc	Log Income Inequality	gsub
 gini[_]mc	Income inequality	gsub
+^gini$	Income inequality	gsub
 XXX^gini	Income inequality	gsub
+^lnmean[_]ms[_]mc	Log of brand mean market share	gsub
+mean[_]ms[_]mc	Brand mean market share	gsub
+interval90	90%-interval of estimated elasticities	gsub

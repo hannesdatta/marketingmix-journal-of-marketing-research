@@ -27,6 +27,23 @@ require(data.table)
 	brand_panel[, ':=' (date = as.Date(date))]
 	brand_panel[, quarter := quarter(date)]
 	
+	attr= grep('^attr',colnames(brand_panel),value=T)
+	attrnew=attr
+	
+	
+	attrnew = gsub('[<][=]','smeqth', attrnew)
+	attrnew = gsub('[>][=]','greqth', attrnew)
+	attrnew = gsub('[>]','grth', attrnew)
+	attrnew = gsub('[<]','smth', attrnew)
+	attrnew = gsub('[/]','_', attrnew)
+	attrnew = gsub('[/]','_', attrnew)
+	attrnew = gsub('[-]','', attrnew)
+	attrnew = gsub('[ ]','', attrnew)
+	attrnew = tolower(attrnew)
+	
+	for (i in seq(along=attrnew)) setnames(brand_panel,attr[i], attrnew[i])
+	
+	
 	# lag variables
 	for (.var in c('rwpspr', 'wpswdst','llen',grep('nov[0-9]+sh', colnames(brand_panel),value=T))) {
 	  brand_panel[, paste0('lag', .var) := c(NA, get(.var)[-.N]), by = c('market_id', 'brand')]
