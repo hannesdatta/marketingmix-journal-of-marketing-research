@@ -115,6 +115,8 @@ notes_base = paste0("^1^ Regression of long-term elasticities on explanatory var
 
 ```
 
+`r tab('Placeholder for theoretical framework')`
+
 # Data
 
 ```{r table1_countries, echo = FALSE}
@@ -134,6 +136,8 @@ kable(tmp, format='html', format.args = list(big.mark = ","), initial.zero = FAL
   group_rows("Emerging economies", first_emerging, 14)
 
 ```
+
+<P style='page-break-before: always'>
 
 ```{r table2_category_overview, echo = FALSE}
 tmp=data.table(elast)
@@ -156,6 +160,7 @@ kable(tmp, format='html', caption=tab('Category overview^1^')) %>%
 
 ```
 
+<P style='page-break-before: always'>
 
 `r tab('Variable operationalization')`
 
@@ -366,6 +371,8 @@ for (iter in iters) {
   
 ```
 
+<P style='page-break-before: always'>
+
 ```{r summarystats, echo=FALSE, results='asis'}
 
 covars <- c('sbbe_std', 'herf', 'market_growth', 'appliance', 'gini', 'local_to_market')
@@ -545,6 +552,57 @@ setorder(tabl, Category)
 kable(tabl, caption = tab('Overview of markets (category/country combination) in sample (with number of selected brands indicated per cell)', prefix='A'))
 
 ```
+
+<P style='page-break-before: always'>
+
+```{r attributes, echo = FALSE, results= 'asis'}
+
+# for each category
+
+attributes <- suppressWarnings(melt(brand_panel[, c('category', grep('^attr', colnames(brand_panel),value=T)),with=F], id.vars=c('category')))
+
+attributes[, na:=all(is.na(value)),by=c('category','variable')]
+nobs=nrow(attributes)
+
+attr = attributes[na==F, list(mean=mean(value), sd=sd(value), min=min(value), max=max(value)),by=c('category','variable')]
+setorder(attr,category,variable)
+attr<-attr[!grepl('freezernotestimable', variable)]
+setnames(attr, 'variable','Attribute')
+tabl=sanitize_table(attr)
+setorder(tabl, Category)
+
+print(kable(tabl, digits=3, caption = tab('Overview of physical search attributes per category^1^', prefix='A')) %>% kable_styling() %>% footnote(number=c(paste0('Computed across ', prettyNum(nobs, big.mark = ','), ' observations in our sample.'))))
+```
+
+<P style='page-break-before: always'>
+
+```{r summarystats_msmodel, echo=FALSE, results='asis'}
+
+covars <- c('usalessh', 'rwpsprd', 'wpswdst', 'llen', 'nov12sh')
+
+tmp=data.table(brand_panel)
+nbrands=length(unique(brand_panel$brand))
+nmarkets=length(unique(brand_panel$market_id))
+#tmp = unique(tmp, by = c('market_id','brand', 'emerging'))
+nobs=nrow(tmp)
+
+tmp=tmp[, lapply(.SD, function(x) c(mean=mean(x,na.rm=T),sd=sd(x,na.rm=T),min=min(x,na.rm=T), max=max(x,na.rm=T))), .SDcols=c(covars)]
+
+
+tmp[, var:=rep(c('mean', 'sd','min', 'max'),1)]
+tmp=melt(tmp, id.var=c('var'))
+
+dtf=dcast(tmp, variable~var)
+setcolorder(dtf, c('variable', rep(c('mean', 'sd', 'min','max'),1)))
+
+dtf=sanitize_table(dtf)
+
+
+print(kable(dtf, format='html', initial.zero = FALSE, digits=3,caption = tab(paste0('Summary statistics for variables in market share attraction model^1^'),prefix='A')) %>% kable_styling() %>% footnote(number=c(paste0('Summary statistics for variables (unlogged and not mean-centered), computed across ', prettyNum(nobs, big.mark = ','), ' observations in our sample.'),'Converted to USD.')))
+
+
+```
+
 
 ```{r correl, echo=FALSE, results = 'asis'}
 

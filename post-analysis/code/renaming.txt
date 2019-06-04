@@ -1,4 +1,5 @@
 source	target	type
+^usalessh$	market share	grepl
 australia	Australia	grepl
 singapore	Singapore	grepl
 japan	Japan	grepl
@@ -24,6 +25,7 @@ ln_hdi2010_mc	Log Human Development Index	gsub
 hdi2010	Human Development Index	gsub
 llen	line length	gsub
 wpswdst	distribution	gsub
+rwpsprd	price^2^	gsub
 rwpspr	price	gsub
 nov6sh	new product activity	gsub
 nov12sh	new product activity	gsub
@@ -139,3 +141,45 @@ XXX^gini	Income inequality	gsub
 ^lnmean[_]ms[_]mc	Log of brand mean market share	gsub
 mean[_]ms[_]mc	Brand mean market share	gsub
 interval90	90%-interval of estimated elasticities	gsub
+attr[_]screensize[_]recodesmeqth24inch	Screensize: <= 24 inch (indicator; baseline: others)	gsub
+attr[_]screensize[_]recodegreqth25inch	Screensize: > 24 inch (indicator; baseline > 24 inch)	gsub
+attr[_]megapixels	Megapixels	gsub
+attr[_]digitalzoom	Digital zoom available (indicator)	gsub
+attr[_]megapixels	Megapixels	gsub
+attr[_]bluerayyes	Blueray available (indicator)	gsub
+attr[_]recorderyes	Recording function (indicator)	gsub
+attr[_]raminmb	RAM (in MB)	gsub
+attr[_]cpumhz	CPU (in Mhz)	gsub
+attr[_]hdd	Hard disk size	gsub
+attr[_]typelcdtvw[_]oled	without LEDs (indicator)	gsub
+attr[_]screensize[_]recodesmth40inch	Screensize: < 40 inch (indicator; baseline unknown screensizes)	gsub
+attr[_]screensize[_]recodegreqth40inch	Screensize: >= 40 inch (indicator; baseline unknown screensizes)	gsub
+attr[_]3dyes	3D available (indicator)	gsub
+attr[_]raminmb	RAM (in MB)	gsub
+attr[_]cpumhz	CPU (in Mhz)	gsub
+attr[_]weightkg	Weight (in kg)	gsub
+attr[_]touchscreenyes	Touchscreen available (indicator)	gsub
+attr[_]camerayes	Webcam available (indicator)	gsub
+attr[_]capacity	Capacity (in liters)	gsub
+attr[_]typemwonly	Microwave only (e.g,. without grill) (indicator)	gsub
+attr[_]power	Power (in watt)	gsub
+attr[_]timecontroldigital	With digital time controller (indicator)	gsub
+attr[_]touchscreenyes	Touchscreen available (indicator)	gsub
+attr[_]wifiyes	Wifi available (indicator)	gsub
+attr[_]bluetoothyes	Bluetooth available (indicator)	gsub
+attr[_]screensize[_]recodesmth40inch	Screensize: <40 inch (indicator; baseline unknown screensizes)	gsub
+attr[_]screensize[_]recodegreqth40inch	Screensize: >= 40 inch (indicator; baseline unknown screensizes)	gsub
+attr[_]3dyes	3D available (indicator)	gsub
+attr[_]freezeryes	Freezer available (indicator)	gsub
+attr[_]numdoors	Number of doors	gsub
+attr[_]touchscreenyes	Touchscreen available (indicator)	gsub
+attr[_]screensize	Screensize (in inch)	gsub
+attr[_]wifiyes	Wifi available (indicator)	gsub
+attr[_]memoryingb	Memory (in GB)	gsub
+attr[_]raminmb	RAM (in MB)	gsub
+attr[_]weightkg	Weight (in kg)	gsub
+attr[_]screensize	Screensize (in inch)	gsub
+attr[_]capacity	Capacity (in liters)	gsub
+attr[_]functioncombination	Extra functionality (indicator; baseline: washing only)	gsub
+attr[_]typefront	Front loader (indicator; baseline is others)	gsub
+attr[_]typetop	Other type (indicator; baseline is others)	gsub
