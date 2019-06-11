@@ -549,7 +549,7 @@ tabl = dcast(tmp, category~country, value.var=c('Nbrands'))
 
 tabl=sanitize_table(tabl)
 setorder(tabl, Category)
-kable(tabl, caption = tab('Overview of markets (category/country combination) in sample (with number of selected brands indicated per cell)', prefix='A'))
+kable(tabl, caption = tab('Overview of markets (category/country combination) in sample (with number of selected brands used in model estimation indicated per cell^1^)', prefix='A'))%>% kable_styling() %>% footnote(number=paste0('Number of brands include the composite brand, which aggregates all brands with market shares which do not meet the selection threshold of a marketshare of at least 1% in 5 consecutive years (4 for tablets).'))
 
 ```
 
