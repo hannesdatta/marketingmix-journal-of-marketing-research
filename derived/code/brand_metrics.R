@@ -15,7 +15,7 @@
 
 require(data.table)
 
-sink('log.txt')
+sink('../audit/log.txt')
 sink()
 
 # -> skus_by_date_list: sales data on a SKU-level by date
@@ -219,8 +219,12 @@ for (i in 1:length(skus_by_date_list)) {
 		for (.var in grep('spr', all_cols,value=T)) {
 		  lneg = nrow(merged_attr_sales[which(get(.var)<=0)])
 		  if (lneg>0) {
-		    sink('log.txt',append=T)
-		    cat(paste0('negative price!', i, '\n'))
+		    sink('../audit/log.txt',append=T)
+		    report_tmp=merged_attr_sales[which(get(.var)<=0), list(.N, min = min(get(.var)), max=max(get(.var))),by=c('category','country','brand')]
+		    for (r in seq(from=1, length.out=nrow(report_tmp))) {
+		      cat(paste0(.var, ': negative or zero in market ', i, ', brand = ', report_tmp[r]$brand, ', country = ', report_tmp[r]$country,', category = ', report_tmp[r]$category,' (min = ',report_tmp[r]$min,', max=',report_tmp[r]$max,')!\n'))
+		    }
+		    
 		    sink()
 		  
 		  }
@@ -233,8 +237,12 @@ for (i in 1:length(skus_by_date_list)) {
 		  
 		  lneg = nrow(merged_attr_sales[which(get(.var)<0)])
 		  if (lneg>0) {
-		    sink('log.txt',append=T)
-		    cat(paste0('negative sales!', i, '\n'))
+		    sink('../audit/log.txt',append=T)
+		    report_tmp=merged_attr_sales[which(get(.var)<0), list(.N, min = min(get(.var)), max=max(get(.var))),by=c('category','country','brand')]
+		    for (r in seq(from=1, length.out=nrow(report_tmp))) {
+		      cat(paste0(.var, ': negative in market ', i, ', brand = ', report_tmp[r]$brand, ', country = ', report_tmp[r]$country,', category = ', report_tmp[r]$category,' (min = ',report_tmp[r]$min,', max=',report_tmp[r]$max,')!\n'))
+		    }
+		    
 		    sink()
 		    
 		  }
@@ -257,8 +265,12 @@ for (i in 1:length(skus_by_date_list)) {
 		
 		lneg = sum(dframe_interp$interpolated,na.rm=T)
 		if (lneg>0) {
-		  sink('log.txt',append=T)
-		  cat(paste0('interpolated! ', i))
+		  sink('../audit/log.txt',append=T)
+		  report_tmp=dframe_interp[which(interpolated==T), list(interp=sum(interpolated)),by=c('category','country','brand')]
+		  for (r in seq(from=1, length.out=nrow(report_tmp))) {
+		    cat(paste0('interpolated in market ', i, ', brand = ', report_tmp[r]$brand, ', country = ', report_tmp[r]$country,', category = ', report_tmp[r]$category,' (interpolated N = ', report_tmp[r]$interp,')!\n'))
+		  }
+		  
 		  sink()
 		  
 		}
@@ -268,7 +280,7 @@ for (i in 1:length(skus_by_date_list)) {
 		                     vsalessh = as.numeric(vsales/sum(vsales,na.rm=T))), by=c('country', 'date')]
 		
 		# store data 
-		all_data[[i]]<-list(data=split(dframe_interp, dframe_interp$country))
+		all_data[[i]]<-list(data=split(dframe_interp, dframe_interp$country), noninterp=dframe_noninterp, interp=dframe_interp)
 		
 		# remove objects
 		rm(merged_attr_sales,skus_by_date)
@@ -280,6 +292,25 @@ for (i in 1:length(skus_by_date_list)) {
 	
 	# rename
 	names(all_data)<-names(skus_by_date_list)
+	
+	
+	# generate summary statistics about interpolated variables (i.e., how many missings remain after linear interpolation)
+	for (i in seq(along=all_data)) {
+	  print(i)
+	varnames = intersect(colnames(all_data[[i]]$interp), colnames(all_data[[i]]$noninterp))
+	tmp=lapply(varnames, function(var) {
+	  unlist(all_data[[i]]$interp[, var,with=F])==unlist(all_data[[i]]$noninterp[, var,with=F])
+	})
+	tmp=data.table(do.call('cbind',tmp))
+	setnames(tmp,varnames)
+	print(table(rowSums(tmp,na.rm=T)))
+	
+	#tmp[rowSums(tmp,na.rm=T)<ncol(tmp),]
+	
+	
+	}
+
+	
 	
 	# Initialize count variables to assign unique IDs to brands and markets
 	cnt_brand=0
