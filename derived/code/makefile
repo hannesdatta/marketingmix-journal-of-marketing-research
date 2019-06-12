@@ -13,16 +13,18 @@ OUTPUT_DIR = ../output
 #.PHONY : $(TEMP_DIR)/%.RData
 
 # full build
-all: build audit
+all: build 
+#audit
 
 build: $(OUTPUT_DIR)/datasets.csv
 
 # audit
-audit: $(TEMP_DIR)/audit_rawplot.txt $(TEMP_DIR)/audit_markets.txt $(TEMP_DIR)/audit_brands.txt $(TEMP_DIR)/audit_attributes.txt
+audit: $(TEMP_DIR)/audit_rawplot.txt $(TEMP_DIR)/audit_markets.txt $(TEMP_DIR)/audit_brands.txt $(TEMP_DIR)/audit_attributes.txt $(TEMP_DIR)/audit_advertising.txt
 
 # building parts of the project
 unzip: $(TEMP_DIR)/unzipped.RData
 categorize: $(TEMP_DIR)/categorized.RData
+mergead: $(TEMP_DIR)/categorized_with_adv.RData
 gdponly: $(TEMP_DIR)/gdppercap.RData
 uniq: $(TEMP_DIR)/uniqueness_and_lagsales.RData
 exatt: $(TEMP_DIR)/extract_attributes.RData 
@@ -35,9 +37,9 @@ metr: $(TEMP_DIR)/brand_metrics.RData
 $(TEMP_DIR)/unzipped.RData : unzip_csv.R
 	"$(RBIN64)Rterm.exe" --vanilla --args "" < "unzip_csv.R"
 
-# prepare Chinese advertising data
-$(TEMP_DIR)/adv_china.RData : advertising.R
-	"$(RBIN32)Rterm.exe" --vanilla --args "" < "advertising.R"
+# prepare advertising data
+$(TEMP_DIR)/advertising.csv: get_advertising.R
+	"$(RBIN64)Rterm.exe" --vanilla --args "" < "get_advertising.R"
 
 # clean exchange rates and CPIs
 $(TEMP_DIR)/exch_cpi.RData : exch_cpi.R
@@ -67,8 +69,12 @@ $(TEMP_DIR)/uniqueness_and_lagsales.RData : uniqueness_and_lagsales.R proc_funct
 $(TEMP_DIR)/select.RData : select.R $(TEMP_DIR)/uniqueness_and_lagsales.RData
 	"$(RBIN64)Rterm.exe" --vanilla --args "" < "select.R"
 
+# merge advertising data
+$(TEMP_DIR)/categorized_with_adv.RData : merge_adv.R $(TEMP_DIR)/categorized.RData $(TEMP_DIR)/advertising.csv
+	"$(RBIN64)Rterm.exe" --vanilla --args "" < "merge_adv.R"
+
 # prepare brand-level data set (e.g., remove/interpolate missings)
-$(TEMP_DIR)/brand_metrics.RData: brand_metrics.R $(TEMP_DIR)/exch_cpi.RData $(TEMP_DIR)/select.RData $(TEMP_DIR)/uniqueness_and_lagsales.RData $(TEMP_DIR)/gdppercap.RData
+$(TEMP_DIR)/brand_metrics.RData: brand_metrics.R $(TEMP_DIR)/exch_cpi.RData $(TEMP_DIR)/select.RData $(TEMP_DIR)/uniqueness_and_lagsales.RData $(TEMP_DIR)/gdppercap.RData $(TEMP_DIR)/advertising.csv
 	"$(RBIN64)Rterm.exe" --vanilla --args "" < "brand_metrics.R"
 
 # do final time selection
@@ -76,7 +82,7 @@ $(OUTPUT_DIR)/datasets.csv: time_select.R $(TEMP_DIR)/brand_metrics.RData
 	"$(RBIN64)Rterm.exe" --vanilla --args "" < "time_select.R"
 	
 # --> audit: create category sales plots
-$(TEMP_DIR)/audit_rawplot.txt: audit_rawplot.R $(TEMP_DIR)/categorized.RData
+$(TEMP_DIR)/audit_rawplot.txt: audit_rawplot.R $(TEMP_DIR)/categorized_with_adv.RData
 	"$(RBIN64)Rterm.exe" --vanilla --args "" < "audit_rawplot.R"
 
 # --> audit: create plots of all markets
@@ -90,3 +96,7 @@ $(TEMP_DIR)/audit_brands.txt: audit_brands.R $(OUTPUT_DIR)/datasets.csv
 # --> audit: create plots of brands
 $(TEMP_DIR)/audit_attributes.txt: audit_attributes.R $(OUTPUT_DIR)/datasets.csv
 	"$(RBIN64)Rterm.exe" --vanilla --args "" < "audit_attributes.R"
+
+# --> audit: create plots of brands
+$(TEMP_DIR)/audit_advertising.txt: audit_advertising.R #(TEMP_DIR)/advertising.csv
+	"$(RBIN64)Rterm.exe" --vanilla --args "" < "audit_advertising.R"

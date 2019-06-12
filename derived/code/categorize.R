@@ -67,6 +67,15 @@ load('../temp/unzipped.RData')
 	gc()
 	# -> datlist_by_cat contains all data for each main category
 
+##################
+# RELABEL BRANDS #
+##################
+
+datlist_by_cat = lapply(datlist_by_cat, function(x) {
+  x[Brand=='RONGSHENG', Brand:='RONSHEN']
+  x[Brand=='RONGSHENGG', Brand:='RONSHEN']
+  
+})
 	
 #####################################################################
 # Investigate how data sets from raw category names can be combined #

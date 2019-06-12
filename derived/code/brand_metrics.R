@@ -15,6 +15,7 @@
 
 require(data.table)
 
+dir.create('../audit')
 sink('../audit/log.txt')
 sink()
 
@@ -30,6 +31,11 @@ sink()
 # -> indicators (economic indicators)
 	load('..//temp//exch_cpi.RData')
 	Rcpp::sourceCpp('runsum.cpp')
+
+# -> advertising
+	adv <- fread('../temp/advertising.csv')
+	adv[, date:=as.Date(date)]
+	setkey(adv, category, country, brand, date)
 	
 # initialize object to store final data
 	all_data <- NULL
@@ -200,6 +206,9 @@ for (i in 1:length(skus_by_date_list)) {
 		setkey(merged_attr_sales, date, country)
 		merged_attr_sales[cpi, cpi:=i.value]
 		
+	# Merge advertising data
+		setkey(merged_attr_sales, category, country, brand, date)
+		merged_attr_sales[adv, adv:=i.adspent]  
 		
 	# Convert some columns to factors
 		merged_attr_sales[, ':=' (brand=as.factor(brand), country=as.factor(country), category=as.factor(category))]
@@ -215,7 +224,7 @@ for (i in 1:length(skus_by_date_list)) {
 		all_cols=colnames(merged_attr_sales)
 		interp_cols = all_cols[!all_cols%in%c('category', 'country', 'market_id', 'brand', 'date', 'selected_t_cat', 'selected_brand')]
 		
-		# set some columns to NA before interpolating
+		# set some columns to NA before interpolating (e.g., negative prices - they do not end up occuring in the data, btw...)
 		for (.var in grep('spr', all_cols,value=T)) {
 		  lneg = nrow(merged_attr_sales[which(get(.var)<=0)])
 		  if (lneg>0) {
@@ -359,7 +368,7 @@ for (i in 1:length(skus_by_date_list)) {
 	      # determine max consecutive observations
 	      .zoo = zoo(dframe)
 	      
-	      .excl <- NULL
+	      .excl <- 'adv'
 	      
 	      .out = try(na.contiguous(.zoo),silent=T)
 	      
