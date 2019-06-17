@@ -98,9 +98,9 @@ dir.create('../output')
 	
 # define model: with trend, without lagged Xs
 	m1 <- list(setup_y=c(usalessh = 'usalessh'),
-		   setup_x=c(price = 'rwpspr', dist = 'wpswdst', llen = 'llen', nov = 'nov6sh'),
-		   setup_endogenous = c('rwpspr', 'wpswdst','llen','nov6sh'),
-		   plusx = c('nov6sh', 'wpswdst', 'llen'),
+		   setup_x=c(price = 'rwpspr', dist = 'wpswdst', llen = 'llen', nov = 'nov12sh'),
+		   setup_endogenous = c('rwpspr', 'wpswdst','llen','nov12sh'),
+		   plusx = c('nov12sh', 'wpswdst', 'llen'),
 		   trend='always', # choose from: always, ur, none.
 		   pval = .1, max.lag = 12, min.t = 36, descr = 'model',
 		   fn = 'model', benchmarkb = NULL, estmethod = "FGLS",
@@ -109,21 +109,15 @@ dir.create('../output')
 		   squared=F, maxiter = 400,
 		   carryover_zero=F, use_attributes = T)
 
-	#m1d <- m1
-	#m1d$setup_x['nov'] <- 'nov3sh'
-	#m1d$setup_endogenous[4] <- 'nov3sh'
-	#m1d$plusx[1] <- 'nov3sh'
-	
-	m1e <- m1
-	m1e$setup_x['nov'] <- 'nov12sh'
-	m1e$setup_endogenous[4] <- 'nov12sh'
-	m1e$plusx[1] <- 'nov12sh'
-	
+	m1_adv <- m1
+	m1_adv$setup_x <- c(m1_adv$setup_x, adv='adv')
+	m1_adv$setup_endogenous <- c(m1_adv$setup_endogenous, 'adv')
+	m1_adv$plusx <- c(m1_adv$plusx, 'adv')
 	
 	# without trend, with lagged Xs
 	m2 <- m1
-	m2$plusx=c('nov6sh', 'wpswdst', 'lagnov6sh', 'lagwpswdst')
-	m2$setup_x=c("rwpspr", "wpswdst", "llen", "nov6sh", "lagrwpspr", "lagwpswdst", "lagllen", "lagnov6sh")
+	m2$plusx=c('nov12sh', 'wpswdst', 'lagnov12sh', 'lagwpswdst')
+	m2$setup_x=c("rwpspr", "wpswdst", "llen", "nov12sh", "lagrwpspr", "lagwpswdst", "lagllen", "lagnov12sh")
 	m2$trend = 'none'
 
 ####################
@@ -176,44 +170,16 @@ if(run_cluster==T) {
 	void<-clusterEvalQ(cl, init())
 	init()
 	
-# Estimate without lagged Xs, but with trend
+  ######################################################
+	# Main model: with trend, without lagged Xs, nov12sh #
+	######################################################
 	assign_model(m1)
 	clusterExport(cl,names(m1))
-	
-	if(0) {
-	results_MCI_wolag_trend <- parLapplyLB(cl, analysis_markets, function(i) {
-	  for (carry in c(F, T)) {
-	  tmp=try(analyze_by_market(i, estmethod=estmethod, setup_y = setup_y, setup_x = setup_x, 
-	                        setup_endogenous = setup_endogenous, trend = trend, pval = pval, 
-	                        max.lag = max.lag, min.t = min.t, maxiter = maxiter, 
-	                        use_quarters=use_quarters, plusx=plusx, attraction_model=attraction_model, 
-	                        squared=squared, takediff=takediff, lag_heterog=lag_heterog,carryover_zero=carry,
-	                        use_attributes=use_attributes), silent=T)
-	  
-	  if (!class(tmp)=='try-error') {
-	    coef=data.table(tmp$model@coefficients)[grepl('lagunitsales', variable)]$coef
-	    if (length(coef)==0) break
-	    if (coef<0) print('carryover prob') else break
-	    } else break
-	  }
-	  return(tmp)
-	})
-	}
-	
-	savemodels(fname)
-	
-	# Estimate with lagged Xs, without trend
-	assign_model(m1, del = TRUE)
-
-	
-	# Nov12sh
-	assign_model(m1e)
-	clusterExport(cl,names(m1e))
 	
 	#err=which(unlist(lapply(results_nov12sh,class))=='try-error')
 	#tmp=unique(brand_panel[market_id%in%analysis_markets[err]],by=c('market_id'))[, c('category','country','market_id'),with=F]
 	
-	results_nov12sh <- parLapplyLB(cl, analysis_markets, function(i) {
+	results_main <- parLapplyLB(cl, analysis_markets, function(i) {
 	    for (carry in c(F, T)) {
 	      tmp=try(analyze_by_market(i, estmethod=estmethod, setup_y = setup_y, setup_x = setup_x, 
 	                                setup_endogenous = setup_endogenous, trend = trend, pval = pval, 
@@ -231,8 +197,70 @@ if(run_cluster==T) {
 	    return(tmp)
 	  })
 	
+	savemodels(fname)
+	assign_model(m1, del=TRUE)
 	
+	######################################
+	# Robustness w/ advertising spending #
+	######################################
+	
+	assign_model(m1_adv)
+	clusterExport(cl,names(m1_adv))
+	
+	china_hk_selection = brand_panel[country%in%c('china','hong kong')&
+	                                 any(!is.na(adv))&date<ifelse(country=='china', '2012-09-01', '2014-12-01'), 
+	                                 list(obs= length(unique(date))),by=c('category','country', 'market_id')]
+	
+	china_hk_selection = china_hk_selection[, selected:=obs>ifelse(category=='tablet',4*12,5*12)]
+  china_hk = unique(china_hk_selection[selected==T]$market_id)
+  
+	results_adv <- parLapplyLB(cl, china_hk, function(i) {
+	  for (carry in c(F, T)) {
+	    tmp=try(analyze_by_market(i, estmethod=estmethod, setup_y = setup_y, setup_x = setup_x, 
+	                              setup_endogenous = setup_endogenous, trend = trend, pval = pval, 
+	                              max.lag = max.lag, min.t = min.t, maxiter = maxiter, 
+	                              use_quarters=use_quarters, plusx=plusx, attraction_model=attraction_model, 
+	                              squared=squared, takediff=takediff, lag_heterog=lag_heterog,carryover_zero=carry,
+	                              use_attributes=use_attributes), silent=T)
+	    
+	    if (!class(tmp)=='try-error') {
+	      coef=data.table(tmp$model@coefficients)[grepl('lagunitsales', variable)]$coef
+	      if (length(coef)==0) break
+	      if (coef<0) print('carryover prob') else break
+	    } else break
+	  }
+	  return(tmp)
+	})
 	
 	savemodels(fname)
-
+	assign_model(m1_adv, del=TRUE)
+	
+	#################################################
+	# Robustness: with lagged Xs, but without trend #
+	#################################################
+	
+	assign_model(m2)
+	clusterExport(cl,names(m2))
+	
+	results_laggedX <- parLapplyLB(cl, analysis_markets, function(i) {
+	  for (carry in c(F, T)) {
+	    tmp=try(analyze_by_market(i, estmethod=estmethod, setup_y = setup_y, setup_x = setup_x, 
+	                              setup_endogenous = setup_endogenous, trend = trend, pval = pval, 
+	                              max.lag = max.lag, min.t = min.t, maxiter = maxiter, 
+	                              use_quarters=use_quarters, plusx=plusx, attraction_model=attraction_model, 
+	                              squared=squared, takediff=takediff, lag_heterog=lag_heterog,carryover_zero=carry,
+	                              use_attributes=use_attributes), silent=T)
+	    
+	    if (!class(tmp)=='try-error') {
+	      coef=data.table(tmp$model@coefficients)[grepl('lagunitsales', variable)]$coef
+	      if (length(coef)==0) break
+	      if (coef<0) print('carryover prob') else break
+	    } else break
+	  }
+	  return(tmp)
+	})
+	
+	savemodels(fname)
+	assign_model(m2, del=TRUE)
+	
 }
