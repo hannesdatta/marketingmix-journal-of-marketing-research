@@ -365,10 +365,10 @@ for (i in 1:length(skus_by_date_list)) {
 	      .availabilitycheck1 = setdiff(all_cols,c(keyvars, 'cpi', 'interpolated', 'selected_t_cat', 'selected_brand'))
 	      .availabilitycheck2 = NULL 
 	      
-	      # determine max consecutive observations
-	      .zoo = zoo(dframe)
+	      # determine max consecutive observations; disregard (potentially incomplete) advertising data here
+	      .zoo = zoo(dframe[, -which(colnames(dframe)%in%'adv'),with=F])
 	      
-	      .excl <- 'adv'
+	      .excl <- NULL
 	      
 	      .out = try(na.contiguous(.zoo),silent=T)
 	      
