@@ -225,6 +225,7 @@ corstars <-function(x, method=c("pearson", "spearman"), removeTriangle=c("upper"
 # convert z-score into a signifance asteriks
 signstars <- function(zscore) { 
   if (length(zscore)==0) return("   ")
+  if (zscore==Inf) return("   ")
   if (is.nan(zscore) | !is.numeric(zscore) | is.na(zscore)) return("   ")
   ret <- "ns."
   if (abs(zscore)>qnorm(1-(0.1/2))) ret <- c("*")

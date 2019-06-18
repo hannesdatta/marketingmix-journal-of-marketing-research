@@ -40,12 +40,6 @@ gci <- fread('../temp/gci.csv')
 
 elast=merge(elast, gci, by = c('country'),all.x=T)
 
-# add PCA scores
-pca <- fread('../temp/gci_pca_out.csv')
-setkey(pca, country)
-setkey(elast, country)
-elast[pca, gcifactor := i.F1_PC1]
-
 # take natural log of variables
 vars=c('herf','c3','c5', 'gini', 'market_growth','hdi2010','gdppercap2010', 'ncat_in_country', 'ncountry_in_category',
        'overall_ms', 'gci_00.03_gdppercap_s', 'overall_prindex','overall_prindexavg', 'gci_sub_basicrequire_s','gci_sub_efficiencyenhance_s','gci_sub_innovation_s', 'gci_overall_s')
@@ -56,7 +50,7 @@ for (var in vars) {
 }
 
 # grand-mean centering by variable (llen, etc.) for all explanatory (continuous) variables
-for (var in unique(drop(unlist(lapply(c(vars, 'sbbe_std', 'sbbe', 'sbbelt', 'gcifactor', 'meanglobalx'), grep, colnames(elast), value=T))))) {
+for (var in unique(drop(unlist(lapply(c(vars, 'sbbe_std', 'sbbe', 'sbbelt', 'meanglobalx'), grep, colnames(elast), value=T))))) {
   elast[, (paste0(var, '_mc')):=get(var)-mean(get(var)), by = c('variable')]
 }
 
@@ -85,18 +79,9 @@ elast[worldbank=='', worldbank:='high']
 
 options(knitr.kable.NA = '')
 
-### brand selection for analysis
-#elast=elast[globalbrand==T] # global brands (active in >=3 countries) only
-
-#elast=elast[ncountries>=2]
-
 ordered_vars = c('rwpspr', 'wpswdst','llen','nov12sh')
-
-#elast[!is.na(elast), weightsst := (1/elast_se)/sum(1/elast_se), by = c('variable')]
-#elast[!is.na(elastlt), weightslt := (1/elastlt_se)/sum(1/elastlt_se), by = c('variable')]
 elast[, other_brand:=1-asian_brand-western_brand]
 
-#elast[country_of_origin%in%c('','egypt', 'united arab emirates'), other_brand:=1]
 elast[, emerging:=1-developed]
 
 elast[, brandz:=0]
@@ -119,7 +104,4 @@ brandz_brands_fin<-c('samsung', 'sony', 'apple', 'hp', 'nokia', 'dell','blackber
                      'fujifilm', 'huawei', 'lenovo', 'lg', 'panasonic', 'philips', 'toshiba', 'zte')
 elast[brand%in%brandz_brands_fin, brandz_financial500:=1]
 
-
 elast[, brand:=my_capitalize(brand)]
-
-#elast <- elast[country=='india', ':=' (elastlt=NA, elastlt_se=NA, elast=NA, elast_se=NA)]

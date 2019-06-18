@@ -16,8 +16,9 @@ options(xtable.comment = FALSE)
 options(knitr.kable.NA = '')
 
 # Load data
-  elast <- fread('../externals/elast_results_nov12sh.csv') 
-
+  elast <- fread('../externals/elast_results_main.csv') 
+  elast_adv <- fread('../externals/elast_results_adv.csv') 
+  
   brand_panel=fread('../../analysis/temp/preclean.csv')
   brand_panel[, ':=' (date = as.Date(date))]
   
@@ -27,28 +28,17 @@ options(knitr.kable.NA = '')
 
 # Preclean data
   source('preclean.R')
-  
+  elast_adv[, brand:=my_capitalize(brand)]
+
 # set order of variables to appear in figures and tables
 ordered_vars = c('rwpspr', 'wpswdst','llen','nov12sh')
 names(ordered_vars) <- paste0(unlist(sanitize_table(data.frame(ordered_vars))), ' elasticity')
-
-
-  
-# formulas for models
-form_main_model = .~1+ (1|brand) + (1|category) + (1|country) + emerging + sbbe_std_mc + local_to_market + ln_herf_mc +ln_market_growth_mc +  ln_overall_prindexavg_mc + appliance + gini_mc
-
-form_main_model_selected_interact = .~1+ (1|brand) + (1|category) + (1|country) + emerging + sbbe_std_mc + I(sbbe_std_mc*emerging) + local_to_market + I(local_to_market*emerging) + ln_herf_mc + I(ln_herf_mc*emerging) + ln_market_growth_mc + I(ln_market_growth_mc*emerging) + ln_overall_prindexavg_mc + appliance + gini_mc
-
-#meanglobalx local_multip_market
-#local_multip_market +
-
-form_interact = ~1+ (1|brand) + (1|category) + (1|country) + emerging + sbbe_std_mc + I(sbbe_std_mc*emerging) + local_to_market + I(local_to_market*emerging)  +  ln_herf_mc + I(ln_herf_mc*emerging) + ln_market_growth_mc + I(ln_market_growth_mc*emerging) + appliance + I(appliance*emerging) + ln_overall_prindexavg_mc + I(ln_overall_prindexavg_mc*emerging) + gini_mc + I(gini_mc*emerging)
 
 lmerctrl = lmerControl(optimizer ="Nelder_Mead", check.conv.singular="ignore")
 
 #estimtype = 'winsor-onesided'
 #estimtype = 'winsor-twosided'
-estimtype = 'weighted'
+estimtype = 'weighted' 
 #estimtype = 'nonweighted'
 
 winsor_p=.01
@@ -89,6 +79,12 @@ if (estimtype=='weighted') {
     # rescale
     elast[!is.na(get(.var)), paste0('w_', .var) := get(paste0('w_', .var))/max(get(paste0('w_', .var)))]
     elast[!is.na(get(.var)), paste0('z_', .var) := get(.var)/get(paste0(.var, '_se'))]
+    
+    elast_adv[!is.na(get(.var)), paste0('w_', .var) := 1/get(paste0(.var, '_se'))]
+    # rescale
+    elast_adv[!is.na(get(.var)), paste0('w_', .var) := get(paste0('w_', .var))/max(get(paste0('w_', .var)))]
+    elast_adv[!is.na(get(.var)), paste0('z_', .var) := get(.var)/get(paste0(.var, '_se'))]
+    
   }
    
       estimnote = paste0('Elasticities are weighted by inverse standard errors.')
@@ -541,6 +537,121 @@ kable(frame1,format='html', caption = tab('Assessing multicollinearity^1^', pref
 }
 ```
 
+```{r elasticities_advertising, echo = FALSE, results='asis'}
+  sigvalue = .1 # 
+  
+  zval = qnorm(1-sigvalue/2)
+
+  out= NULL
+  for (i in 1:2) {
+    if (i==1) obj=c('elast', 'w_elast', 'z_elast')
+    if (i==2) obj=c('elastlt','w_elastlt', 'z_elastlt')
+    
+    adv = copy(elast_adv[!is.na(get(obj[1]))][, ':=' (val=get(obj[1]), 
+                                             val_w=get(obj[2]),
+                                             val_z=get(obj[3]))])
+    
+    # retain markets with adv
+    tmp = adv[, list(has_adv=any(variable%in%'adv')),by=c('market_id', 'brand')]
+    setkey(tmp, market_id, brand)
+    setkey(adv, market_id, brand)
+    adv[tmp, has_adv:=i.has_adv]
+    adv=adv[has_adv==T]
+    
+    setkey(adv, market_id, brand)
+    
+    tmp_matched = copy(elast[!is.na(get(obj[1]))][, ':=' (val=get(obj[1]), 
+                                             val_w=get(obj[2]),
+                                             val_z=get(obj[3]))])
+    setkey(tmp_matched, market_id, brand)
+    
+    adv[, market_brand:=paste(market_id,brand)]
+    tmp_matched[, market_brand:=paste(market_id,brand)]
+    
+    tmp_matched=tmp_matched[market_brand%in%adv$market_brand]
+    
+    cols = intersect(colnames(adv),colnames(tmp_matched))
+    
+    tmp_combined = rbind(cbind(adv[, cols,with=F], type='adv'), cbind(tmp_matched[, cols, with=F],type='noadv'))
+    
+   
+    # different t-tests
+  
+    diff_tests=lapply(c(wls='wls'), function(tvalrep) {
+      
+      if (tvalrep=='wls') {
+      # OLS-based p values   
+      diff_tests=rbindlist(lapply(unique(tmp_combined$variable), function(.var) {
+        data.table(variable=.var, effect=c('constant', 'adv'), summary(lm(val~1+I(type=='adv'), weights=val_w,data=tmp_combined[variable==.var]))$coefficients)
+      }))
+            taddition = paste0('Tests on differences carried out by regressing elasticities (', estimnoteshort, ') on an intercept and an indicator variable which is 1 if advertising was included in the model, and 0 otherwise. Reported t-value is obtained from the estimate of the indicator variable.')
+  
+            }
+    
+    diff_tests<-diff_tests[!variable=='adv']
+
+    setnames(diff_tests, c('variable', 'effect', 'diff_est', 'diff_se', 'diff_t','diff_p'))
+    diff_tests=diff_tests[effect=='adv'][, effect:=NULL]
+    diff_tests[,testtype:=tvalrep]
+    return(list(diff_tests=diff_tests, notes=taddition))
+    })
+    
+    
+    ttests=melt(rbindlist(lapply(diff_tests, function(x) x$diff_tests))[, ':=' (var=variable,variable=NULL)], id.vars=c('var','testtype'))
+    
+    ttests=dcast(ttests, var~testtype+variable)
+    setnames(ttests, 'var', 'variable')
+    
+    notes<-lapply(diff_tests, function(x) x$notes)
+    
+    
+    tmp_combined = merge(tmp_combined, ttests, all.x=T,all.y=F,by = c('variable'))
+    
+    tmp_combined[is.na(wls_diff_p),wls_diff_p:=Inf]
+    
+    tmp=tmp_combined[, list(adv_Neffects= length(which(!is.na(val[type=='adv']))),
+				           adv_ftmelast = sum(val[type=='adv']*val_w[type=='adv'])/sum(val_w[type=='adv']),
+									 adv_3sig = signstars(sum(val_z[type=='adv'])/sqrt(length(which(!is.na(val[type=='adv']))))),
+									 nadv_Neffects= length(which(!is.na(val[!type=='adv']))),
+				           nadv_ftmelast = sum(val[!type=='adv']*val_w[!type=='adv'])/sum(val_w[!type=='adv']),
+									 nadv_3sig = signstars(sum(val_z[type=='adv'])/sqrt(length(which(!is.na(val[!type=='adv']))))),
+									 wls_t = unique(wls_diff_t), 
+									 wls_sig = psignstars(unique(wls_diff_p))), by=c('variable')]
+    
+    
+  tmp=tmp[match(c('adv', ordered_vars), variable)]
+  setnames(tmp, 'variable', 'mmixinstr')
+
+  out[[i]]<-tmp
+  }
+
+  
+names(out)<-c('st','lt')
+
+stats_markets = length(unique(adv$market_id))
+stats_brands = length(unique(adv$market_brand))
+stats_categories = length(unique(adv$category))
+
+stats_marketnames = sapply(c('china','hong kong'), function(x) {
+  x = unlist(sanitize_table(data.frame(unique(adv[country==x]$category))))
+  x=x[order(x)]
+  
+  return(paste0(x, collapse= ', '))
+})
+
+stats_categorynames = unlist(sanitize_table(data.frame(unique(adv$category))))
+stats_categorynames=paste0(stats_categorynames[order(stats_categorynames)], collapse = ', ')
+
+mainnote = paste0('We add to our main model the advertising expenditures for ', stats_brands, ' brands, and re-estimate marketing mix elasticities in those markets for which advertising data is available to us (in total ', stats_markets, ' markets from ', stats_categories, ' categories in two countries, China and Hong Kong). In the table above, we compare the marketing mix elasticities from this model, to those estimated from our main model; in the comparison, we only include those ', stats_brands, ' brands for which advertising expenditures are available.')
+
+#iters = list(st=c('st', 'Short-term'), lt=c('lt', 'Long-term'))
+iters = list(lt=c('lt', 'Long-term'))
+for (iter in iters) {
+  print(kable(sanitize_table(out[[iter[1]]]), digits=3, format='html', format.args = list(big.mark = ","),
+        caption=tab(paste0('Differences in ', tolower(iter[2]), ' elasticities in models with and without advertising spending^1^'),prefix='A')) %>% kable_styling() %>% 
+        footnote(number=c(paste0(notes_sig, ' ', mainnote),estimnote, 'Significance tested using meta-analytic p-value.', notes[1])) %>% add_header_above(c(" " = 1, "Advertising included" = 3, "Advertising not included (main model)" = 3, 'Tests on differences' =2)))
+}
+```
 
 ```{r overview2, echo=FALSE, results='asis'}
 tmp = elast_all[, list(Nbrands = length(unique(brand))), by = c('market_id', 'category','country')]

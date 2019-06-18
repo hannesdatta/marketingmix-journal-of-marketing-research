@@ -29,6 +29,7 @@ rwpsprd	price^2^	gsub
 rwpspr	price	gsub
 nov6sh	new product activity	gsub
 nov12sh	new product activity	gsub
+^adv	advertising	gsub
 ^fe	Country fixed effect	gsub
 airqual	Quality of air transport infrastructure	gsub
 electricityqual	Quality of electricity supply	gsub
