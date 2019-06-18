@@ -12,7 +12,7 @@ OUTPUT_DIR = ../output
 all: elast markdown
 elast: $(OUTPUT_DIR)/elasticities.txt
 pre: $(TEMP_DIR)/preclean.csv
-results: $(TEMP_DIR)/results.RData
+results: $(OUTPUT_DIR)/results.RData
 markdown: $(OUTPUT_DIR)/model_results.html
 
 ###### Build parts ######

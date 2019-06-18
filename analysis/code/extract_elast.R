@@ -13,9 +13,6 @@ library(marketingtools)
 
 # Load results
 load(file = c('../output/results.RData'))
-#load(file = c('../temp/results_20180313.RData'))
-#load(file = c('../output/results23may2018.RData'))
-#load(file = c('../output/results14june2018.RData'))
 
 unlink('../output/*.csv')
 
@@ -36,13 +33,13 @@ source('sbbe.R')
 
 # Extract elasticities
 out = lapply(models, function(model_name) {
-  
+  print(model_name)
   results_brands=eval(parse(text=model_name))
 
   # identify model crashes
   checks <- unlist(lapply(results_brands, class))
   
-  markets=data.table(market_id=analysis_markets)[, ':=' (i=1:.N, available=!checks=='try-error')]
+  #markets=data.table(market_id=analysis_markets)[, ':=' (i=1:.N, available=!checks=='try-error')]
   
   # extract elasticities
   elast <- rbindlist(lapply(results_brands[!checks=='try-error'], function(x) x$elast))
@@ -110,7 +107,7 @@ out = lapply(models, function(model_name) {
   #elast[country_of_origin%in%c('finland','france', 'germany','italy','netherlands','sweden'), region_of_origin := 'europe']
   #elast[globalbrand==T & country_of_origin%in%c('canada','usa'), region_of_origin := 'northamerica']
   
-  return(list(checks=markets, elast=elast, model = model_name))
+  return(list(checks=checks, elast=elast, model = model_name))
   })
 
 results <- out
@@ -124,7 +121,7 @@ cat('Finished building extract_elast.R at:\n')
 print(Sys.time())
 for (i in seq(along=out)) {
   cat(out[[i]]$model,fill=T)
-print(table(out[[i]]$checks$available))
+print(table(ifelse(out[[i]]$checks=='list','models converged','error in estimation procedure')))
 }
 
 cat('\n\n(File used to enable track changes by makefile).\n')
