@@ -22,7 +22,7 @@ options(xtable.comment = FALSE)
 load(file = c('../output/results.RData'))
 
 # determine model to analyze
-  results_brands <-  results_nov12sh 
+  results_brands <-  results_main 
   
 # identify model crashes
 	checks <- unlist(lapply(results_brands, class))
