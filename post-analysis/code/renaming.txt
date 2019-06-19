@@ -52,7 +52,7 @@ laptop	Laptop computers	gsub
 dvd	DVD players and recorders	gsub
 desktoppc	Desktop computers	gsub
 cooling	Refrigerators	gsub
-camera_slr	DSLR cameras	gsub
+camera_slr	SLR cameras	gsub
 camera_compact	Compact cameras	gsub
 category	Category	gsub
 cattype	Category type	gsub

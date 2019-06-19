@@ -19,8 +19,8 @@ regmodel <- function(formula=list(~1+I(country_class=='linc') + as.factor(catego
       fit=NULL
       }
     if (model=='lmer') {
-      st = lapply(formula, function(form) lmer(update(form, elast ~ .),  control = lmerctrl, data = data.table(dat[variable==varname&!is.na(elast)]), weights=w_elast))
-      lt = lapply(formula, function(form) lmer(update(form, elastlt ~ .),  control = lmerctrl, data = data.table(dat[variable==varname&!is.na(elastlt)]), weights=w_elastlt))
+      st = lapply(formula, function(form) lmer(update(form, elast ~ .),  control = lmerctrl, REML=F, data = data.table(dat[variable==varname&!is.na(elast)]), weights=w_elast))
+      lt = lapply(formula, function(form) lmer(update(form, elastlt ~ .),  control = lmerctrl, REML = F, data = data.table(dat[variable==varname&!is.na(elastlt)]), weights=w_elastlt))
       fit= NULL #sem.model.fits(list(st,lt))
       }
     return(list(variable=varname, st=st, lt=lt, fit = fit))
@@ -58,21 +58,23 @@ printout = function(x, type='st', vars=NULL, omit=NULL, title='', printtype='htm
   dep.var.labels=NULL
   
   
-  
   table.layout=c('-#m-t-a-n')
   if (length(vars)>1) table.layout=c('-c#m-t-a-n')
   
   if (type=='st') {
     res = do.call('c', lapply(x[unique(vars)], function(m) m$st))
+    llres = do.call('c', lapply(x[unique(vars)], function(m) m$llratio$st))
     colsep = unlist(lapply(x[unique(vars)], function(x) length(x$st)))
     
   }
   if (type=='lt') {
     res = do.call('c', lapply(x[unique(vars)], function(m) m$lt))
+    llres = do.call('c', lapply(x[unique(vars)], function(m) m$llratio$lt))
     colsep = unlist(lapply(x[unique(vars)], function(x) length(x$lt)))
   }
   if (type=='stlt') {
     res = do.call('c', lapply(x[unique(vars)], function(m) c(m$st, m$lt)))
+    llres = do.call('c', lapply(x[unique(vars)], function(m) c(m$llratio$st, m$llratio$lt)))
     colsep = unlist(lapply(x[unique(vars)], function(x) length(x$st)+length(x$lt)))
     dep.var.labels.include=T
     dep.var.labels=rep(c('short-term', 'long-term'),length(unique(vars)))
@@ -124,6 +126,16 @@ printout = function(x, type='st', vars=NULL, omit=NULL, title='', printtype='htm
   
   r2s = c('R-squared', sub('^(-)?0[.]', '\\1.', formatC(sapply(res, rsq), digits=3, format='f', flag='#')))
   obs = c('Observations', sapply(res, function(x) length(residuals(x))))
+  if (length(llres)>0) {
+    llnote = c('Log-likelihood ratio tests', llres) 
+    added_notes=list(r2s,obs,llnote)
+    
+    } else { 
+      added_notes=list(r2s,obs)
+      
+    }
+  
+  
   
   to_stargz <- function(x) {
     gsub('\\\\[*]', '*', x)
@@ -145,7 +157,7 @@ printout = function(x, type='st', vars=NULL, omit=NULL, title='', printtype='htm
             omit.stat=c('aic','bic'), 
             single.row=F, notes.label='',
             table.layout=table.layout, 
-            add.lines=list(r2s,obs), 
+            add.lines=added_notes, 
             column.separate=colsep,
             ...)
 
