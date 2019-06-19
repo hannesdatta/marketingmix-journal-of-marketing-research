@@ -16,9 +16,6 @@ options(xtable.comment = FALSE)
 options(knitr.kable.NA = '')
 
 # Load data
-  elast <- fread('../externals/elast_results_main.csv') 
-  elast_adv <- fread('../externals/elast_results_adv.csv') 
-  
   brand_panel=fread('../../analysis/temp/preclean.csv')
   brand_panel[, ':=' (date = as.Date(date))]
   
@@ -27,9 +24,17 @@ options(knitr.kable.NA = '')
   source('proc_rename.R')
 
 # Preclean data
+  elast <- fread('../externals/elast_results_adv.csv') 
   source('preclean.R')
-  elast_adv[, brand:=my_capitalize(brand)]
-
+  elast_adv <- copy(elast)
+  
+  elast <- fread('../externals/elast_results_laggedX.csv') 
+  source('preclean.R')
+  elast_laggedx <- copy(elast)
+  
+  elast <- fread('../externals/elast_results_main.csv') 
+  source('preclean.R')
+  
 # set order of variables to appear in figures and tables
 ordered_vars = c('rwpspr', 'wpswdst','llen','nov12sh')
 names(ordered_vars) <- paste0(unlist(sanitize_table(data.frame(ordered_vars))), ' elasticity')
@@ -84,6 +89,11 @@ if (estimtype=='weighted') {
     # rescale
     elast_adv[!is.na(get(.var)), paste0('w_', .var) := get(paste0('w_', .var))/max(get(paste0('w_', .var)))]
     elast_adv[!is.na(get(.var)), paste0('z_', .var) := get(.var)/get(paste0(.var, '_se'))]
+    
+    elast_laggedx[!is.na(get(.var)), paste0('w_', .var) := 1/get(paste0(.var, '_se'))]
+    # rescale
+    elast_laggedx[!is.na(get(.var)), paste0('w_', .var) := get(paste0('w_', .var))/max(get(paste0('w_', .var)))]
+    elast_laggedx[!is.na(get(.var)), paste0('z_', .var) := get(.var)/get(paste0(.var, '_se'))]
     
   }
    
@@ -200,6 +210,8 @@ elast_all=data.table(elast)
 elast=elast[!is.na(country_of_origin)&!tolower(brand)%in%c('unbranded')]
 excluded_brands=setdiff(unique(elast_all$brand), unique(elast$brand))
 excluded_brands<-unique(gsub('Allothers.*', 'Composite brands (allothers)', excluded_brands))
+
+elast_laggedX=elast_laggedX[!is.na(country_of_origin)&!tolower(brand)%in%c('unbranded')]
 
 ```
 
@@ -490,10 +502,6 @@ for (i in 1:4) {
 
 ```
 
-
-
-
-
 ```{r median, echo=F}
 
 
@@ -769,7 +777,78 @@ for (i in 1:4) {
 
 ```
 
-# add A15 here: comparison elasticities from lagged X model with focal model
+```{r newanalysis_elastlaggedX, results = 'asis', include = TRUE, echo=FALSE}
+
+# formulas for models
+
+upd_models = list(m1 = .~1 + (1|country) + (1|category) + (1|brand) + ln_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market,
+                   m2 = .~1 + emerging + (1|country) + (1|category) + (1|brand) + ln_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market,
+                   m3 = .~1 + emerging + sbbe_std_mc + (1|country) + (1|category) + (1|brand) + ln_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market,
+                   m4 = .~1 + emerging + sbbe_std_mc + I(sbbe_std_mc*emerging)+ (1|country) + (1|category) + (1|brand) + ln_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market)
+                   
+out1=regmodel(formula=c(upd_models), dat=elast_laggedx, model='lmer')
+
+llratio <- function(tmp) {
+  indx=seq(from=2, length.out=length(tmp)-1)
+  annot=sapply(indx, function(i) {
+    m<-anova(tmp[[i-1]], tmp[[i]], test ='Chisq')
+    c(chi=m$Chisq[2], df=diff(m$Df), p=m$`Pr(>Chisq)`[2])
+  })
+  
+  llratio = c('', apply(annot, 2, function(x) paste0('Chi-sq: ', formatC(x['chi'],digits=3, big.mark=',',format ='f', flag='#'), ', df = ', x['df'], ' (p ', ifelse(x['p']<.001, '< 0.001', paste0('= ',formatC(x['p'], digits=3, format = 'f', flag='#'))), stri_trim(paste0(' ', psignstars(x['p']), ')')))))
+  return(llratio)
+}
+
+
+outx = NULL
+
+for (out in list(out1)) {
+  for (mod in names(out)) {
+    outx[[mod]]$variable=out[[mod]]$variable
+    outx[[mod]]$st=c(outx[[mod]]$st, out[[mod]]$st)
+    outx[[mod]]$lt=c(outx[[mod]]$lt, out[[mod]]$lt)
+    
+  }
+}
+
+
+for (var_i in seq(along=outx)) {
+  outx[[var_i]]$llratio <- list(st = llratio(outx[[var_i]]$st),
+                                lt = llratio(outx[[var_i]]$lt))
+                                             
+}
+
+
+covars = c("(Intercept)", "emerging", "ln_gci_00.03_gdppercap_s_mc","ln_gci_overall_s_mc", "ln_hdi2010_mc",
+  "sbbe_std_mc", "brandz", 'brandz_global_alltime', 'brandz_financial500',
+  "I(sbbe_std_mc * emerging)",
+  "I(sbbe_std_mc * ln_gci_00.03_gdppercap_s_mc)",
+  "I(sbbe_std_mc * ln_gci_overall_s_mc)",
+  "I(sbbe_std_mc * ln_hdi2010_mc)",
+  "I(brandz * emerging)",
+  "I(brandz_global_alltime * emerging)",
+  "I(brandz_financial500 * emerging)",
+  "ln_herf_mc",
+  "ln_market_growth_mc",
+  "appliance",
+  "ln_gini_mc",
+  "local_to_market")
+
+notes_new = paste0("", notes_base, ' Continuous variables have been mean-centered. Lok-likelihood ratio tests computed relative to preceding models. Model includes lagged values of a brand\'s marketing mix to allow for differential carry-over effects for each marketing mix instrument. Brand-specific trend variables are excluded.')
+
+#sink('test.html')
+for (i in 1:4) {
+  cat("<P style='page-break-before: always'>")
+
+
+  printout(outx, 'lt', title = tab(paste0('Regression with long-term ', gsub('ity', 'ities', names(ordered_vars[i])), ' in an alternative model with lagged marketing mix instruments')), vars=ordered_vars[i],  notes=paste0(gsub('long[-]term', 'short- and long-term', notes_new), ''), covariate_choices = covars)
+}
+#sink()
+
+#notes_base = paste0("^1^ Regression of long-term elasticities on explanatory variables and three random effects, for brands, categories, and countries, respectively. Estimated using a linear mixed-effects model. ", estimnote, " Standard errors in parentheses.")
+
+
+```
 
 ```{r elasticities_advertising, echo = FALSE, results='asis'}
   sigvalue = .1 # 
