@@ -45,7 +45,7 @@
 adv[, brand_id:=.GRP,by=c('category','country','brand')]
 adv[, market_uid := .GRP, by = c('category','country')]
 adv[, date:=as.Date(date)]
-setorder(market_uid,brand,date)
+setorder(adv, market_uid,brand,date)
 # Plotting function
 	plotfkt <- function(fn, tmp, make_png = T) {
 		if (make_png==T) png(fn, res=150, units='in', height=6, width=12)
