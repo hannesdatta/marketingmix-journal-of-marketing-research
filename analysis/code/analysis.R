@@ -114,12 +114,12 @@ dir.create('../output')
 	m1_adv$setup_endogenous <- c(m1_adv$setup_endogenous, 'adv')
 	m1_adv$plusx <- c(m1_adv$plusx, 'adv')
 	
-	# without trend, with lagged Xs
+	# with lagged Xs, without lagged market share
 	m2 <- m1
 	m2$plusx=c('nov12sh', 'wpswdst', 'lagnov12sh', 'lagwpswdst')
 	m2$setup_x=c("rwpspr", "wpswdst", "llen", "nov12sh", "lagrwpspr", "lagwpswdst", "lagllen", "lagnov12sh")
-	m2$trend = 'none'
-
+	m2$carryover_zero=T
+	
 ####################
 ### RUN ANALYSIS ###
 ####################
@@ -235,32 +235,26 @@ if(run_cluster==T) {
 	savemodels(fname)
 	assign_model(m1_adv, del=TRUE)
 	
-	#################################################
-	# Robustness: with lagged Xs, but without trend #
-	#################################################
+	###############################
+	# Robustness: with lagged Xs  #
+	###############################
 	
 	assign_model(m2)
 	clusterExport(cl,names(m2))
 	
 	results_laggedX <- parLapplyLB(cl, analysis_markets, function(i) {
-	  for (carry in c(F, T)) {
-	    tmp=try(analyze_by_market(i, estmethod=estmethod, setup_y = setup_y, setup_x = setup_x, 
+	   tmp=try(analyze_by_market(i, estmethod=estmethod, setup_y = setup_y, setup_x = setup_x, 
 	                              setup_endogenous = setup_endogenous, trend = trend, pval = pval, 
 	                              max.lag = max.lag, min.t = min.t, maxiter = maxiter, 
 	                              use_quarters=use_quarters, plusx=plusx, attraction_model=attraction_model, 
-	                              squared=squared, takediff=takediff, lag_heterog=lag_heterog,carryover_zero=carry,
+	                              squared=squared, takediff=takediff, lag_heterog=lag_heterog,carryover_zero=carryover_zero,
 	                              use_attributes=use_attributes), silent=T)
 	    
-	    if (!class(tmp)=='try-error') {
-	      coef=data.table(tmp$model@coefficients)[grepl('lagunitsales', variable)]$coef
-	      if (length(coef)==0) break
-	      if (coef<0) print('carryover prob') else break
-	    } else break
-	  }
+	  
 	  return(tmp)
 	})
 	
 	savemodels(fname)
 	assign_model(m2, del=TRUE)
-	
+
 }
