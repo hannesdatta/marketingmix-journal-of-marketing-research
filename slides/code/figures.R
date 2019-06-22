@@ -7,13 +7,14 @@ library(bit64)
 
 # Setup
   dir.create('../output')
-
+  unlink('../output/*')
+  
   # Load brand panel
   brand_panel=fread('../../derived/output/datasets.csv')
   brand_panel[, ':=' (date = as.Date(date))]
 
   # Results
-  elast <- fread('../../post-analysis/externals/elast_results_nov12sh.csv')
+  elast <- fread('../../post-analysis/externals/elast_results_main.csv')
   elast=elast[!grepl('unbranded|local|amazon|super|allother', brand)]
 
 # Plot: Market concentration in HK - Tablets
