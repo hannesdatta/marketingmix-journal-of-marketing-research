@@ -116,10 +116,10 @@ dir.create('../output')
 	
 	# with lagged Xs, without lagged market share
 	m2 <- m1
-	m2$plusx=c('nov12sh', 'wpswdst', 'lagnov12sh', 'lagwpswdst')
+	m2$plusx=c('nov12sh', 'wpswdst', 'llen', 'lagnov12sh', 'lagwpswdst', 'lagllen')
 	m2$setup_x=c("rwpspr", "wpswdst", "llen", "nov12sh", "lagrwpspr", "lagwpswdst", "lagllen", "lagnov12sh")
 	m2$carryover_zero=T
-	
+
 ####################
 ### RUN ANALYSIS ###
 ####################
