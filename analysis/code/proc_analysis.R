@@ -57,7 +57,7 @@ savemodels <- function(fname) {
 analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend = 'none', pval = .05, max.lag = 12, min.t = 36, 
                               estmethod = "FGLS", benchmarkb = NULL, use_quarters = TRUE, maxiter=1000,
                               attraction_model = "MNL", takediff = 'alwaysdiff', plusx = NULL, squared = F, lag_heterog=F,
-                              carryover_zero=F, use_attributes = T) {
+                              carryover_zero=F, use_attributes = T, lagX_iteratively=F) {
 	
 		cat('data preparation\n...')
 		
@@ -487,7 +487,36 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 		# save ranges after rescaling
 		if (rescale==T) res$ranges$after=data.table(original_variable=colnames(X), min = colMins(X), max=colMaxs(X))[!grepl('[_]sq|[_]cop[_]|[_]dum', original_variable)]
 		
-		# Step 1: Determine significance of copula terms by endogenous regressor; retain those brand-variable terms that are significant
+		  
+		# Step 1a) Iteratively test significance of lagged marketing mix terms; retain those brand-variable terms that are significant
+		laggedterm_sign=list()
+		if (lagX_iteratively==T) {
+  		laggedterm_sign = lapply(grep('^lag', setup_x, value=T), function(regr) {
+  		  exclude <- grep('.*[_]lag|.*[_]cop[_]', colnames(X), value=T)
+  		  include <- grep(paste0('.*[_]', regr, '|unitsales'), colnames(X), value=T)
+  		  final_exclude <- setdiff(exclude,include)
+  		  print(regr)
+  		  
+  		  m_interim<-itersur(X=as.matrix(X[,!colnames(X)%in%final_exclude]),Y=as.matrix(Y),index=index, method = estmethod, maxiter=maxiter)
+  		  
+  		  if (m_interim@iterations==maxiter) stop('error with iterations')
+  		  res = data.table(m_interim@coefficients)
+  		  res[, lagX_check := regr]
+  		  return(res)
+  		})
+		}
+		
+		lag_sign <- rbindlist(laggedterm_sign)
+		
+		keep_vars = colnames(X)
+		if (nrow(lag_sign)>0) {
+		  exclude <- lag_sign[grepl('.*[_]lag', variable)][abs(z)<abs(qnorm(pval/2))]
+		  keep_vars <- colnames(X)[which(!colnames(X)%in%exclude$variable)]
+		}
+		
+		X=as.matrix(X[,colnames(X)%in%keep_vars])
+		
+		# Step 1b: Determine significance of copula terms by endogenous regressor; retain those brand-variable terms that are significant
 		copula_sign = lapply(setup_endogenous, function(regr) {
 			exclude <- grep('.*[_]cop[_]', colnames(X), value=T)
 			include <- grep(paste0('.*[_]cop[_]', regr), colnames(X), value=T)
@@ -503,67 +532,15 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 			})
 		
 		copula_sign <- rbindlist(copula_sign)
+		
 		keep_vars = colnames(X)
 		if (nrow(copula_sign)>0) {
 			exclude <- copula_sign[grepl('.*[_]cop[_]', variable)][abs(z)<abs(qnorm(pval/2))]
 			keep_vars <- colnames(X)[which(!colnames(X)%in%exclude$variable)]
 			} 
 		
-		# Step 2: Determine significance of squared terms
-		if(squared==T) {
-		  
-		  squared_sign = lapply(gsub('_sq', '', grep('_sq', setup_x, value=T)), function(regr) {
-		    exclude <- grep('.*[_]sq.*', colnames(X), value=T)
-		    include <- grep(paste0('.*[_]', regr, '[_].*'), colnames(X), value=T)
-		    final_exclude <- setdiff(exclude,include)
-		    final_include <- setdiff(keep_vars, final_exclude)
-		    
-		    m_interim<-itersur(X=as.matrix(X[,which(colnames(X)%in%final_include)]),Y=as.matrix(Y),index=index, method = estmethod, maxiter=maxiter)
-		    
-		    if (m_interim@iterations==maxiter) stop('error with iterations')
-		    res = data.table(m_interim@coefficients)
-		    res[, var := regr]
-		    return(res)
-		  })
-		  
-		  squared_sign <- rbindlist(squared_sign)
-		  
-		  if (nrow(squared_sign)>0) {
-		    # retain only information on squared terms (e.g., remove copula, retain only when squares were estimated)
-		    square_terms = squared_sign
-		    square_terms = square_terms[, checkvar:=grepl(paste0('.*', unique(var),'.*'), variable), by = 'var'][checkvar==T&!grepl('.*[_]cop[_].*', variable)][,checkvar:=NULL]
-		    # add normalization constants
-		    normalization = data.table(variable=names(rescale_values), scale = rescale_values)
-		    square_terms = merge(square_terms, normalization, by = c('variable'), all.x=T, all.y=F)
-		    
-		    square_terms[, original_variable := gsub('[_]sq','', variable)]
-		    square_terms[, sq := ifelse(grepl('[_]sq', variable), 'sq', 'lin')]
-		    
-		    setnames(square_terms, 'variable', 'brand_variable')
-		    
-		    tmp = melt(square_terms, id.vars=c('brand_variable', 'var', 'original_variable', 'sq'))
-		    
-		    square_terms=data.table(dcast(tmp, original_variable + var ~ sq+variable, value.var='value'))
-		    
-		    # obtain range of observed variables as they have been used in the model estimation
-		    range = data.table(original_variable=colnames(X), min = colMins(X), max=colMaxs(X))[!grepl('[_]sq', original_variable)]
-		    
-		    square_terms = merge(square_terms, range, by = c('original_variable'), all.x=T, all.y=F)
-		    
-		    # calculate inflection points
-		    square_terms[, inflection_point := (-lin_coef*sq_scale)/(2*lin_scale^2*sq_coef), by = c('var','original_variable')]
-		    square_terms[, inflection_inrange := inflection_point>=min & inflection_point<=max, by = c('var','original_variable')]
-		    
-		    # retain only rows with squared terms; decide which ones to exclude:
-		    # a) insignificantsquared terms, and those outside of the inflection points
-		    square_terms[, sq_included := !(abs(sq_z)<abs(qnorm(pval/2))|inflection_inrange==F)]
-		    res$squared_terms <- square_terms
-		    keep_vars <- keep_vars[which(!keep_vars%in%paste0(square_terms[sq_included==F]$original_variable, '_sq'))]
-		    
-		  } 
-		}
 		
-		# Run final model
+		# Step 2) Run final model
 		cat('running SUR for selected variables\n')
 		
 		m<-itersur(X=as.matrix(X[,keep_vars]),Y=as.matrix(Y),index=index, method = estmethod, maxiter=maxiter)
