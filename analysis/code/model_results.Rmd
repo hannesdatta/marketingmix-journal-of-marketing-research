@@ -221,3 +221,12 @@ autocorrel= unlist(lapply(results_brands[!checks=='try-error'], function(x) x$mo
 
 summary(autocorrel)
 summary(abs(autocorrel))
+```
+
+```{r r2, echo=TRUE}
+
+r2s= rbindlist(lapply(results_brands[!checks=='try-error'], function(x) x$R2))
+
+summary(r2s$R2)
+
+```
