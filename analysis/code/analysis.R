@@ -41,7 +41,7 @@ dir.create('../output')
 	# preprocess brand_panel attr
 	for (var in grep('^attr', colnames(brand_panel),value=T)) {
 	  if (min(brand_panel[, var,with=F],na.rm=T)==0&max(brand_panel[, var,with=F],na.rm=T)>1) {
-	    brand_panel[, (paste0(var)):=get(var)+.001]
+	    brand_panel[, (paste0(var)):=get(var)+1]
 	  }  
 	}
 	
@@ -114,6 +114,9 @@ dir.create('../output')
 	m1_adv$setup_endogenous <- c(m1_adv$setup_endogenous, 'adv')
 	m1_adv$plusx <- c(m1_adv$plusx, 'adv')
 	
+	m1_het <- m1
+	m1_het$lag_heterog=T
+	
 	# with lagged Xs, without lagged market share
 	m2 <- m1
 	m2$plusx=c('nov12sh', 'wpswdst', 'llen', 'lagnov12sh', 'lagwpswdst', 'lagllen')
@@ -185,7 +188,7 @@ if(run_cluster==T) {
 	                                setup_endogenous = setup_endogenous, trend = trend, pval = pval, 
 	                                max.lag = max.lag, min.t = min.t, maxiter = maxiter, 
 	                                use_quarters=use_quarters, plusx=plusx, attraction_model=attraction_model, 
-	                                squared=squared, takediff=takediff, lag_heterog=lag_heterog,carryover_zero=carry,
+	                                takediff=takediff, lag_heterog=lag_heterog,carryover_zero=carry,
 	                                use_attributes=use_attributes), silent=T)
 	      
 	      if (!class(tmp)=='try-error') {
@@ -220,7 +223,7 @@ if(run_cluster==T) {
 	                              setup_endogenous = setup_endogenous, trend = trend, pval = pval, 
 	                              max.lag = max.lag, min.t = min.t, maxiter = maxiter, 
 	                              use_quarters=use_quarters, plusx=plusx, attraction_model=attraction_model, 
-	                              squared=squared, takediff=takediff, lag_heterog=lag_heterog,carryover_zero=carry,
+	                              takediff=takediff, lag_heterog=lag_heterog,carryover_zero=carry,
 	                              use_attributes=use_attributes), silent=T)
 	    
 	    if (!class(tmp)=='try-error') {
@@ -243,18 +246,50 @@ if(run_cluster==T) {
 	clusterExport(cl,names(m2))
 	
 	results_laggedX <- parLapplyLB(cl, analysis_markets, function(i) {
-	   tmp=try(analyze_by_market(i, estmethod=estmethod, setup_y = setup_y, setup_x = setup_x, 
-	                              setup_endogenous = setup_endogenous, trend = trend, pval = pval, 
+	  for (endog in c(T, F)) {
+	    if (endog==T) setup_endog_add = setup_endogenous else setup_endog_add = NULL
+	    tmp=try(analyze_by_market(i, estmethod=estmethod, setup_y = setup_y, setup_x = setup_x, 
+	                              setup_endogenous = setup_endog_add, trend = trend, pval = pval, 
 	                              max.lag = max.lag, min.t = min.t, maxiter = maxiter, 
 	                              use_quarters=use_quarters, plusx=plusx, attraction_model=attraction_model, 
-	                              squared=squared, takediff=takediff, lag_heterog=lag_heterog,carryover_zero=carryover_zero,
+	                              takediff=takediff, lag_heterog=lag_heterog,carryover_zero=carryover_zero,
 	                              use_attributes=use_attributes), silent=T)
-	    
+	    if (class(tmp)=='try-error') {
+	      print('estim problem') 
+	    } else break 
+	  }
 	  
 	  return(tmp)
-	})
+
+  })
 	
 	savemodels(fname)
 	assign_model(m2, del=TRUE)
+	
+	
+	#####################################################
+	# Robustness: with lagged marketshare heterogenous  #
+	#####################################################
+	
+	assign_model(m1_het)
+	clusterExport(cl,names(m1_het))
+	
+	results_lagms <- parLapplyLB(cl, analysis_markets, function(i) {
+	  tmp=try(analyze_by_market(i, estmethod=estmethod, setup_y = setup_y, setup_x = setup_x, 
+	                              setup_endogenous = setup_endogenous, trend = trend, pval = pval, 
+	                              max.lag = max.lag, min.t = min.t, maxiter = maxiter, 
+	                              use_quarters=use_quarters, plusx=plusx, attraction_model=attraction_model, 
+	                              takediff=takediff, lag_heterog=lag_heterog,carryover_zero=carryover_zero,
+	                              use_attributes=use_attributes), silent=T)
 
+
+	  return(tmp)
+	  
+	})
+	
+	savemodels(fname)
+	assign_model(m1_het, del=TRUE)
+	
 }
+	
+#	27  28 111 137 151 165 192
