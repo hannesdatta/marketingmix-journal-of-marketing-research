@@ -19,8 +19,8 @@ brand_panel=fread('../temp/preclean.csv')
 brand_panel[, ':=' (date = as.Date(date))]
 
 # lag variables
-xvars = c('rwpspr', 'wpswdst','llen','nov6sh', 'usalessh')
-plusx = c('nov6sh', 'wpswdst', 'lnov6sh','lwpswdst')
+xvars = c('rwpspr', 'wpswdst','llen','nov12sh', 'usalessh')
+plusx = c('nov6sh', 'wpswdst', 'nov12sh','wpswdst')
 
 # create lags
 for (.var in xvars) {
@@ -35,8 +35,8 @@ for (.var in c(xvars, paste0('l', xvars), 'month_no')) {
 # create quarterly dummies
 for (q in 2:4) brand_panel[, (paste0('quarter', q)):=ifelse(quarter==q, 1, 0)]
 
-# function to compute VIFs
-run_vif <- function(.vars = c(paste0('ln', xvars), paste0('lnl',xvars), 'lnmonth_no', 'quarter2','quarter3','quarter4')) {
+# function to compute VIFs ( paste0('lnl',xvars), )
+run_vif <- function(.vars = c(paste0('ln', xvars),'lnmonth_no', 'quarter2','quarter3','quarter4')) {
 
 rbindlist(lapply(unique(brand_panel$market_id), function(i) {
     
@@ -46,6 +46,7 @@ rbindlist(lapply(unique(brand_panel$market_id), function(i) {
   
  
   vif_market = rbindlist(lapply(split(dt, as.character(dt$brand)), function(x) {
+    #print(unique(x$brand))
     y=rnorm(nrow(x))
     X=data.frame(x[, .vars,with=F])
     X = X[,which(!colSums(X)==0)]
@@ -114,7 +115,7 @@ lnlrwpspr       | Lag of lag price (deflated)
 ```{r vifs, echo = FALSE, results='asis', include = TRUE}
 
 # no carry-over for market shares in here right now
-xvars=c('rwpspr', 'wpswdst','llen','nov6sh')
+xvars=c('rwpspr', 'wpswdst','llen','nov12sh')
 
 
 vifs1=run_vif(c(paste0('ln', xvars)))
@@ -124,15 +125,15 @@ vifs1b=run_vif(c(paste0('ln', xvars), 'lnlusalessh'))
 report(vifs1b, tab('VIFs: ln X, no trend, no quarter dummies, lagged ln MS'))
 
 vifs2=run_vif(c(paste0('ln', xvars), 'lnlusalessh', 'quarter2','quarter3','quarter4'))
-report(vifs2, tab('VIFs: ln X, no trend, no quarter dummies, lagged ln MS'))
+report(vifs2, tab('VIFs: ln X, no trend, w/ quarter dummies, lagged ln MS'))
 
 vifs3=run_vif(c(paste0('ln', xvars), 'lnlusalessh', 'lnmonth_no', 'quarter2','quarter3','quarter4'))
 report(vifs3, tab('VIFs: ln X, ln trend, quarter dummies, lagged ln MS'))
 
-vifs4=run_vif(c(paste0('ln', xvars), 'lnlusalessh', 'quarter2','quarter3','quarter4', paste0('lnl',xvars)))
-report(vifs4, tab('VIFs: ln X, ln X_t-1, no trend, quarter dummies, lagged ln MS'))
+#vifs4=run_vif(c(paste0('ln', xvars), 'lnlusalessh', 'quarter2','quarter3','quarter4', paste0('lnl',xvars)))
+#report(vifs4, tab('VIFs: ln X, ln X_t-1, no trend, quarter dummies, lagged ln MS'))
 
-vifs5=run_vif(c(paste0('ln', xvars), 'lnlusalessh', 'lnmonth_no', 'quarter2','quarter3','quarter4', paste0('lnl',xvars)))
-report(vifs5, tab('VIFs: ln X, ln X_t-1, ln trend, quarter dummies, lagged ln MS'))
+#vifs5=run_vif(c(paste0('ln', xvars), 'lnlusalessh', 'lnmonth_no', 'quarter2','quarter3','quarter4', paste0('lnl',xvars)))
+#report(vifs5, tab('VIFs: ln X, ln X_t-1, ln trend, quarter dummies, lagged ln MS'))
 
 ```
