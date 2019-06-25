@@ -213,3 +213,11 @@ for (var in unique(elast$variable)) {
 }
 
 ```
+
+
+```{r autocorrel, echo=TRUE}
+
+autocorrel= unlist(lapply(results_brands[!checks=='try-error'], function(x) x$model@rho))
+
+summary(autocorrel)
+summary(abs(autocorrel))
