@@ -572,47 +572,23 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 	res$model@coefficients$country = unique(res$specs$country)
 	
 	
-	# @fix this
-	# legacy: R2s by model
-	if(0){
+	
 	# Compute R2s by model
-	pred = data.table(DVlevels=dtbb@y, brand=dtbb@individ, date=dtbb@period)
-	pred[, DVlevelslag := c(NA, DVlevels[-.N]), by = c('brand')]
+	pred = data.table(cbind(index, DV = as.matrix(Y), predicted = res$model@predicted, resid = res$model@resid))
 	setkey(pred, brand, date)
 	
-	pred2 = data.table(cbind(index, DV = as.matrix(Y), predicted = res$model@predicted, resid = res$model@resid))
-	setkey(pred2, brand, date)
-	
-	pred <- merge(pred, pred2, by=c('brand', 'date'), all.x=F, all.y=T)
-	adftmp = adf_sur[variable=='y']
-	pred[, UR := adftmp$ur[match(brand, adftmp$brand)]]
-
 	R2=rbindlist(lapply(split(pred, as.character(pred$brand)), function(x) {
 		
-			if (all(x$UR==0)) { # Model in levels
-				return(
-				#data.frame(brand=unique(x$brand), UR = unique(x$UR), R2 = 1-sum(x$resid^2)/sum((x$DV-mean(x$DV))^2))
-				data.frame(brand=unique(x$brand), UR = unique(x$UR), R2levels = cor(x$predicted, x$DV)^2, R2 = cor(x$predicted, x$DV)^2)
-				)
-				}
-			if (all(x$UR==1)) { # Model in differences
-				#1-sum(x$resid^2)/sum((x$DV-mean(x$DV))^2)
-				dvhat = x$predicted + x$DVlevelslag
-				return(
-				data.frame(brand=unique(x$brand), UR = unique(x$UR), R2levels = cor(dvhat, x$DVlevels)^2, R2 = cor(x$predicted, x$DV)^2)
-				)
-
-				}
-			
-			}))
-
-	res$R2 <- R2
-	rm(adftmp)
-	}
+			data.frame(brand=unique(x$brand), 
+			           R2 = cor(x$predicted, x$DV)^2)
+				}))
+	R2[, ':=' (market_id = unique(panel$market_id),
+	           category=unique(panel$category),
+	           country=unique(panel$country))]
 	
+	res$R2 <- R2
 	
 	# Compute VIF values
-	
 		vifs = rbindlist(lapply(split(1:nrow(index), as.character(index$brand)), function(ind) {
 			vifdf=as.matrix(X)[ind,]
 		  # drop zero columns
