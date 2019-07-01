@@ -32,9 +32,12 @@
 	
 	simulate <- function(sim_set, res, L, nperiods) {
 
+	# build in condition for markets in which carry-over coef is zero
+	  
 	# transform to base-brand representation
+	lag_heterog=F
 	m_form = as.formula(paste0(res$variables$y, ' ~ ', paste0(res$variables$x, collapse = '+'), ' + lagunitsales_sh'))
-	m_form_heterog = as.formula(paste0('~ ', paste0(res$variables$x, collapse = '+'), ' + lagunitsales_sh'))
+  m_form_heterog = as.formula(paste0('~ ', paste0(grep('^attr', res$variables$x, value=T, invert=T), collapse = '+'), ifelse(lag_heterog==T, ' + lagunitsales_sh', '')))
 	m_form_index = as.formula(~ brand + month)
 
 	# recall: MCI takes logs, MNL does not
@@ -48,7 +51,8 @@
 	# if there are only two brands, remove lagged market share of base brand for identification purposes
 	if (length(unique(dtbb_sim@input$index$brand))==2) {
 	  X = dtbb@X
-	  delcol = which(colnames(X)==paste0(dtbb_sim@benchmark, '_lagunitsales_sh'))
+	  #delcol = which(colnames(X)==paste0(dtbb_sim@benchmark, '_lagunitsales_sh'))
+	  delcol = which(colnames(X)==paste0('hom_lagunitsales_sh'))
 	  X <- X[, -delcol]
 	  dtbb_sim@X <- X
 	  rm(X)
@@ -101,8 +105,7 @@
 	if(length(which(grepl('cop[_]', colnames(dset))))>0) coefs[which(grepl('cop[_]', colnames(dset)))]<-0
 	
 	Sigma = res$model@varcovar[indexmatch, indexmatch]
-	Sigma = matrix(double(length(coefs)*length(coefs)), ncol=length(coefs)) # set to zero for now
-
+	Sigma = matrix(double(length(coefs)*length(coefs)), ncol=length(coefs)) # set to zero for now (!!!!!!)
 
 	rho_hat = res$model@rho_hat
 	#rho_hat <- rep(0, length(rho_hat)) # we have made th decision to compute auto-correlated intercepts
@@ -183,12 +186,19 @@
 			if (res$attraction_model=='MCI') transf_fkt <- function(x) log(x)
 			if (res$attraction_model=='MNL') transf_fkt <- function(x) x
 			
+			# for heterogenous lagged market share
+			if(0){
 			dmat_curr[iter,paste0(brandname, '_lagunitsales_sh'),] <- transf_fkt(simulated_marketshares[p-1, match(brandname, colnames(simulated_marketshares)), ])
 			dmat_curr[iter,paste0(res$benchmark_brand, '_lagunitsales_sh'),] <- -transf_fkt(simulated_marketshares[p-1, match(res$benchmark_brand, colnames(simulated_marketshares)), ])
 			
 			dmat_min1[iter,paste0(brandname, '_lagunitsales_sh'),] <- transf_fkt(simulated_marketshares[max(1,p-2), match(brandname, colnames(simulated_marketshares)), ])
 			dmat_min1[iter,paste0(res$benchmark_brand, '_lagunitsales_sh'),] <- -transf_fkt(simulated_marketshares[max(1,p-2), match(res$benchmark_brand, colnames(simulated_marketshares)), ])
+			}
+			# for homogenous lagged market share
+			dmat_curr[iter,'hom_lagunitsales_sh',] <- transf_fkt(simulated_marketshares[p-1, match(brandname, colnames(simulated_marketshares)), ]/simulated_marketshares[p-1, match(res$benchmark_brand, colnames(simulated_marketshares)), ])
+			dmat_min1[iter,'hom_lagunitsales_sh',] <- transf_fkt(simulated_marketshares[max(1,p-2), match(brandname, colnames(simulated_marketshares)), ]/simulated_marketshares[max(1,p-2), match(res$benchmark_brand, colnames(simulated_marketshares)), ])
 			
+				
 			# adjust system to account for differenced dependent and independent variables
 			diffed_vars = res$adf_sur[which(diffed == TRUE &brand == brandname)]$variable
 			diffed_vars = diffed_vars[diffed_vars%in%res$model@coefficients$variable]
@@ -248,7 +258,7 @@
 	
 	
 	
-	execute_sim <- function(res, sim_vars = c('rwpspr', 'wpswdst', 'llen', 'nov6sh'), nperiods=36, L = 1000, shock_period=1, shock_perc = 1.01) {
+	execute_sim <- function(res, sim_vars = c('rwpspr', 'wpswdst', 'llen', 'nov12sh'), nperiods=36, L = 1000, shock_period=1, shock_perc = 1.01) {
 	
 		
 		# L = number of simulation draws
@@ -263,6 +273,9 @@
 		
 		# Transform system to base-brand representation
 		dt <- data.table(dcast(res$melted_panel, brand+month~variable, value.var=c('value')))
+		
+		cat('Number of brands: ', length(unique(dt$brand)),fill=T)
+		
 		
 		# Compute means
 		init_means <<- dt[, lapply(.SD, mean, na.rm=T), .SDcols = setdiff(colnames(dt), c('month', 'brand')), by = c('brand')]

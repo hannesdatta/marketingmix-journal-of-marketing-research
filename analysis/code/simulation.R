@@ -7,30 +7,62 @@
   require(data.table)
   require(marketingtools)
 
-	load(file='..\\temp\\results_20171113.RData')
+	load(file='..\\output\\results.RData')
 	
 	# define model
-  results_brands <- results_MNL
+  results_brands <- results_main
+  
+  brand_panel=fread('../temp/preclean.csv')
+  brand_panel[, ':=' (date = as.Date(date))]
+  
   
 	# load simulation code
 	source('proc_simulate.R')
-  i=2
-  simtest = execute_sim(res=results_brands[[i]], sim_vars = c('rwpspr', 'wpswdst', 'llen', 'nov6sh'), L=1000, nperiods=60, shock_period = 30, shock_perc=1.01)
+  
+  i=40
+  simtest = execute_sim(res=results_brands[[i]], sim_vars = c('rwpspr', 'wpswdst', 'llen', 'nov12sh'), L=1000, nperiods=60, shock_period = 30, shock_perc=1.01)
+  
+  
   plot_irf(simtest)
-  simtest[period==30]
-  setnames(simtest, 'sim_var','variable') 
-  # compare
-  tmp=simtest[period==30&brand==brand_of]
   
-  tmp2=results_brands[[i]]$elast[, c('variable','brand','elast')]
-  tmp3=merge(tmp,tmp2, by =c('variable','brand'))
-  
-  tmp3[, list(cor(elast_mean,elast)),by=c('variable')]
-  
-  with(tmp3, cor(elast_mean, elast))
-       
-  
-  
+  # comparison of short-term elasticities
+    simtest[period==30]
+    setnames(simtest, 'sim_var','variable') 
+    # compare
+    tmp=simtest[period==30&brand==brand_of]
+    
+    tmp2=results_brands[[i]]$elast[, c('variable','brand','elast')]
+    tmp3=merge(tmp,tmp2, by =c('variable','brand'))
+    
+    tmp3[, list(elast_mean=mean(elast_mean), correlation=cor(elast_mean,elast), rmse=sqrt(mean((elast_mean-elast)^2))),by=c('variable')]
+    
+    
+    with(tmp3, cor(elast_mean, elast))
+    
+    #
+    with(tmp3, sqrt(mean((elast_mean-elast)^2)))
+    
+    
+         
+  # comparison of long-term elasticities
+    
+    # compare
+    tmp=simtest[period>=30&brand==brand_of, list(ms_incremental=sum(ms-base_ms), period30_ms=base_ms[period==30]), by = c('brand','variable', 'category','country','market_id')]
+    tmp[, elast := 100*(ms_incremental/period30_ms)]
+    
+    tmp2=results_brands[[i]]$elast[, c('variable','brand','elastlt')]
+    tmp3=merge(tmp,tmp2, by =c('variable','brand'))
+    
+    tmp3[, list(cor(elast,elastlt)),by=c('variable')]
+    
+    with(tmp3, cor(elast, elastlt))
+    
+    # absolute size?!
+    
+    
+    
+    
+    
   
 	sims <- NULL
 	for (i in 1:10) {
@@ -41,6 +73,7 @@
 	                           L=1000, nperiods=60, shock_period = 30, shock_perc=1.01))
 	}
 
+	
 	plot_irf(sims[[1]])
 	
 	
