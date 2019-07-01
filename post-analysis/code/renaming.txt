@@ -1,5 +1,5 @@
 source	target	type
-^usalessh$	market share	grepl
+^usalessh$	Market share	grepl
 australia	Australia	grepl
 singapore	Singapore	grepl
 japan	Japan	grepl
@@ -12,7 +12,7 @@ thailand	Thailand	grepl
 taiwan	Taiwan	grepl
 china	China	grepl
 indonesia	Indonesia	grepl
-philippines	Philippines	grepl
+philippines	The Philippines	grepl
 india	India	grepl
 vietnam	Vietnam	grepl
 netherlands	The Netherlands	gsub
@@ -23,13 +23,14 @@ othercountry	Other country	gsub
 gdppercap2010	GDP per capita	gsub
 ln_hdi2010_mc	Log Human Development Index	gsub
 hdi2010	Human Development Index	gsub
-llen	line length	gsub
-wpswdst	distribution	gsub
-rwpsprd	price^2^	gsub
-rwpspr	price	gsub
-nov6sh	new product activity	gsub
-nov12sh	new product activity	gsub
-^adv	advertising	gsub
+^llen$	Line length	gsub
+^llendash$	Line-length	gsub
+wpswdst	Distribution	gsub
+rwpsprd	Price^2^	gsub
+rwpspr	Price	gsub
+nov6sh	New-product activity	gsub
+nov12sh	New-product activity	gsub
+^adv	Advertising	gsub
 ^fe	Country fixed effect	gsub
 airqual	Quality of air transport infrastructure	gsub
 electricityqual	Quality of electricity supply	gsub
@@ -40,10 +41,10 @@ portqual	Quality port infrastructure	gsub
 railroadqual	Quality of railroad infrastructure	gsub
 roadqual	Quality of roads	gsub
 washing	Washing machines	gsub
-tv_gen2_lcd	LCD TV	gsub
-tv_gen2_ptv	Plasma TV	gsub
-tv_gen3_lcd_only	LCD TV	gsub
-tv_gen1_crtv	CRT TV	gsub
+tv_gen2_lcd	LCD TVs	gsub
+tv_gen2_ptv	Plasma TVs	gsub
+tv_gen3_lcd_only	LCD TVs	gsub
+tv_gen1_crtv	CRT TVs	gsub
 tablets	Tablets	gsub
 phones_smart	Smart phones	gsub
 phones_mobile	Mobile phones	gsub
@@ -66,7 +67,7 @@ ftmelast	Mean elasticity^2^	grepl
 ^pval	p-value	gsub
 comb[_]t	t-value	grepl
 ttest[_]t	t-value from independent sample t-test^2^	grepl
-wls[_]t	t-value from WLS^3^	grepl
+wls[_]t	t-value from WLS^4^	grepl
 re[_]t	t-value from RE^4^	grepl
 mmixinstr	Marketing-mix instrument	gsub
 Neffects	Number of estimates	grepl
@@ -82,8 +83,8 @@ Neffects	Number of estimates	grepl
 ^linc	Emerging Markets	grepl
 ^Country[_]class	Development status	gsub
 EMPTY		grepl
-necessity	Appliance (vs. electronics)	gsub
-appliance	Appliance (vs. electronics)	gsub
+necessity	Appliances (vs. electronics)	gsub
+appliance	Appliances (vs. electronics)	gsub
 western[_]brand	Western brand	grepl
 ln_market_growth_mc	Log of category growth	gsub
 ^market_growth	Category growth	gsub
@@ -97,8 +98,8 @@ ln_overall[_]prindexavg[_]mc	Log of price index	gsub
 local_to_market	Domestic (vs. foreign) brand	grepl
 local_multip_market	Domestic (multiple markets brand)	grepl
 sbbelt|sbbelt[_]mc	Brand strenth (long-term, not standardized)	gsub
-sbbe[_]std|sbbe[_]std[_]mc	Brand strength	gsub
-sbbe|sbbe[_]mc	Brand strength (not standardized)	gsub
+sbbe[_]std|sbbe[_]std[_]mc	Brand equity	gsub
+sbbe|sbbe[_]mc	Brand equity (not standardized)	gsub
 active_in_countries	Number of countries with data	gsub
 active_in_categories	Number of categories with data 	gsub
 headquarter_location	Location of headquarter	gsub
@@ -114,9 +115,10 @@ perc_positive	%-positive and significant	gsub
 perc_negative	%-negative and significant	gsub
 perc_null	%-insignificant	gsub
 Northamerica	North America	gsub
-nbrands	Number of brands	gsub
-^emerging	Emerging market indicator	grepl
-^developed	Developed market indicator	grepl
+nbrands$	Number of brands	gsub
+nbrandsdat	Number of brands with data	gsub
+^emerging	Emerging-market indicator	grepl
+^developed	Developed-market indicator	grepl
 country[_]of[_]origin	Country of origin	gsub
 Country[_]of[_]origin	Country of origin	gsub
 asian[_]brand	Asian brand	gsub
@@ -135,7 +137,7 @@ ln[_]gci[_]00.03[_]gdppercap_s[_]mc	Log GDP per capita	gsub
 gci[_]00.03[_]gdppercap_s[_]mc|gci[_]00.03[_]gdppercap[_]s	GDP per capita	gsub
 variable	Variable	gsub
 meanglobalx[_]mc	Variable mean	gsub
-ln[_]gini[_]mc	Log Income Inequality	gsub
+ln[_]gini[_]mc	Log of income inequality	gsub
 gini[_]mc	Income inequality	gsub
 ^gini$	Income inequality	gsub
 XXX^gini	Income inequality	gsub
@@ -184,3 +186,8 @@ attr[_]capacity	Capacity (in liters)	gsub
 attr[_]functioncombination	Functionality: Indicator variable, equaling 1 if washing machine comes with extra functionality; 0 if washing only	gsub
 attr[_]typefront	Front loader: Indicator variable, equaling 1 if front loader; 0 otherwise (baseline is others)	gsub
 attr[_]typetop	Top loader: Indicator variable, equaling 1 if top loader; 0 otherwise (baseline is others)	gsub
+^nobs$	Number of observations	gsub
+^mincap$	Min	gsub
+^meancap$	Mean	gsub
+^maxcap$	Max	gsub
+^sdcap$	SD	gsub
