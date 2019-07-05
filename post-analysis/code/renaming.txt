@@ -97,6 +97,7 @@ ln_overall[_]prindexavg[_]mc	Log of price index	gsub
 ^overall[_]prindex	Price index	grepl
 local_to_market	Domestic (vs. foreign) brand	grepl
 local_multip_market	Domestic (multiple markets brand)	grepl
+international	International brand	grepl
 sbbelt|sbbelt[_]mc	Brand strenth (long-term, not standardized)	gsub
 sbbe[_]std|sbbe[_]std[_]mc	Brand equity	gsub
 sbbe|sbbe[_]mc	Brand equity (not standardized)	gsub
@@ -191,3 +192,5 @@ attr[_]typetop	Top loader: Indicator variable, equaling 1 if top loader; 0 other
 ^meancap$	Mean	gsub
 ^maxcap$	Max	gsub
 ^sdcap$	SD	gsub
+^trend$	Trend	gsub
+^laggedms$	Lagged market share	gsub

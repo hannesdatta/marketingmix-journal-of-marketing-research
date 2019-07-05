@@ -36,8 +36,11 @@
 	  
 	# transform to base-brand representation
 	lag_heterog=F
-	m_form = as.formula(paste0(res$variables$y, ' ~ ', paste0(res$variables$x, collapse = '+'), ' + lagunitsales_sh'))
-  m_form_heterog = as.formula(paste0('~ ', paste0(grep('^attr', res$variables$x, value=T, invert=T), collapse = '+'), ifelse(lag_heterog==T, ' + lagunitsales_sh', '')))
+	
+	lagms = 'hom_lagunitsales_sh' %in% res$model@coefficients$variable
+	
+	m_form = as.formula(paste0(res$variables$y, ' ~ ', paste0(res$variables$x, collapse = '+'), ifelse(lagms==T,' + lagunitsales_sh','')))
+  m_form_heterog = as.formula(paste0('~ ', paste0(grep('^attr', res$variables$x, value=T, invert=T), collapse = '+'), ifelse(lag_heterog==T, ifelse(lagms==T,' + lagunitsales_sh',''), '')))
 	m_form_index = as.formula(~ brand + month)
 
 	# recall: MCI takes logs, MNL does not
@@ -48,16 +51,6 @@
 							benchmark=res$benchmark_brand,
 							model = res$attraction_model))
 
-	# if there are only two brands, remove lagged market share of base brand for identification purposes
-	if (length(unique(dtbb_sim@input$index$brand))==2) {
-	  X = dtbb@X
-	  #delcol = which(colnames(X)==paste0(dtbb_sim@benchmark, '_lagunitsales_sh'))
-	  delcol = which(colnames(X)==paste0('hom_lagunitsales_sh'))
-	  X <- X[, -delcol]
-	  dtbb_sim@X <- X
-	  rm(X)
-	}
-	
 	# Add time trends, if necessary
 	dat_by_brand = split(data.frame(y=dtbb_sim@y, dtbb_sim@X), dtbb_sim@individ)
 
@@ -96,8 +89,6 @@
 		dset = dset[, keepv, with=F]
 		
 	# draw from variance-covariance matrix (coefficients)
-	#res$model@coefficients
-		
 	indexmatch = match(colnames(dset), res$model@coefficients$variable) # matches "new"/reduced set of variables to estimated coefficients
 	coefs = res$model@coefficients[indexmatch,]$coef
 	
@@ -105,10 +96,9 @@
 	if(length(which(grepl('cop[_]', colnames(dset))))>0) coefs[which(grepl('cop[_]', colnames(dset)))]<-0
 	
 	Sigma = res$model@varcovar[indexmatch, indexmatch]
-	Sigma = matrix(double(length(coefs)*length(coefs)), ncol=length(coefs)) # set to zero for now (!!!!!!)
+	#Sigma = matrix(double(length(coefs)*length(coefs)), ncol=length(coefs)) # set to zero for now (!!!!!!)
 
 	rho_hat = res$model@rho_hat
-	#rho_hat <- rep(0, length(rho_hat)) # we have made th decision to compute auto-correlated intercepts
 	
 	eq_brands = names(dat_by_brand)
 	nbrands = length(eq_brands)
@@ -118,9 +108,6 @@
 	nu <- mvrnorm(n=L*nperiods, mu=rep(0, ncol(res$model@sigma)), Sigma=res$model@sigma)
 	
 	dim(nu) <- c(L, nperiods, ncol(res$model@sigma))
-	
-	#intercepts <- mvrnorm(n=L*nperiods, mu=rep(0, ncol(res$model@sigma)), Sigma=res$model@sigma)
-	#exp_intercepts = exp(intercepts)
 	
 	dimnames(nu)[[1]] <- 1:L
 	dimnames(nu)[[2]] <- 1:nperiods
@@ -140,32 +127,19 @@
 			intercepts[,p,] <- nu[,p,] - matrix(rep(rho_hat,L),nrow=L, byrow=T) * nu[,p-1,]
 			}
 		}
-	
-	# try out to draw only once per simulation, i.e., not per period; 
-	# should probably deprecated, but will it in for now should it be required for testing
-	
-	#for (p in 1:nperiods) {
-#		if (p==1) {
-#			intercepts[,p,] <- nu[,1,]
-#			} else {
-#			intercepts[,p,] <- nu[,1,]
-#			}
-#		}
-		
-	# exp_intercepts = exp(intercepts) # I'll do that later if really needed
-	
+
 	# create empty matrix to store simulated market shares
 	simulated_marketshares <- matrix(double((nbrands+1)*L*(nperiods+1)))
 	dim(simulated_marketshares) <- c(nperiods+1, nbrands+1, L)
-	simulated_marketshares[1,,] <- matrix(rep(init_means$lagunitsales_sh, L), ncol=L, byrow=F)# initialize 0-period (1st period) marketshares; needs to be lagged market share to correspond to period-2 value for market share)
+	simulated_marketshares[1,,] <- matrix(rep(init_means$lagunitsales_sh, L), ncol=L, byrow=F) # initialize 0-period (1st period) marketshares; needs to be lagged market share to correspond to period-2 value for market share)
 	colnames(simulated_marketshares) <- init_means$brand
 
 	dset_mat = rep(as.matrix(dset),L)
 	dim(dset_mat) <- c(length(unique(index$date)), nbrands, ncol(dset), L)
 
 	# dimensionality: PERIODS x BRANDS x COLUMNS x REPLICATIONS
-	dimnames(dset_mat)[[2]] <- index[which(index$date==1),]$brand
 	dimnames(dset_mat)[[1]] <- unique(index$date)
+	dimnames(dset_mat)[[2]] <- index[which(index$date==1),]$brand
 	dimnames(dset_mat)[[3]] <- colnames(dset)
 	
 	draws=mvrnorm(n=L, mu=coefs, Sigma = Sigma)
@@ -176,8 +150,8 @@
 		# draw from variance-covariance matrix of coefficients
 		
 	  # loop for each brand (row in dset_p)
-		dmat_curr = dset_mat[p,,,]
-		dmat_min1 = dset_mat[p-1,,,]
+		dmat_curr = dset_mat[p,,,,drop=F]
+		dmat_min1 = dset_mat[p-1,,,,drop=F]
 		
 		for (iter in seq(along=dimnames(dset_mat)[[2]])) {
 			brandname = dimnames(dset_mat)[[2]][iter]
@@ -188,17 +162,19 @@
 			
 			# for heterogenous lagged market share
 			if(0){
-			dmat_curr[iter,paste0(brandname, '_lagunitsales_sh'),] <- transf_fkt(simulated_marketshares[p-1, match(brandname, colnames(simulated_marketshares)), ])
-			dmat_curr[iter,paste0(res$benchmark_brand, '_lagunitsales_sh'),] <- -transf_fkt(simulated_marketshares[p-1, match(res$benchmark_brand, colnames(simulated_marketshares)), ])
+			dmat_curr[1,iter,paste0(brandname, '_lagunitsales_sh'),] <- transf_fkt(simulated_marketshares[p-1, match(brandname, colnames(simulated_marketshares)), ])
+			dmat_curr[1,iter,paste0(res$benchmark_brand, '_lagunitsales_sh'),] <- -transf_fkt(simulated_marketshares[p-1, match(res$benchmark_brand, colnames(simulated_marketshares)), ])
 			
-			dmat_min1[iter,paste0(brandname, '_lagunitsales_sh'),] <- transf_fkt(simulated_marketshares[max(1,p-2), match(brandname, colnames(simulated_marketshares)), ])
-			dmat_min1[iter,paste0(res$benchmark_brand, '_lagunitsales_sh'),] <- -transf_fkt(simulated_marketshares[max(1,p-2), match(res$benchmark_brand, colnames(simulated_marketshares)), ])
+			dmat_min1[1,iter,paste0(brandname, '_lagunitsales_sh'),] <- transf_fkt(simulated_marketshares[max(1,p-2), match(brandname, colnames(simulated_marketshares)), ])
+			dmat_min1[1,iter,paste0(res$benchmark_brand, '_lagunitsales_sh'),] <- -transf_fkt(simulated_marketshares[max(1,p-2), match(res$benchmark_brand, colnames(simulated_marketshares)), ])
 			}
-			# for homogenous lagged market share
-			dmat_curr[iter,'hom_lagunitsales_sh',] <- transf_fkt(simulated_marketshares[p-1, match(brandname, colnames(simulated_marketshares)), ]/simulated_marketshares[p-1, match(res$benchmark_brand, colnames(simulated_marketshares)), ])
-			dmat_min1[iter,'hom_lagunitsales_sh',] <- transf_fkt(simulated_marketshares[max(1,p-2), match(brandname, colnames(simulated_marketshares)), ]/simulated_marketshares[max(1,p-2), match(res$benchmark_brand, colnames(simulated_marketshares)), ])
 			
-				
+			# for homogenous lagged market share
+			if ('hom_lagunitsales_sh'%in%dimnames(dmat_curr)[[3]]) {
+			  dmat_curr[1, iter,'hom_lagunitsales_sh',] <- transf_fkt(simulated_marketshares[p-1, match(brandname, colnames(simulated_marketshares)), ]/simulated_marketshares[p-1, match(res$benchmark_brand, colnames(simulated_marketshares)), ])
+			  dmat_min1[1, iter,'hom_lagunitsales_sh',] <- transf_fkt(simulated_marketshares[max(1,p-2), match(brandname, colnames(simulated_marketshares)), ]/simulated_marketshares[max(1,p-2), match(res$benchmark_brand, colnames(simulated_marketshares)), ])
+			}
+			
 			# adjust system to account for differenced dependent and independent variables
 			diffed_vars = res$adf_sur[which(diffed == TRUE &brand == brandname)]$variable
 			diffed_vars = diffed_vars[diffed_vars%in%res$model@coefficients$variable]
@@ -216,7 +192,7 @@
 					
 				} else {
 					# variable where any of the INDEPENDENT VARIABLES has been differenced for estimation
-					dmat_curr[iter, .var,] <- dmat_curr[iter, .var, ] - dmat_min1[iter, .var, ]  # <- 0 # use value from previous period
+					dmat_curr[1, iter, .var,] <- dmat_curr[1, iter, .var, ] - dmat_min1[1, iter, .var, ]  # <- 0 # use value from previous period
 				}
 			}
 
@@ -226,7 +202,7 @@
 		ms_sim = sapply(seq(1:L), function(l) {
 			# go from log attraction to attraction
 		  
-		  log_relative_ms = dmat_curr[,,l] %*% draws[l,] + intercepts[l,p-1,] + addmat[l,p-1,]
+		  log_relative_ms = dmat_curr[1,,,l] %*% draws[l,] + intercepts[l,p-1,] + addmat[l,p-1,]
 		  relative_ms = exp(log_relative_ms) 
 		  
 			# compute market shares
@@ -235,7 +211,7 @@
 			return(ms_sim)
 			})
 		
-		rownames(ms_sim) <- c(rownames(dmat_curr), res$benchmark_brand)
+		rownames(ms_sim) <- c(dimnames(dmat_curr)[[2]], res$benchmark_brand)
 		
 		# carry simulated values forward 
 		if (p<=nperiods+1) {
@@ -258,7 +234,7 @@
 	
 	
 	
-	execute_sim <- function(res, sim_vars = c('rwpspr', 'wpswdst', 'llen', 'nov12sh'), nperiods=36, L = 1000, shock_period=1, shock_perc = 1.01) {
+	execute_sim <- function(res, sim_vars = c('rwpspr', 'wpswdst', 'llen', 'nov12sh'), nperiods=36, L = 1000, shock_period=1, shock_perc = 1.01, test = F) {
 	
 		
 		# L = number of simulation draws
@@ -274,15 +250,14 @@
 		# Transform system to base-brand representation
 		dt <- data.table(dcast(res$melted_panel, brand+month~variable, value.var=c('value')))
 		
+		if (!'lagunitsales_sh' %in% colnames(dt)) dt[, lagunitsales_sh:=usalessh]
+		
 		cat('Number of brands: ', length(unique(dt$brand)),fill=T)
 		
 		
 		# Compute means
 		init_means <<- dt[, lapply(.SD, mean, na.rm=T), .SDcols = setdiff(colnames(dt), c('month', 'brand')), by = c('brand')]
 	
-		# set copula terms to zero
-	#	init_means[, (grep('cop[_]', colnames(init_means))):=0]
-		  
 		# Create simulation data set
 		sim_set = NULL
 		for (p in seq(length.out=nperiods+1)) {
@@ -294,6 +269,8 @@
 		# Set up simulation
 		brand_ofs = unique(sim_set$brand)
 		
+		if (test==T) brand_ofs = unique(sim_set$brand)[1]
+		
 		baseline <- simulate(sim_set, res, L=L, nperiods=nperiods)
 		
 		sims <- NULL
@@ -303,7 +280,7 @@
 			for (.brand in brand_ofs) {
 				# baseline + shock
 				# simulate only if variable has been estimated for a given brand
-				if (!paste0(.brand,'_', .var)%in%res$model@coefficients$variable) next
+				if (!paste0(.brand,'_', .var)%in%res$model@coefficients$variable & !paste0('X', .brand,'_', .var)%in%res$model@coefficients$variable) next
 				cat(paste0('simulating for ', .brand, ' and ', .var, '...\n'))
 				sim_dat = data.table(sim_set)
 				sim_dat[brand==.brand & month == shock_period+1, (.var) := get(.var)*shock_perc]
@@ -332,6 +309,9 @@
 			colnames(tmp)[1:2] <- c('period', 'brand')
 			return(tmp)
 			}))
+		
+		predictions[, brand:=as.character(brand)]
+		predictions[, brand_of:=as.character(brand_of)]
 		
 		predictions$category <- as.factor(unique(res$specs$category))
 		predictions$country <- as.factor(unique(res$specs$country))

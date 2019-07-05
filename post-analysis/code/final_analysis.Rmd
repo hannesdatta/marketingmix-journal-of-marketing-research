@@ -119,7 +119,7 @@ if (estimtype=='nonweighted') {
 
 notes_base = paste0("^1^ Regression of long-term elasticities on explanatory variables and three random effects, for brands, categories, and countries, respectively. Estimated using a linear mixed-effects model. ", estimnote, " Continuous variables have been mean-centred. Standard errors in parentheses.")
 
-notes_loglik = 'Lok-likelihood ratio tests computed relative to preceding models.'
+notes_loglik = 'Log-likelihood ratio tests computed relative to preceding models.'
 
 # order of covariates in models
 covars = c("(Intercept)", 
@@ -129,7 +129,7 @@ covars = c("(Intercept)",
            "I(sbbe_std_mc * ln_gci_00.03_gdppercap_s_mc)",
            "I(sbbe_std_mc * ln_gci_overall_s_mc)",
            "I(sbbe_std_mc * ln_hdi2010_mc)",
-           "ln_herf_mc", "ln_market_growth_mc", "appliance", "ln_gini_mc", "local_to_market", "mean_ms_mc")
+           "ln_herf_mc", "ln_market_growth_mc", "appliance", "ln_gini_mc", "local_to_market", "international", "mean_ms_mc")
 
 sigvalue = .1 # 
   
@@ -498,7 +498,7 @@ out <- lapply(ordered_vars, function(mod) {
 })
 
 p <- ggarrange(plotlist=out, nrow=2, ncol=2, common.legend=TRUE, legend='bottom')
-annotate_figure(p, top=fig('Elasticity plots'), bottom = text_grob('Note: Plots show estimated long-term marketing-mix elasticities (weighted by inverse standard errors), based on a country\'s degree of development (DM versus EM), and a median split on brand equity.', size= 8, just='left', x = 0))
+annotate_figure(p, top=fig('Elasticity plots'), bottom = text_grob('Note: Plots show estimated long-term marketing-mix elasticities (weighted by inverse standard errors),\nbased on a country\'s degree of development (DM versus EM), and a median split on brand equity.', size= 8, just='left', x = 0))
 ```
 
 ```{r reset, echo=FALSE,results='asis'}
@@ -770,7 +770,7 @@ for (var_i in seq(along=outx)) {
                                              
 }
 
-notes_new = paste0(notes_base, ' Lok-likelihood ratio tests computed relative to preceding models. Model includes lagged values of a brand\'s marketing mix (instead of a brand\'s lagged market share) to allow for differential carry-over effects for each marketing-mix instrument.')
+notes_new = paste0(notes_base, ' Log-likelihood ratio tests computed relative to preceding models. Model includes lagged values of a brand\'s marketing mix (instead of a brand\'s lagged market share) to allow for differential carry-over effects for each marketing-mix instrument.')
 
 
 for (i in 1:4) {
@@ -905,5 +905,49 @@ notes_new = paste0("", notes_base, ' ', notes_loglik)
 cat("<P style='page-break-before: always'>")
 
 printout(out1, 'lt', title = tab(paste0('Regression with long-term elasticities'), prefix='A'), vars=ordered_vars,  notes=paste0(gsub('long[-]term', 'short- and long-term', notes_new), ''), covariate_choices = covars)
+
+```
+
+```{r correl_complete, echo=FALSE, results = 'asis'}
+brand_panel[, trend:=1:.N,by=c('market_id', 'brand')]
+brand_panel[, laggedms:=c(NA, usalessh[-.N]),by=c('market_id', 'brand')]
+brand_panel <- brand_panel[!trend==1]
+
+# mean center
+printtmp=brand_panel[, c('market_id', ordered_vars,'trend', 'laggedms'), with=F]
+printtmp[, llen:=as.double(llen)]
+printtmp[, trend:=as.double(trend)]
+
+#for (.var in setdiff(colnames(printtmp), 'market_id')){
+#  printtmp[,(.var):=as.double(get(.var)-mean(get(.var),na.rm=T)),by=c('market_id')]
+#}
+printtmp[, market_id:=NULL]
+
+setnames(printtmp, gsub('elastlt[_]','',colnames(printtmp)))
+
+setnames(printtmp, paste0(rename.fkt(colnames(printtmp)), ''))
+
+tmp2=corstars(printtmp, method=c("pearson"),removeTriangle=c('upper'),result='none')
+
+kable(tmp2, format='html', caption=tab('Correlation among focal covariates',prefix='A')) %>%
+        kable_styling() 
+
+
+
+```
+
+```{r analysis_international, results = 'asis', include = T, echo=FALSE}
+
+elast[, international:=ifelse(ncountries>=2,1,0)]
+
+upd_models = list(m4 = .~1 + emerging + sbbe_std_mc + I(sbbe_std_mc*emerging)+ (1|country) + (1|category) + (1|brand) + ln_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market + international)
+                   
+out1=regmodel(formula=c(upd_models), dat=elast, model='lmer')
+
+notes_new = paste0("", notes_base, ' ', notes_loglik)
+
+cat("<P style='page-break-before: always'>")
+
+printout(out1, 'lt', title = tab(paste0('Robustness check: Controlling for international brands'), prefix='A'), vars=ordered_vars,  notes=paste0(gsub('long[-]term', 'short- and long-term', notes_new), ''), covariate_choices = covars)
 
 ```
