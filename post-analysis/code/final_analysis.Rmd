@@ -197,6 +197,7 @@ Market share         | Unit sales for brand *i* in period *t*, divided by total 
 Price                | Average price of brand *i*, computed as a sales-weighted^1^ average across its SKUs sold in period *t*, expressed in local currency and adjusted by a country's consumer price index^2^.
 Distribution         | Average distribution of brand *i*, computed as a sales-weighted^1^ average across its SKUs' store-weighted distribution in period *t* (0 = no market coverage, 100 = full market coverage).
 Line length          | Number of unique SKUs sold by brand *i* in period *t*.
+New product activity | Number of SKUs introduced by brand *i* in a rolling window of one year (*t-11*, *t-10*, *...*, *t*), expressed as share of the total number of unique SKUs sold by brand *i* over the same period (0 = none of the SKUs is new, 100 = all of the SKUs are new).
 
 **Panel B. Variables in market share attraction model^3^**
 
@@ -553,7 +554,7 @@ print(kable(tabl, digits=3, caption = tab('Overview of physical search attribute
 
 ```{r summarystats_msmodel, echo=FALSE, results='asis'}
 
-covars_summary <- c('usalessh', 'rwpsprd', 'wpswdst', 'llen')
+covars_summary <- c('usalessh', ordered_vars)
 
 tmp=data.table(brand_panel)
 nbrands=length(unique(brand_panel$brand))
@@ -593,7 +594,7 @@ dtf=cbind(dtf,correl$cor[,-ncol(correl$cor)])
 dtf=sanitize_table(dtf)
 
 
-print(kable(dtf, format='html', initial.zero = FALSE, digits=3,caption = tab(paste0('Summary statistics and correlations for variables in market share attraction model^1^'),prefix='A')) %>% kable_styling() %>% footnote(number=c(paste0('Summary statistics and correlations for variables (prior to the log-operation and mean-centering) are computed across ', prettyNum(nobs, big.mark = ','), ' observations in our sample.'),'Converted to USD.')))
+print(kable(dtf, format='html', initial.zero = FALSE, digits=3,caption = tab(paste0('Summary statistics and correlations for variables in market share attraction model^1^'),prefix='A')) %>% kable_styling() %>% footnote(number=c(paste0('Summary statistics and correlations for variables (prior to the log-operation and mean-centering) are computed across ', prettyNum(nobs, big.mark = ','), ' observations in our sample.'),'Converted to USD.')) %>% add_header_above(c(" " = 1, "Summary statistics" = 3, "Correlations" = length(covars_summary)-1)))
 
 ```
 
