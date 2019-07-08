@@ -105,6 +105,9 @@ active_in_countries	Number of countries with data	gsub
 active_in_categories	Number of categories with data 	gsub
 headquarter_location	Location of headquarter	gsub
 headquarter_region	Region of headquarter	gsub
+^median$	Median	gsub
+^firstqnt	1st quantile	gsub
+^thirdqnt	3rd quantile	gsub
 median_elast	Median elasticity	gsub
 w_elast	Weighted elasticity	gsub
 win_elast	Winsorized elasticity	gsub
