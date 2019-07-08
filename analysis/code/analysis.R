@@ -98,9 +98,9 @@ dir.create('../output')
 	
 # define model: with trend, without lagged Xs
 	m1 <- list(setup_y=c(usalessh = 'usalessh'),
-		   setup_x=c(price = 'rwpspr', dist = 'wpswdst', llen = 'llen', nov = 'nov12sh'),
-		   setup_endogenous = c('rwpspr', 'wpswdst','llen','nov12sh'),
-		   plusx = c('nov12sh', 'wpswdst', 'llen'),
+		   setup_x=c(price = 'rwpspr', dist = 'wpswdst', llen = 'llen'),
+		   setup_endogenous = c('rwpspr', 'wpswdst','llen'),
+		   plusx = c('wpswdst', 'llen'),
 		   trend='always', # choose from: always, ur, none.
 		   pval = .1, max.lag = 12, min.t = 36, descr = 'model',
 		   fn = 'model', benchmarkb = NULL, estmethod = "FGLS",
@@ -119,8 +119,8 @@ dir.create('../output')
 	
 	# with lagged Xs, without lagged market share
 	m2 <- m1
-	m2$plusx=c('nov12sh', 'wpswdst', 'llen', 'lagnov12sh', 'lagwpswdst', 'lagllen')
-	m2$setup_x=c("rwpspr", "wpswdst", "llen", "nov12sh", "lagrwpspr", "lagwpswdst", "lagllen", "lagnov12sh")
+	m2$plusx=c('wpswdst', 'llen', 'lagwpswdst', 'lagllen')
+	m2$setup_x=c("rwpspr", "wpswdst", "llen", "lagrwpspr", "lagwpswdst", "lagllen")
 	m2$carryover_zero=T
 
 ####################
