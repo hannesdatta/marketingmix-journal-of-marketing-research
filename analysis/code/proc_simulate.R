@@ -43,6 +43,10 @@
   m_form_heterog = as.formula(paste0('~ ', paste0(grep('^attr', res$variables$x, value=T, invert=T), collapse = '+'), ifelse(lag_heterog==T, ifelse(lagms==T,' + lagunitsales_sh',''), '')))
 	m_form_index = as.formula(~ brand + month)
 
+	# insert market shares from previous periods, as stored in the result matrix (called 'simulated_marketshares'), for every brand
+	if (res$attraction_model=='MCI') transf_fkt <- function(x) log(x)
+	if (res$attraction_model=='MNL') transf_fkt <- function(x) x
+	
 	# recall: MCI takes logs, MNL does not
 	dtbb_sim <- suppressWarnings(attraction_data(formula=m_form, 
 							data = sim_set, 
@@ -156,10 +160,6 @@
 		for (iter in seq(along=dimnames(dset_mat)[[2]])) {
 			brandname = dimnames(dset_mat)[[2]][iter]
 			
-			# insert market shares from previous periods, as stored in the result matrix (called 'simulated_marketshares'), for every brand
-			if (res$attraction_model=='MCI') transf_fkt <- function(x) log(x)
-			if (res$attraction_model=='MNL') transf_fkt <- function(x) x
-			
 			# for heterogenous lagged market share
 			if(0){
 			dmat_curr[1,iter,paste0(brandname, '_lagunitsales_sh'),] <- transf_fkt(simulated_marketshares[p-1, match(brandname, colnames(simulated_marketshares)), ])
@@ -175,30 +175,9 @@
 			  dmat_min1[1, iter,'hom_lagunitsales_sh',] <- transf_fkt(simulated_marketshares[max(1,p-2), match(brandname, colnames(simulated_marketshares)), ]/simulated_marketshares[max(1,p-2), match(res$benchmark_brand, colnames(simulated_marketshares)), ])
 			}
 			
-			# adjust system to account for differenced dependent and independent variables
-			diffed_vars = res$adf_sur[which(diffed == TRUE &brand == brandname)]$variable
-			diffed_vars = diffed_vars[diffed_vars%in%res$model@coefficients$variable]
-			
-			for (.var in diffed_vars) {
-				#cat(paste0('UR: ', .var, '   ', brandname), '\n')
-				
-			  if (.var=='y') { # variable where DEPENDENT VARIABLE HAS BEEN DIFFERENCED for estimation
-					focal_br_share_lag = simulated_marketshares[p-1, match(brandname, colnames(simulated_marketshares)), ]
-					bench_br_share_lag = simulated_marketshares[p-1, match(res$benchmark_brand, colnames(simulated_marketshares)), ]
-					
-					log_lag_ratio = log(focal_br_share_lag/bench_br_share_lag)
-					 
-					addmat[,p-1, iter] <- log_lag_ratio
-					
-				} else {
-					# variable where any of the INDEPENDENT VARIABLES has been differenced for estimation
-					dmat_curr[1, iter, .var,] <- dmat_curr[1, iter, .var, ] - dmat_min1[1, iter, .var, ]  # <- 0 # use value from previous period
-				}
-			}
-
 		}
 
-		
+		if(0){
 		ms_sim = sapply(seq(1:L), function(l) {
 			# go from log attraction to attraction
 		  
@@ -210,7 +189,21 @@
 			ms_sim = c(relative_ms/sumx, 1/sumx)
 			return(ms_sim)
 			})
+		}
 		
+		#if(0){
+		relative_ms = t(sapply(seq(length.out=dim(dmat_curr)[2]), function(br_no) {
+		  # go from log attraction to attraction
+		  
+		  log_relative_ms = colSums(dmat_curr[1,br_no,,] * t(draws)) + intercepts[,p-1,br_no] + addmat[,p-1,br_no]
+		  relative_ms = exp(log_relative_ms) 
+		  return(relative_ms)
+		}))
+		
+		sumx=colSums(relative_ms)+1
+		
+		ms_sim=rbind(relative_ms/matrix(rep(sumx,each=nrow(relative_ms)),nrow=nrow(relative_ms)), matrix(1/sumx,nrow=1))
+		#}
 		rownames(ms_sim) <- c(dimnames(dmat_curr)[[2]], res$benchmark_brand)
 		
 		# carry simulated values forward 
@@ -234,7 +227,7 @@
 	
 	
 	
-	execute_sim <- function(res, sim_vars = c('rwpspr', 'wpswdst', 'llen', 'nov12sh'), nperiods=36, L = 1000, shock_period=1, shock_perc = 1.01, test = F) {
+	execute_sim <- function(res, sim_vars = c('rwpspr', 'wpswdst', 'llen', 'nov12sh'), nperiods=60, L = 1000, shock_period=25, shock_perc = 1.01, test = F) {
 	
 		
 		# L = number of simulation draws
@@ -277,7 +270,7 @@
 		
 		cntr <- 1
 		for (.var in sim_vars) {
-			for (.brand in brand_ofs) {
+		  for (.brand in brand_ofs) {
 				# baseline + shock
 				# simulate only if variable has been estimated for a given brand
 				if (!paste0(.brand,'_', .var)%in%res$model@coefficients$variable & !paste0('X', .brand,'_', .var)%in%res$model@coefficients$variable) next
@@ -291,35 +284,60 @@
 				}
 			}
 		
-		# Compute IRFs
+		# Compute panel data set w/ perc. changes
 		predictions=rbindlist(lapply(sims, function(x) {
-			tmp = melt(t(apply(x$perc_change*100, 1, function(y) apply(y, 1, mean))))
-			colnames(tmp)[3] <- 'elast_mean'
-			tmp2 = melt(t(apply(x$perc_change*100, 1, function(y) apply(y, 1, sd))))
-			tmp$elast_sd <- tmp2$value
-			rm(tmp2)
-			tmp3 = melt(t(apply(x$data, 1, rowMeans)))
-			tmp$ms <- tmp3$value
-			rm(tmp3)
+			tmp = melt(t(apply(x$data, 1, rowMeans)))
+			colnames(tmp) <- c('period','brand', 'ms')
 			tmp4 = melt(t(apply(baseline, 1, rowMeans)))
 			tmp$base_ms <- tmp4$value
 			rm(tmp4)
 			tmp$sim_var = as.factor(x$spec$sim_var)
 			tmp$brand_of = as.factor(x$spec$brand_of)
-			colnames(tmp)[1:2] <- c('period', 'brand')
 			return(tmp)
 			}))
 		
 		predictions[, brand:=as.character(brand)]
 		predictions[, brand_of:=as.character(brand_of)]
-		
-		predictions$category <- as.factor(unique(res$specs$category))
-		predictions$country <- as.factor(unique(res$specs$country))
-		predictions$market_id <- as.factor(unique(res$specs$market_id))
+		predictions[, category:= as.factor(unique(res$specs$category))]
+		predictions[, country := as.factor(unique(res$specs$country))]
+		predictions[, market_id := as.factor(unique(res$specs$market_id))]
 		predictions[, period:=period-1]
-		return(predictions)
+		
+		setcolorder(predictions, c('market_id','category','country','brand', 'brand_of','sim_var','period'))
+		
+		elasticities=rbindlist(lapply(sims, function(x) {
+		  # market shares
+		  trr=(x$data-baseline)/baseline
+		  trr_lt=t(apply((x$data-baseline)[(shock_period+1):nrow(x$data),,],2, colSums))/baseline[shock_period+1,,]
+		  
+		  tmp_st_mean = apply(trr[shock_period+1,,]*100, 1, function(y) mean(y))
+		  tmp_st_sd = apply(trr[shock_period+1,,]*100, 1, function(y) sd(y))
+		  
+		  tmp_lt_mean = apply(trr_lt*100, 1, function(y) mean(y))
+		  tmp_lt_sd = apply(trr_lt*100, 1, function(y) sd(y))
+		  
+		  tmp=data.frame(cbind(simelast=tmp_st_mean, simelast_sd=tmp_st_sd, simelastlt=tmp_lt_mean, simelastlt_sd=tmp_lt_sd))
+		  
+		  tmp$sim_var = as.factor(x$spec$sim_var)
+		  tmp$brand_of = as.factor(x$spec$brand_of)
+		  tmp$brand=rownames(tmp)
+		  rownames(tmp)<-NULL
+		  
+		  return(tmp)
+		}))
+		
+		elasticities[, ':=' (brand =as.character(brand),
+		                     brand_of=as.character(brand_of),
+		                     category = as.factor(unique(res$specs$category)),
+		                     country = as.factor(unique(res$specs$country)),
+		                     market_id = as.factor(unique(res$specs$market_id)))]
+	
+		setcolorder(elasticities, c('market_id', 'category','country', 'brand', 'brand_of','sim_var'))
+		
+		return(list(marketshares=predictions, elasticities=elasticities))
 		
 		}
+	
 	
 	
 	plot_irf <- function(simobj) {

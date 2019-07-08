@@ -9,10 +9,11 @@ OUTPUT_DIR = ../output
 
 
 ###### BUILD COMMANDS ######
-all: elast markdown
+all: elast sim markdown
 elast: $(OUTPUT_DIR)/elasticities.txt
 pre: $(TEMP_DIR)/preclean.csv
 results: $(OUTPUT_DIR)/results.RData
+sim: $(OUTPUT_DIR)/simulation.RData
 markdown: $(OUTPUT_DIR)/model_results.html
 
 ###### Build parts ######
@@ -24,6 +25,10 @@ $(TEMP_DIR)/preclean.csv: preclean.R ../../derived/output/datasets.csv
 # Run the model
 $(OUTPUT_DIR)/results.RData: analysis.R $(TEMP_DIR)/preclean.csv preclean.R proc_analysis.R
 	"$(RBIN64)Rterm.exe" --vanilla --args "" < "analysis.R"
+
+# Run the simulation
+$(OUTPUT_DIR)/simulation.RData: simulation.R $(OUTPUT_DIR)/results.RData proc_simulate.R
+	"$(RBIN64)Rterm.exe" --vanilla --args "" < "simulation.R"
 
 # Produce overall statistics on estimated models (e.g., elasticities, carry-over parameters, sign. of copula terms)
 $(OUTPUT_DIR)/elasticities.txt: extract_elast.R $(OUTPUT_DIR)/results.RData sbbe.R
