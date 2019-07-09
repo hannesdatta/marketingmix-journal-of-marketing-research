@@ -23,15 +23,14 @@
   cluster = T
   
   if (prototype==T) {
-    
-    i=116
+    i=30
     system.time({
     sim_call = execute_sim(res=results_brands[[i]], sim_vars = c('rwpspr', 'wpswdst', 'llen', 'nov12sh'), 
-                          test=T, 
+                          test=F, 
                           L=1000, 
                           nperiods=60, 
                           shock_period = 30, 
-                          shock_perc=1.01)
+                          shock_perc=1.01)#,shock12=c('nov12sh'))
     })
     
     
@@ -54,6 +53,7 @@
                    rmse_st=sqrt(mean((simelast-elast)^2)),
                    rmse_lt=sqrt(mean((simelastlt-elastlt)^2))),by=c('variable')]
       
+    sim_call$elasticities
     
     
     sims <- NULL
@@ -110,38 +110,5 @@
     })
     
     save(sim_res, file='..\\output\\simulation.RData')
-    
-  }
-  
-  if(0) {
-    
-    
-    # long-term
-    sim_dat <- rbindlist(sim_res[unlist(lapply(sim_res,function(x) 'data.table'%in%class(x)))])[period>=25&brand==brand_of, list(ms_incremental=sum(ms-base_ms), base_ms=base_ms[period==25]), by = c('brand','sim_var', 'category','country','market_id')]
-    sim_dat[, elast_mean := 100*(ms_incremental/base_ms)]
-    
-    setnames(sim_dat, 'sim_var','variable')
-    
-    lt_results <- rbindlist(lapply(results_brands, function(x) x$elast))
-    sim_dat[, market_id:=as.integer(as.character(market_id))]
-    
-    comparison=merge(sim_dat,lt_results[, c('market_id','variable','brand','elastlt')], by =c('market_id','variable','brand'),all.x=T)
-    comparison<-comparison[!is.na(elastlt)]
-    
-    
-    comparison[, list(Nmarkets=length(unique(market_id)), elast_simulated=mean(elast_mean), elast_analytical=mean(elastlt), correlation=cor(elast_mean,elastlt), 
-                      mean_abs_dev=mean(abs(elast_mean-elastlt)), 
-                      mape = mean(abs((elastlt-elast_mean)/elastlt)),
-                      rmse=sqrt(mean((elast_mean-elastlt)^2))),by=c('variable')]
-    
-    
-    # 
-    tmp = melt(comparison, id.vars=c('market_id','category','country','brand','variable'))
-    
-    for (.var in unique(tmp$variable)) {
-      print(.var)
-      print(summary(lm(value~1+`variable.1`,data=tmp[variable==.var&`variable.1`%in%c('elastlt','elast_mean')])))
-    }
-    
     
   }

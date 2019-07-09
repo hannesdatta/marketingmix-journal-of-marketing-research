@@ -227,7 +227,7 @@
 	
 	
 	
-	execute_sim <- function(res, sim_vars = c('rwpspr', 'wpswdst', 'llen', 'nov12sh'), nperiods=60, L = 1000, shock_period=25, shock_perc = 1.01, test = F) {
+	execute_sim <- function(res, sim_vars = c('rwpspr', 'wpswdst', 'llen', 'nov12sh'), nperiods=60, L = 1000, shock_period=25, shock_perc = 1.01, test = F, shock12=NULL) {
 	
 		
 		# L = number of simulation draws
@@ -276,7 +276,12 @@
 				if (!paste0(.brand,'_', .var)%in%res$model@coefficients$variable & !paste0('X', .brand,'_', .var)%in%res$model@coefficients$variable) next
 				cat(paste0('simulating for ', .brand, ' and ', .var, '...\n'))
 				sim_dat = data.table(sim_set)
-				sim_dat[brand==.brand & month == shock_period+1, (.var) := get(.var)*shock_perc]
+				if (!.var%in% shock12) {
+				  sim_dat[brand==.brand & month == shock_period+1, (.var) := get(.var)*shock_perc]
+				} else {
+				  sim_dat[brand==.brand & month >= shock_period+1 & month <= shock_period+1+11, (.var) := get(.var)*shock_perc]
+				}
+				
 				tmp = simulate(sim_dat, res, L=L, nperiods=nperiods)
 				#sims <- rbind(sims, tmp)
 				sims[[cntr]] <- list(data=tmp, perc_change = (tmp-baseline)/baseline, spec = list(sim_var=.var, brand_of = .brand))
@@ -345,7 +350,7 @@
 	  # only own-brand elasticities
 	  for (.brand in unique(simobj$brand)) {
 	    
-	    vars = unique(simobj[brand==.brand&brand_of==.brand]$sim_var)
+	    vars = unique(simobj[brand==.brand & brand_of==.brand]$sim_var)
 	    par(mfrow=c(2,length(vars)))
 	    
 	      for (.var in vars) {

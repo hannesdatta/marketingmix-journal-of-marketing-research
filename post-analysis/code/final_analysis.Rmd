@@ -32,6 +32,15 @@ options(knitr.kable.NA = '')
   source('preclean.R')
   elast_laggedx <- copy(elast)
  
+  elast <- fread('../externals/elast_results_simulation.csv') 
+  elast[, elastlt:=simelastlt]
+  elast[, elastlt_se:=simelastlt_sd]
+  elast[, elast:=simelast]
+  elast[, elast_se:=simelast_sd]
+  source('preclean.R')
+  
+  elast_simulated <- copy(elast)
+  
   elast <- fread('../externals/elast_results_main.csv') 
   source('preclean.R')
   
@@ -94,6 +103,11 @@ if (estimtype=='weighted') {
     # rescale
     elast_laggedx[!is.na(get(.var)), paste0('w_', .var) := get(paste0('w_', .var))/max(get(paste0('w_', .var)))]
     elast_laggedx[!is.na(get(.var)), paste0('z_', .var) := get(.var)/get(paste0(.var, '_se'))]
+   
+    elast_simulated[!is.na(get(.var)), paste0('w_', .var) := 1/get(paste0(.var, '_se'))]
+    # rescale
+    elast_simulated[!is.na(get(.var)), paste0('w_', .var) := get(paste0('w_', .var))/max(get(paste0('w_', .var)))]
+    elast_simulated[!is.na(get(.var)), paste0('z_', .var) := get(.var)/get(paste0(.var, '_se'))]
    
   }
    
@@ -702,12 +716,15 @@ elast_backup[, elastlt := beta/(1-gamma_lagms)]
 
 out2=regmodel(formula=upd_models, dat=elast_backup, model='lmer')
 
+
+outsim=regmodel(formula=list(m1=upd_models$m1), dat=elast_simulated, model='lmer')
+
 outx = NULL
 
   for (mod in names(out)) {
     outx[[mod]]$variable=out[[mod]]$variable
-    outx[[mod]]$st=c(out[[mod]]$st$m1, out[[mod]]$st$m3, out2[[mod]]$st$m1, out[[mod]]$st$m3x, outlagx[[mod]]$st$m1)
-    outx[[mod]]$lt=c(out[[mod]]$lt$m1, out[[mod]]$lt$m3, out2[[mod]]$lt$m1, out[[mod]]$lt$m3x, outlagx[[mod]]$lt$m1)
+    outx[[mod]]$st=c(out[[mod]]$st$m1, out[[mod]]$st$m3, out2[[mod]]$st$m1, out[[mod]]$st$m3x, outlagx[[mod]]$st$m1, outsim[[mod]]$st$m1)
+    outx[[mod]]$lt=c(out[[mod]]$lt$m1, out[[mod]]$lt$m3, out2[[mod]]$lt$m1, out[[mod]]$lt$m3x, outlagx[[mod]]$lt$m1, outsim[[mod]]$st$m1)
   }
 
 #sink('test.htm')
@@ -715,7 +732,7 @@ for (i in seq(along=ordered_vars)) {
   cat("<P style='page-break-before: always'>")
 
   printout(outx, 'lt', title = tab(paste0('Robustness checks for long-term ', tolower(gsub('ity', 'ities', gsub('Line length', 'Line-length', names(ordered_vars[i])))), ''), prefix='A'), vars=ordered_vars[i],  notes=paste0(gsub('term elasticities', 'term elasticities (models 1-2, 4; beta/(1-gamma) for model 3)', notes_base), ''), covariate_choices = covars, table.layout.overwrite=c('-c#m-t-a-n'),
-           colnames_overwrite=c('Main model', 'Controlling for marketshare', 'DV is beta/(1-gamma)' ,'Controlling for international brands', 'Marketing-mix and brand-specific dynamics'), colsep_overwrite = c(1,1,1,1,1))
+           colnames_overwrite=c('Main model', 'Controlling for marketshare', 'DV is beta/(1-gamma)' ,'Controlling for international brands', 'Marketing-mix and brand-specific dynamics', 'Simulation'), colsep_overwrite = c(1,1,1,1,1))
 }
 
 #sink()
