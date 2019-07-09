@@ -98,15 +98,15 @@ dir.create('../output')
 	
 # define model: with trend, without lagged Xs
 	m1 <- list(setup_y=c(usalessh = 'usalessh'),
-		   setup_x=c(price = 'rwpspr', dist = 'wpswdst', llen = 'llen', nov = 'nov12sh'),
-		   setup_endogenous = c('rwpspr', 'wpswdst','llen','nov12sh'),
-		   plusx = c('nov12sh', 'wpswdst', 'llen'),
+		   setup_x=c(price = 'rwpspr', dist = 'wpswdst', llen = 'llen'),
+		   setup_endogenous = c('rwpspr', 'wpswdst','llen'),
+		   plusx = c('wpswdst', 'llen'),
 		   trend='always', # choose from: always, ur, none.
 		   pval = .1, max.lag = 12, min.t = 36, descr = 'model',
 		   fn = 'model', benchmarkb = NULL, estmethod = "FGLS",
 		   attraction_model = "MCI", takediff = 'none', # choose from flexible (UR approach), none, alwaysdiff
 		   use_quarters = T, lag_heterog = F,
-		   squared=F, maxiter = 400,
+		   maxiter = 400,
 		   carryover_zero=F, use_attributes = T)
 
 	m1_adv <- m1
@@ -114,13 +114,15 @@ dir.create('../output')
 	m1_adv$setup_endogenous <- c(m1_adv$setup_endogenous, 'adv')
 	m1_adv$plusx <- c(m1_adv$plusx, 'adv')
 	
-	m1_het <- m1
-	m1_het$lag_heterog=T
+	m1_nov <- m1
+	m1_nov$setup_x <- c(m1_nov$setup_x, nov12sh='nov12sh')
+	m1_nov$setup_endogenous <- c(m1_nov$setup_endogenous, 'nov12sh')
+	m1_nov$plusx <- c(m1_nov$plusx, 'nov12sh')
 	
 	# with lagged Xs, without lagged market share
 	m2 <- m1
-	m2$plusx=c('nov12sh', 'wpswdst', 'llen', 'lagnov12sh', 'lagwpswdst', 'lagllen')
-	m2$setup_x=c("rwpspr", "wpswdst", "llen", "nov12sh", "lagrwpspr", "lagwpswdst", "lagllen", "lagnov12sh")
+	m2$plusx=c('wpswdst', 'llen', 'lagwpswdst', 'lagllen')
+	m2$setup_x=c("rwpspr", "wpswdst", "llen", "lagrwpspr", "lagwpswdst", "lagllen")
 	m2$carryover_zero=T
 
 ####################
@@ -271,25 +273,20 @@ if(run_cluster==T) {
 	# Robustness: with lagged marketshare heterogenous  #
 	#####################################################
 	
-	assign_model(m1_het)
-	clusterExport(cl,names(m1_het))
+	assign_model(m1_nov)
+	clusterExport(cl,names(m1_nov))
 	
-	results_lagms <- parLapplyLB(cl, analysis_markets, function(i) {
+	results_novelty <- parLapplyLB(cl, analysis_markets, function(i) {
 	  tmp=try(analyze_by_market(i, estmethod=estmethod, setup_y = setup_y, setup_x = setup_x, 
 	                              setup_endogenous = setup_endogenous, trend = trend, pval = pval, 
 	                              max.lag = max.lag, min.t = min.t, maxiter = maxiter, 
 	                              use_quarters=use_quarters, plusx=plusx, attraction_model=attraction_model, 
 	                              takediff=takediff, lag_heterog=lag_heterog,carryover_zero=carryover_zero,
 	                              use_attributes=use_attributes), silent=T)
-
-
-	  return(tmp)
-	  
+	return(tmp)
 	})
 	
 	savemodels(fname)
 	assign_model(m1_het, del=TRUE)
 	
 }
-	
-#	27  28 111 137 151 165 192
