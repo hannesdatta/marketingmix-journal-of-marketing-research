@@ -287,6 +287,6 @@ if(run_cluster==T) {
 	})
 	
 	savemodels(fname)
-	assign_model(m1_het, del=TRUE)
+	assign_model(m1_nov, del=TRUE)
 	
 }

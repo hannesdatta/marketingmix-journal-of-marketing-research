@@ -25,7 +25,7 @@
   if (prototype==T) {
     i=30
     system.time({
-    sim_call = execute_sim(res=results_brands[[i]], sim_vars = c('rwpspr', 'wpswdst', 'llen', 'nov12sh'), 
+    sim_call = execute_sim(res=results_brands[[i]], sim_vars = c('rwpspr', 'wpswdst', 'llen'), 
                           test=F, 
                           L=1000, 
                           nperiods=60, 
@@ -63,7 +63,7 @@
   	print(i)
   	
   	sims[[i]]<-try(execute_sim(res=results_brands[[i]],
-  	                           sim_vars = c('rwpspr', 'wpswdst', 'llen', 'nov12sh'), 
+  	                           sim_vars = c('rwpspr', 'wpswdst', 'llen'), 
   	                           L=1000, nperiods=60, shock_period = 25, shock_perc=1.01, test= F))
   	}
   
@@ -105,7 +105,7 @@
     
     sim_res <- parLapplyLB(cl, focal_markets, function(i) {
       resobj <<- results_brands[[i]]
-      try(execute_sim(resobj, sim_vars = c('rwpspr', 'wpswdst', 'llen', 'nov12sh'), 
+      try(execute_sim(resobj, sim_vars = c('rwpspr', 'wpswdst', 'llen'), 
                       L=1000, nperiods=60, shock_period = 25, shock_perc=1.01, test=F),silent=T)
     })
     
