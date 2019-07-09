@@ -23,6 +23,8 @@ othercountry	Other country	gsub
 gdppercap2010	GDP per capita	gsub
 ln_hdi2010_mc	Log Human Development Index	gsub
 hdi2010	Human Development Index	gsub
+gdppercap[_]rev	GDP per capita (reverse-coded) 	gsub
+hdi[_]rev	Log Human Development Index (reverse-coded)	gsub
 ^llen$	Line length	gsub
 ^llendash$	Line-length	gsub
 wpswdst	Distribution	gsub
@@ -127,6 +129,7 @@ country[_]of[_]origin	Country of origin	gsub
 Country[_]of[_]origin	Country of origin	gsub
 asian[_]brand	Asian brand	gsub
 ln[_]gci[_]overall[_]s[_]mc	Log Global Competitiveness Index	gsub
+gci[_]rev	Log Global Competitiveness Index (reverse-coded)	gsub
 gci[_]overall	Global Competitiveness Index	grepl
 gci[_]sub[_]basicrequire	Subindex basic requirements	grepl
 gci[_]sub[_]efficiencyenhance	Subindex efficiency enhancers	grepl

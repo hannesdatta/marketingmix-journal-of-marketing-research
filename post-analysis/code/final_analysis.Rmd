@@ -135,14 +135,16 @@ notes_base = paste0("^1^ Regression of long-term elasticities on explanatory var
 
 notes_loglik = 'Log-likelihood ratio tests computed relative to preceding models.'
 
+#"ln_gci_00.03_gdppercap_s_mc","ln_gci_overall_s_mc", "ln_hdi2010_mc", 
+
 # order of covariates in models
 covars = c("(Intercept)", 
-           "emerging", "ln_gci_00.03_gdppercap_s_mc","ln_gci_overall_s_mc", "ln_hdi2010_mc",
+           "emerging", "gdppercap_rev","gci_rev","hdi_rev",
            "sbbe_std_mc",
            "I(sbbe_std_mc * emerging)",
-           "I(sbbe_std_mc * ln_gci_00.03_gdppercap_s_mc)",
-           "I(sbbe_std_mc * ln_gci_overall_s_mc)",
-           "I(sbbe_std_mc * ln_hdi2010_mc)",
+           "I(sbbe_std_mc * gdppercap_rev)",
+           "I(sbbe_std_mc * gci_rev)",
+           "I(sbbe_std_mc * hdi_rev)",
            "ln_herf_mc", "ln_market_growth_mc", "appliance", "ln_gini_mc", "local_to_market", "international", "mean_ms_mc")
 
 sigvalue = .1 # 
@@ -568,7 +570,7 @@ print(kable(tabl, digits=3, caption = tab('Overview of physical search attribute
 
 ```{r summarystats_msmodel, echo=FALSE, results='asis'}
 
-covars_summary <- c('usalessh', ordered_vars)
+covars_summary <- c('usalessh', gsub('rwpspr', 'rwpsprd', ordered_vars))
 
 tmp=data.table(brand_panel)
 nbrands=length(unique(brand_panel$brand))
@@ -663,35 +665,6 @@ for (byvar in c('category')) {
 
 ```	
 
-```{r newanalysis_alternatives_development, results = 'asis', include = TRUE, echo=FALSE}
-# formulas for models
-upd_models2 = list(m5 = .~1 + emerging + sbbe_std_mc + I(sbbe_std_mc*emerging)+ (1|country) + (1|category) + (1|brand) + ln_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market,
-                   m6 = .~1 + ln_gci_00.03_gdppercap_s_mc + sbbe_std_mc + I(sbbe_std_mc*ln_gci_00.03_gdppercap_s_mc)+ (1|brand) + (1|category) + (1|country) + ln_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market,
-                   m7 = .~1 + ln_gci_overall_s_mc + sbbe_std_mc + I(sbbe_std_mc*ln_gci_overall_s_mc)+ (1|country) + (1|category) + (1|brand) + ln_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market,
-                  m8 = .~1 + ln_hdi2010_mc + sbbe_std_mc + I(sbbe_std_mc*ln_hdi2010_mc)+ (1|country) + (1|category) + (1|brand) + ln_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market)
-       
-out2=regmodel(formula=c(upd_models2), dat=elast, model='lmer')
-outx = NULL
-for (out in list(out2)) {
-  for (mod in names(out)) {
-    outx[[mod]]$variable=out[[mod]]$variable
-    outx[[mod]]$st=c(outx[[mod]]$st, out[[mod]]$st)
-    outx[[mod]]$lt=c(outx[[mod]]$lt, out[[mod]]$lt)
-  }
-}
-#main_interact = lapply(out2, function(x) {x$lt <- list(x$lt$main); x$st <- list(x$st$main); x})
-
-notes_new = sub('explanatory variables', 'explanatory variables (replacing the emerging-market indicator with alternative metrics for a country\'s development degree)', notes_base)
-
-#sink('test.htm')
-
-for (i in seq(along=ordered_vars)) {
-  cat("<P style='page-break-before: always'>")
-  printout(outx, 'lt', title = tab(paste0('Robustness check with long-term ', tolower(gsub('ity', 'ities', gsub('Line length','Line-length', names(ordered_vars[i])))), ' and alternative metrics for a country\'s development degree'), prefix='A'), vars=ordered_vars[i],  notes=notes_new, covariate_choices = covars)
-}
-#sink()
-```
-
 
 ```{r newanalysis_robust, results = 'asis', include = TRUE, echo=FALSE}
 # formulas for models
@@ -702,37 +675,50 @@ elast_backup[!is.na(elastlt), mean_ms_mc := mean_ms-mean(mean_ms,na.rm=T), by = 
 
 elast_backup[, international:=ifelse(ncountries>=2,1,0)]
 
-upd_models = list(m1 = .~1 + emerging + sbbe_std_mc + I(sbbe_std_mc*emerging)+ (1|country) + (1|category) + (1|brand) + ln_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market,
-                  m3 = .~1 + emerging + sbbe_std_mc + I(sbbe_std_mc*emerging)+ (1|country) + (1|category) + (1|brand) + ln_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market + mean_ms_mc,
-                  m3x = .~1 + emerging + sbbe_std_mc + I(sbbe_std_mc*emerging)+ (1|country) + (1|category) + (1|brand) + ln_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market + international
-                  )
+elast_backup[, gdppercap_rev := -ln_gci_00.03_gdppercap_s_mc]
+elast_backup[, gci_rev := -ln_gci_overall_s_mc]
+elast_backup[, hdi_rev := -ln_hdi2010_mc]
+
+upd_models = list(
+  main = .~1 + emerging + sbbe_std_mc + I(sbbe_std_mc*emerging)+ (1|country) + (1|category) + (1|brand) + ln_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market,
+  
+marketshare = .~1 + emerging + sbbe_std_mc + I(sbbe_std_mc*emerging)+ (1|country) + (1|category) + (1|brand) + ln_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market + mean_ms_mc,
+
+international = .~1 + emerging + sbbe_std_mc + I(sbbe_std_mc*emerging)+ (1|country) + (1|category) + (1|brand) + ln_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market + international,
+
+gdp = .~1 + gdppercap_rev + sbbe_std_mc + I(sbbe_std_mc*gdppercap_rev)+ (1|brand) + (1|category) + (1|country) + ln_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market,
+
+gci = .~1 + gci_rev + sbbe_std_mc + I(sbbe_std_mc*gci_rev)+ (1|country) + (1|category) + (1|brand) + ln_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market,
+
+hdi = .~1 + hdi_rev + sbbe_std_mc + I(sbbe_std_mc*hdi_rev)+ (1|country) + (1|category) + (1|brand) + ln_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market
+)
 
 out=regmodel(formula=c(upd_models), dat=elast_backup, model='lmer')
 
-outlagx = regmodel(formula=list(m1=upd_models$m1), dat=elast_laggedx, model='lmer')
+outlagx = regmodel(formula=list(lagx=upd_models$main), dat=elast_laggedx, model='lmer')
 
 elast_backup[is.na(gamma_lagms), gamma_lagms:=0]
 elast_backup[, elastlt := beta/(1-gamma_lagms)]
 
-out2=regmodel(formula=upd_models, dat=elast_backup, model='lmer')
+out2=regmodel(formula=list(lambda=upd_models$main), dat=elast_backup, model='lmer')
 
+outsim=regmodel(formula=list(simulated=upd_models$main), dat=elast_simulated, model='lmer')
 
-outsim=regmodel(formula=list(m1=upd_models$m1), dat=elast_simulated, model='lmer')
 
 outx = NULL
 
   for (mod in names(out)) {
     outx[[mod]]$variable=out[[mod]]$variable
-    outx[[mod]]$st=c(out[[mod]]$st$m1, out[[mod]]$st$m3, out2[[mod]]$st$m1, out[[mod]]$st$m3x, outlagx[[mod]]$st$m1, outsim[[mod]]$st$m1)
-    outx[[mod]]$lt=c(out[[mod]]$lt$m1, out[[mod]]$lt$m3, out2[[mod]]$lt$m1, out[[mod]]$lt$m3x, outlagx[[mod]]$lt$m1, outsim[[mod]]$st$m1)
+    outx[[mod]]$st=c(out[[mod]]$st$main, out[[mod]]$st$gdp, out[[mod]]$st$gci, out[[mod]]$st$hdi, out[[mod]]$st$marketshare, out[[mod]]$st$international, out2[[mod]]$st$lambda, outlagx[[mod]]$st$lagx, outsim[[mod]]$st$simulated)
+    outx[[mod]]$lt=c(out[[mod]]$lt$main, out[[mod]]$lt$gdp, out[[mod]]$lt$gci, out[[mod]]$lt$hdi, out[[mod]]$lt$marketshare, out[[mod]]$lt$international, out2[[mod]]$lt$lambda, outlagx[[mod]]$lt$lagx, outsim[[mod]]$lt$simulated)
   }
 
 #sink('test.htm')
 for (i in seq(along=ordered_vars)) {
   cat("<P style='page-break-before: always'>")
 
-  printout(outx, 'lt', title = tab(paste0('Robustness checks for long-term ', tolower(gsub('ity', 'ities', gsub('Line length', 'Line-length', names(ordered_vars[i])))), ''), prefix='A'), vars=ordered_vars[i],  notes=paste0(gsub('term elasticities', 'term elasticities (models 1-2, 4; beta/(1-gamma) for model 3)', notes_base), ''), covariate_choices = covars, table.layout.overwrite=c('-c#m-t-a-n'),
-           colnames_overwrite=c('Main model', 'Controlling for marketshare', 'DV is beta/(1-gamma)' ,'Controlling for international brands', 'Marketing-mix and brand-specific dynamics', 'Simulation'), colsep_overwrite = c(1,1,1,1,1))
+  printout(outx, 'lt', title = tab(paste0('Robustness checks for long-term ', tolower(gsub('ity', 'ities', gsub('Line length', 'Line-length', names(ordered_vars[i])))), ''), prefix='A'), vars=ordered_vars[i],  notes=paste0(gsub('term elasticities', 'term elasticities (all models; except beta/(1-gamma) in model 4)', notes_base), ' Model (1) is the focal model; models (2)-(4) replace the emerging market indicator by alternative (continuous) metrics that measure a country\'s degree of development; because these metrics are increasing with a country\'s degree of development, they have been reverse-coded in model estimation, so that coefficients between model (1) and models (2)-(4) can directly be compared. Model (5) controls for a brand\'s market share, while model (6) controls for international brands (indicator variable, 1 for brands active in more than 1 country, 0 otherwise). Model (7) replaces long-term elasticities by beta/(1-gamma). Elasticities in model (8) are calculated from an alternative market share attraction model, allowing for marketing-mix and brand-specific dynamics by adding lagged marketing mix variable (but removing the common carry-over parameter); elasticities in model (9) are dynamically simulated, see Web Appendix B for the details.'), covariate_choices = covars, table.layout.overwrite=c('-c#m-t-a-n'),
+           colnames_overwrite=c('Main model', 'Log GDP', 'Log GCI','Log HDI', 'Controlling for marketshare', 'Controlling for international brands','DV is beta/(1-gamma)', 'Marketing-mix and brand-specific dynamics', 'Simulation'), colsep_overwrite = rep(1,9))
 }
 
 #sink()
