@@ -7,7 +7,7 @@ elast[country_of_origin=='', country_of_origin:=NA]
 hdi <- fread('../temp/hdi.csv')
 
 # change taiwan (reported value from China is not reliable)
-hdi[, hdi2010:=ifelse(country=='taiwan', mean(hdi2010[country%in%c('thailand', 'china')]), hdi2010)]
+hdi[, hdi2010:=ifelse(country=='taiwan', .879, hdi2010)]
 
 # Load GDP
 gdp <- fread('../temp/gdp.csv')
