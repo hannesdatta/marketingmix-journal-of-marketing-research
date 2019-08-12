@@ -884,18 +884,3 @@ cat("<P style='page-break-before: always'>")
 printout(out1, 'lt', title = tab(paste0('Robustness check with new-product activity: Regression with long-term elasticities'), prefix='A'), vars=c(ordered_vars, 'New-product activity elasticity'=grep('^nov', unique(elast_nov$variable),value=T)),  notes=notes_base, covariate_choices = covars)
 
 ```
-
-```{r variable_means_for_plots, echo=FALSE, results='asis'}
-
-elast[, ':=' (l_emerging=ifelse(emerging==1,'Emerging market','Developed market'),
-             l_brandequity=ifelse(sbbe_std_mc>median(sbbe_std_mc,na.rm=T), 'strong brand','weak brand')),by=c('variable','category','country','market_id')]
-
-
-sims = elast[, list(est=sum(elastlt*w_elast)/sum(w_elast)), by = c('variable', 'l_brandequity', 'l_emerging')]
-
-tmp = dcast(sims,variable+l_brandequity~l_emerging,value.var='est')
-setnames(tmp, 'l_brandequity', 'sbbe_std')
-
-print(kable(sanitize_table(tmp), format='html', initial.zero = FALSE, digits=3,caption = tab(paste0('Weighted elasticities by brand equity and a country\'s development degree'), prefix='A')) %>% kable_styling())
-
-```
