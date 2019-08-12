@@ -27,6 +27,10 @@ options(knitr.kable.NA = '')
   elast <- fread('../externals/elast_results_adv.csv') 
   source('preclean.R')
   elast_adv <- copy(elast)
+
+  elast <- fread('../externals/elast_results_novelty.csv') 
+  source('preclean.R')
+  elast_nov <- copy(elast)
   
   elast <- fread('../externals/elast_results_laggedX.csv') 
   source('preclean.R')
@@ -46,96 +50,34 @@ options(knitr.kable.NA = '')
   
 # set order of variables to appear in figures and tables
 ordered_vars = c('rwpspr', 'wpswdst','llen', 'nov12sh')
+ordered_vars = ordered_vars[which(ordered_vars%in%elast$variable)]
+
 names(ordered_vars) <- paste0(unlist(sanitize_table(data.frame(ordered_vars))), ' elasticity')
 
 lmerctrl = lmerControl(optimizer ="Nelder_Mead", check.conv.singular="ignore")
 
-#estimtype = 'winsor-onesided'
-#estimtype = 'winsor-twosided'
-estimtype = 'weighted' 
-#estimtype = 'nonweighted'
 
 winsor_p=.01
 
 notes_sig = 'Significance levels: \\* *p*<.1, \\*\\* *p*<.05, \\*\\*\\* *p*<.01 (two-sided).'
   
-# 1-sided
-if (estimtype=='winsor-onesided') {
-  
+for (dframe in grep('^elast', ls(),value=T)) {
+  print(dframe)
   for (.var in c('elast', 'elastlt')) {
-    elast[!is.na(get(.var)), (.var) := winsor_onesided(get(.var), fraction=winsor_p, ifelse(variable=='rwpspr', 'right','left')), by=c('variable')]
-    elast[!is.na(get(.var)), paste0('w_', .var) := 1]
-    elast[!is.na(get(.var)), paste0('z_', .var) := get(.var)/get(paste0(.var, '_se'))]
-  }
-   
-      estimnote = paste0('Elasticities have been winsorized at ', winsor_p*100, '%, left-sided for all variables except price.')
-  estimnoteshort='' 
-}
-
-# 2-sided
-if (estimtype=='winsor-twosided') {
-  
-  for (.var in c('elast', 'elastlt')) {
-    elast[!is.na(get(.var)), (.var) := winsor_onesided(get(.var), fraction=winsor_p, side='both'), by=c('variable')]
-    elast[!is.na(get(.var)), paste0('w_', .var) := 1]
-    elast[!is.na(get(.var)), paste0('z_', .var) := get(.var)/get(paste0(.var, '_se'))]
-  }
-   
-      estimnote = paste0('Elasticities have been winsorized at ', winsor_p*100, '%, two-sided.')
-  estimnoteshort=''
-}
-
-if (estimtype=='weighted') {
-  
-  for (.var in c('elast', 'elastlt')) {
-
-    elast[!is.na(get(.var)), paste0('w_', .var) := 1/get(paste0(.var, '_se'))]
+    eval(parse(text=paste0(dframe,"[!is.na(get(.var)), paste0('w_', .var) := 1/get(paste0(.var, '_se'))]")))
     # rescale
-    elast[!is.na(get(.var)), paste0('w_', .var) := get(paste0('w_', .var))/max(get(paste0('w_', .var)))]
-    elast[!is.na(get(.var)), paste0('z_', .var) := get(.var)/get(paste0(.var, '_se'))]
-    
-    elast_adv[!is.na(get(.var)), paste0('w_', .var) := 1/get(paste0(.var, '_se'))]
-    # rescale
-    elast_adv[!is.na(get(.var)), paste0('w_', .var) := get(paste0('w_', .var))/max(get(paste0('w_', .var)))]
-    elast_adv[!is.na(get(.var)), paste0('z_', .var) := get(.var)/get(paste0(.var, '_se'))]
-    
-    elast_laggedx[!is.na(get(.var)), paste0('w_', .var) := 1/get(paste0(.var, '_se'))]
-    # rescale
-    elast_laggedx[!is.na(get(.var)), paste0('w_', .var) := get(paste0('w_', .var))/max(get(paste0('w_', .var)))]
-    elast_laggedx[!is.na(get(.var)), paste0('z_', .var) := get(.var)/get(paste0(.var, '_se'))]
-   
-    elast_simulated[!is.na(get(.var)), paste0('w_', .var) := 1/get(paste0(.var, '_se'))]
-    # rescale
-    elast_simulated[!is.na(get(.var)), paste0('w_', .var) := get(paste0('w_', .var))/max(get(paste0('w_', .var)))]
-    elast_simulated[!is.na(get(.var)), paste0('z_', .var) := get(.var)/get(paste0(.var, '_se'))]
-   
+    eval(parse(text=paste0(dframe,"[!is.na(get(.var)), paste0('w_', .var) := get(paste0('w_', .var))/max(get(paste0('w_', .var)))]")))
+    eval(parse(text=paste0(dframe,"[!is.na(get(.var)), paste0('z_', .var) := get(.var)/get(paste0(.var, '_se'))]")))
   }
-   
-      estimnote = paste0('Elasticities are weighted by inverse standard errors.')
-      estimnoteshort= 'weighted by inverse standard errors'
-  
-}
+}  
 
-
-if (estimtype=='nonweighted') {
-  
-  for (.var in c('elast', 'elastlt')) {
-
-    elast[!is.na(get(.var)), paste0('w_', .var) := 1]
-    elast[!is.na(get(.var)), paste0('z_', .var) := get(.var)/get(paste0(.var, '_se'))]
-  }
-   
-      estimnote = paste0('Elasticities are unweighted.')
-      estimnoteshort= 'unweighted'
-  
-}
+estimnote = paste0('Elasticities are weighted by inverse standard errors.')
+estimnoteshort= 'weighted by inverse standard errors'
 
 
 notes_base = paste0("^1^ Regression of long-term elasticities on explanatory variables and three random effects, for brands, categories, and countries, respectively. Estimated using a linear mixed-effects model. ", estimnote, " Continuous variables have been mean-centred. Standard errors in parentheses.")
 
 notes_loglik = 'Log-likelihood ratio tests computed relative to preceding models.'
-
-#"ln_gci_00.03_gdppercap_s_mc","ln_gci_overall_s_mc", "ln_hdi2010_mc", 
 
 # order of covariates in models
 covars = c("(Intercept)", 
@@ -147,10 +89,8 @@ covars = c("(Intercept)",
            "I(sbbe_std_mc * hdi_rev)",
            "ln_herf_mc", "ln_market_growth_mc", "appliance", "ln_gini_mc", "local_to_market", "international", "mean_ms_mc")
 
-sigvalue = .1 # 
-  
+sigvalue = .1
 zval = qnorm(1-sigvalue/2)
-
 
 ```
 
@@ -213,7 +153,7 @@ Market share         | Unit sales for brand *i* in period *t*, divided by total 
 Price                | Average price of brand *i*, computed as a sales-weighted^1^ average across its SKUs sold in period *t*, expressed in local currency and adjusted by a country's consumer price index^2^.
 Distribution         | Average distribution of brand *i*, computed as a sales-weighted^1^ average across its SKUs' store-weighted distribution in period *t* (0 = no market coverage, 100 = full market coverage).
 Line length          | Number of unique SKUs sold by brand *i* in period *t*.
-New product activity | Number of SKUs introduced by brand *i* in a rolling window of one year (*t-11*, *t-10*, *...*, *t*), expressed as share of the total number of unique SKUs sold by brand *i* over the same period (0 = none of the SKUs is new, 100 = all of the SKUs are new).
+
 
 **Panel B. Variables in market share attraction model^3^**
 
@@ -247,6 +187,7 @@ excluded_brands=setdiff(unique(elast_all$brand), unique(elast$brand))
 excluded_brands<-unique(gsub('Allothers.*', 'Composite brands (allothers)', excluded_brands))
 
 elast_laggedx=elast_laggedx[!is.na(country_of_origin)&!tolower(brand)%in%c('unbranded')]
+elast_nov=elast_nov[!is.na(country_of_origin)&!tolower(brand)%in%c('unbranded')]
 
 ```
 
@@ -450,21 +391,19 @@ print(kable(dtf, format='html', initial.zero = FALSE, digits=3,caption = tab(pas
 ```
 
 
-```{r analysis_for_all_mmix_slides, results = 'asis', include = T, echo=FALSE}
+```{r analysis_for_all_mmix, results = 'asis', include = T, echo=FALSE}
 
 upd_models = list(m4 = .~1 + emerging + sbbe_std_mc + I(sbbe_std_mc*emerging)+ (1|country) + (1|category) + (1|brand) + ln_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market)
                    
 out1=regmodel(formula=c(upd_models), dat=elast, model='lmer')
 
-notes_new = paste0("", notes_base, ' ', notes_loglik)
-
 cat("<P style='page-break-before: always'>")
 
-printout(out1, 'lt', title = tab(paste0('Regression with long-term elasticities'), prefix=''), vars=ordered_vars,  notes=paste0(gsub('long[-]term', 'short- and long-term', notes_new), ''), covariate_choices = covars)
+printout(out1, 'lt', title = tab(paste0('Regression with long-term elasticities'), prefix=''), vars=ordered_vars,  notes=notes_base, covariate_choices = covars)
 
 ```
 
-```{r plot_be_interaction, fig.width=8,fig.height=6,echo=F}
+```{r plot_be_interaction, fig.width=16,fig.height=6,echo=F}
 
 
 elast[, ':=' (l_emerging=ifelse(emerging==1,'Emerging market','Developed market'),
@@ -472,17 +411,27 @@ elast[, ':=' (l_emerging=ifelse(emerging==1,'Emerging market','Developed market'
 
 
 sims = elast[, list(est=sum(elastlt*w_elast)/sum(w_elast)), by = c('variable', 'l_brandequity', 'l_emerging')]
-
-
+sims[, lbl:=formatC(round(est,2), format='f',digits=2)]
+lbl=c('2a)', '2b)', '2c)')
+cnt=1
 out <- lapply(ordered_vars, function(mod) {
   simtmp=sims[variable==mod]
-  p<-ggplot(simtmp, aes(x=l_brandequity,y=est, fill = l_emerging)) + theme_tufte() +geom_bar(stat="identity", position = 'dodge', width= .5) + ggtitle(paste0(gsub('Line length', 'Line-length', rename.fkt(mod)), ' elasticity')) + xlab('Brand equity') + ylab('Mean elasticity') + labs(fill="Country\'s degree of development") + scale_fill_grey(start = 0, end = .9)
-  return(p)
+  p<-ggplot(simtmp, aes(x=l_brandequity,y=est, fill = l_emerging)) + theme_tufte() +geom_bar(stat="identity", position = 'dodge', width= .5) + geom_text(aes(label=lbl),vjust=ifelse(mod=='rwpspr', 1.2,-.95), hjust=.5,size=2.2,position = position_dodge(0.5)) + ggtitle(paste0(lbl[cnt], ' ', gsub('Line length', 'Line-length', rename.fkt(mod)), ' elasticity')) + xlab('Brand equity') + ylab('Mean elasticity') + labs(fill="Country\'s degree of development  ") + scale_fill_grey(start = 0, end = .9)
+  cnt<<-cnt+1
+    return(p)
 
 })
 
 p <- ggarrange(plotlist=out, nrow=ifelse(length(ordered_vars)==3,1,2), ncol=ifelse(length(ordered_vars)==3,3,2), common.legend=TRUE, legend='bottom')
-annotate_figure(p, top=fig('Elasticity plots'), bottom = text_grob('Note: Plots show estimated long-term marketing-mix elasticities (weighted by inverse standard errors),\nbased on a country\'s degree of development (DM versus EM), and a median split on brand equity.', size= 8, just='left', x = 0))
+full_plot = annotate_figure(p, top=fig('Elasticity plots'), bottom = text_grob('Note: Plots show estimated long-term marketing-mix elasticities (weighted by inverse standard errors), based on a country\'s degree of development (DM versus EM), and a median split on brand equity.', size= 8, just='left', x = 0))
+full_plot
+
+png('../output/elasticity_plots.png', res=200, units='in', height=4, width=9)
+print(p)
+dev.off()
+
+
+
 ```
 
 ```{r reset, echo=FALSE,results='asis'}
@@ -506,8 +455,8 @@ setcolorder(tmp, c('country_of_origin', 'nbrands', 'all_brands'))
 
 tmp=sanitize_table(tmp)
 
-kable(tmp, caption = tab('Country-of-origins for brands in sample, ordered by the number of brands from a given country^1^', prefix ='A'),format='html') %>%
-        kable_styling() %>% footnote(number=paste0('Brand names per country are listed alphabetically.'))
+kable(tmp, caption = tab('Country-of-origins for brands in sample^1^', prefix ='A'),format='html') %>%
+        kable_styling() %>% footnote(number=paste0('Countries are ordered by the number of brands from a given country; brand names are listed alphabetically.'))
 
 ```
 
@@ -603,6 +552,11 @@ return(list(cor=correl,p=p))
 }
 
 correl = give_cor(data.frame(brand_panel[, covars_summary,with=F]))
+
+sink('../output/tableA4.txt')
+correl$cor
+correl$p
+sink()
 
 dtf=cbind(dtf,correl$cor[,-ncol(correl$cor)])
 
@@ -718,7 +672,7 @@ for (i in seq(along=ordered_vars)) {
   cat("<P style='page-break-before: always'>")
 
   printout(outx, 'lt', title = tab(paste0('Robustness checks for long-term ', tolower(gsub('ity', 'ities', gsub('Line length', 'Line-length', names(ordered_vars[i])))), ''), prefix='A'), vars=ordered_vars[i],  notes=paste0(gsub('term elasticities', 'term elasticities (all models; except beta/(1-gamma) in model 4)', notes_base), ' Model (1) is the focal model; models (2)-(4) replace the emerging market indicator by alternative (continuous) metrics that measure a country\'s degree of development; because these metrics are increasing with a country\'s degree of development, they have been reverse-coded in model estimation, so that coefficients between model (1) and models (2)-(4) can directly be compared. Model (5) controls for a brand\'s market share, while model (6) controls for international brands (indicator variable, 1 for brands active in more than 1 country, 0 otherwise). Model (7) replaces long-term elasticities by beta/(1-gamma). Elasticities in model (8) are calculated from an alternative market share attraction model, allowing for marketing-mix and brand-specific dynamics by adding lagged marketing mix variable (but removing the common carry-over parameter); elasticities in model (9) are dynamically simulated, see Web Appendix B for the details.'), covariate_choices = covars, table.layout.overwrite=c('-c#m-t-a-n'),
-           colnames_overwrite=c('Main model', 'Log GDP', 'Log GCI','Log HDI', 'Controlling for marketshare', 'Controlling for international brands','DV is beta/(1-gamma)', 'Marketing-mix and brand-specific dynamics', 'Simulation'), colsep_overwrite = rep(1,9))
+           colnames_overwrite=c('Main model', 'Log GDP', 'Log GCI','Log HDI', 'Controlling for marketshare', 'Controlling for international brands','DV is beta/(1-gamma)', 'Marketing-mix and brand-specific dynamics', 'Dynamic simulation'), colsep_overwrite = rep(1,9))
 }
 
 #sink()
@@ -727,8 +681,8 @@ for (i in seq(along=ordered_vars)) {
 
 ```{r elasticities_advertising, echo = FALSE, results='asis'}
   
-  out= NULL
-  for (i in 1:2) {
+out= NULL
+for (i in 1:2) {
     if (i==1) obj=c('elast', 'w_elast', 'z_elast')
     if (i==2) obj=c('elastlt','w_elastlt', 'z_elastlt')
     
@@ -833,6 +787,115 @@ iters = list(lt=c('lt', 'Long-term'))
 for (iter in iters) {
   print(kable(sanitize_table(out[[iter[1]]]), digits=3, format='html', format.args = list(big.mark = ","),
         caption=tab(paste0('Differences in ', tolower(iter[2]), ' elasticities in models with and without advertising spending^1^'),prefix='A')) %>% kable_styling() %>% 
-        footnote(number=c(paste0(notes_sig, ' ', mainnote),estimnote, 'Significance tested using meta-analytic p-value.', notes[1])) %>% add_header_above(c(" " = 1, "Advertising included" = 3, "Advertising not included (main model)" = 3, 'Tests on differences' =2)))
+        footnote(number=c(paste0(notes_sig, ' ', mainnote),estimnote, 'Significance tested using meta-analytic p-value.', notes[1])) %>% add_header_above(c(" " = 1, "Advertising included" = 3, "Main model (advertising not included)" = 3, 'Tests on differences' =2)))
 }
+```
+
+```{r elasticities_novelty, echo = FALSE, results='asis'}
+  
+out= NULL
+for (i in 2) {
+    if (i==1) obj=c('elast', 'w_elast', 'z_elast')
+    if (i==2) obj=c('elastlt','w_elastlt', 'z_elastlt')
+    
+    nov = copy(elast_nov[!is.na(get(obj[1]))][, ':=' (val=get(obj[1]), 
+                                             val_w=get(obj[2]),
+                                             val_z=get(obj[3]))])
+    
+    setkey(nov, market_id, brand)
+    tmp_matched = copy(elast[!is.na(get(obj[1]))][, ':=' (val=get(obj[1]), 
+                                             val_w=get(obj[2]),
+                                             val_z=get(obj[3]))])
+    setkey(tmp_matched, market_id, brand)
+    
+    nov[, market_brand:=paste(market_id,brand)]
+    tmp_matched[, market_brand:=paste(market_id,brand)]
+    
+    tmp_matched=tmp_matched[market_brand%in%nov$market_brand]
+    
+    cols = intersect(colnames(nov),colnames(tmp_matched))
+    
+    tmp_combined = rbind(cbind(nov[, cols,with=F], type='nov'), cbind(tmp_matched[, cols, with=F],type='nonov'))
+    
+   
+    # different t-tests
+  
+    diff_tests=rbindlist(lapply(unique(tmp_combined$variable), function(.var) {
+        data.table(variable=.var, effect=c('constant', 'nov'), summary(lm(val~1+I(type=='nov'), weights=val_w,data=tmp_combined[variable==.var]))$coefficients)
+      }))
+    
+    taddition = paste0('Tests on differences carried out by regressing elasticities (', estimnoteshort, ') on an intercept and an indicator variable which is 1 if new-product activity was included in the model, and 0 otherwise. Reported t-value is obtained from the estimate of the indicator variable.')
+  
+  
+    
+    diff_tests<-diff_tests[!grepl('^nov', variable)]
+    
+    setnames(diff_tests, c('variable', 'effect', 'diff_est', 'diff_se', 'diff_t','diff_p'))
+    diff_tests=diff_tests[effect=='nov'][, effect:=NULL]
+    setcolorder(diff_tests, 'variable')
+    
+    
+    tmp_combined = merge(tmp_combined, diff_tests, all.x=T,all.y=F,by = c('variable'))
+    
+    tmp_combined[is.na(diff_p),diff_p:=Inf]
+    
+    tmp=tmp_combined[, list(nov_Neffects= length(which(!is.na(val[type=='nov']))),
+				           nov_ftmelast = sum(val[type=='nov']*val_w[type=='nov'])/sum(val_w[type=='nov']),
+									 nov_3sig = signstars(sum(val_z[type=='nov'])/sqrt(length(which(!is.na(val[type=='nov']))))),
+									 nnov_Neffects= length(which(!is.na(val[!type=='nov']))),
+				           nnov_ftmelast = sum(val[!type=='nov']*val_w[!type=='nov'])/sum(val_w[!type=='nov']),
+									 nnov_3sig = signstars(sum(val_z[type=='nov'])/sqrt(length(which(!is.na(val[!type=='nov']))))),
+									 wls_t = unique(diff_t), 
+									 wls_sig = psignstars(unique(diff_p))), by=c('variable')]
+    
+    
+  tmp=tmp[match(c('nov12sh', ordered_vars), variable)]
+  setnames(tmp, 'variable', 'mmixinstr')
+
+  out[[i]]<-tmp
+  }
+
+  
+names(out)<-c('st','lt')
+
+stats_markets = length(unique(nov$market_id))
+stats_brands = length(unique(nov$market_brand))
+stats_categories = length(unique(nov$category))
+
+
+mainnote = paste0('We add to our main model a variable that captures a brand\'s new-product activity (defined as the number of SKUs introduced by the focal brand in a rolling window of one year (t-11, t-10, ..., t), expressed as share of the total number of unique SKUs sold by the focal brand over the same period; 0 = none of the SKUs is new, 100 = all of the SKUs are new). The model is then re-estimated to obtain long-term marketing mix elasticities in all ', stats_markets, ' markets. We then compare the marketing-mix elasticities from this model to those elasticities estimated from our main model.')
+
+iters = list(lt=c('lt', 'Long-term'))
+for (iter in iters) {
+  print(kable(sanitize_table(out[[iter[1]]]), digits=3, format='html', format.args = list(big.mark = ","),
+        caption=tab(paste0('Differences in ', tolower(iter[2]), ' elasticities in models with and without new-product activity^1^'),prefix='A')) %>% kable_styling() %>% 
+        footnote(number=c(paste0(notes_sig, ' ', mainnote),estimnote, 'Significance tested using meta-analytic p-value.', taddition)) %>% add_header_above(c(" " = 1, "New-product activity included" = 3, "Main model (new-product activity not included)" = 3, 'Tests on differences' =2)))
+}
+```
+
+```{r analysis_for_all_mmix_wnovelty, results = 'asis', include = T, echo=FALSE}
+
+upd_models = list(m4 = .~1 + emerging + sbbe_std_mc + I(sbbe_std_mc*emerging)+ (1|country) + (1|category) + (1|brand) + ln_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market)
+                   
+out1=regmodel(formula=c(upd_models), dat=elast_nov, model='lmer')
+
+cat("<P style='page-break-before: always'>")
+
+printout(out1, 'lt', title = tab(paste0('Robustness check with new-product activity: Regression with long-term elasticities'), prefix='A'), vars=c(ordered_vars, 'New-product activity elasticity'=grep('^nov', unique(elast_nov$variable),value=T)),  notes=notes_base, covariate_choices = covars)
+
+```
+
+```{r variable_means_for_plots, echo=FALSE, results='asis'}
+
+elast[, ':=' (l_emerging=ifelse(emerging==1,'Emerging market','Developed market'),
+             l_brandequity=ifelse(sbbe_std_mc>median(sbbe_std_mc,na.rm=T), 'strong brand','weak brand')),by=c('variable','category','country','market_id')]
+
+
+sims = elast[, list(est=sum(elastlt*w_elast)/sum(w_elast)), by = c('variable', 'l_brandequity', 'l_emerging')]
+
+tmp = dcast(sims,variable+l_brandequity~l_emerging,value.var='est')
+setnames(tmp, 'l_brandequity', 'sbbe_std')
+
+print(kable(sanitize_table(tmp), format='html', initial.zero = FALSE, digits=3,caption = tab(paste0('Weighted elasticities by brand equity and a country\'s development degree'), prefix='A')) %>% kable_styling())
+
 ```
