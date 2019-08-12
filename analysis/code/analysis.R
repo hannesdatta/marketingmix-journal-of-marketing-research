@@ -204,6 +204,75 @@ if(run_cluster==T) {
 	
 	savemodels(fname)
 	assign_model(m1, del=TRUE)
+
+	###########################################
+	# Robustness w/ first 70% of observations #
+	###########################################
+	
+	assign_model(m1)
+	clusterExport(cl,names(m1))
+	
+	tmp=brand_panel[selected_t_cat==T&selected_brand==T, list(usales=sum(usales,na.rm=T)),by=c('market_id','date')]
+	tmp[, percentile_obs:=(1:.N)/.N, by = c('market_id')]
+	
+	setkey(tmp, market_id, date)
+	setkey(brand_panel, market_id, date)
+	brand_panel[tmp, percentile_obs:=i.percentile_obs]
+	setorder(brand_panel, market_id, date)
+	
+	save_brandpanel = copy(brand_panel)
+	
+	brand_panel = save_brandpanel[percentile_obs<=.7]
+	clusterExport(cl,c('brand_panel'))
+	
+	results_firstobs <- parLapplyLB(cl, analysis_markets, function(i) {
+	  for (carry in c(F, T)) {
+	    tmp=try(analyze_by_market(i, estmethod=estmethod, setup_y = setup_y, setup_x = setup_x, 
+	                              setup_endogenous = setup_endogenous, trend = trend, pval = pval, 
+	                              max.lag = max.lag, min.t = min.t, maxiter = maxiter, 
+	                              use_quarters=use_quarters, plusx=plusx, attraction_model=attraction_model, 
+	                              takediff=takediff, lag_heterog=lag_heterog,carryover_zero=carry,
+	                              use_attributes=use_attributes), silent=T)
+	    
+	    if (!class(tmp)=='try-error') {
+	      coef=data.table(tmp$model@coefficients)[grepl('lagunitsales', variable)]$coef
+	      if (length(coef)==0) break
+	      if (coef<0) print('carryover prob') else break
+	    } else break
+	  }
+	  return(tmp)
+	})
+	
+	savemodels(fname)
+	
+	brand_panel = save_brandpanel[percentile_obs>=.3]
+	clusterExport(cl,c('brand_panel'))
+	
+	results_lastobs <- parLapplyLB(cl, analysis_markets, function(i) {
+	  for (carry in c(F, T)) {
+	    tmp=try(analyze_by_market(i, estmethod=estmethod, setup_y = setup_y, setup_x = setup_x, 
+	                              setup_endogenous = setup_endogenous, trend = trend, pval = pval, 
+	                              max.lag = max.lag, min.t = min.t, maxiter = maxiter, 
+	                              use_quarters=use_quarters, plusx=plusx, attraction_model=attraction_model, 
+	                              takediff=takediff, lag_heterog=lag_heterog,carryover_zero=carry,
+	                              use_attributes=use_attributes), silent=T)
+	    
+	    if (!class(tmp)=='try-error') {
+	      coef=data.table(tmp$model@coefficients)[grepl('lagunitsales', variable)]$coef
+	      if (length(coef)==0) break
+	      if (coef<0) print('carryover prob') else break
+	    } else break
+	  }
+	  return(tmp)
+	})
+	
+	savemodels(fname)
+	
+	
+	brand_panel = save_brandpanel
+	
+	assign_model(m1, del=TRUE)
+	
 	
 	######################################
 	# Robustness w/ advertising spending #
@@ -288,5 +357,7 @@ if(run_cluster==T) {
 	
 	savemodels(fname)
 	assign_model(m1_nov, del=TRUE)
+	
+
 	
 }
