@@ -175,7 +175,7 @@ if(run_cluster==T) {
 	void<-clusterEvalQ(cl, init())
 	init()
 	
-  ######################################################
+	######################################################
 	# Main model: with trend, without lagged Xs, nov12sh #
 	######################################################
 	assign_model(m1)
@@ -205,9 +205,9 @@ if(run_cluster==T) {
 	savemodels(fname)
 	assign_model(m1, del=TRUE)
 
-	###########################################
-	# Robustness w/ first 70% of observations #
-	###########################################
+	####################################################
+	# Robustness w/ first and last 70% of observations #
+	####################################################
 	
 	assign_model(m1)
 	clusterExport(cl,names(m1))
@@ -268,11 +268,59 @@ if(run_cluster==T) {
 	
 	savemodels(fname)
 	
+	####################################################
+	# Robustness w/ first and last 50% of observations #
+	####################################################
+
+	brand_panel = save_brandpanel[percentile_obs<=.5]
+	clusterExport(cl,c('brand_panel'))
+	
+	results_firstobs50 <- parLapplyLB(cl, analysis_markets, function(i) {
+	  for (carry in c(F, T)) {
+	    tmp=try(analyze_by_market(i, estmethod=estmethod, setup_y = setup_y, setup_x = setup_x, 
+	                              setup_endogenous = setup_endogenous, trend = trend, pval = pval, 
+	                              max.lag = max.lag, min.t = min.t, maxiter = maxiter, 
+	                              use_quarters=use_quarters, plusx=plusx, attraction_model=attraction_model, 
+	                              takediff=takediff, lag_heterog=lag_heterog,carryover_zero=carry,
+	                              use_attributes=use_attributes), silent=T)
+	    
+	    if (!class(tmp)=='try-error') {
+	      coef=data.table(tmp$model@coefficients)[grepl('lagunitsales', variable)]$coef
+	      if (length(coef)==0) break
+	      if (coef<0) print('carryover prob') else break
+	    } else break
+	  }
+	  return(tmp)
+	})
+	
+	savemodels(fname)
+	
+	brand_panel = save_brandpanel[percentile_obs>.5]
+	clusterExport(cl,c('brand_panel'))
+	
+	results_lastobs50 <- parLapplyLB(cl, analysis_markets, function(i) {
+	  for (carry in c(F, T)) {
+	    tmp=try(analyze_by_market(i, estmethod=estmethod, setup_y = setup_y, setup_x = setup_x, 
+	                              setup_endogenous = setup_endogenous, trend = trend, pval = pval, 
+	                              max.lag = max.lag, min.t = min.t, maxiter = maxiter, 
+	                              use_quarters=use_quarters, plusx=plusx, attraction_model=attraction_model, 
+	                              takediff=takediff, lag_heterog=lag_heterog,carryover_zero=carry,
+	                              use_attributes=use_attributes), silent=T)
+	    
+	    if (!class(tmp)=='try-error') {
+	      coef=data.table(tmp$model@coefficients)[grepl('lagunitsales', variable)]$coef
+	      if (length(coef)==0) break
+	      if (coef<0) print('carryover prob') else break
+	    } else break
+	  }
+	  return(tmp)
+	})
+	
+	savemodels(fname)
 	
 	brand_panel = save_brandpanel
 	
 	assign_model(m1, del=TRUE)
-	
 	
 	######################################
 	# Robustness w/ advertising spending #
@@ -286,8 +334,8 @@ if(run_cluster==T) {
 	                                 list(obs= length(unique(date))),by=c('category','country', 'market_id')]
 	
 	china_hk_selection = china_hk_selection[, selected:=obs>ifelse(category=='tablet',4*12,5*12)]
-  china_hk = unique(china_hk_selection[selected==T]$market_id)
-  
+	china_hk = unique(china_hk_selection[selected==T]$market_id)
+	
 	results_adv <- parLapplyLB(cl, china_hk, function(i) {
 	  for (carry in c(F, T)) {
 	    tmp=try(analyze_by_market(i, estmethod=estmethod, setup_y = setup_y, setup_x = setup_x, 

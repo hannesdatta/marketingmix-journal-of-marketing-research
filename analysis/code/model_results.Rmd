@@ -83,6 +83,7 @@ Number of markets which could not be estimated due to errors: `r length(which(!c
 ```{r elast_overall, echo = FALSE, results='asis'}
 
 .vars=c('llen','wpswdst','rwpspr','nov12sh')
+
 zval=1.64
 	
   tmp=elast[!is.na(elast)&!brand%in%c('unbranded','super', 'amazon'), list(w_elast_st = sum(elast/elast_se)/sum(1/elast_se), 
@@ -93,7 +94,28 @@ zval=1.64
   
 	kable(tmp[match(.vars, variable)], caption = tab('Short- and long-term elasticities by variable, excluding unbranded, super, and amazon (significance tested at p<.1 (z >= 1.64).'))
 
+	setkey(brand_panel, market_id)
+	setkey(elast, market_id)
+	elast[brand_panel, country_class:=i.country_class]
 	
+  tmp=elast[!is.na(elast)&!brand%in%c('unbranded','super', 'amazon'), list(N_effects=.N,
+                                                                           N_copula = length(which(!is.na(cop_coef))),
+                                share_copula=length(which(!is.na(cop_coef)))/.N), by=c('variable','country_class')]
+  
+	kable(tmp, caption = tab('Short- and long-term elasticities by variable and a country\'s development status, excluding the brands unbranded, super, and amazon (significance tested at p<.1 (z >= 1.64).'))
+
+	sbbe<-fread('../../post-analysis/externals/elast_results_main.csv')
+	setkey(sbbe, market_id, brand)
+	setkey(elast, market_id, brand)
+	elast[sbbe, sbbe:=i.sbbe_std]
+	elast[, brandequity:=ifelse(sbbe>0, 'high BE', 'low BE')]
+	
+ tmp=elast[!is.na(elast)&!brand%in%c('unbranded','super', 'amazon'), list(N_effects=.N,
+                                                                           N_copula = length(which(!is.na(cop_coef))),
+                                share_copula=length(which(!is.na(cop_coef)))/.N), by=c('variable', 'brandequity')]
+  
+	kable(tmp, caption = tab('Short- and long-term elasticities by variable and brand equity, excluding brands unbranded, super, and amazon (significance tested at p<.1 (z >= 1.64).'))
+	  
 	#Copulas
 	copulas <- rbindlist(lapply(results_brands[!checks=='try-error'], function(x) x$model@coefficients))
 	copulas <- copulas[grepl('cop_', varname)]
