@@ -56,6 +56,16 @@ options(knitr.kable.NA = '')
   elast <- fread('../externals/elast_results_main.csv') 
   source('preclean.R')
   
+# Keep only brands that are common in first/last dataset
+  firstobs = with(elast_firstobs, unique(paste(market_id,brand)))
+  lastobs = with(elast_lastobs, unique(paste(market_id,brand)))
+  bothobs = intersect(firstobs, lastobs)
+  
+  elast_firstobs = elast_firstobs[paste(market_id,brand)%in%bothobs]
+  elast_lastobs = elast_lastobs[paste(market_id,brand)%in%bothobs]
+  elast_main_avail = copy(elast)
+  elast_main_avail = elast_main_avail[paste(market_id,brand)%in%bothobs]
+
 # set order of variables to appear in figures and tables
 ordered_vars = c('rwpspr', 'wpswdst','llen', 'nov12sh')
 ordered_vars = ordered_vars[which(ordered_vars%in%elast$variable)]
@@ -887,14 +897,6 @@ for (iter in iters) {
 ```{r analysis_for_all_mmix_wnovelty, results = 'asis', include = T, echo=FALSE}
 
 # common to all
-firstobs = with(elast_firstobs, unique(paste(market_id,brand)))
-lastobs = with(elast_lastobs, unique(paste(market_id,brand)))
-bothobs = intersect(firstobs, lastobs)
-
-elast_firstobs = elast_firstobs[paste(market_id,brand)%in%bothobs]
-elast_lastobs = elast_lastobs[paste(market_id,brand)%in%bothobs]
-elast_main_avail = copy(elast)
-elast_main_avail = elast_main_avail[paste(market_id,brand)%in%bothobs]
 
 upd_models = list(m4 = .~1 + emerging + sbbe_std_mc + I(sbbe_std_mc*emerging)+ (1|country) + (1|category) + (1|brand) + ln_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market)
                    
@@ -933,12 +935,13 @@ printout(outx, 'lt', title = tab(paste0('Robustness check: Selected sample for w
 
 elast_firstobs[, time := 'first']
 elast_lastobs[, time := 'last']
-
 elast_time = rbind(elast_firstobs, elast_lastobs,fill=T)
+elast_time[, emerging_last:=as.numeric(as.numeric(time=='last')*as.numeric(emerging))]
+elast_time[, developed_last:=as.numeric(as.numeric(time=='last')*as.numeric(1-emerging))]
 
-summary(lm(elastlt~1+time, data=elast_time[variable=='rwpspr'], weight=1/elastlt_se))
-summary(lm(elastlt~1+time, data=elast_time[variable=='wpswdst'], weight=1/elastlt_se))
-summary(lm(elastlt~1+time, data=elast_time[variable=='llen'], weight=1/elastlt_se))
+for (.var in ordered_vars) {
+  print(summary(lm(elastlt~1+emerging+emerging_last+developed_last, data=elast_time[variable==.var], weight=1/elastlt_se)))
+}
 
 
 
