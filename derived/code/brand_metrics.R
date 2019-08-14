@@ -73,6 +73,11 @@ for (i in 1:length(skus_by_date_list)) {
 	# keep only markets for which we have at least 2 brands selected
 	skus_by_date = skus_by_date[n_brands_selected>1]
 	
+	if(nrow(skus_by_date)==0) {
+	  all_data[[i]]<-NULL
+	  next
+	}
+	
 	# Compute novelty of product assortment
   	idvars=c('market_id','category','country','brand','brand_orig', 'selected_brand', 'model')
   	tmp = skus_by_date[, list(first_date=min(first_date,na.rm=T)),by=idvars]
@@ -306,6 +311,9 @@ for (i in 1:length(skus_by_date_list)) {
 	# generate summary statistics about interpolated variables (i.e., how many missings remain after linear interpolation)
 	for (i in seq(along=all_data)) {
 	  print(i)
+	  
+	if (is.null(all_data[[i]])) next
+	  
 	varnames = intersect(colnames(all_data[[i]]$interp), colnames(all_data[[i]]$noninterp))
 	tmp=lapply(varnames, function(var) {
 	  unlist(all_data[[i]]$interp[, var,with=F])==unlist(all_data[[i]]$noninterp[, var,with=F])
@@ -327,6 +335,7 @@ for (i in 1:length(skus_by_date_list)) {
 	
 	# prepare final (cleaned) data sets / longest consecutive stretch selection
 	for (i in 1:length(all_data)) {
+	  if (is.null(all_data[[i]]))  next
 	  print(i)
 	  cat('Flagging missing observations per brand\n')
 	  all_data[[i]]$data_cleaned <- NULL

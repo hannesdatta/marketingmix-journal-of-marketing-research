@@ -3,7 +3,7 @@ library(data.table)
 
 
 # Prepare flat CSV file with data
-brand_panel=rbindlist(lapply(all_data, function(x) rbindlist(x$data_cleaned)),fill=T)
+brand_panel=rbindlist(lapply(all_data, function(x) if(!is.null(x)) return(rbindlist(x$data_cleaned))),fill=T)
 setorder(brand_panel, market_id, category,country,brand,date)
 
 brand_panel[which(!is.na(usales) & selected_t_brand==T & selected_brand == T), prelim_selected:=T, by=c('category', 'country', 'brand')]
