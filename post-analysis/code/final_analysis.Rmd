@@ -32,11 +32,11 @@ options(knitr.kable.NA = '')
   source('preclean.R')
   elast_nov <- copy(elast)
 
-  elast <- fread('../externals/elast_results_firstobs.csv') 
+  elast <- fread('../externals/elast_results_firstobs60.csv') 
   source('preclean.R')
   elast_firstobs <- copy(elast)
   
-  elast <- fread('../externals/elast_results_lastobs.csv') 
+  elast <- fread('../externals/elast_results_lastobs60.csv') 
   source('preclean.R')
   elast_lastobs <- copy(elast)
     
@@ -917,7 +917,7 @@ outx = NULL
     outx[[mod]]$lt=c(out1[[mod]]$lt$m4, out2[[mod]]$lt$m4, out3[[mod]]$lt$m4)
   }
 
-
+  
 #  printout(outx, 'lt', title = tab(paste0('Robustness checks for long-term ', tolower(gsub('ity', 'ities', gsub('Line length', 'Line-length', names(ordered_vars[i])))), ''), prefix='A'), vars=ordered_vars[i],  notes=paste0(gsub('term elasticities', 'term elasticities (all models; except beta/(1-gamma) in model 4)', notes_base), ' Model (1) is the focal model; models (2)-(4) replace the emerging market indicator by alternative (continuous) metrics that measure a country\'s degree of development; because these metrics are increasing with a country\'s degree of development, they have been reverse-coded in model estimation, so that coefficients between model (1) and models (2)-(4) can directly be compared. Model (5) controls for a brand\'s market share, while model (6) controls for international brands (indicator variable, 1 for brands active in more than 1 country, 0 otherwise). Model (7) replaces long-term elasticities by beta/(1-gamma). Elasticities in model (8) are calculated from an alternative market share attraction model, allowing for marketing-mix and brand-specific dynamics by adding lagged marketing mix variable (but removing the common carry-over parameter); elasticities in model (9) are dynamically simulated, see Web Appendix B for the details.'), covariate_choices = covars, table.layout.overwrite=c('-c#m-t-a-n'),
  #          colnames_overwrite=c('Main model', 'Log GDP', 'Log GCI','Log HDI', 'Controlling for marketshare', 'Controlling for international brands','DV is beta/(1-gamma)', 'Marketing-mix and brand-specific dynamics', 'Dynamic simulation'), colsep_overwrite = rep(1,9))
 #}
@@ -938,9 +938,25 @@ elast_lastobs[, time := 'last']
 elast_time = rbind(elast_firstobs, elast_lastobs,fill=T)
 elast_time[, emerging_last:=as.numeric(as.numeric(time=='last')*as.numeric(emerging))]
 elast_time[, developed_last:=as.numeric(as.numeric(time=='last')*as.numeric(1-emerging))]
+elast_time[, brandmarket:=paste(market_id,brand)]
 
-for (.var in ordered_vars) {
-  print(summary(lm(elastlt~1+emerging+emerging_last+developed_last, data=elast_time[variable==.var], weight=1/elastlt_se)))
+
+res = NULL
+
+  
+  # emerging
+  for (emerg in c(T,F)) {
+  
+  for (.var in ordered_vars) {
+  cat(paste0('==========================\n',.var,'\n==============================\n\n\n'))
+
+    wls=summary(lm(elastlt~1+time, data=elast_time[variable==.var&emerging==emerg], weight=1/elastlt_se))$coefficients[2,]
+    means=summary(lm(elastlt~-1+as.factor(time), data=elast_time[variable==.var&emerging==emerg], weight=1/elastlt_se))$coefficients
+    
+    res=rbind(res,c(.var, ifelse(emerg==T,'emerging','developed'),length(unique(elast_time[variable==.var&emerging==emerg]$brandmarket)),means[1,1], means[2,1], wls[1], wls[3], wls[4]))  
+  
+  #print(summary(lm(elastlt~1+emerging+emerging_last+developed_last, data=elast_time[variable==.var], weight=1/elastlt_se)))
+  }
 }
 
 
