@@ -200,3 +200,4 @@ attr[_]typetop	Top loader: Indicator variable, equaling 1 if top loader; 0 other
 ^sdcap$	SD	gsub
 ^trend$	Trend	gsub
 ^laggedms$	Lagged market share	gsub
+difference_abs	Absolute difference	gsub

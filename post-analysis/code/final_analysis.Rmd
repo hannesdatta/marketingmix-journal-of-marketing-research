@@ -895,44 +895,6 @@ for (iter in iters) {
 ```
 
 ```{r analysis_for_all_mmix_wnovelty, results = 'asis', include = T, echo=FALSE}
-
-# common to all
-
-upd_models = list(m4 = .~1 + emerging + sbbe_std_mc + I(sbbe_std_mc*emerging)+ (1|country) + (1|category) + (1|brand) + ln_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market)
-                   
-out1=regmodel(formula=c(upd_models), dat=elast_main_avail, model='lmer')
-out2=regmodel(formula=c(upd_models), dat=elast_firstobs, model='lmer')
-out3=regmodel(formula=c(upd_models), dat=elast_lastobs, model='lmer')
-
-#sink('test.html')
-cat("<P style='page-break-before: always'>")
-
-
-
-outx = NULL
-
-  for (mod in names(out1)) {
-    outx[[mod]]$variable=out1[[mod]]$variable
-    outx[[mod]]$st=c(out1[[mod]]$st$m4, out2[[mod]]$st$m4, out3[[mod]]$st$m4)
-    outx[[mod]]$lt=c(out1[[mod]]$lt$m4, out2[[mod]]$lt$m4, out3[[mod]]$lt$m4)
-  }
-
-  
-#  printout(outx, 'lt', title = tab(paste0('Robustness checks for long-term ', tolower(gsub('ity', 'ities', gsub('Line length', 'Line-length', names(ordered_vars[i])))), ''), prefix='A'), vars=ordered_vars[i],  notes=paste0(gsub('term elasticities', 'term elasticities (all models; except beta/(1-gamma) in model 4)', notes_base), ' Model (1) is the focal model; models (2)-(4) replace the emerging market indicator by alternative (continuous) metrics that measure a country\'s degree of development; because these metrics are increasing with a country\'s degree of development, they have been reverse-coded in model estimation, so that coefficients between model (1) and models (2)-(4) can directly be compared. Model (5) controls for a brand\'s market share, while model (6) controls for international brands (indicator variable, 1 for brands active in more than 1 country, 0 otherwise). Model (7) replaces long-term elasticities by beta/(1-gamma). Elasticities in model (8) are calculated from an alternative market share attraction model, allowing for marketing-mix and brand-specific dynamics by adding lagged marketing mix variable (but removing the common carry-over parameter); elasticities in model (9) are dynamically simulated, see Web Appendix B for the details.'), covariate_choices = covars, table.layout.overwrite=c('-c#m-t-a-n'),
- #          colnames_overwrite=c('Main model', 'Log GDP', 'Log GCI','Log HDI', 'Controlling for marketshare', 'Controlling for international brands','DV is beta/(1-gamma)', 'Marketing-mix and brand-specific dynamics', 'Dynamic simulation'), colsep_overwrite = rep(1,9))
-#}
-
-
-printout(outx, 'lt', title = tab(paste0('Robustness check: Selected sample for which both early and late brands are available'), prefix='A'), vars=c(ordered_vars),  notes=notes_base, covariate_choices = covars, dep.var.labels.include=T)
-
-#printout(out2, 'lt', title = tab(paste0('Robustness check: Early sample'), prefix='A'), vars=c(ordered_vars),  notes=notes_base, covariate_choices = covars)
-#printout(out3, 'lt', title = tab(paste0('Robustness check: Late sample'), prefix='A'), vars=c(ordered_vars),  notes=notes_base, covariate_choices = covars)
-#sink()
-
-```
-
-# try out WLS
-
 elast_firstobs[, time := 'first']
 elast_lastobs[, time := 'last']
 elast_time = rbind(elast_firstobs, elast_lastobs,fill=T)
@@ -940,25 +902,30 @@ elast_time[, emerging_last:=as.numeric(as.numeric(time=='last')*as.numeric(emerg
 elast_time[, developed_last:=as.numeric(as.numeric(time=='last')*as.numeric(1-emerging))]
 elast_time[, brandmarket:=paste(market_id,brand)]
 
-
 res = NULL
 
-  
   # emerging
   for (emerg in c(T,F)) {
   
   for (.var in ordered_vars) {
-  cat(paste0('==========================\n',.var,'\n==============================\n\n\n'))
+  #cat(paste0('==========================\n',.var,'\n==============================\n\n\n'))
 
     wls=summary(lm(elastlt~1+time, data=elast_time[variable==.var&emerging==emerg], weight=1/elastlt_se))$coefficients[2,]
     means=summary(lm(elastlt~-1+as.factor(time), data=elast_time[variable==.var&emerging==emerg], weight=1/elastlt_se))$coefficients
     
-    res=rbind(res,c(.var, ifelse(emerg==T,'emerging','developed'),length(unique(elast_time[variable==.var&emerging==emerg]$brandmarket)),means[1,1], means[2,1], wls[1], wls[3], wls[4]))  
+    res=rbind(res,cbind(.var, ifelse(emerg==T,'Emerging market','Developed market'),as.numeric(length(unique(elast_time[variable==.var&emerging==emerg]$brandmarket))),means[1,1], means[2,1], wls[1], wls[3], wls[4]))
   
   #print(summary(lm(elastlt~1+emerging+emerging_last+developed_last, data=elast_time[variable==.var], weight=1/elastlt_se)))
   }
 }
+suppressWarnings(res=data.frame(res))
 
+for (i in seq(from=3, to=ncol(res))) res[,i]<-as.numeric(as.character(res[,i]))
 
+colnames(res)<-c('variable','country_class','nobs','Mean','Mean','difference_abs','tval','pval')
 
+print(kable(sanitize_table(res), digits=3, format='html', format.args = list(big.mark = ","),     caption=tab(paste0('Time trends in marketing-mix elasticities across emerging and developed markets^1^'),prefix='A')) %>% kable_styling() %>% add_header_above(c(" " = 3, "First 60% of observations" = 1, "Last 60% of observations" = 1, 'Tests on differences' =3)))
+#}
+
+```
 
