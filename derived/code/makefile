@@ -16,7 +16,7 @@ OUTPUT_DIR = ../output
 all: build 
 #audit
 
-build: $(OUTPUT_DIR)/datasets.csv
+build: $(OUTPUT_DIR)/datasets.txt
 
 # audit
 audit: $(TEMP_DIR)/audit_rawplot.txt $(TEMP_DIR)/audit_markets.txt $(TEMP_DIR)/audit_brands.txt $(TEMP_DIR)/audit_attributes.txt $(TEMP_DIR)/audit_advertising.txt
@@ -73,7 +73,7 @@ $(TEMP_DIR)/brand_metrics.RData: brand_metrics.R $(TEMP_DIR)/exch_cpi.RData $(TE
 	"$(RBIN64)Rterm.exe" --vanilla --args "" < "brand_metrics.R"
 
 # do final time selection
-$(OUTPUT_DIR)/datasets.csv: time_select.R $(TEMP_DIR)/brand_metrics.RData
+$(OUTPUT_DIR)/datasets.txt: time_select.R $(TEMP_DIR)/brand_metrics.RData
 	"$(RBIN64)Rterm.exe" --vanilla --args "" < "time_select.R"
 	
 # --> audit: create category sales plots
@@ -81,15 +81,15 @@ $(TEMP_DIR)/audit_rawplot.txt: audit_rawplot.R $(TEMP_DIR)/categorized.RData
 	"$(RBIN64)Rterm.exe" --vanilla --args "" < "audit_rawplot.R"
 
 # --> audit: create plots of all markets
-$(TEMP_DIR)/audit_markets.txt: audit_markets.R $(OUTPUT_DIR)/datasets.csv
+$(TEMP_DIR)/audit_markets.txt: audit_markets.R $(OUTPUT_DIR)/datasets.txt
 	"$(RBIN64)Rterm.exe" --vanilla --args "" < "audit_markets.R"
 
 # --> audit: create plots of brands
-$(TEMP_DIR)/audit_brands.txt: audit_brands.R $(OUTPUT_DIR)/datasets.csv
+$(TEMP_DIR)/audit_brands.txt: audit_brands.R $(OUTPUT_DIR)/datasets.txt
 	"$(RBIN64)Rterm.exe" --vanilla --args "" < "audit_brands.R"
 
 # --> audit: create plots of brands
-$(TEMP_DIR)/audit_attributes.txt: audit_attributes.R $(OUTPUT_DIR)/datasets.csv
+$(TEMP_DIR)/audit_attributes.txt: audit_attributes.R $(OUTPUT_DIR)/datasets.txt
 	"$(RBIN64)Rterm.exe" --vanilla --args "" < "audit_attributes.R"
 
 # --> audit: create plots of brands

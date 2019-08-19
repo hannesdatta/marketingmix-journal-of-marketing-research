@@ -33,7 +33,7 @@
 ##########################################################
 	
 # Stack data in data.table
-	paneldata_brands=fread('../output/datasets.csv')
+	paneldata_brands=fread('../output/datasets_main.csv')
 	paneldata_brands=paneldata_brands[selected==T]
   paneldata_brands[, trend:=1:.N, by=c('category', 'country', 'brand')]
 	paneldata_brands[, ':=' (date = as.Date(date))]

@@ -20,6 +20,8 @@ require(data.table)
 # Load data
 	load('..\\temp\\uniqueness_and_lagsales.RData')
 
+dir.create('../output')
+
 # Assert: How many categories are passed on from the previous step? must be 174 (182-4-4)!
 #stopifnot(nrow(rbindlist(lapply(skus_by_date_list, function(x) x[, list(N=.N), by=c('category','country')])))==174)
 stopifnot(nrow(rbindlist(lapply(skus_by_date_list, function(x) x[, list(N=.N), by=c('category','country')])))==196-4-4)
@@ -55,11 +57,6 @@ stopifnot(nrow(rbindlist(lapply(skus_by_date_list, function(x) x[, list(N=.N), b
 	# add time selection
 	dat[tmp_sales, selected_t_cat:=i.selected_t_cat]
 	
-
-####################
-# Brand selection  #
-####################
-	
 	dat[, year := year(date)]
 	
 	months = dat[, list(.N), by = c('date')]
@@ -69,15 +66,30 @@ stopifnot(nrow(rbindlist(lapply(skus_by_date_list, function(x) x[, list(N=.N), b
 	setkey(dat, date)
 	dat[months, month := i.month]
 	
-	
-	# selection criteria: all brands with at least X% market share in X consec. years (at X*12 months)
-	# with average yearly share of at least x%. 
-
-	min_share = .01
-	
+	min_share =.01
 	brand_id = 'brand'
 	time_id = 'month'
 	
+####################
+# Brand selection  #
+####################
+	
+	
+	selection = lapply(c('main','8years'), function(i) {
+	# selection criteria: all brands with at least X% market share in X consec. years (at X*12 months)
+	# with average yearly share of at least x%. 
+
+	
+	if(i=='main') {
+	  consec_min = 5
+	  consec_min_tablets = 4
+	}
+	
+  if(i=='8years') {
+    consec_min = 8
+    consec_min_tablets = consec_min
+  }
+	  
 	# aggregate brand sales for selected time periods (determined on a category-level earlier)
 	
 	# establish consecutive number of years (first, for all brands, then for the combined 'allother' composite brand)
@@ -85,8 +97,8 @@ stopifnot(nrow(rbindlist(lapply(skus_by_date_list, function(x) x[, list(N=.N), b
 	# for first iteration
 	
   sel_brands<-function(tmp_brands, brand_id) {
-  	tmp_brands[!category == 'tablets', consec_min := 5*12] #5
-  	tmp_brands[category == 'tablets', consec_min := 4*12] # 4
+  	tmp_brands[!category == 'tablets', consec_min := consec_min*12]
+  	tmp_brands[category == 'tablets', consec_min := consec_min_tablets*12]
   	
   	setorderv(tmp_brands, c('category', 'country',time_id, 'brand_sales'),order=-1)
   	tmp_brands[, obs_difference := as.numeric(0)]
@@ -141,111 +153,87 @@ stopifnot(nrow(rbindlist(lapply(skus_by_date_list, function(x) x[, list(N=.N), b
 	
 	brand_selection <-  tmp_brands_select[, list(selected_brand = any(selected_brand_upd), n_brands_selected=unique(n_brands_selected), composite_included=unique(composite_included)), by=c('category','country','brand', 'brand_rename')]
 	
-	#brand_selection[, n_brands := length(unique(brand_rename)), by = c('category','country')]
-	#brand_selection[, n_brands_selected := length(unique(brand_rename[selected_brand==T])), by = c('category','country')]
-	
 	time_selection = tmp_sales[, c('category','country','date','selected_t_cat'),with=F]
 	setkey(time_selection,category,country,date)
 	
-	save(brand_selection, time_selection, tmp_brands_select, tmp_brands_select2, file='..//temp//select.RData')
+	return(list(brand_selection=brand_selection, time_selection=time_selection,
+	            tmp_brands_select=tmp_brands_select, tmp_brands_select2=tmp_brands_select2))
+	
+	})
+	
+	names(selection) <- c('main','8years')
+	
+	
+	save(selection, file='..//temp//select.RData')
 
+	
+	
 	##########
 	# report #
 	##########
 	
-	tmp=tmp_brands_select[, list(marketshare_covered_by_selection=sum(brand_sales[which(selected_brand==T)])/sum(brand_sales),
-	                             marketshare_covered_by_selection_incl_composite=sum(brand_sales[which(selected_brand_upd==T)])/sum(brand_sales),
-								 n_brands_total=length(unique(brand)),
-								 n_brands_selected=length(unique(brand[which(selected_brand==T)])),
-								 n_brands_collapsed_to_allothers=length(unique(brand[which(brand_rename=='ALLOTHERS')])),
-								 composite_included=any(composite_included==T),
-								 n_brands_not_included=length(unique(brand[which(selected_brand==F)]))
-	               ), by=c('category','country')]
-	setorder(tmp, marketshare_covered_by_selection)
+	for (i in names(selection)) {
+  	#print(i)
+  	tmp=selection[[i]]$tmp_brands_select[, list(marketshare_covered_by_selection=sum(brand_sales[which(selected_brand==T)])/sum(brand_sales),
+  	                             marketshare_covered_by_selection_incl_composite=sum(brand_sales[which(selected_brand_upd==T)])/sum(brand_sales),
+  								 n_brands_total=length(unique(brand)),
+  								 n_brands_selected=length(unique(brand[which(selected_brand==T)])),
+  								 n_brands_collapsed_to_allothers=length(unique(brand[which(brand_rename=='ALLOTHERS')])),
+  								 composite_included=any(composite_included==T),
+  								 n_brands_not_included=length(unique(brand[which(selected_brand==F)]))
+  	               ), by=c('category','country')]
+  	setorder(tmp, marketshare_covered_by_selection)
+  
+  	tmp[,selected_market:=marketshare_covered_by_selection>0&n_brands_selected>1]
+  	# How many of the brands which are selected are still in the top 7 at the end of the sample
+  	options(width=800)
+  	options(max.print=10000)
+  
+    sink(paste0('../output/brand_selection_', i,'.txt'))
+  	
+  	{
+  	cat(paste0('\nBrand selection rule\n====================================================================================\n\n'))
+  	cat(paste0('Number of markets at this point of data preparation: ', nrow(tmp),'\n'))
+  	cat(paste0('Number of selected markets (category-country combinations): ', nrow(tmp[selected_market==T]),'\n'))
+  	
+  	cat(paste0('Number of total market-brands: ', sum(tmp[selected_market==T]$n_brands_total),'\n'))
+  	cat(paste0('Number of selected market-brands (excluding composite brands): ', sum(tmp[selected_market==T]$n_brands_selected),'\n'))
+  	cat(paste0('Number of selected unique brands (excluding composite brands): ', length(unique(selection[[i]]$tmp_brands_select[n_brands_selected>1&selected_brand==T&!grepl('ALLOTHERS',brand_rename)]$brand)),'\n'))
+  	
+  	cat('\n')
+  	
+  	cat(paste0('Market share coverage for included brands in selected markets (1 = 100%):\n'))
+  	print(summary(tmp[selected_market==T]$marketshare_covered_by_selection))
+  	cat('\n')
+  	
+  	cat(paste0('Market share coverage for included brands in selected markets (1 = 100%), including composite brands:\n'))
+  	print(summary(tmp[selected_market==T]$marketshare_covered_by_selection_incl_composite))
+  	cat('\n')
+  	
+  	cat(paste0('Distribution of number of selected brands across all categories:'))
+  	print(table(tmp[selected_market==T]$n_brands_selected))
+  	cat('\n')
+  	
+  	cat(paste0('Summary of number of selected brands across all categories:'))
+  	print(summary(tmp[selected_market==T]$n_brands_selected))
+  	cat('\n')
+  	
+  	cat('Excluded markets:\n')
+  	for (i in 1:nrow(tmp[selected_market==F])) {
+  		with(tmp[selected_market==F][i,], cat(paste0(category, ' - ', country, '\n')))
+  		}
+  
+  	setorder(tmp, marketshare_covered_by_selection)
+  	cat(paste0('\nAll included markets (', nrow(tmp[selected_market==T]),'):\n'))
+  	print(data.frame(tmp[selected_market==T]))
+  
+  	cat(paste0('\nMarkets for which composite brand is excluded (', nrow(tmp[composite_included==F&selected_market==T]),'):\n'))
+  	print(data.frame(tmp[composite_included==F&selected_market==T]))
+  	
+  	cat(paste0('\nAll excluded markets (', nrow(tmp[selected_market==F]),'):\n'))
+  	print(data.frame(tmp[selected_market==F]))
+  	
+  	}
 
-	tmp[,selected_market:=marketshare_covered_by_selection>0&n_brands_selected>1]
-	# How many of the brands which are selected are still in the top 7 at the end of the sample
-	options(width=800)
-	options(max.print=10000)
-
-	sink('../output/brand_selection.txt')
-	
-	{
-	cat(paste0('\nBrand selection rule\n====================================================================================\n\n'))
-	cat(paste0('Number of markets at this point of data preparation: ', nrow(tmp),'\n'))
-	cat(paste0('Number of selected markets (category-country combinations): ', nrow(tmp[selected_market==T]),'\n'))
-	
-	cat(paste0('Number of total market-brands: ', sum(tmp[selected_market==T]$n_brands_total),'\n'))
-	cat(paste0('Number of selected market-brands (excluding composite brands): ', sum(tmp[selected_market==T]$n_brands_selected),'\n'))
-	cat(paste0('Number of selected unique brands (excluding composite brands): ', length(unique(tmp_brands_select[n_brands_selected>1&selected_brand==T&!grepl('ALLOTHERS',brand_rename)]$brand)),'\n'))
-	
-	cat('\n')
-	
-	cat(paste0('Market share coverage for included brands in selected markets (1 = 100%):\n'))
-	print(summary(tmp[selected_market==T]$marketshare_covered_by_selection))
-	cat('\n')
-	
-	cat(paste0('Market share coverage for included brands in selected markets (1 = 100%), including composite brands:\n'))
-	print(summary(tmp[selected_market==T]$marketshare_covered_by_selection_incl_composite))
-	cat('\n')
-	
-	cat(paste0('Distribution of number of selected brands across all categories:'))
-	print(table(tmp[selected_market==T]$n_brands_selected))
-	cat('\n')
-	
-	cat(paste0('Summary of number of selected brands across all categories:'))
-	print(summary(tmp[selected_market==T]$n_brands_selected))
-	cat('\n')
-	
-	cat('Excluded markets:\n')
-	for (i in 1:nrow(tmp[selected_market==F])) {
-		with(tmp[selected_market==F][i,], cat(paste0(category, ' - ', country, '\n')))
-		}
-
-	setorder(tmp, marketshare_covered_by_selection)
-	cat(paste0('\nAll included markets (', nrow(tmp[selected_market==T]),'):\n'))
-	print(data.frame(tmp[selected_market==T]))
-
-	cat(paste0('\nMarkets for which composite brand is excluded (', nrow(tmp[composite_included==F&selected_market==T]),'):\n'))
-	print(data.frame(tmp[composite_included==F&selected_market==T]))
-	
-	cat(paste0('\nAll excluded markets (', nrow(tmp[selected_market==F]),'):\n'))
-	print(data.frame(tmp[selected_market==F]))
-	
+	  sink()
 	}
-
-	sink()
-
-
-#############################################################################################
-# Plot market cutoffs (i.e., which periods are selected, compared to overall category sales #
-#############################################################################################
-	
-if(0){	
-	# overview
-	tmp=tmp_sales[, list(N=.N, N_sel=length(which(selected==T))),by=c('category', 'country')]
-	
-	
-	bymarket <- split(tmp_sales, paste(tmp_sales$category,tmp_sales$country,sep='_'))
-	
-	fpath = '../audit/markets_cutoff/'
-	dir.create(fpath)
-	unlink(paste0(fpath,'*.png'))
-
-	for (i in 1:length(bymarket)) {
-		x=bymarket[[i]]
-		plotname =  paste(unique(x$category), unique(x$country),sep=' - ')
-		anydiff = any(x$n_diff)
-		if (anydiff==T) fn=paste('cutoff_',plotname,'.png',sep='')
-		if (anydiff==F) fn=paste('nocutoff', plotname,'.png',sep='')
-		
-		png(paste(fpath,fn,sep=''), res=150, units='in', height=8, width=16)
-
-		with(x, plot(date, total_sales,type='l', main = plotname))
-		abline(v=x$date[which(x$first==T)],col='red')
-		abline(v=x$date[which(x$last==T)],col='red')
-		dev.off()
-		}
-
-}	
-
