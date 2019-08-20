@@ -28,28 +28,18 @@ library(parallel)
 dir.create('../output')
 
 ## Load panel data
-	brand_panel=fread('../temp/preclean.csv')
+	brand_panel=fread('../temp/preclean_main.csv')
 	brand_panel[, ':=' (date = as.Date(date))]
 
-	# preprocess brand_panel attr
-	for (var in grep('^attr', colnames(brand_panel),value=T)) {
-	if (min(brand_panel[, var,with=F],na.rm=T)==0&max(brand_panel[, var,with=F],na.rm=T)<=1) {
-	  brand_panel[, (paste0(var)):=get(var)*100+1]
-	}  
-	}
-	
-	# preprocess brand_panel attr
-	for (var in grep('^attr', colnames(brand_panel),value=T)) {
-	  if (min(brand_panel[, var,with=F],na.rm=T)==0&max(brand_panel[, var,with=F],na.rm=T)>1) {
-	    brand_panel[, (paste0(var)):=get(var)+1]
-	  }  
-	}
-	
+	brand_panel_robust=fread('../temp/preclean_8years.csv')
+	brand_panel_robust[, ':=' (date = as.Date(date))]
 	
 ## Obs per market
 	tmp=brand_panel[, list(obs=length(unique(date[!is.na(nov12)]))),by=c('market_id','category','country')]
 	setorder(tmp, obs)
 
+#	analysis_manyobs = tmp[obs>=96]$market_id
+	
 ## How many brands are active in multiple countries
 	tmp = brand_panel[, list(N=.N), by = c('brand', 'country')]
 	tmp[, Ncountries := .N, by = c('brand')]
@@ -125,6 +115,17 @@ dir.create('../output')
 	m2$setup_x=c("rwpspr", "wpswdst", "llen", "lagrwpspr", "lagwpswdst", "lagllen")
 	m2$carryover_zero=T
 
+if (run_cluster==T) {
+  cl<-makePSOCKcluster(ncpu)
+  clusterExport(cl,c('brand_panel', 'init'))
+  void<-clusterEvalQ(cl, require(data.table))
+  
+  # run estimation for brand-level attraction models
+  void<-clusterEvalQ(cl, init())
+  init()
+  
+}
+
 ####################
 ### RUN ANALYSIS ###
 ####################
@@ -166,15 +167,6 @@ if(run_manual==T) {
 
 if(run_cluster==T) {
 	
-# set up cluster
-	cl<-makePSOCKcluster(ncpu)
-	clusterExport(cl,c('brand_panel', 'init'))
-	void<-clusterEvalQ(cl, require(data.table))
-	
-# run estimation for brand-level attraction models
-	void<-clusterEvalQ(cl, init())
-	init()
-	
 	######################################################
 	# Main model: with trend, without lagged Xs, nov12sh #
 	######################################################
@@ -204,6 +196,7 @@ if(run_cluster==T) {
 	
 	savemodels(fname)
 	assign_model(m1, del=TRUE)
+	
 
 	####################################################
 	# Robustness w/ first and last 70% of observations #
@@ -212,20 +205,12 @@ if(run_cluster==T) {
 	assign_model(m1)
 	clusterExport(cl,names(m1))
 	
-	tmp=brand_panel[selected_t_cat==T&selected_brand==T, list(usales=sum(usales,na.rm=T)),by=c('market_id','date')]
-	tmp[, percentile_obs:=(1:.N)/.N, by = c('market_id')]
-	
-	setkey(tmp, market_id, date)
-	setkey(brand_panel, market_id, date)
-	brand_panel[tmp, percentile_obs:=i.percentile_obs]
-	setorder(brand_panel, market_id, date)
-	
 	save_brandpanel = copy(brand_panel)
 	
-	brand_panel = save_brandpanel[percentile_obs<=.7]
+	brand_panel = brand_panel_robust[percentile_obs<=.6]
 	clusterExport(cl,c('brand_panel'))
 	
-	results_firstobs <- parLapplyLB(cl, analysis_markets, function(i) {
+	results_firstobs <- parLapplyLB(cl, unique(brand_panel$market_id), function(i) {
 	  for (carry in c(F, T)) {
 	    tmp=try(analyze_by_market(i, estmethod=estmethod, setup_y = setup_y, setup_x = setup_x, 
 	                              setup_endogenous = setup_endogenous, trend = trend, pval = pval, 
@@ -234,7 +219,7 @@ if(run_cluster==T) {
 	                              takediff=takediff, lag_heterog=lag_heterog,carryover_zero=carry,
 	                              use_attributes=use_attributes), silent=T)
 	    
-	    if (!class(tmp)=='try-error') {
+	    if (!class(tmp)=='try-error') if (is.null(tmp$error)) {
 	      coef=data.table(tmp$model@coefficients)[grepl('lagunitsales', variable)]$coef
 	      if (length(coef)==0) break
 	      if (coef<0) print('carryover prob') else break
@@ -245,10 +230,10 @@ if(run_cluster==T) {
 	
 	savemodels(fname)
 	
-	brand_panel = save_brandpanel[percentile_obs>=.3]
+	brand_panel = brand_panel_robust[percentile_obs>=.4]
 	clusterExport(cl,c('brand_panel'))
 	
-	results_lastobs <- parLapplyLB(cl, analysis_markets, function(i) {
+	results_lastobs <- parLapplyLB(cl, unique(brand_panel$market_id), function(i) {
 	  for (carry in c(F, T)) {
 	    tmp=try(analyze_by_market(i, estmethod=estmethod, setup_y = setup_y, setup_x = setup_x, 
 	                              setup_endogenous = setup_endogenous, trend = trend, pval = pval, 
@@ -257,57 +242,7 @@ if(run_cluster==T) {
 	                              takediff=takediff, lag_heterog=lag_heterog,carryover_zero=carry,
 	                              use_attributes=use_attributes), silent=T)
 	    
-	    if (!class(tmp)=='try-error') {
-	      coef=data.table(tmp$model@coefficients)[grepl('lagunitsales', variable)]$coef
-	      if (length(coef)==0) break
-	      if (coef<0) print('carryover prob') else break
-	    } else break
-	  }
-	  return(tmp)
-	})
-	
-	savemodels(fname)
-	
-	####################################################
-	# Robustness w/ first and last 50% of observations #
-	####################################################
-
-	brand_panel = save_brandpanel[percentile_obs<=.5]
-	clusterExport(cl,c('brand_panel'))
-	
-	results_firstobs50 <- parLapplyLB(cl, analysis_markets, function(i) {
-	  for (carry in c(F, T)) {
-	    tmp=try(analyze_by_market(i, estmethod=estmethod, setup_y = setup_y, setup_x = setup_x, 
-	                              setup_endogenous = setup_endogenous, trend = trend, pval = pval, 
-	                              max.lag = max.lag, min.t = min.t, maxiter = maxiter, 
-	                              use_quarters=use_quarters, plusx=plusx, attraction_model=attraction_model, 
-	                              takediff=takediff, lag_heterog=lag_heterog,carryover_zero=carry,
-	                              use_attributes=use_attributes), silent=T)
-	    
-	    if (!class(tmp)=='try-error') {
-	      coef=data.table(tmp$model@coefficients)[grepl('lagunitsales', variable)]$coef
-	      if (length(coef)==0) break
-	      if (coef<0) print('carryover prob') else break
-	    } else break
-	  }
-	  return(tmp)
-	})
-	
-	savemodels(fname)
-	
-	brand_panel = save_brandpanel[percentile_obs>.5]
-	clusterExport(cl,c('brand_panel'))
-	
-	results_lastobs50 <- parLapplyLB(cl, analysis_markets, function(i) {
-	  for (carry in c(F, T)) {
-	    tmp=try(analyze_by_market(i, estmethod=estmethod, setup_y = setup_y, setup_x = setup_x, 
-	                              setup_endogenous = setup_endogenous, trend = trend, pval = pval, 
-	                              max.lag = max.lag, min.t = min.t, maxiter = maxiter, 
-	                              use_quarters=use_quarters, plusx=plusx, attraction_model=attraction_model, 
-	                              takediff=takediff, lag_heterog=lag_heterog,carryover_zero=carry,
-	                              use_attributes=use_attributes), silent=T)
-	    
-	    if (!class(tmp)=='try-error') {
+	    if (!class(tmp)=='try-error') if (is.null(tmp$error)) {
 	      coef=data.table(tmp$model@coefficients)[grepl('lagunitsales', variable)]$coef
 	      if (length(coef)==0) break
 	      if (coef<0) print('carryover prob') else break
@@ -322,12 +257,14 @@ if(run_cluster==T) {
 	
 	assign_model(m1, del=TRUE)
 	
+	
 	######################################
 	# Robustness w/ advertising spending #
 	######################################
 	
 	assign_model(m1_adv)
 	clusterExport(cl,names(m1_adv))
+	clusterExport(cl,c('brand_panel'))
 	
 	china_hk_selection = brand_panel[country%in%c('china','hong kong')&
 	                                 any(!is.na(adv))&date<ifelse(country=='china', '2012-09-01', '2014-12-01'), 
@@ -345,7 +282,7 @@ if(run_cluster==T) {
 	                              takediff=takediff, lag_heterog=lag_heterog,carryover_zero=carry,
 	                              use_attributes=use_attributes), silent=T)
 	    
-	    if (!class(tmp)=='try-error') {
+	    if (!class(tmp)=='try-error') if (is.null(tmp$error)) {
 	      coef=data.table(tmp$model@coefficients)[grepl('lagunitsales', variable)]$coef
 	      if (length(coef)==0) break
 	      if (coef<0) print('carryover prob') else break
@@ -386,9 +323,9 @@ if(run_cluster==T) {
 	assign_model(m2, del=TRUE)
 	
 	
-	#####################################################
-	# Robustness: with lagged marketshare heterogenous  #
-	#####################################################
+	############################
+	# Robustness: with novelty #
+	############################
 	
 	assign_model(m1_nov)
 	clusterExport(cl,names(m1_nov))
@@ -406,6 +343,5 @@ if(run_cluster==T) {
 	savemodels(fname)
 	assign_model(m1_nov, del=TRUE)
 	
-
 	
 }

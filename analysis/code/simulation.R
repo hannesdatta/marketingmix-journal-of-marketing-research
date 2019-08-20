@@ -1,4 +1,6 @@
 
+#if (1==1) quit()
+
 ####################
 ##### SIMULATION ###
 ####################
@@ -12,7 +14,7 @@
 	# define model
   results_brands <- results_main
   
-  brand_panel=fread('../temp/preclean.csv')
+  brand_panel=fread('../temp/preclean_main.csv')
   brand_panel[, ':=' (date = as.Date(date))]
   
   

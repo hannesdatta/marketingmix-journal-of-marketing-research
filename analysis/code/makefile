@@ -19,11 +19,11 @@ markdown: $(OUTPUT_DIR)/model_results.html
 ###### Build parts ######
 
 # Pre-clean the data
-$(TEMP_DIR)/preclean.csv: preclean.R ../../derived/output/datasets.csv
+$(TEMP_DIR)/preclean.txt: preclean.R ../../derived/output/datasets.txt
 	"$(RBIN64)Rterm.exe" --vanilla --args "" < "preclean.R"
 
 # Run the model
-$(OUTPUT_DIR)/results.RData: analysis.R $(TEMP_DIR)/preclean.csv preclean.R proc_analysis.R
+$(OUTPUT_DIR)/results.RData: analysis.R $(TEMP_DIR)/preclean.txt preclean.R proc_analysis.R
 	"$(RBIN64)Rterm.exe" --vanilla --args "" < "analysis.R"
 
 # Run the simulation

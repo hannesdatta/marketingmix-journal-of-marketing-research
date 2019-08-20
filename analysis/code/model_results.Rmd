@@ -50,7 +50,7 @@ load(file = c('../output/results.RData'))
 	
 	
 	## Load panel data
-	brand_panel=fread('../temp/preclean.csv')
+	brand_panel=fread('../temp/preclean_main.csv')
 	brand_panel[, ':=' (date = as.Date(date))]
 
 	if(0){

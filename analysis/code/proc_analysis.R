@@ -81,9 +81,9 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 		
 		# Return error if data has less than min.t observations
 		if (length(unique(panel$date))<min.t) {
-			#res$error <- c(res$error, 'minimum_n')
-			stop('minimum number of observations not available')
-			#return(res)
+			res$error <- c(res$error, 'minimum_n')
+			#stop('minimum number of observations not available')
+			return(res)
 			}
 		
 		res$specs = data.frame(category=unique(panel$category),

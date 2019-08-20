@@ -17,7 +17,7 @@ load(file = c('../output/results.RData'))
 unlink('../output/*.csv')
 
 # load panel data
-brand_panel=fread('../temp/preclean.csv')
+brand_panel=fread('../temp/preclean_main.csv')
 brand_panel[, ':=' (date = as.Date(date))]
 
 # Load brand-country classifications

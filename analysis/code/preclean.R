@@ -22,8 +22,11 @@
 ### LOAD DATA SETS
 require(data.table)
 
+ds <- list.files('../../derived/output/', pattern='csv')
+
 ### Stack data in data.table
-	brand_panel=fread('../../derived/output/datasets.csv')
+for (fn in ds) {
+	brand_panel=fread(paste0('../../derived/output/', fn))
 	brand_panel[, ':=' (date = as.Date(date))]
 	brand_panel[, quarter := quarter(date)]
 	
@@ -120,7 +123,32 @@ require(data.table)
 	brand_panel[, share_obs:=(N-min(N)+1) / (max(N)-min(N)+1), by = c('market_id')]
 	brand_panel[, N:=NULL]
 	
+	# preprocess brand_panel attr
+	for (var in grep('^attr', colnames(brand_panel),value=T)) {
+	  if (min(brand_panel[, var,with=F],na.rm=T)==0&max(brand_panel[, var,with=F],na.rm=T)<=1) {
+	    brand_panel[, (paste0(var)):=get(var)*100+1]
+	  }  
+	}
+	
+	# preprocess brand_panel attr
+	for (var in grep('^attr', colnames(brand_panel),value=T)) {
+	  if (min(brand_panel[, var,with=F],na.rm=T)==0&max(brand_panel[, var,with=F],na.rm=T)>1) {
+	    brand_panel[, (paste0(var)):=get(var)+1]
+	  }  
+	}
+	
+	tmp=brand_panel[selected_t_cat==T&selected_brand==T, list(usales=sum(usales,na.rm=T)),by=c('market_id','date')]
+	tmp[, percentile_obs:=(1:.N)/.N, by = c('market_id')]
+	
+	setkey(tmp, market_id, date)
+	setkey(brand_panel, market_id, date)
+	brand_panel[tmp, percentile_obs:=i.percentile_obs]
+	setorder(brand_panel, market_id, brand, date)
+	
 	# Save file
 	dir.create('../temp')
-	fwrite(brand_panel, '../temp/preclean.csv')
-	
+	fwrite(brand_panel, paste0('../temp/', gsub('datasets', 'preclean', fn)))
+}
+sink('../temp/preclean.txt')
+cat('done\n')
+sink()
