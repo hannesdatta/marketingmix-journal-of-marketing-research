@@ -16,7 +16,7 @@ options(xtable.comment = FALSE)
 options(knitr.kable.NA = '')
 
 # Load data
-  brand_panel=fread('../../analysis/temp/preclean.csv')
+  brand_panel=fread('../../analysis/temp/preclean_main.csv')
   brand_panel[, ':=' (date = as.Date(date))]
   
 # Load auxilary functions
@@ -32,11 +32,11 @@ options(knitr.kable.NA = '')
   source('preclean.R')
   elast_nov <- copy(elast)
 
-  elast <- fread('../externals/elast_results_firstobs60.csv') 
+  elast <- fread('../externals/elast_results_firstobs.csv') 
   source('preclean.R')
   elast_firstobs <- copy(elast)
   
-  elast <- fread('../externals/elast_results_lastobs60.csv') 
+  elast <- fread('../externals/elast_results_lastobs.csv') 
   source('preclean.R')
   elast_lastobs <- copy(elast)
     
@@ -248,10 +248,13 @@ for (iter in iters) {
 ```{r elast_by_cc, echo=F,results='asis', include=TRUE}
 
 for (byvar in c('country')) {
-  tmp=elast[!is.na(elastlt), list(elast = sum(elastlt*w_elastlt)/sum(w_elastlt)), by=c('variable', byvar)]
+  tmp=elast[!is.na(elastlt), list(elast = sum(elastlt*w_elastlt)/sum(w_elastlt),
+                                  sig = signstars(sum(elastlt/elastlt_se,na.rm=T)/sqrt(.N))), by=c('variable', byvar)]
+  tmp[, lbl := paste0(sprintf("%.3f",elast), ' ', sig)]
+  											
   setnames(tmp, byvar, 'byvar')
   
-  tmp=dcast(tmp,byvar~variable,value.var='elast')
+  tmp=dcast(tmp,byvar~variable,value.var='lbl')
   setnames(tmp, 'byvar', byvar)
   setcolorder(tmp, c(byvar, ordered_vars))
   
@@ -621,10 +624,14 @@ kable(tmp2, format='html', caption=tab('Correlation among long-term marketing-mi
 ```{r elast_by_cc2, echo=F,results='asis', include=TRUE}
 
 for (byvar in c('category')) {
-  tmp=elast[!is.na(elastlt), list(elast = sum(elastlt*w_elastlt)/sum(w_elastlt)), by=c('variable', byvar)]
+  tmp=elast[!is.na(elastlt), list(elast = sum(elastlt*w_elastlt)/sum(w_elastlt),
+                                  sig = signstars(sum(elastlt/elastlt_se,na.rm=T)/sqrt(.N))), by=c('variable', byvar)]
+  tmp[, lbl := paste0(sprintf("%.3f",elast), ' ', sig)]
+  											
   setnames(tmp, byvar, 'byvar')
   
-  tmp=dcast(tmp,byvar~variable,value.var='elast')
+  tmp=dcast(tmp,byvar~variable,value.var='lbl')
+  
   setnames(tmp, 'byvar', byvar)
   setcolorder(tmp, c(byvar, ordered_vars))
   
@@ -917,8 +924,9 @@ res = NULL
   
   #print(summary(lm(elastlt~1+emerging+emerging_last+developed_last, data=elast_time[variable==.var], weight=1/elastlt_se)))
   }
-}
-suppressWarnings(res=data.frame(res))
+  }
+
+suppressWarnings({res=data.frame(res)})
 
 for (i in seq(from=3, to=ncol(res))) res[,i]<-as.numeric(as.character(res[,i]))
 
