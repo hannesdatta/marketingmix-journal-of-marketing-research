@@ -165,6 +165,7 @@ zval=1.64
 	carryover[tmp, coef:=i.coef]
 	carryover[is.na(coef), coef:=0]
 	
+	
   benchmark_brands <- rbindlist(lapply(results_brands[!checks=='try-error'], function(x) data.table(market_id=unique(x$specs$market_id), benchmarkbrand = x$benchmark_brand)))
 	
 ```
@@ -172,6 +173,15 @@ zval=1.64
 # Carry-over coefficients
 ```{r carryover, echo = FALSE, results='asis'}
 kable(data.table(t(summary(carryover$coef)))[, ':=' (V1=NULL, value=N, N=NULL)], caption = "Distribution of carry-over coefficients",col.names = NA)
+hist(carryover$coef, main = 'Distribution of carry-over coefficients')
+```	
+	
+# Carry-over coefficients
+```{r carryover2, echo = FALSE, results='asis'}
+mids = unique(carryover[coef==0]$market_id)
+kable(unique(brand_panel[market_id%in%mids, c('market_id','category','country'),with=F], by=c('market_id')))
+kable(data.table(t(summary(carryover[coef>0]$coef)))[, ':=' (V1=NULL, value=N, N=NULL)], caption = "Distribution of carry-over coefficients conditional on not zero",col.names = NA)
+
 hist(carryover$coef, main = 'Distribution of carry-over coefficients')
 ```	
 	
