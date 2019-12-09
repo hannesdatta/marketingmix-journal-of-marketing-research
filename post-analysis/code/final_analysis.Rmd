@@ -429,41 +429,59 @@ printout(out1, 'lt', title = tab(paste0('Regression with long-term elasticities'
 
 ```{r plot_be_interaction, fig.width=16,fig.height=6,echo=F}
 
-em_levels = c('Emerging Market (EM)','Developed Market (DM)')
-elast[, ':=' (l_emerging=factor(ifelse(emerging==1,em_levels[1],em_levels[2]), levels=em_levels),
-             l_brandequity=factor(as.character(ifelse(sbbe_std_mc>median(sbbe_std_mc,na.rm=T), 'strong brand','weak brand')), levels=c('weak brand','strong brand'))),by=c('variable','category','country','market_id')]
-
-
-sims = elast[, list(est=sum(elastlt*w_elast)/sum(w_elast)), by = c('variable', 'l_brandequity', 'l_emerging')]
-sims[, lbl:=formatC(round(est,2), format='f',digits=2)]
-lbl=c('2a)', '2b)', '2c)')
-cnt=1
-out <- lapply(ordered_vars, function(mod) {
-  simtmp=sims[variable==mod]
+for (lev in c(.5,.25,.1)) {
+ em_levels = c('Emerging Market (EM)','Developed Market (DM)')
+ elast[, ':=' (l_emerging=factor(ifelse(emerging==1,em_levels[1],em_levels[2]), levels=em_levels))]
   
-  p<-ggplot(simtmp, aes(x=l_brandequity,y=est, fill = l_emerging)) + theme_tufte() +geom_bar(stat="identity", position = 'dodge', width= .5) + geom_text(aes(label=lbl),vjust=ifelse(mod=='rwpspr', 1.2,-.4), hjust=.5,size=2.2,position = position_dodge(0.5)) + ggtitle(paste0(lbl[cnt], ' ', gsub('Line length', 'Line-length', rename.fkt(mod)), ' elasticity')) + xlab('Brand equity') + ylab('Mean elasticity') + labs(fill="Country\'s degree of development  ") + scale_fill_grey(start = 0, end = .9)+
-  theme(plot.title = element_text(hjust = 0.5))#+
- # theme(plot.margin=unit(c(.6,.5,.6,.5),"cm"))
-  png(paste0('../output/elasticity_plots_', mod,'.png'), res=200, units='in', height=2.5, width=4)
+ elast[, l_brandequity:=NULL]
+ elast[, l_brandequity:='NA']
+ elast[sbbe_std_mc<=quantile(sbbe_std_mc,probs=lev,na.rm=T), l_brandequity:='weak brand', by = c('variable','category','country','market_id')]
+ elast[sbbe_std_mc>quantile(sbbe_std_mc,probs=lev,na.rm=T), l_brandequity:='strong brand', by = c('variable','category','country','market_id')]
+ elast[l_brandequity=='NA', l_brandequity:=NA]
+ elast[, l_brandequity:=factor(l_brandequity, levels=c('weak brand','strong brand'))]
 
-  p2<-ggplot(simtmp, aes(x=l_brandequity,y=est, fill = l_emerging)) + theme_tufte() +geom_bar(stat="identity", position = 'dodge', width= .5) + geom_text(aes(label=lbl),vjust=ifelse(mod=='rwpspr', 1.2,-.4), hjust=.5,size=2.2,position = position_dodge(0.5)) + xlab('Brand equity') + ylab('Mean elasticity') + scale_fill_grey(start = 0, end = .9)+ theme(legend.position = "none")
-  print(p2)  
+ if(lev==999) {
+ elast[, ':=' (l_brandequity2=factor(as.character(ifelse(sbbe_std_mc>median(sbbe_std_mc,na.rm=T), 'strong brand','weak brand')), levels=c('weak brand','strong brand'))),by=c('variable','category','country','market_id')]
+ }
+
+ sims = elast[!is.na(l_brandequity), list(est=sum(elastlt*w_elast)/sum(w_elast)), by = c('variable', 'l_brandequity', 'l_emerging')]
+ 
+  sims[, lbl:=formatC(round(est,2), format='f',digits=2)]
+  
+  lbl=c('2a)', '2b)', '2c)')
+  cnt=1
+  out <- lapply(ordered_vars, function(mod) {
+    simtmp=sims[variable==mod]
+    
+    p<-ggplot(simtmp, aes(x=l_brandequity,y=est, fill = l_emerging)) + theme_tufte() +geom_bar(stat="identity", position = 'dodge', width= .5) + geom_text(aes(label=lbl),vjust=ifelse(mod=='rwpspr', 1.2,-.4), hjust=.5,size=2.2,position = position_dodge(0.5)) + ggtitle(paste0(lbl[cnt], ' ', gsub('Line length', 'Line-length', rename.fkt(mod)), ' elasticity')) + xlab('Brand Equity') + ylab('Mean elasticity') + labs(fill="Country\'s degree of development  ") + scale_fill_grey(start = 0, end = .9)+
+    theme(plot.title = element_text(hjust = 0.5))#+
+   # theme(plot.margin=unit(c(.6,.5,.6,.5),"cm"))
+    png(paste0('../output/elasticity_plots_', gsub('[.]','',as.character(lev)), '_', mod,'.png'), res=200, units='in', height=2.5, width=4)
+  
+    p2<-ggplot(simtmp, aes(x=l_brandequity,y=est, fill = l_emerging)) + theme_tufte() +geom_bar(stat="identity", position = 'dodge', width= .5) + geom_text(aes(label=lbl),vjust=ifelse(mod=='rwpspr', 1.2,-.4), hjust=.5,size=2.2,position = position_dodge(0.5)) + xlab('Brand Equity') + ylab('Mean elasticity') + scale_fill_grey(start = 0, end = .9)+ theme(legend.position = "none")
+    print(p2)  
+    dev.off()
+  
+    cnt<<-cnt+1
+      return(p)
+  
+  })
+  
+  if (lev==.5) annot = 'Note: Plots show estimated long-term marketing-mix elasticities (weighted by inverse standard errors), based on a country\'s degree of development (DM versus EM), and a median split (by category) on brand equity.'
+  if (lev==.25) annot = 'Note: Plots show estimated long-term marketing-mix elasticities (weighted by inverse standard errors), based on a country\'s degree of development (DM versus EM), for brands below the 25th percentile (weak brands) and above the 75th percentile (strong brands) of brand equity by category.'
+  if (lev==.1) annot = 'Note: Plots show estimated long-term marketing-mix elasticities (weighted by inverse standard errors), based on a country\'s degree of development (DM versus EM), for brands below the 10th percentile (weak brands) and above the 90th percentile (strong brands) of brand equity by category.'
+
+  
+    p <- ggarrange(plotlist=out, nrow=ifelse(length(ordered_vars)==3,3,2), ncol=ifelse(length(ordered_vars)==3,1,2), common.legend=TRUE, legend='bottom')
+  full_plot = annotate_figure(p, top=fig('Elasticity plots'), bottom = text_grob(annot, size= 8, just='left', x = 0))
+  full_plot
+  
+  png(paste0('../output/elasticity_plots_', gsub('[.]','',as.character(lev)), '.png'), res=200, units='in', height=8, width=6)
+  print(full_plot)
   dev.off()
 
-  cnt<<-cnt+1
-    return(p)
 
-})
-
-p <- ggarrange(plotlist=out, nrow=ifelse(length(ordered_vars)==3,3,2), ncol=ifelse(length(ordered_vars)==3,1,2), common.legend=TRUE, legend='bottom')
-full_plot = annotate_figure(p, top=fig('Elasticity plots'), bottom = text_grob('Note: Plots show estimated long-term marketing-mix elasticities (weighted by inverse standard errors), based on a country\'s degree of development (DM versus EM), and a median split (by category) on brand equity.', size= 8, just='left', x = 0))
-full_plot
-
-png('../output/elasticity_plots.png', res=200, units='in', height=8, width=6)
-print(p)
-dev.off()
-
-
+}
 
 ```
 
@@ -940,9 +958,9 @@ suppressWarnings({res=data.frame(res)})
 for (i in seq(from=3, to=ncol(res))) res[,i]<-as.numeric(as.character(res[,i]))
 
 colnames(res)<-c('variable','country_class','nobs','Mean','Mean','difference_abs','tval','pval')
+rownames(res)=NULL
 
 print(kable(sanitize_table(res), digits=3, format='html', format.args = list(big.mark = ","),     caption=tab(paste0('Time trends in marketing-mix elasticities across emerging and developed markets^1^'),prefix='A')) %>% kable_styling() %>% add_header_above(c(" " = 3, "First 60% of observations" = 1, "Last 60% of observations" = 1, 'Tests on differences' =3)))
-#}
 
 ```
 
