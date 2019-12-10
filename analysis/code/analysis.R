@@ -22,7 +22,7 @@
 
 ### LOAD DATA SETS
 library(data.table)
-require(bit64)
+library(bit64)
 library(parallel)
 
 dir.create('../output')
@@ -118,7 +118,7 @@ dir.create('../output')
 if (run_cluster==T) {
   cl<-makePSOCKcluster(ncpu)
   clusterExport(cl,c('brand_panel', 'init'))
-  void<-clusterEvalQ(cl, require(data.table))
+  void<-clusterEvalQ(cl, library(data.table))
   
   # run estimation for brand-level attraction models
   void<-clusterEvalQ(cl, init())

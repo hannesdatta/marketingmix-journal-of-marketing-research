@@ -20,7 +20,7 @@
 # Purpose: Preclean data
 
 ### LOAD DATA SETS
-require(data.table)
+library(data.table)
 
 ds <- list.files('../../derived/output/', pattern='csv')
 

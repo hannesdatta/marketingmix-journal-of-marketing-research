@@ -45,7 +45,7 @@ rsq <- function(m) {
 #~1+I(country_class=='linc')
 #m<-lmer(elast ~ 1 + ln_gdppercap2010_mc + (1 | category) + (1 | country) + (1|brand) + necessity, data = data.table(dat[variable=='llen'&!is.na(elast)]), weights=1/elast_se)
 
-#require(blme)
+#library(blme)
 #m<-blmer(elast ~ 1 + ln_gdppercap2010_mc + (1 | category) + necessity, data = data.table(dat[variable=='llen'&!is.na(elast)]), weights=1/elast_se)
 #stargazer(m, type='text')
 

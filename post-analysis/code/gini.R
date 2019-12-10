@@ -1,6 +1,6 @@
 # load gini income inequality
 library(data.table)
-require(xlsx)
+library(xlsx)
 
 tmp <- read.xlsx('../../../../Data/other/gini/gini_final.xlsx',1, stringsAsFactors=F)
 gini <- tmp[,c('country', 'value')]

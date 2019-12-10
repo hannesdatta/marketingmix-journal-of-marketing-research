@@ -8,11 +8,11 @@ date: "`r format(Sys.time(), '%d %B %Y')`"
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 
-require(data.table)
-require(stargazer)
+library(data.table)
+library(stargazer)
 library(knitr)
-require(xtable)
-require(texreg)
+library(xtable)
+library(texreg)
 library(sjstats)
 library(metap)
 

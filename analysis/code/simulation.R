@@ -6,8 +6,8 @@
 ####################
 
   # Setup
-  require(data.table)
-  require(marketingtools)
+  library(data.table)
+  library(marketingtools)
 
 	load(file='..\\output\\results.RData')
 	
@@ -98,8 +98,8 @@
     cl<-makePSOCKcluster(11)
     
     void<-clusterEvalQ(cl, source("proc_simulate.R"))
-    void<-clusterEvalQ(cl, require(data.table))
-    void<-clusterEvalQ(cl, require(marketingtools))
+    void<-clusterEvalQ(cl, library(data.table))
+    void<-clusterEvalQ(cl, library(marketingtools))
     
     clusterExport(cl, 'results_brands')
     

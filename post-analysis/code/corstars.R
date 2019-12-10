@@ -10,7 +10,7 @@ corstars <-function(x, method=c("pearson", "spearman"), removeTriangle=c("upper"
                      result=c("none", "html", "latex"), ndec = 2){
 
     #Compute correlation matrix
-    require(Hmisc)
+    library(Hmisc)
     x <- as.matrix(x)
     correlation_matrix<-rcorr(x, type=method[1])
     R <- correlation_matrix$r # Matrix of correlation coeficients

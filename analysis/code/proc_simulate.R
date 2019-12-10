@@ -23,8 +23,8 @@
 # SIMULATING MARKTE SHARES FROM MCI ATTRACTION MODEL #
 ######################################################
 	
-	require(MASS)
-	require(lattice)
+	library(MASS)
+	library(lattice)
 	
 	
 	#res = results_brands[[1]]
@@ -219,7 +219,7 @@
 	
 	}
 	
-	require(compiler)
+	library(compiler)
 	
 	simulate <- cmpfun(simulate)
 	
