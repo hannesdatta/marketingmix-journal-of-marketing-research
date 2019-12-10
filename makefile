@@ -2,8 +2,6 @@
 # by Hannes Datta
 # requires GNU Make
 
-include C:/make_research
-
 ###### BUILD COMMANDS ######
 
 # full build
@@ -15,8 +13,8 @@ derived:
 	$(MAKE) -C derived/code
 
 analysis: derived
-	$(MAKE) -C analysis\code
+	$(MAKE) -C analysis/code
 
 postanalysis: analysis
-	$(MAKE) -C post-analysis\code
+	$(MAKE) -C post-analysis/code
 

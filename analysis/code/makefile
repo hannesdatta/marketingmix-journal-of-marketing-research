@@ -2,8 +2,6 @@
 # by Hannes Datta
 # requires GNU Make
 
-include C:/make_research
-
 TEMP_DIR = ../temp
 OUTPUT_DIR = ../output
 
@@ -20,23 +18,23 @@ markdown: $(OUTPUT_DIR)/model_results.html
 
 # Pre-clean the data
 $(TEMP_DIR)/preclean.txt: preclean.R ../../derived/output/datasets.txt
-	"$(RBIN64)Rterm.exe" --vanilla --args "" < "preclean.R"
+	R --vanilla --args "" < "preclean.R"
 
 # Run the model
 $(OUTPUT_DIR)/results.RData: analysis.R $(TEMP_DIR)/preclean.txt preclean.R proc_analysis.R
-	"$(RBIN64)Rterm.exe" --vanilla --args "" < "analysis.R"
+	R --vanilla --args "" < "analysis.R"
 
 # Run the simulation
 $(OUTPUT_DIR)/simulation.RData: simulation.R $(OUTPUT_DIR)/results.RData proc_simulate.R
-	"$(RBIN64)Rterm.exe" --vanilla --args "" < "simulation.R"
+	R --vanilla --args "" < "simulation.R"
 
 # Produce overall statistics on estimated models (e.g., elasticities, carry-over parameters, sign. of copula terms)
 $(OUTPUT_DIR)/elasticities.txt: extract_elast.R $(OUTPUT_DIR)/results.RData sbbe.R
-	"$(RBIN64)Rterm.exe" --vanilla --args "" < "extract_elast.R"
+	R --vanilla --args "" < "extract_elast.R"
 
 # Augment main results with simulations
 $(OUTPUT_DIR)/simulation.txt: extract_sim_elast.R $(OUTPUT_DIR)/results.RData
-	"$(RBIN64)Rterm.exe" --vanilla --args "" < "extract_sim_elast.R"
+	R --vanilla --args "" < "extract_sim_elast.R"
 
 $(OUTPUT_DIR)/model_results.html: $(OUTPUT_DIR)/results.RData model_results.Rmd
-	"$(RBIN64)Rscript.exe" -e "rmarkdown::render('model_results.Rmd', output_file = '../output/model_results.html')"
+	R -e "rmarkdown::render('model_results.Rmd', output_file = '../output/model_results.html')"
