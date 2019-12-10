@@ -1,9 +1,9 @@
 # Perform audit on all files and produce plots
 
 # Preamble
-	require(data.table)
-	require(lattice)
-	require(latticeExtra)
+	library(data.table)
+	library(lattice)
+	library(latticeExtra)
 	load(file='..\\temp\\categorized.RData')
 
 

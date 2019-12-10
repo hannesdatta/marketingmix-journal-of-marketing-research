@@ -24,8 +24,8 @@
 
 ########################################################################################################
 
-require(data.table)
-require(bit64)
+library(data.table)
+library(bit64)
 
 ####################################
 # SALES AND MARKETING INSTRUMENTS  #

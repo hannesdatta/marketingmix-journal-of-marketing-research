@@ -18,8 +18,8 @@
 # | |_______________| ||___|| 
 # |___________________|_____|
 
-require(data.table)
-require(xlsx)
+library(data.table)
+library(xlsx)
 
 ############################################
 # CPI 							   	 	   #

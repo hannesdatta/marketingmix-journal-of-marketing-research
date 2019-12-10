@@ -1,6 +1,6 @@
 # Create attributes
 
-require(data.table)
+library(data.table)
 load('../temp/categorized.RData')
 
 # Do some final data cleaning/clarification, and perform a set of asserts

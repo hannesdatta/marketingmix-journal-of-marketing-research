@@ -15,7 +15,7 @@
 # (b) which brands will be included in each category
 
 # Load packages
-require(data.table)
+library(data.table)
 
 # Load data
 	load('..\\temp\\uniqueness_and_lagsales.RData')

@@ -13,7 +13,7 @@
 # - Determine beginning and end of observation periods per brand
 # - Aggregate small brands to a common "allothers" brand
 
-require(data.table)
+library(data.table)
 
 dir.create('../audit')
 sink('../audit/log.txt')

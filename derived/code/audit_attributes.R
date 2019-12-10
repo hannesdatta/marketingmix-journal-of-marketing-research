@@ -13,9 +13,9 @@
 #
 
 # Load data sets
-	require(data.table)
-	require(lattice)
-	require(latticeExtra)
+	library(data.table)
+	library(lattice)
+	library(latticeExtra)
 
 # Load externals
 	source('../external/proc_rename.R')

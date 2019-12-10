@@ -59,10 +59,10 @@ library(zoo)
 	  cat('.')
 	  # interpolate!!!
 	  given_ts = base::as.Date(apply(data.frame(year,month),1, function(x) {
-	    base::as.Date(paste0(x[1],'-',x[2],'-01'))
-	  }))
-	  complete_ts = seq(from=base::as.Date(paste0(year[1],'-',month[1],'-01')),
-	                    to=base::as.Date(paste0(rev(year)[1],'-',as.character(rev(as.numeric(month))[1]+2),'-01')), by=c('1 month'))
+	    base::as.Date(paste0(x[1],'-',x[2],'-01'), origin = '1970-01-01')
+	  }), origin = '1970-01-01')
+	  complete_ts = seq(from=base::as.Date(paste0(year[1],'-',month[1],'-01'), origin = '1970-01-01'),
+	                    to=base::as.Date(paste0(rev(year)[1],'-',as.character(rev(as.numeric(month))[1]+2),'-01'), origin = '1970-01-01'), by=c('1 month'))
 	  .seq = union(given_ts, complete_ts)
 	  .seq=.seq[order(.seq)]
 	  res = zoo(x=X[match(.seq, given_ts)], .seq)
@@ -76,7 +76,7 @@ library(zoo)
 	adv_data<-adv_data[!is.na(adspendrmb)&!is.na(country)]
 	adv_data[, GRP:=.GRP, by=c('fileid','country','advertisers')]
 	adv_china = adv_data[, list(date=make_series(adspendrmb,year,month)$date, adspent=make_series(adspendrmb,year,month)$X) , by=c('fileid','country','advertisers')]
-	adv_china[, date:=base::as.Date(date)]
+	adv_china[, date:=base::as.Date(date, origin = '1970-01-01')]
 	
 	setnames(adv_china, 'fileid', 'category')
 	setnames(adv_china, 'advertisers', 'brand')

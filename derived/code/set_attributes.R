@@ -1,4 +1,4 @@
-require(data.table)
+library(data.table)
 load('../temp/extract_attributes.RData')
 
 # summary stats function for exploration of data attributes
@@ -208,6 +208,8 @@ for (i in 1:length(attribs)) {
 	attribs[[i]][, attr_screensize_recode := as.factor('OTHERS')]
 	attribs[[i]][attr_screensize%in%c('14 INCH', '20 INCH', '21 INCH', '24 INCH'), attr_screensize_recode := '<=24 INCH']
 	attribs[[i]][attr_screensize%in%c('25 INCH', '28 INCH', '29 INCH','32-33 INCH', '+36 INCH'), attr_screensize_recode := '>=25 INCH']
+	attribs[[i]][, attr_screensize_recode := as.factor(as.character(attr_screensize_recode))]
+	
 	
 	attribs[[i]][, attr_screensize:=NULL]
    # attribs[[i]][, attr_builtindvd:=as.factor(ifelse(built_in_dvd=='DVD', 'YES','NO'))]
@@ -229,7 +231,8 @@ for (i in 1:length(attribs)) {
                                       '50 - 54 INCH', '55 - 59 INCH','+ 46 INCH', '60 - 69 INCH', '> = 70 INCH'), attr_screensize_recode := '>=40 INCH']
     attribs[[i]][attr_screensize%in%c('- 42 INCH'), attr_screensize_recode := 'OTHERS']
     attribs[[i]][is.na(attr_screensize_recode), attr_screensize_recode := attr_screensize]
-    
+    attribs[[i]][, attr_screensize_recode := as.factor(as.character(attr_screensize_recode))]
+	
     attribs[[i]][, attr_screensize := NULL]
 
         
@@ -255,7 +258,8 @@ for (i in 1:length(attribs)) {
   	attribs[[i]][attr_screensize%in%c('40 - 44 INCH', '45 - 49 INCH', '50 - 54 INCH', '55 - 59 INCH',
   	                                  '60 - 69 INCH', '> = 70 INCH'), attr_screensize_recode := '>=40 INCH']
   	attribs[[i]][is.na(attr_screensize_recode), attr_screensize_recode := attr_screensize]
-  	
+  	attribs[[i]][, attr_screensize_recode := as.factor(as.character(attr_screensize_recode))]
+	
   	attribs[[i]][, attr_screensize := NULL]
 	
     attribs[[i]][, attr_3d:=as.factor(ifelse(threedimensional=='3-D', 'YES','NO'))]

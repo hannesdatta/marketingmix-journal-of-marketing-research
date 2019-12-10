@@ -8,7 +8,7 @@
 #                                                                                        __/ |                                
 #                                                                                       |___/                                 
 
-require(data.table)
+library(data.table)
 load('../temp/unzipped.RData')
 
 ### STEP 1: Compute overlap per file and category; decide where to get the data from (2012, 2015, or both data dumps)
@@ -170,7 +170,7 @@ datlist_by_cat = lapply(datlist_by_cat, function(x) {
 #####################################################
 
 # plot overlap
-require(lattice)
+library(lattice)
 
 plotfkt<-function(dt) {
   tmp=dt[, list(sales=sum(SALES_UNITS)),by=c('COUNTRY','date','source')]
@@ -285,7 +285,7 @@ plotfkt<-function(dt) {
 	if(0){
 	tmp=datlist_final$tv_gen3_lcd_only[Brand=='PIONEER'&COUNTRY=='CHINA'&used==T, list(sum(SALES_UNITS,na.rm=T)),by=c('date')]
 	setorder(tmp,date)
-	require(lattice)
+	library(lattice)
 	xyplot(V1~date,data=tmp,type='l')
 	}
 	
@@ -297,7 +297,7 @@ plotfkt<-function(dt) {
 	if(0){
 	tmp=datlist_final$tv_gen2_ptv[Brand=='PIONEER'&COUNTRY=='CHINA'&source=='gfk2015', list(sum(SALES_UNITS,na.rm=T)),by=c('date')]
 	setorder(tmp,date)
-	require(lattice)
+	library(lattice)
 	xyplot(V1~date,data=tmp,type='l',auto.key=T)
 	}
 	
@@ -314,7 +314,7 @@ plotfkt<-function(dt) {
 	setorder(tmp,COUNTRY,date)
 	setorder(tmp2,COUNTRY,date)
 	
-	require(lattice)
+	library(lattice)
 	xyplot(sales~date|COUNTRY,tmp,type='l',scales=list(y='free'),main='LCD')
 	xyplot(sales~date|COUNTRY,tmp2,type='l',scales=list(y='free'), main='PLASMA')
 	
