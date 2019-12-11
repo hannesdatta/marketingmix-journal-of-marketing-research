@@ -80,8 +80,24 @@ nafill <- function(x, maxgap=2) {
 	
 	}
 
-weigh_by_w <- function(x, w,na.rm=FALSE) {
+weigh_by_w <- function(x, w, na.rm=FALSE, type = 'arithmetic') {
 		if (sum(w)==0) w = rep(1, length(x))
-		if (na.rm==FALSE) return(sum(x*w)/sum(w))
-		if (na.rm==TRUE) return(sum(x[!is.na(x)]*w[!is.na(x)])/sum(w[!is.na(x)]))
+		
+		if (type=='arithmetic') {
+			if (na.rm==FALSE) return(sum(x*w)/sum(w))
+			if (na.rm==TRUE) return(sum(x[!is.na(x)]*w[!is.na(x)])/sum(w[!is.na(x)]))
+		}
+		
+		if (type=='geometric') {
+			# remove non-zero entries
+			x[x<0]<-0
+			if (0%in%x) x=x+1
+			
+			if (na.rm==FALSE) {
+				return(exp((sum(w*log(x))/sum(w))))
+				}
+			if (na.rm==TRUE) {
+				return(exp((sum(w[!is.na(x)]*log(x[!is.na(x)]))/sum(w[!is.na(x)]))))
+				}
+		}
 }
