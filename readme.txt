@@ -46,7 +46,7 @@ Jan-Benedict E.M. Steenkamp
 	'compiler', 'latticeExtra', 'stargazer', 'knitr', 'xtable', 
 	'car', 'kableExtra', 'stringi', 'ggplot2', 'ggpubr', 'plyr', 
 	'gridExtra', 'grid', 'lme4', 'ggthemes', 'textreg', 'sjstats', 
-	'Hmisc', 'xlsx', 'data.table', 'stringr', 'psych')
+	'Hmisc', 'xlsx', 'data.table', 'stringr', 'psych', 'Rcpp', 'car','fUnitRoots')
 
 for (lib in libs) {cat(lib,fill=T);install.packages(lib)}
 
