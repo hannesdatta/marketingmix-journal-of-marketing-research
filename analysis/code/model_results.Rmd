@@ -104,7 +104,7 @@ zval=1.64
   
 	kable(tmp, caption = tab('Short- and long-term elasticities by variable and a country\'s development status, excluding the brands unbranded, super, and amazon (significance tested at p<.1 (z >= 1.64).'))
 
-	sbbe<-fread('../../post-analysis/externals/elast_results_main.csv')
+	sbbe<-fread('../output/elast_results_main.csv')
 	setkey(sbbe, market_id, brand)
 	setkey(elast, market_id, brand)
 	elast[sbbe, sbbe:=i.sbbe_std]
