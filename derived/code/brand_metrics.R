@@ -153,22 +153,25 @@ for (selrule in names(selection)) {
     	}
          
     # Aggregate data
+    	
+    w_type = 'geometric' #arithmetic' # or geometric
+    
   	merged_attr_sales = tmp[, list( usales=sum(t_sales_units,na.rm=T),
   	                                         vsales = sum(t_value_sales,na.rm=T), 
   	                                         vsalesd = sum(t_value_sales_usd,na.rm=T),
   	                                         
   	                                         llen = length(unique(model[t_sales_units>0])),
   	                                         
-  	                                         wspr=weigh_by_w(t_price_filled, t_sales_units,na.rm=T),
-  	                                         wpspr=weigh_by_w(t_price_filled, t_sales_units_rolled,na.rm=T),
-  	                                         nwpr= weigh_by_w(t_price_filled, t_noweights,na.rm=T),
+  	                                         wspr=weigh_by_w(t_price_filled, t_sales_units, na.rm=T, type = w_type),
+  	                                         wpspr=weigh_by_w(t_price_filled, t_sales_units_rolled, na.rm=T, type = w_type),
+  	                                         nwpr= weigh_by_w(t_price_filled, t_noweights,na.rm=T, type = w_type),
   	                                         
-  	                                         wsprd=weigh_by_w(t_price_usd_filled, t_sales_units, na.rm=T),
-  	                                         wpsprd=weigh_by_w(t_price_usd_filled, t_sales_units_rolled, na.rm=T),
-  	                                         nwprd = weigh_by_w(t_price_usd_filled, t_noweights,na.rm=T),
+  	                                         wsprd=weigh_by_w(t_price_usd_filled, t_sales_units, na.rm=T, type = w_type),
+  	                                         wpsprd=weigh_by_w(t_price_usd_filled, t_sales_units_rolled, na.rm=T, type = w_type),
+  	                                         nwprd = weigh_by_w(t_price_usd_filled, t_noweights,na.rm=T, type = w_type),
   	                                         
-  	                                         wswdst = weigh_by_w(t_wdist_filled,t_sales_units,na.rm=T),
-  	                                         wpswdst = weigh_by_w(t_wdist_filled,t_sales_units_rolled,na.rm=T),
+  	                                         wswdst = weigh_by_w(t_wdist_filled,t_sales_units,na.rm=T, type = w_type),
+  	                                         wpswdst = weigh_by_w(t_wdist_filled,t_sales_units_rolled,na.rm=T, type = w_type),
   	                                          
   	                                         nov1 = length(unique(model[t_sales_units>0&novelty_sum%in%1])),
   	                                         nov3 = length(unique(model[t_sales_units>0&novelty_sum%in%1:3])),
@@ -179,11 +182,12 @@ for (selrule in names(selection)) {
   	by=aggkey]
   
     attrdata=lapply(grep('^attr', colnames(tmp),value=T), function(var) {
-      rtmp=tmp[, list(outcomevar=weigh_by_w(get(var), t_sales_units_rolled)), by = aggkey]
+      w_type_overwrite = w_type
+      if (all(unlist(tmp[,var,with=F])%in%0:1)) w_type_overwrite='arithmetic'
+      rtmp=tmp[, list(outcomevar=weigh_by_w(get(var), t_sales_units_rolled, type = w_type_overwrite)), by = aggkey]
       setnames(rtmp, 'outcomevar', var)
       rtmp
     })
-    
     
     merge.all <- function(x,y, ...) {merge(x,y, all.x=T,all.y=T, by=aggkey, ...)}
     attrdata_merged=Reduce(merge.all, attrdata)
