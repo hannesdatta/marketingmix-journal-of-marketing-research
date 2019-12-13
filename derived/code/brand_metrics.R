@@ -182,11 +182,12 @@ for (selrule in names(selection)) {
   	by=aggkey]
   
     attrdata=lapply(grep('^attr', colnames(tmp),value=T), function(var) {
-      rtmp=tmp[, list(outcomevar=weigh_by_w(get(var), t_sales_units_rolled, type = w_type)), by = aggkey]
+      w_type_overwrite = w_type
+      if (all(unlist(tmp[,var,with=F])%in%0:1)) w_type_overwrite='arithmetic'
+      rtmp=tmp[, list(outcomevar=weigh_by_w(get(var), t_sales_units_rolled, type = w_type_overwrite)), by = aggkey]
       setnames(rtmp, 'outcomevar', var)
       rtmp
     })
-    
     
     merge.all <- function(x,y, ...) {merge(x,y, all.x=T,all.y=T, by=aggkey, ...)}
     attrdata_merged=Reduce(merge.all, attrdata)
