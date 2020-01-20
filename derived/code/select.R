@@ -74,8 +74,9 @@ stopifnot(nrow(rbindlist(lapply(skus_by_date_list, function(x) x[, list(N=.N), b
 # Brand selection  #
 ####################
 	
+	sel_applied=c('main', '8years')
 	
-	selection = lapply(c('main','8years'), function(i) {
+	selection = lapply(sel_applied, function(i) {
 	# selection criteria: all brands with at least X% market share in X consec. years (at X*12 months)
 	# with average yearly share of at least x%. 
 
@@ -161,7 +162,7 @@ stopifnot(nrow(rbindlist(lapply(skus_by_date_list, function(x) x[, list(N=.N), b
 	
 	})
 	
-	names(selection) <- c('main','8years')
+	names(selection) <- sel_applied
 	
 	
 	save(selection, file='..//temp//select.RData')

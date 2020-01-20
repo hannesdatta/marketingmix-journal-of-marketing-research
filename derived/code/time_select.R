@@ -60,8 +60,13 @@ for (seldat in names(all_datasets)) {
 	fwrite(brand_panel, file = paste0('..\\output\\datasets_', seldat, '.csv'), row.names=F)
 
 	# Load GDP per capita, and put into data sets
-	#load('..\\temp\\gdppercap.RData')
-
+	load('..\\temp\\gdppercap.RData')
+  gdppercap[, lngdppercap:=log(gdppercap)]
+  gdppercap[, dlngdppercap:=lngdppercap-c(NA,lngdppercap[-.N]),by=c('country')]
+ 
+  brand_panel[, year:=year(date)]
+	brand_panel = merge(brand_panel, gdppercap, by = c('country', 'year'), all.x=T)
+	
 	# Save complete data as .RData
 	#save(all_data, gdppercap, brand_panel, file =  '..\\output\\datasets.RData')
 
@@ -88,6 +93,10 @@ for (seldat in names(all_datasets)) {
 	
 	brand_panel_agg[,selected:=ifelse(prelim_selected==T&date>=first_tcat&date<=last_tcat, T, F)]
 	brand_panel_agg[, ':=' (first_sales=NULL, first_tcat=NULL, last_tcat=NULL)]
+	
+	brand_panel_agg[, year:=year(date)]
+	brand_panel_agg = merge(brand_panel_agg, gdppercap, by = c('country', 'year'), all.x=T)
+	
 	# Prepare CSV file with data
 	fwrite(brand_panel_agg, file = paste0('..\\output\\datasets_', seldat, '_agg.csv'), row.names=F)
 	

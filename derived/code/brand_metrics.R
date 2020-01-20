@@ -167,13 +167,19 @@ for (selrule in names(selection)) {
      
     for (aggkey_iter in list(aggkey, aggkey_agg)) {
       print(aggkey_iter)
+      tmp[, brand_model:=paste0(brand_orig, model)]
+      tmp[, model_weights:=c(sum(t_sales_units_rolled), rep(0, .N-1)),by=c('market_id', 'brand_model', 'date')]
+      #tmp[, N:=.N,by=c('market_id','brand_model', 'date')]
+      tmp[, sold:=0]
+      tmp[t_sales_units>0, sold:=1]
+     
       
       merged_attr_sales = tmp[, list( usales=sum(t_sales_units,na.rm=T),
+                                      upsales=sum(t_sales_units_rolled,na.rm=T),
   	                                         vsales = sum(t_value_sales,na.rm=T), 
   	                                         vsalesd = sum(t_value_sales_usd,na.rm=T),
   	                                         
-  	                                         llen = length(unique(model[t_sales_units>0])),
-  	                                         
+  	                                         llen = length(unique(paste(brand_orig, model)[t_sales_units>0])),
   	                                         wspr=weigh_by_w(t_price_filled, t_sales_units, na.rm=T, type = w_type),
   	                                         wpspr=weigh_by_w(t_price_filled, t_sales_units_rolled, na.rm=T, type = w_type),
   	                                         nwpr= weigh_by_w(t_price_filled, t_noweights,na.rm=T, type = w_type),
@@ -191,7 +197,8 @@ for (selrule in names(selection)) {
   	                                         nov1 = length(unique(model[t_sales_units>0&novelty_sum%in%1])),
   	                                         nov3 = length(unique(model[t_sales_units>0&novelty_sum%in%1:3])),
   	                                         nov6 = length(unique(model[t_sales_units>0&novelty_sum%in%1:6])),
-    	                                       nov12 = length(unique(model[t_sales_units>0&novelty_sum%in%1:12]))
+    	                                       nov12 = length(unique(model[t_sales_units>0&novelty_sum%in%1:12])),
+    	                                       noofbrands_orig=length(unique(brand_orig))
   	                                
   	                                 ),
   	by=aggkey_iter]
@@ -210,7 +217,16 @@ for (selrule in names(selection)) {
     
     merged_attr_sales = merge(merged_attr_sales, attrdata_merged, by=aggkey_iter, all.x=T)
     
-    
+    if (!'brand'%in%aggkey_iter) {
+      llen_by_brand = tmp[, list(llen=length(unique(paste(brand_orig, model)[t_sales_units>0])),
+                                 t_sales_units = sum(t_sales_units,na.rm=T),
+                                 t_sales_units_rolled=sum(t_sales_units_rolled,na.rm=T)), by = aggkey]
+      llen_agg = llen_by_brand[, list(wsllen=weigh_by_w(llen, t_sales_units, na.rm=T, type=w_type),
+                                      wpsllen=weigh_by_w(llen, t_sales_units_rolled, na.rm=T, type=w_type),
+                                      noofbrands=length(unique(brand[which(t_sales_units>0)]))), by = aggkey_agg]
+      merged_attr_sales = merge(merged_attr_sales, llen_agg, by=aggkey_iter, all.x=T)
+      
+    }
   	# transform novelty variables to shares; if llen = 0, set novelty share to 0.
   	novvars <- grep('nov[0-9].*', colnames(merged_attr_sales),value=T)
   	for (.var in novvars) merged_attr_sales[, (paste0(.var,'sh')) := ifelse(llen==0, 0, (get(.var)/llen)*100)]
