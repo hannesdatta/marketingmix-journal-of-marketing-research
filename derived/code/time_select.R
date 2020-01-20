@@ -5,6 +5,10 @@ for (seldat in names(all_datasets)) {
 
 	all_data <- all_datasets[[seldat]]
 
+	####################
+	# BRAND-LEVEL DATA #
+	####################
+	
 	# Prepare flat CSV file with data
 	brand_panel=rbindlist(lapply(all_data, function(x) if(!is.null(x)) return(rbindlist(x$data_cleaned))),fill=T)
 	setorder(brand_panel, market_id, category,country,brand,date)
@@ -62,9 +66,31 @@ for (seldat in names(all_datasets)) {
 	#save(all_data, gdppercap, brand_panel, file =  '..\\output\\datasets.RData')
 
 	# In which categories does the first sales NOT correspond with selected t in category
-	tmp=brand_panel[, list(first_sales=min(date[!is.na(usales)]), first_tcat=min(date[selected==T],na.rm=T)), by = c('market_id', 'category', 'country')]
+	tmp=brand_panel[, list(first_sales=min(date[!is.na(usales)]), first_tcat=min(date[selected==T],na.rm=T),
+	                       last_tcat=max(date[selected==T],na.rm=T)), by = c('market_id', 'category', 'country')]
 	tmp[!first_sales==first_tcat]
 
+	
+	#######################
+	# CATEGORY-LEVEL DATA #
+	#######################
+	
+	# Prepare flat CSV file with data
+	brand_panel_agg=rbindlist(lapply(all_data, function(x) if(!is.null(x)) return(rbindlist(x$data_cleaned_agg))),fill=T)
+	setorder(brand_panel_agg, market_id, category,country,brand,date)
+	
+	brand_panel_agg[which(!is.na(usales) & selected_t_brand==T & selected_brand == T), prelim_selected:=T, by=c('category', 'country', 'brand')]
+	brand_panel_agg[is.na(prelim_selected), prelim_selected:=F, by=c('category', 'country', 'brand')]
+	
+	brand_panel_agg=merge(brand_panel_agg, tmp, by=c('market_id', 'category','country'), all.x=T)
+	
+	# Apply same time selection as for the brand-level data
+	
+	brand_panel_agg[,selected:=ifelse(prelim_selected==T&date>=first_tcat&date<=last_tcat, T, F)]
+	brand_panel_agg[, ':=' (first_sales=NULL, first_tcat=NULL, last_tcat=NULL)]
+	# Prepare CSV file with data
+	fwrite(brand_panel_agg, file = paste0('..\\output\\datasets_', seldat, '_agg.csv'), row.names=F)
+	
 	}
 
 sink('../output/datasets.txt')
