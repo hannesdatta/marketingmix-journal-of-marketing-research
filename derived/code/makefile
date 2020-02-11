@@ -12,7 +12,7 @@ AUDIT_DIR = ../audit
 all: build 
 #audit
 
-build: $(OUTPUT_DIR)/datasets.txt
+build: $(OUTPUT_DIR)/datasets.txt auxilary
 
 # audit
 audit: $(TEMP_DIR)/audit_rawplot.txt $(TEMP_DIR)/audit_markets.txt $(TEMP_DIR)/audit_brands.txt $(TEMP_DIR)/audit_attributes.txt $(TEMP_DIR)/audit_advertising.txt  $(TEMP_DIR)/audit_markets_agg.txt
@@ -25,6 +25,7 @@ uniq: $(TEMP_DIR)/uniqueness_and_lagsales.RData
 exatt: $(TEMP_DIR)/extract_attributes.RData 
 setatt: $(TEMP_DIR)/attributes.RData
 metr: $(TEMP_DIR)/brand_metrics.RData
+auxilary: $(OUTPUT_DIR)/hdi.csv $(OUTPUT_DIR)/gini.csv $(OUTPUT_DIR)/dev_indicators.csv
 
 clean:
 	RM -f -r "$(TEMP_DIR)"
@@ -49,10 +50,6 @@ $(TEMP_DIR)/advertising.csv: get_advertising.R
 $(TEMP_DIR)/exch_cpi.RData : exch_cpi.R
 	R --vanilla --args "" < "exch_cpi.R"
 
-# prepare GDP per capita data
-$(TEMP_DIR)/gdppercap.RData : gdp.R
-	R --vanilla --args "" < "gdp.R"
-
 # re-categorize categories
 $(TEMP_DIR)/categorized.RData : categorize.R $(TEMP_DIR)/unzipped.RData
 	R --vanilla --args "" < "categorize.R"
@@ -74,7 +71,7 @@ $(TEMP_DIR)/select.RData : select.R $(TEMP_DIR)/uniqueness_and_lagsales.RData
 	R --vanilla --args "" < "select.R"
 
 # prepare brand-level data set (e.g., remove/interpolate missings)
-$(TEMP_DIR)/brand_metrics.RData: brand_metrics.R $(TEMP_DIR)/exch_cpi.RData $(TEMP_DIR)/select.RData $(TEMP_DIR)/uniqueness_and_lagsales.RData $(TEMP_DIR)/gdppercap.RData $(TEMP_DIR)/advertising.csv
+$(TEMP_DIR)/brand_metrics.RData: brand_metrics.R $(TEMP_DIR)/exch_cpi.RData $(TEMP_DIR)/select.RData $(TEMP_DIR)/uniqueness_and_lagsales.RData $(TEMP_DIR)/advertising.csv
 	R --vanilla --args "" < "brand_metrics.R"
 
 # do final time selection
@@ -104,3 +101,16 @@ $(TEMP_DIR)/audit_attributes.txt: audit_attributes.R $(OUTPUT_DIR)/datasets.txt
 # --> audit: create plots of brands
 $(TEMP_DIR)/audit_advertising.txt: audit_advertising.R #(TEMP_DIR)/advertising.csv
 	R --vanilla --args "" < "audit_advertising.R"
+
+# Prepare HDI data
+$(OUTPUT_DIR)/hdi.csv: hdi.R
+	R --vanilla --args "" < "hdi.R"
+
+# Prepare Gini coefficients
+$(OUTPUT_DIR)/gini.csv: gini.R
+	R --vanilla --args "" < "gini.R"
+
+# Prepare remaining Development Indicators
+$(OUTPUT_DIR)/dev_indicators.csv: dev_indicators.R
+	R --vanilla --args "" < "dev_indicators.R"
+
