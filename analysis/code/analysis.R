@@ -100,9 +100,9 @@ dir.create('../output')
 		   carryover_zero=F, use_attributes = T)
 
 	m1_adv <- m1
-	m1_adv$setup_x <- c(m1_adv$setup_x, adv='adv')
-	m1_adv$setup_endogenous <- c(m1_adv$setup_endogenous, 'adv')
-	m1_adv$plusx <- c(m1_adv$plusx, 'adv')
+	m1_adv$setup_x <- c(m1_adv$setup_x, adv='rwsadv')
+	m1_adv$setup_endogenous <- c(m1_adv$setup_endogenous, 'rwsadv')
+	m1_adv$plusx <- c(m1_adv$plusx, 'rwsadv')
 	
 	m1_nov <- m1
 	m1_nov$setup_x <- c(m1_nov$setup_x, nov12sh='nov12sh')
@@ -267,7 +267,7 @@ if(run_cluster==T) {
 	clusterExport(cl,c('brand_panel'))
 	
 	china_hk_selection = brand_panel[country%in%c('china','hong kong')&
-	                                 any(!is.na(adv))&date<ifelse(country=='china', '2012-09-01', '2014-12-01'), 
+	                                 any(!is.na(rwsadv))&date<ifelse(country=='china', '2012-09-01', '2014-12-01'), 
 	                                 list(obs= length(unique(date))),by=c('category','country', 'market_id')]
 	
 	china_hk_selection = china_hk_selection[, selected:=obs>ifelse(category=='tablet',4*12,5*12)]
