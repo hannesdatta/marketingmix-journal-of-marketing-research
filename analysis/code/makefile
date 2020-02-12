@@ -7,9 +7,10 @@ OUTPUT_DIR = ../output
 
 
 ###### BUILD COMMANDS ######
-all: elast sim markdown
+all: elast markdown
+onlysim: sim 
 elast: $(OUTPUT_DIR)/elasticities.txt 
-pre: $(TEMP_DIR)/preclean.csv
+pre: $(TEMP_DIR)/preclean.txt
 results: $(OUTPUT_DIR)/results.RData
 sim: $(OUTPUT_DIR)/simulation.RData $(OUTPUT_DIR)/simulation.txt
 markdown: $(OUTPUT_DIR)/model_results.html
@@ -17,7 +18,7 @@ markdown: $(OUTPUT_DIR)/model_results.html
 ###### Build parts ######
 
 # Pre-clean the data
-$(TEMP_DIR)/preclean.txt: preclean.R ../../derived/output/datasets.txt
+$(TEMP_DIR)/preclean.txt: preclean.R ../../derived/output/datasets.txt ../../derived/output/hdi.csv ../../derived/output/dev_indicators.csv ../../derived/output/gini.csv
 	R --vanilla --args "" < "preclean.R"
 
 # Run the model

@@ -35,13 +35,12 @@ setnames(tmp, c('year','measure','country','value'))
 
 # cleaning
 tmp[, measure:=tolower(gsub("[^[:alnum:]]", '', measure))]
-tmp[, country:=tolower(gsub("[^[:alnum:]]", '', country))]
+tmp[, country:=tolower(gsub('[.]', ' ', country))]
 
 # recast
 dev = dcast(tmp, year+country~measure)
 
 dev[grepl('philippines', country), country:='philippines']
-
 
 table(dev$country)
 
