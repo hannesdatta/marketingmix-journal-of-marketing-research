@@ -70,6 +70,16 @@ for (fn in ds) {
   	growth[, year:=year(date)]
   	growth[, months_with_sales:=length(which(sales>0)), by = c('market_id', 'year')]
   	
+  	growth[, N:=1:.N,by = c('market_id')]
+  	windowsize=3
+  	suppressWarnings(growth[, catvolatility_range:=sapply(N, function(x) max(sales[N<x&(N>=(x-windowsize))])-min(sales[N<x&(N>=(x-windowsize))])), by = c('market_id')])
+  	growth[, catvolatility_sd:=sapply(N, function(x) sd(sales[N<x&(N>=(x-windowsize))])), by = c('market_id')]
+  	growth[N<=windowsize, ':=' (catvolatility_range=NA, catvolatility_sd=NA)]
+  	
+  	setkey(brand_panel, market_id, date)
+  	setkey(growth, market_id, date)
+  	brand_panel[growth, ':=' (catvolatility_range=i.catvolatility_range, catvolatility_sd=i.catvolatility_sd)]
+  	
   	# remove incomplete years
   	growth = growth[months_with_sales==12]
   	growth[, year_to_year_growth := sales/c(NA, sales[-.N]), by = c('market_id')]
