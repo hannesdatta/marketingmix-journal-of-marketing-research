@@ -1,0 +1,170 @@
+get_lagdiffs_list <- function(gridlist = list(), namesarg) {
+  possible_grid <- expand.grid(gridlist) # 0:3, 0:3, 0:3, 0:3)
+  start_values <- colMins(possible_grid)
+
+  lagdiffs_list <- apply(possible_grid, 1, function(x) {
+    obj <- list()
+    for (xi in seq(along = x)) obj[[xi]] <- start_values[xi]:x[xi]
+    names(obj) <- namesarg # c(dv,vars)
+    obj <- obj[!unlist(lapply(obj, function(x) all(x == 0)))]
+    obj <- lapply(obj, function(x) x[!x == 0])
+  })
+  return(lagdiffs_list)
+}
+
+# see https://stackoverflow.com/questions/8343509/better-error-message-for-stopifnot
+assert <- function(expr, error) {
+  if (!expr) stop(error, call. = FALSE)
+}
+
+#dt <- brand_panel[brand_id==1]
+#maxlag <- 6
+#pval <- .1
+#adf_tests <- NULL
+#exclude_cointegration <- NULL
+
+ardl <- function(type = "ardl-ec", dt, dv, vars, exclude_cointegration = NULL, adf_tests = NULL, maxlag = 6, pval = .1, ...) {
+  # coint: variables to be included in cointegration
+
+  tmp <- apply(dt[, vars, with = F], 2, function(x) all(x %in% c(0, 1)))
+  dummies <- names(tmp)[tmp == T]
+  xvars <- setdiff(vars, dummies)
+  xvars_without_cointegration <- setdiff(xvars, exclude_cointegration)
+
+  assert("data.table" %in% class(dt), "dt needs to be of class dt.table")
+  assert("data.table" %in% class(adf_tests) | is.null(adf_tests), "please supply ADF_tests as class dt.table")
+  assert(!all(dt[, dv, with = F] %in% 0:1), "DV needs to be continuous, i.e., not a dummy variable")
+  assert(all(exclude_cointegration %in% vars), "All variables specified in *exclude_cointegration* need to be part of *vars*")
+
+  # run ADF tests if not done before
+  if (is.null(adf_tests)) {
+    adf_tests <- rbindlist(lapply(c(dv, xvars), function(.var) {
+      return(data.frame(variable = .var, cbind(t(adf_enders(unlist(dt[, .var, with = F]), maxlag = maxlag, pval = pval)))))
+    }))
+  }
+  use_trend = as.logical(adf_tests[variable==dv]$trend)
+  
+  # Estimate ARDL in error correction form (case e, Philips 2018)
+  if (type == "ardl-ec") {
+    formula <- as.formula(paste0(dv, "~1+", paste(c(xvars, dummies), collapse = "+")))
+    lags_list <- lapply(c(dv, xvars_without_cointegration), function(x) 1)
+    names(lags_list) <- c(dv, xvars_without_cointegration)
+    diffs <- xvars
+    levels <- dummies
+    ec <- TRUE
+    tmp <- get_lagdiffs_list(rep(list(0:3), length(c(dv, xvars))), c(dv, xvars))
+    lagstructure <- lapply(tmp, function(x) list(lags = lags_list, lagdiff = x))
+  }
+
+  if (type == "ardl-levels") {
+    xvars_levels <- as.character(adf_tests[variable %in% xvars & order == 0]$variable)
+    xvars_firstdiff <- setdiff(xvars, xvars_levels)
+
+    formula <- as.formula(paste0(dv, "~1+", paste(c(xvars, dummies), collapse = "+")))
+
+    levels <- c(xvars_levels, dummies)
+    diffs <- xvars_firstdiff
+                                 # lags            # x variables in level
+    tmp <- get_lagdiffs_list(c(list(1:3), rep(list(0:3), length(c(xvars)))), c(dv, xvars))
+    lagstructure <- lapply(tmp, function(x) list(lags = x[names(x) %in% c(dv, xvars_levels)], 
+                                                 lagdiff = x[names(x) %in% xvars_firstdiff]))
+    ec <- FALSE
+  }
+
+  if (type == "ardl-firstdiff") {
+    formula <- as.formula(paste0(paste0("", dv), "~1+", paste(c(xvars, dummies), collapse = "+")))
+    levels <- c(xvars, dummies)
+    diffs <- NULL # xvars
+
+    ec <- FALSE
+                                     #DV          # lags    # lags of differences
+    tmp <- get_lagdiffs_list(c(list(1:3), rep(list(0:1), length(c(xvars, xvars)))), c(dv, xvars, paste0("_", xvars)))
+
+    lagstructure <- lapply(tmp, function(x) {
+      lagdiff <- x[names(x) %in% c(paste0("_", xvars))]
+      names(lagdiff) <- gsub("[_]", "", names(lagdiff))
+
+      out <- list(lags = x[names(x) %in% c(dv, paste0("", xvars))], lagdiff = lagdiff)
+      return(out)
+    })
+  }
+
+  # Estimate models with varying lag terms
+  models <- lapply(lagstructure, function(.lagstructure) {
+    log <- capture.output({
+      mx <- dynardl(formula,
+        data = dt, lags = .lagstructure$lags, diffs = diffs,
+        lagdiffs = .lagstructure$lagdiff, levels = levels, ec = ec, simulate = FALSE, trend = use_trend
+      )
+
+      autocorrel_test <- dynardl.auto.correlated(mx, object.out = T)
+      autocorrel_test$bg$p.value
+    })
+
+    list(bic = BIC(mx$model), model = mx, autocorrel_p = autocorrel_test$bg$p.value)
+  })
+
+  # choose the one with lowest BIC & no auto correlation
+  bics <- unlist(lapply(models, function(x) x$bic))
+  autocorrel <- unlist(lapply(models, function(x) x$autocorrel_p))
+
+  if (length(which(autocorrel > .1)) == 0) {
+    return("cannot remove autocorrel")
+  }
+
+   # choose model without autocorrel & highest BIC
+  m.choice <- match(min(bics[autocorrel > .1]), bics)
+  m <- models[[m.choice]]$model
+
+  # check for autocorrelation
+  # plot(m$model$residuals)
+
+  autocorrelation <- models[[m.choice]]$autocorrel_p < .1
+
+  res <- list(
+    model = m, tested_model_specs = list(
+      bic = bics, autocorrel = autocorrel, lagstructure = lagstructure,
+      diffs = diffs, levels = levels, ec = ec, formula = formula,
+      trend = use_trend
+    ),
+    autocorrelation = autocorrelation, mchoice = m.choice,
+    adf_tests = adf_tests,
+    type = type
+  )
+
+  if (ec == T) {
+    log <- capture.output({
+      boundstest <- pssbounds(m, object.out = T)
+      boundstest_result <- "inconclusive"
+      if (boundstest$fstat < boundstest$`ftest.I0.p10`) boundstest_result <- "no cointegration"
+      if (boundstest$fstat > boundstest$`ftest.I1.p10`) boundstest_result <- "cointegration"
+      res$boundstest_result <- boundstest_result
+    })
+    
+    
+  }
+  class(res) <- 'ardl_procedure'
+  return(res)
+}
+
+summary.ardl_procedure <- function(object, ...) {
+  cat('ARDL Procedure\n=======================\n\n')
+  cat('Model type: ', object$type,fill=T)
+  cat('\nADF tests: ',fill=T)
+  print(object$adf_tests)
+  
+  cat('\nModel estimates\n')
+  print(summary(object$model))
+  cat('\n\n')
+  
+  cat(paste0('Remaining autocorrelation: ', object$autocorrelation))
+  
+  cat('\n\n')
+  
+  if(object$tested_model_specs$ec==T) {
+    cat(paste0('Bounds test:\n\n'))
+    pssbounds(object$model)
+  
+    cat(paste0('\n\nThe result of the bounds procedure is: ', object$boundstest_result), '\n\n=======================\n')
+  }
+}

@@ -133,10 +133,6 @@ any(tmp[,-1,with=F]>1)
 # looks good!
 colMeans(tmp)
 
-
-plot(panel[market_id==33]$lnusales, type='l')
-plot(diff(panel[market_id==33]$lnusales), type='l')
-
 # checking order of UR for brand sales
 vars = c('lnusales','lnrwpspr','lnllen','lnwpswdst')
 tmp2=brand_panel[, lapply(.SD, function(x) adf_enders(x[!is.na(x)], maxlags=6, pval=.1)$order),by=c('market_id', 'brand'), .SDcols=vars]
@@ -144,47 +140,73 @@ tmp2[lnusales>1]
 any(tmp2[,-1,with=F]>1)
 # looks good, too!
 
-brand_panel[market_id==1]$lnusales
-
-colMeans(tmp2)
-
-
-
-
-
-  
 ##########################
 # DYNAMAC ARDL PROCEDURE #
 ##########################
 
 mid = 1
+bid = 1
+
 
 source('proc_analysis_agg.R')
 source('proc_analysis.R')
 source('proc_analysis_brand.R')
+source('proc_ardl.R')
+
+# select a few markets for Marnik and Hannes to investigate
+#out=sapply(unique(panel$market_id)[1:5], function(mid) try(analyze_market(mid, quarters=T), silent=T))
 
 
-out=sapply(unique(panel$market_id)[1:20], function(mid) try(analyze_market(mid, quarters=T), silent=T))
 
-brand_panel[, brand_id:=.GRP, by = c('market_id', 'brand')]
+out=sapply(unique(brand_panel$brand_id)[1:10], function(bid) try(analyze_brand(bid, quarters=T), silent=T), simplify=F)
 
-out=sapply(unique(brand_panel$brand_id)[1:20], function(bid) try(analyze_brand(bid, quarters=T), silent=T))
+# "retrieve" resulting model, reestimate
+
+# simulation
+dv='lnusales'
+dt=data.table(brand_panel[brand_id==1])
+vars = c('lnrwpspr','lnllen','lnwpswdst')
+m<-ardl(type='ardl-ec', dt = dt, dv = dv, vars = c(vars, quarter_vars), exclude_cointegration = NULL,
+        adf_tests= NULL, maxlag = 6, pval = .1)
+
+shockvariable = vars[1]
+shockvalue = log(1.1)
+
+msim = dynardl(m$tested_model_specs$formula, data = dt, lags = m$tested_model_specs$lagstructure[[m$mchoice]]$lags,
+        diffs = m$tested_model_specs$diffs, lagdiffs = m$tested_model_specs$lagstructure[[m$mchoice]]$lagdiff,
+        levels= m$tested_model_specs$levels, ec = m$tested_model_specs$ec, trend = m$tested_model_specs$trend,
+        simulate = T, shockvar='lnrwpspr', range=48, time = 10, shockval=shockvalue, burnin=12, sig=90)
+
+dynardl.simulation.plot(msim, type='area', response='levels') #diffs
+
+#ardl-firstdiff
+#ardl-levels
 
 
+
+
+###########################
+# CLUSTER ESTIMATION      #
+###########################
 
 require(parallel)
 cl<-makePSOCKcluster(4)
-clusterExport(cl, c('panel'))
+clusterExport(cl, c('panel', 'brand_panel'))
 clusterEvalQ(cl, library(data.table))
 clusterEvalQ(cl, library(timeSeries))
 clusterEvalQ(cl, source('proc_analysis_agg.R'))
+clusterEvalQ(cl, source('proc_analysis_brand.R'))
 clusterEvalQ(cl, source('proc_analysis.R'))
 clusterEvalQ(cl, source('c1c5b3af32343d042fcbc8e249ae9ff6/proc_unitroots.R'))
 
-unique(panel$market_id)[grepl('now: inconclusive', unlist(res))]
-unique(panel$market_id)[grepl('cannot remove', unlist(res))]
 
-res=clusterApply(cl, unique(panel$market_id), function(mid) try(analyze_market(mid, quarters=T), silent=T))
+#res=clusterApply(cl, unique(panel$market_id), function(mid) try(analyze_market(mid, quarters=T), silent=T))
+res=clusterApply(cl, unique(brand_panel$brand_id), function(bid) {
+  out=try(analyze_brand(bid, quarters=T), silent=T)
+  if (class(out)=='try-error') return('error') else return(out)
+})
+
+res=unlist(res)
 
 
 
@@ -196,141 +218,30 @@ unique(panel$market_id)[grepl('error', out, ignore.case=T)]
 
 
 
-### Case: DV is stationary ###
-m=dynardl(lnusales~1+lnrwpspr+lnwpsllen+lnwpswdst, data = dat, levels=c('lnrwpspr'), diffs=c('lnwpsllen', 'lnwpswdst'),
-          lags=list('lnusales'=1))
-
-autocorrel_test=dynardl.auto.correlated(m, object.out=T)
-
-# no autocorrelation
-  
-  difflist = lapply(sapply(1:12, function(x) 1:x), function(x) {
-    obj=lapply(c(vars), function(...) x)
-    names(obj) = c(vars)
-    return(obj)
-  })
-  
-  difflist=c(list(NULL), difflist)
-  
-  models=lapply(difflist, function(lagdiff) {
-    mx<-dynardl(formula, data=dat, levels = vars,
-                lags=list('dlnusales'=1),
-                lagdiffs=lagdiff, ec = FALSE, simulate = FALSE, trend = use_trend)
-    list(bic=BIC(mx$model), model=mx)
-  })
-  
-  # lowest BIC
-  bics=unlist(lapply(models, function(x) x$bic))
-  
-  m=models[[which(bics==min(bics))]]$model
-
-  
   ### Case: DV is stationary ###
   m=dynardl(lnusales~1+lnrwpspr+lnwpsllen+lnwpswdst, data = dat, levels=c('lnrwpspr'), diffs=c('lnwpsllen', 'lnwpswdst'),
             lags=list('lnusales'=1), simulate=T, shockvar='lnwpsllen', range=100, shockval=log(1.10), burnin=48, sig=90)
   
   dynardl.simulation.plot(m, type='area', response='levels', start.period=9)
   
-
-# to do    
-# "latent" structural break tests
-# add seasonal components to ADS (currently NA)
-# add quarterly dummies
-
-
-# all w/ unit root
-
-
+  
+  
 # try some simulations
 mx<-dynardl(formula, data=dat, lags = lag_list,
             diffs = c("lnrwpspr", 'lnwpsllen', 'lnwpswdst'), 
-            lagdiffs = NULL, ec = TRUE, simulate = T, trend = use_trend, shockvar='lnwpsllen',
+            lagdiffs = NULL, ec = TRUE, trend = use_trend, simulate = T, shockvar='lnwpsllen',
             range=48, shockval=log(1.10), burnin=48, sig=90)
 
 dynardl.simulation.plot(mx, type='area', response='levels')
 
 
-# Bounds test of cointegration
-boundstest=pssbounds(m, object.out = T)
-boundstest_result = 'inconclusive'
-if (boundstest$fstat < boundstest$`ftest.I0.p10`) boundstest_result='no cointegration'
-if (boundstest$fstat > boundstest$`ftest.I1.p10`) boundstest_result='cointegration'
-
-if (boundstest_result=='no cointegration') {
-  
-  
-  formula=as.formula(paste0('d', dv,'~1+', paste(vars, collapse='+')))
-  
-  
-  
-  difflist = lapply(sapply(1:12, function(x) 1:x), function(x) {
-    obj=lapply(c(vars), function(...) x)
-    names(obj) = c(vars)
-    return(obj)
-  })
-  
-  difflist=c(list(NULL), difflist)
-  
-  models=lapply(difflist, function(lagdiff) {
-    mx<-dynardl(formula, data=dat, levels = vars,
-                lags=list('dlnusales'=1),
-                lagdiffs=lagdiff, ec = FALSE, simulate = FALSE, trend = use_trend)
-    list(bic=BIC(mx$model), model=mx)
-  })
-  
-  # lowest BIC
-  bics=unlist(lapply(models, function(x) x$bic))
-  
-  m=models[[which(bics==min(bics))]]$model
-  
-  autocorrelation=autocorrel_test$bg$p.value<.1
-  print(paste0('g) Is there autocorrelation in the residuals? ', ifelse(autocorrelation==T, 'yes', 'no')))
-  
-  #m<-dynardl(dlnusales~1+lnrwpspr, data=dat, levels = c('lnrwpspr'),
-  #           lags=list('dlnusales'=1),
-  #           #lagdiffs=list('lnusales'=1), #, 'lnrwpspr'=1)
-  #           ec = FALSE, simulate = FALSE, trend = use_trend)
-  #dynardl.auto.correlated(m)
-  
-  # equivalent
-  #summary(lm(dlnusales~1+lnrwpspr+I(lshift(dlnusales,1)),data=dat))
-  
-          
-}
-
-
-# how to simulate + interpret! --discuss
-
-
-
-# breusch
-pssbounds(m)
-
-m<-dynardl(lnusales~1+lnrwpspr, data=dat, lags = list("lnusales"=1, "lnrwpspr" = 1),
-           diffs = c("lnrwpspr"), 
-           lagdiffs = list('lnusales'=1, 'lnrwpspr' = 1), ec = FALSE, simulate = FALSE, trend = FALSE)
-
-#########################################################
-# Testing time series properties of category-level data #
-#########################################################
-  
-vars = c('lnusales','lnrwpspr','lnwpsllen','lnwpswdst')
-
-# checking order of UR
-tmp4=panel[, lapply(.SD, function(x) adf_enders(x[!is.na(x)], maxlag=6, pval=.1)$order),by=c('market_id'), .SDcols=vars]
-tmp4[lnusales>1] # several cases!
-
-plot(panel[market_id==33]$lnusales, type='l')
-plot(diff(panel[market_id==33]$lnusales), type='l')
 
 
 
 
-# checking order of UR
-vars = c('lnusales','lnrwpspr','lnllen','lnwpswdst')
-tmp3=brand_panel[, lapply(.SD, function(x) marketingtools::adf_enders(x, season=NULL, maxlag=6, pval = .1)['order']),by=c('market_id'), .SDcols=vars]
-tmp3[lnusales>1] # several cases!
-colMeans(tmp3)
+
+
+
 
 
 
@@ -339,152 +250,14 @@ for (m in 1:12) panel[,paste0('month',m):=ifelse(month(date)==m, 1,0)]
 panel[, monthno:=as.numeric(as.character(as.factor(month(date))))]
 
 
-dt=panel[market_id==9]
-
-summary(CADFtest(lnusales~1+month1+month2+month3+month4+month5+month6+month7+month8+month9+month10+month11,data=dt, type='trend', criterion='BIC', max.lag.y=11))
-
-summary(CADFtest(lnusales~1+as.factor(monthno),data=dt, type='trend', criterion='AIC', max.lag.y=13))
 
 
 
 
+#####################################
+# Estimation of OLS: category sales #
+#####################################
 
-
-#I(2) in brand_level data?
-vars = c('lnusales') #,'lnrwpspr','lnllen','lnwpswdst')
-tmp2=brand_panel[, lapply(.SD, function(x) adf_enders(x[!is.na(x)], maxlag=6, pval=.1)['order']),by=c('market_id', 'brand'), .SDcols=vars]
-tmp2[lnusales>1] # several cases!
-
-plot(brand_panel[market_id==9&brand=='hp']$lnusales, type='l')
-plot(diff(brand_panel[market_id==9&brand=='hp']$lnusales), type='l')
-
-
-dt=brand_panel[market_id==9&brand=='apple']
-
-dt[, trend:=1:.N]
-
-
-+ldshift(lnusales,2)+
-  ldshift(lnusales,3)+ldshift(lnusales,4)+ldshift(lnusales,5)+ldshift(lnusales,6)+ldshift(lnusales,7)+
-  ldshift(lnusales,8)+ldshift(lnusales,9)+ldshift(lnusales,10)+ldshift(lnusales,11)+ldshift(lnusales,12)
-
-
-dt=panel[market_id==9]
-
-adf <- function(lags, lagy=T, trend=T, cons=T, dv='lnusales', maxlag=lags) {
-  lagterms=''
-  if (lags>0) lagterms=paste0('+', paste(paste0('ldshift(',dv,',', 1:lags,')'), collapse='+'))
-                              
-  form=as.formula(paste0('I(dshift(', dv, '))~', ifelse(cons==T, '1', '-1'), ifelse(lagy==T,paste0('+lshift(', dv, ',1)'),''),ifelse(trend==T,'+(trend)',''), lagterms))
-  subs = with(dt, !is.na(ldshift(get(dv), maxlags)))
-  
-  m<-lm(form, dt, subset=subs)
-  list(model=m, bic=BIC(m))
-}
-
-adf_optim <- function(lags, lagy=T, trend=T, cons=T, dv = 'lnusales') {
-  
-  models=lapply(lags, function(lag) adf(lag, lagy=lagy, trend=trend, cons=cons, dv = dv, maxlag=max(lags)))
-  bics=unlist(lapply(models, function(x) x$bic))
-  return(models[[which(bics==min(bics))]])
-}
-  
-adf(0)
-
-m=adf_optim(0:6, lagy=T, trend=T)$model
-summary(m)
-
-
-
-linearHypothesis(m, c('lshift(lnusales, 1) = 0', 'trend = 0'))
-
-
-adf_enders_all(dt$lnusales)
-
-
-
-
-
-summary(m)
-# is gamma  = 0?
-m@teststat[1]>m@cval[1,3]
-
-
-
-# no unit root
-summary(adf_optim(0:6, lagy=F, trend=F)$model)
-
-
-summary(adf_optim(0:6, lagy=F, trend=T)$model)
-summary(adf_optim(0:6, lagy=T, trend=F)$model)
-summary(adf_optim(0:6, lagy=F, trend=F)$model)
-
-summary(adf_optim(0:6, lagy=T, trend=F, cons=F)$model)
-
-
-summary(adf_optim(0:6, lagy=T, trend=F)$model)
-
-summary(adf_optim(0:6, lagy=F, trend=F)$model)
-
-dt[, lagdv:=dshift(lnusales)]
-
-summary(adf_optim(0:6, lagy=T, trend=T, dv = 'lagdv')$model)
-
-summary(adf_optim(0:6, lagy=F, trend=T, dv = 'lagdv')$model)
-summary(adf_optim(0:6, lagy=T, trend=F, dv = 'lagdv')$model)
-summary(adf_optim(0:6, lagy=F, trend=F, dv = 'lagdv')$model)
-
-
-bics=lapply(0:6, adf)
-unlist(lapply(bics, function(x) x$bic))
-
-summary(adf(4, lagy=F)$model)
-
-summary(adf(4, lagy=T, trend=F)$model)
-
-summary(adf(4, lagy=F, trend=F)$model)
-
-adf_enders(dt$lnusales, season=NULL,maxlag=12,pval=.1)
-
-adf_enders_single(dt$lnusales, season=NULL, maxlag=12, pval=.1)
-
-adf.test(dt$lnusales, season=NULL, maxlag=12, pval=.1)
-
-
-vars = c('lnusales','lnrwpspr','lnwpsllen','lnwpswdst')
-# null: stationarity
-# alternative: rejection of stationarity --> non-stationarity / evolving
-tmp=panel[, lapply(.SD, function(x) adf_enders(x[!is.na(x)], maxlag=12, pval=.1, season=NULL)['ur']),by=c('market_id'), .SDcols=vars]
-tmp[, sum_mmix:=lnrwpspr+lnwpsllen+lnwpswdst]
-out=tmp[, list(.N), by=c('lnusales', 'sum_mmix')]
-setorder(out, lnusales, sum_mmix)
-
-adf_enders(1:100+rnorm(100),season=NULL,maxlag=12, pval=.1)
-
-adf_enders(1:1000+rnorm(1000),season=NULL,maxlag=12, pval=.1)
-
-adf.test(1:1000+rnorm(1000))
-adf.test(rep(1,1000)+rnorm(1000))
-
-with(panel[market_id==1], ca.jo(data.frame(lnusales, lnrwpspr),type="trace", K=2, ecdet="none", spec="longrun"))
-
-# could do panel unit root tests instead
-library(plm)
-
-.var=vars[1]
-ur_data = dcast(panel,date~market_id, value.var=.var)
-ur_data$date = NULL
-ur_data = ur_data[, !all(is.na(ur_data))]
-
-# Hadri: purtest(ur_data, test='hadri', exo='intercept')
-purtest(ur_data, test='hadri', exo='trend')
-
-# Hadri: purtest(ur_data, test='hadri', exo='intercept')
-purtest(ur_data, test='ips', exo='trend')
-
-#####################
-# Estimation of OLS #
-#####################
   plevel=.1
   res = NULL
   for (market in analysis_markets) {
@@ -676,9 +449,3 @@ purtest(ur_data, test='ips', exo='trend')
   tmp[emerging==0, ctr:='developed']
   dcast(tmp, variable~ctr, value.var='mean_elast')
   
-  
-  
-  LLCdemean = purtest(newdat, test='levinlin',exo='trend',lags='AIC', pmax=12)
-  
-  
-   Fok, JMR

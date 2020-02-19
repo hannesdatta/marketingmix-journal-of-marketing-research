@@ -65,6 +65,8 @@ for (fn in ds) {
 	
 	if (!grepl('[_]agg', fn)) {
 	  
+	  brand_panel[, brand_id:=.GRP, by = c('market_id', 'brand')]
+	  
   	# calculate growth rates in markets
   	growth = brand_panel[, list(sales=sum(usales,na.rm=T)), by = c('market_id', 'category', 'country', 'date')]
   	growth[, year:=year(date)]
