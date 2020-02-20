@@ -1,11 +1,14 @@
 get_lagdiffs_list <- function(gridlist = list(), namesarg) {
   possible_grid <- expand.grid(gridlist) # 0:3, 0:3, 0:3, 0:3)
   start_values <- colMins(possible_grid)
-
+  
   lagdiffs_list <- apply(possible_grid, 1, function(x) {
-    obj <- list()
-    for (xi in seq(along = x)) obj[[xi]] <- start_values[xi]:x[xi]
-    names(obj) <- namesarg # c(dv,vars)
+    
+    obj=mapply(function(arg, startval, gridval) {
+      sapply(arg, function(x) startval:gridval, simplify=F)
+    }, namesarg, start_values, x, SIMPLIFY=F, USE.NAMES=F)
+    obj = do.call('c', obj)
+    
     obj <- obj[!unlist(lapply(obj, function(x) all(x == 0)))]
     obj <- lapply(obj, function(x) x[!x == 0])
   })
@@ -17,13 +20,13 @@ assert <- function(expr, error) {
   if (!expr) stop(error, call. = FALSE)
 }
 
-#dt <- brand_panel[brand_id==1]
-#maxlag <- 6
-#pval <- .1
-#adf_tests <- NULL
-#exclude_cointegration <- NULL
+dt <- brand_panel[brand_id==18]
+maxlag <- 6
+pval <- .1
+adf_tests <- NULL
+exclude_cointegration <- NULL
 
-ardl <- function(type = "ardl-ec", dt, dv, vars, exclude_cointegration = NULL, adf_tests = NULL, maxlag = 6, pval = .1, ...) {
+ardl <- function(type = "ardl-ec", dt, dv, vars, exclude_cointegration = NULL, adf_tests = NULL, maxlag = 6, maxpq = 3, pval = .1, ...) {
   # coint: variables to be included in cointegration
 
   tmp <- apply(dt[, vars, with = F], 2, function(x) all(x %in% c(0, 1)))
@@ -52,7 +55,7 @@ ardl <- function(type = "ardl-ec", dt, dv, vars, exclude_cointegration = NULL, a
     diffs <- xvars
     levels <- dummies
     ec <- TRUE
-    tmp <- get_lagdiffs_list(rep(list(0:3), length(c(dv, xvars))), c(dv, xvars))
+    tmp <- get_lagdiffs_list(rep(list(0:maxpq), 2), list(dv, xvars))
     lagstructure <- lapply(tmp, function(x) list(lags = lags_list, lagdiff = x))
   }
 
@@ -65,20 +68,21 @@ ardl <- function(type = "ardl-ec", dt, dv, vars, exclude_cointegration = NULL, a
     levels <- c(xvars_levels, dummies)
     diffs <- xvars_firstdiff
                                  # lags            # x variables in level
-    tmp <- get_lagdiffs_list(c(list(1:3), rep(list(0:3), length(c(xvars)))), c(dv, xvars))
+    tmp <- get_lagdiffs_list(list(1:maxpq, 0:maxpq), list(dv, xvars))
     lagstructure <- lapply(tmp, function(x) list(lags = x[names(x) %in% c(dv, xvars_levels)], 
                                                  lagdiff = x[names(x) %in% xvars_firstdiff]))
     ec <- FALSE
   }
 
   if (type == "ardl-firstdiff") {
+    dv = paste0('d', dv)
     formula <- as.formula(paste0(paste0("", dv), "~1+", paste(c(xvars, dummies), collapse = "+")))
     levels <- c(xvars, dummies)
     diffs <- NULL # xvars
 
     ec <- FALSE
-                                     #DV          # lags    # lags of differences
-    tmp <- get_lagdiffs_list(c(list(1:3), rep(list(0:1), length(c(xvars, xvars)))), c(dv, xvars, paste0("_", xvars)))
+                                  #DV  #lags #lags of differences
+    tmp <- get_lagdiffs_list(list(1:maxpq, 0:maxpq,  0:maxpq), list(dv, xvars, paste0("_", xvars)))
 
     lagstructure <- lapply(tmp, function(x) {
       lagdiff <- x[names(x) %in% c(paste0("_", xvars))]
@@ -108,18 +112,18 @@ ardl <- function(type = "ardl-ec", dt, dv, vars, exclude_cointegration = NULL, a
   bics <- unlist(lapply(models, function(x) x$bic))
   autocorrel <- unlist(lapply(models, function(x) x$autocorrel_p))
 
-  if (length(which(autocorrel > .1)) == 0) {
+  if (length(which(autocorrel > pval)) == 0) {
     return("cannot remove autocorrel")
   }
 
    # choose model without autocorrel & highest BIC
-  m.choice <- match(min(bics[autocorrel > .1]), bics)
+  m.choice <- match(min(bics[autocorrel > pval]), bics)
   m <- models[[m.choice]]$model
 
   # check for autocorrelation
   # plot(m$model$residuals)
 
-  autocorrelation <- models[[m.choice]]$autocorrel_p < .1
+  autocorrelation <- models[[m.choice]]$autocorrel_p < pval
 
   res <- list(
     model = m, tested_model_specs = list(

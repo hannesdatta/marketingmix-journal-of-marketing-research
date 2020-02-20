@@ -175,7 +175,7 @@ shockvalue = log(1.1)
 msim = dynardl(m$tested_model_specs$formula, data = dt, lags = m$tested_model_specs$lagstructure[[m$mchoice]]$lags,
         diffs = m$tested_model_specs$diffs, lagdiffs = m$tested_model_specs$lagstructure[[m$mchoice]]$lagdiff,
         levels= m$tested_model_specs$levels, ec = m$tested_model_specs$ec, trend = m$tested_model_specs$trend,
-        simulate = T, shockvar='lnrwpspr', range=48, time = 10, shockval=shockvalue, burnin=12, sig=90)
+        simulate = T, shockvar="lnrwpspr", range=48, time = 10, shockval=shockvalue, burnin=12, sig=90)
 
 dynardl.simulation.plot(msim, type='area', response='levels') #diffs
 
@@ -190,14 +190,16 @@ dynardl.simulation.plot(msim, type='area', response='levels') #diffs
 ###########################
 
 require(parallel)
-cl<-makePSOCKcluster(4)
+cl<-makePSOCKcluster(7)
 clusterExport(cl, c('panel', 'brand_panel'))
 clusterEvalQ(cl, library(data.table))
 clusterEvalQ(cl, library(timeSeries))
-clusterEvalQ(cl, source('proc_analysis_agg.R'))
-clusterEvalQ(cl, source('proc_analysis_brand.R'))
-clusterEvalQ(cl, source('proc_analysis.R'))
-clusterEvalQ(cl, source('c1c5b3af32343d042fcbc8e249ae9ff6/proc_unitroots.R'))
+void<-clusterEvalQ(cl, source('proc_analysis_agg.R'))
+void<-clusterEvalQ(cl, source('proc_analysis_brand.R'))
+void<-clusterEvalQ(cl, source('proc_analysis.R'))
+void<-clusterEvalQ(cl, source('proc_ardl.R'))
+void<-clusterEvalQ(cl, source('c1c5b3af32343d042fcbc8e249ae9ff6/proc_unitroots.R'))
+rm(void)
 
 
 #res=clusterApply(cl, unique(panel$market_id), function(mid) try(analyze_market(mid, quarters=T), silent=T))
@@ -205,10 +207,18 @@ res=clusterApply(cl, unique(brand_panel$brand_id), function(bid) {
   out=try(analyze_brand(bid, quarters=T), silent=T)
   if (class(out)=='try-error') return('error') else return(out)
 })
+my_results=unlist(res)
 
-res=unlist(res)
 
+# what about: cannot remove autocorrel
+emarkets=unique(brand_panel$brand_id)[which(grepl('cannot remove autocorrel',res))]
+o2 = sapply(emarkets, analyze_brand, quarters=T, simplify = F)
 
+bid = 18
+
+unique(brand_panel$brand_id)[which(grepl('cannot remove autocorrel',res))]
+
+m<-analyze_brand(1642, quarters=T)
 
 
 unique(panel$market_id)[grepl('error', out, ignore.case=T)]

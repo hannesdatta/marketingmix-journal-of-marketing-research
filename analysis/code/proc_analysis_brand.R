@@ -50,9 +50,11 @@ analyze_brand <- function(bid, quarters=T) {
     
     use_trend=as.logical(adf_tests[variable=='lnusales']$trend)
     
-    
+    for (maxpq in c(3,6,9,12,15,18)) {
     m<-ardl(type='ardl-ec', dt = dat, dv = dv, vars = c(vars, quarter_vars), exclude_cointegration = NULL,
-            adf_tests= adf_tests, maxlag = 6, pval = .1)
+            adf_tests= adf_tests, maxlag = 6, pval = .1, maxpq = maxpq)
+    if (class(m)=='ardl_procedure') break
+    }
     
     # chosen lag structure
     #cat('Chosen lag structure:\n')
@@ -93,9 +95,16 @@ analyze_brand <- function(bid, quarters=T) {
       #exclusions[]
       
       if (length(potential_exclusions)>0) {
+        if(length(potential_exclusions)==1 & all(i0_vars%in%potential_exclusions[[1]])) {
+        all_boundstests = 'no cointegration'
+        } else {
         ot=lapply(potential_exclusions, function(x) {
-          ardl(type='ardl-ec', dt = dat, dv = dv, vars = c(vars, quarter_vars), exclude_cointegration = x,
-                adf_tests= adf_tests, maxlag = 6, pval = .1)
+          for (maxpq in c(3,6)) {
+            me<-ardl(type='ardl-ec', dt = dat, dv = dv, vars = c(vars, quarter_vars), exclude_cointegration = x,
+                     adf_tests= adf_tests, maxlag = 6, pval = .1, maxpq = maxpq)
+            if (class(me)=='ardl_procedure') break
+          }
+          return(me)
         })
       
       cat(paste0('Running another series of bounds tests, by excluding the following variables (test result in brackets):\n'))
@@ -105,7 +114,7 @@ analyze_brand <- function(bid, quarters=T) {
       fused_excl = paste(print_excl, all_boundstests, sep = ': ')
       cat(paste0(fused_excl, collapse='\n'))
       
-      
+        }
         
       return(paste0('initially: ', initial_bounds, '; now: ', paste0(all_boundstests, collapse='|')))
         #if (!ot[1]=='inconclusive') boundstest_result=ot[1]
