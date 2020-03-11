@@ -26,6 +26,9 @@ library(bit64)
 library(parallel)
 library(marketingtools)
 library(car)
+library(devtools)
+
+install_github('https://github.com/hannesdatta/dynamac', ref = 'firstdiff_nolags')
 
 dir.create('../output')
 
@@ -158,7 +161,7 @@ source('proc_ardl.R')
 
 
 
-out=sapply(unique(brand_panel$brand_id)[1:10], function(bid) try(analyze_brand(bid, quarters=T), silent=T), simplify=F)
+out=sapply(unique(brand_panel$brand_id)[947], function(bid) try(analyze_brand(bid, quarters=T), silent=T), simplify=F)
 
 # "retrieve" resulting model, reestimate
 
@@ -208,6 +211,8 @@ res=clusterApply(cl, unique(brand_panel$brand_id), function(bid) {
   if (class(out)=='try-error') return('error') else return(out)
 })
 my_results=unlist(res)
+
+table(gsub(' [(].*', '', my_results))
 
 
 # what about: cannot remove autocorrel

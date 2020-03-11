@@ -14,6 +14,8 @@ analyze_brand <- function(bid, quarters=T) {
   
   vars = c('lnrwpspr','lnllen','lnwpswdst')
   
+  vars = vars[unlist(lapply(dat[, vars, with=F], use_ts))]
+  
   #melted_panel
   
   #[, ts_selected := use_ts(value), by=c('country','category', 'brand', 'variable')]
@@ -85,7 +87,8 @@ analyze_brand <- function(bid, quarters=T) {
       
       potential_exclusions = c(list(i0_vars), lapply(i1vars_comb, function(x) if(is.null(x)) return(NULL) else return(c(i0_vars,x))))
       
-      potential_exclusions=potential_exclusions[unlist(lapply(potential_exclusions, function(x) !is.null(x)))]
+      #potential_exclusions=potential_exclusions[unlist(lapply(potential_exclusions, function(x) !(is.null(x)|length(x)==0)))]
+      potential_exclusions=potential_exclusions[unlist(lapply(potential_exclusions, function(x) !(is.null(x))))]
       
       if (length(i0_vars)>0) names(potential_exclusions)[1]<-'i0vars'
       if (length(i1vars_comb)>0) names(potential_exclusions)[-1]<-unlist(lapply(i1vars_comb, paste, collapse=','))
@@ -93,12 +96,13 @@ analyze_brand <- function(bid, quarters=T) {
       #if(length(i0_vars)==0) return(paste0(mid,'; inconclusive: cannot remove stationary regressor'))
       
       #exclusions[]
-      
+      #browser()
       if (length(potential_exclusions)>0) {
         if(length(potential_exclusions)==1 & all(i0_vars%in%potential_exclusions[[1]])) {
         all_boundstests = 'no cointegration'
         } else {
         ot=lapply(potential_exclusions, function(x) {
+          if(length(x)==0) return(list(boundstest_result='no test'))
           for (maxpq in c(3,6)) {
             me<-ardl(type='ardl-ec', dt = dat, dv = dv, vars = c(vars, quarter_vars), exclude_cointegration = x,
                      adf_tests= adf_tests, maxlag = 6, pval = .1, maxpq = maxpq)
@@ -106,23 +110,26 @@ analyze_brand <- function(bid, quarters=T) {
           }
           return(me)
         })
-      
+        
       cat(paste0('Running another series of bounds tests, by excluding the following variables (test result in brackets):\n'))
-      
+      #browser()
       print_excl=paste0('- ', unlist(lapply(potential_exclusions, function(x) paste0(x, collapse= ', '))))
       all_boundstests = unlist(lapply(ot, function(x) x$boundstest_result))
       fused_excl = paste(print_excl, all_boundstests, sep = ': ')
       cat(paste0(fused_excl, collapse='\n'))
       
         }
-        
-      return(paste0('initially: ', initial_bounds, '; now: ', paste0(all_boundstests, collapse='|')))
-        #if (!ot[1]=='inconclusive') boundstest_result=ot[1]
-        #if (ot[1]=='inconclusive') {
-        #  boundstest_result='no cointegration'
-        #  if(all(ot[-1]=='cointegration')) boundstest_result='cointegration'
-          
-        #}
+      #browser()
+      
+      boundstest_result = 'no cointegration'
+      if (all_boundstests[1]%in%c('no cointegration', 'cointegration')) boundstest_result = all_boundstests[1]
+      
+      if (length(all_boundstests)>1) {
+        if (sum(all_boundstests[-1]%in%c('cointegration'))==length(all_boundstests)-1) boundstest_result = 'cointegration'
+      }
+      
+      return(paste0('initially: ', initial_bounds, '; now: ', boundstest_result, ' (all tests: ', paste0(all_boundstests, collapse='|'), ')'))
+      
       }
     }
     
