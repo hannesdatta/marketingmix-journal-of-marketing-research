@@ -21,27 +21,15 @@
 library(data.table)
 
 ## Load panel data
-	brand_panel=fread('../temp/preclean.csv')
+	brand_panel=fread('../../derived/output/datasets_main.csv') #temp/preclean_main.csv')
 	brand_panel[, ':=' (date = as.Date(date))]
 
 ## 
   brand_panel[, ':=' (first_date=min(date[!is.na(usales)]), last_date=max(date[!is.na(usales)])),by=c('category','country')]
+  setorder(brand_panel, brand, country,category,date)
+  tmp=	brand_panel[, list(countries = paste0(unique(country), collapse = ', '), ncountries=uniqueN(country), categories = paste0(unique(category))), by = c('brand')]
+  tmp = tmp[!grepl('allother|unbranded',brand)]
+  setorderv(tmp, 'ncountries', order = -1L)
   
-  tmp=	brand_panel[, list(marketshare = unique(overall_ms), first_date_cat = unique(first_date), last_date_cat=unique(last_date), first_date_brand=min(date[!is.na(usales)]), last_date_brand=max(date[!is.na(usales)])),by=c('category','country','brand')]
   
-  setorderv(tmp, c('country', 'category', 'marketshare'), order=-1L)
   
-  tmp[, topX:=1:.N, by = c('country','category')]
-	
-  setcolorder(tmp, c('country','category','topX', 'brand', 'marketshare','first_date_cat','last_date_cat', 'first_date_brand', 'last_date_brand'))
-  fwrite(tmp, '../temp/brands_for_advertising.csv',row.names=F) 
-  
-
-## Obs per market
-	tmp=brand_panel[, list(obs=length(unique(date[!is.na(nov6)]))),by=c('market_id','category','country')]
-	setorder(tmp, obs)
-
-	
-# export for hongkong
-	fwrite(tmp[country=='hong kong'], file='../temp/brands_for_adv_hongkong.csv')
-	
