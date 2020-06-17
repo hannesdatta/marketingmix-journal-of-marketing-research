@@ -52,11 +52,17 @@ analyze_brand <- function(bid, quarters=T) {
     
     use_trend=as.logical(adf_tests[variable=='lnusales']$trend)
     
-    for (maxpq in c(3,6,9,12,15,18)) {
-    m<-ardl(type='ardl-ec', dt = dat, dv = dv, vars = c(vars, quarter_vars), exclude_cointegration = NULL,
-            adf_tests= adf_tests, maxlag = 6, pval = .1, maxpq = maxpq)
-    if (class(m)=='ardl_procedure') break
+    # ardl automatically finds the right number of lags p and q
+    # iteratively try to run test, first w/ max 3 lags, then 6, then 9, etc.
+    autocorrel_lags= c(3,6,9,12,15,18)
+    for (maxpq in autocorrel_lags) {
+      m<-ardl(type='ardl-ec', dt = dat, dv = dv, vars = c(vars, quarter_vars), exclude_cointegration = NULL,
+              adf_tests= adf_tests, maxlag = 6, pval = .1, maxpq = maxpq)
+      if (class(m)=='ardl_procedure') break
     }
+    
+    cat(paste0('ARDL bounds test conducted with ', maxpq, ' lags in p and q.\n'))
+    
     
     # chosen lag structure
     #cat('Chosen lag structure:\n')
@@ -65,175 +71,103 @@ analyze_brand <- function(bid, quarters=T) {
     
     if ('cannot remove autocorrel'%in%m) return(m)
     
+    
+    # retrieve results of boundstest
     boundstest_result=m$boundstest_result
     
-     
+    
     initial_bounds=boundstest_result
     
     if(boundstest_result=='inconclusive') {
-       
+      
       # exclude non-UR variables from lag_levels
-      i0_vars=as.character(adf_tests[!variable==dv&ur==0]$variable)
-      i1_vars=as.character(adf_tests[!variable==dv&ur==1]$variable)
+      i0_vars = as.character(adf_tests[!variable == dv & ur == 0]$variable)
+      i1_vars = as.character(adf_tests[!variable == dv &
+                                         ur == 1]$variable)
       # combinations
-      if(length(i1_vars)>0) {
-        i1vars_comb = do.call('c', sapply(1:max(1,length(i1_vars)-1), function(x) combn(i1_vars, x, simplify=F), simplify=F))
-        i1vars_comb = lapply(i1vars_comb, function(x) if(all(i1_vars%in%x)) return(NULL) else x)
+      if (length(i1_vars) > 0) {
+        i1vars_comb = do.call('c', sapply(1:max(1, length(i1_vars) - 1), function(x)
+          combn(i1_vars, x, simplify = F), simplify = F))
+        i1vars_comb = lapply(i1vars_comb, function(x)
+          if (all(i1_vars %in% x))
+            return(NULL)
+          else
+            x)
       } else {
         i1vars_comb = list(NULL)
       }
       i1vars_comb
+      
       # check w/ marnik whether done correctly (NULL in case of only 1 var)
       
-      potential_exclusions = c(list(i0_vars), lapply(i1vars_comb, function(x) if(is.null(x)) return(NULL) else return(c(i0_vars,x))))
+      
+      potential_exclusions = c(list(i0_vars),
+                               lapply(i1vars_comb, function(x)
+                                 if (is.null(x))
+                                   return(NULL)
+                                 else
+                                   return(c(i0_vars, x))))
       
       #potential_exclusions=potential_exclusions[unlist(lapply(potential_exclusions, function(x) !(is.null(x)|length(x)==0)))]
-      potential_exclusions=potential_exclusions[unlist(lapply(potential_exclusions, function(x) !(is.null(x))))]
+      potential_exclusions = potential_exclusions[unlist(lapply(potential_exclusions, function(x) !(is.null(x))))]
       
-      if (length(i0_vars)>0) names(potential_exclusions)[1]<-'i0vars'
-      if (length(i1vars_comb)>0) names(potential_exclusions)[-1]<-unlist(lapply(i1vars_comb, paste, collapse=','))
+      if (length(i0_vars) > 0)
+        names(potential_exclusions)[1] <- 'i0vars'
+      if (length(i1vars_comb) > 0)
+        names(potential_exclusions)[-1] <-
+        unlist(lapply(i1vars_comb, paste, collapse = ','))
       
       #if(length(i0_vars)==0) return(paste0(mid,'; inconclusive: cannot remove stationary regressor'))
       
       #exclusions[]
       #browser()
+      
       if (length(potential_exclusions)>0) {
-        if(length(potential_exclusions)==1 & all(i0_vars%in%potential_exclusions[[1]])) {
-        all_boundstests = 'no cointegration'
+        if(length(potential_exclusions)==1 & length(setdiff(i0_vars, potential_exclusions[[1]]))==0) {
+          # if excluding ALL stationary regressors excludes all variables, conclude NO cointegration.
+          
+          all_boundstests = 'no cointegration'
+          # just exclude in levels, right?
+          
+          
         } else {
-        ot=lapply(potential_exclusions, function(x) {
-          if(length(x)==0) return(list(boundstest_result='no test'))
-          for (maxpq in c(3,6)) {
-            me<-ardl(type='ardl-ec', dt = dat, dv = dv, vars = c(vars, quarter_vars), exclude_cointegration = x,
-                     adf_tests= adf_tests, maxlag = 6, pval = .1, maxpq = maxpq)
-            if (class(me)=='ardl_procedure') break
-          }
-          return(me)
-        })
-        
-      cat(paste0('Running another series of bounds tests, by excluding the following variables (test result in brackets):\n'))
-      #browser()
-      print_excl=paste0('- ', unlist(lapply(potential_exclusions, function(x) paste0(x, collapse= ', '))))
-      all_boundstests = unlist(lapply(ot, function(x) x$boundstest_result))
-      fused_excl = paste(print_excl, all_boundstests, sep = ': ')
-      cat(paste0(fused_excl, collapse='\n'))
-      
-        }
-      #browser()
-      
-      boundstest_result = 'no cointegration'
-      if (all_boundstests[1]%in%c('no cointegration', 'cointegration')) boundstest_result = all_boundstests[1]
-      
-      if (length(all_boundstests)>1) {
-        if (sum(all_boundstests[-1]%in%c('cointegration'))==length(all_boundstests)-1) boundstest_result = 'cointegration'
+          ot=lapply(potential_exclusions, function(x) {
+            if(length(x)==0) return(list(boundstest_result='no test'))
+            
+            for (maxpq in autocorrel_lags) {
+              me<-ardl(type='ardl-ec', dt = dat, dv = dv, vars = c(vars, quarter_vars), exclude_cointegration = x,
+                       adf_tests= adf_tests, maxlag = 6, pval = .1, maxpq = maxpq)
+              if (class(me)=='ardl_procedure') break
+            }
+            
+            return(me)
+          })
+          
+          cat(paste0('Running another series of bounds tests, by excluding the following variables (test result in brackets):\n'))
+          #browser()
+          print_excl=paste0('- ', unlist(lapply(potential_exclusions, function(x) paste0(x, collapse= ', '))))
+          all_boundstests = unlist(lapply(ot, function(x) x$boundstest_result))
+          fused_excl = paste(print_excl, all_boundstests, sep = ': ')
+          cat(paste0(fused_excl, collapse='\n'))
       }
-      
-      return(paste0('initially: ', initial_bounds, '; now: ', boundstest_result, ' (all tests: ', paste0(all_boundstests, collapse='|'), ')'))
-      
+        
+        #browser()
+        
+        boundstest_result = 'no cointegration'
+        if (all_boundstests[1]%in%c('no cointegration', 'cointegration')) boundstest_result = all_boundstests[1]
+        
+        if (length(all_boundstests)>1) {
+          if (sum(all_boundstests[-1]%in%c('cointegration'))==length(all_boundstests)-1) boundstest_result = 'cointegration'
+        }
+        
+        return(paste0('initially: ', initial_bounds, '; now: ', boundstest_result, ' (all tests: ', paste0(all_boundstests, collapse='|'), ')'))
+        
       }
     }
     
     # was initially inconclusive, but now is conclusive
     
     return(boundstest_result)
-    
-    if (boundstest_result=='cointegration') {
-      m<-run_ardl(type='ardl-ec')
-      #re-estimate & move down?
-      info_msg=paste0('g) Is there autocorrelation in the residuals? ', ifelse(m$autocorrelation==T, 'yes', 'no'), '; p = ', m$autocorrel_test$bg$p.value, '; model choice: ', m$m.choice, '.')
-      return(paste0('OK; market ', mid, '. ', info_msg, 'cointegration; initial bounds: ', initial_bounds))
-      
-    }
-    
-    
-    if (boundstest_result=='no cointegration') {
-      
-      # Model specification
-      formula=as.formula(paste0('d', dv,'~1+', paste(c(vars, quarter_vars), collapse='+')))
-      
-      levels = c(quarter_vars, vars)
-      
-      possible_grid = expand.grid(1, 0:3, 0:3, 0:3)
-      start_values=colMins(possible_grid)
-
-      lags_list = apply(possible_grid, 1, function(x) {
-        obj=list()
-        for (xi in seq(along=x)) obj[[xi]]<-start_values[xi]:x[xi]
-        names(obj) = c(paste0('d',dv),vars)
-        obj=obj[!unlist(lapply(obj, function(x) all(x==0)))]
-        obj=lapply(obj, function(x) x[!x==0])
-        
-      })
-      
-      diffs = list() 
-      
-      lagdiffs = list()
-      
-      # pick number of lags for Xs
-      models=lapply(lags_list, function(lags) {
-        mx<-dynardl(formula, data=dat, lags = lags, diffs = diffs,
-                    lagdiffs = lagdiffs, levels=levels, ec = FALSE, simulate = FALSE, trend = use_trend)
-        autocorrel_test=dynardl.auto.correlated(mx, object.out=T)
-        autocorrel_test$bg$p.value
-        
-        list(bic=BIC(mx$model), model=mx, autocorrel_p=autocorrel_test$bg$p.value, lags = lags)
-      })
-      
-      # choose model with best bic to determine lag numbers
-      bics=unlist(lapply(models, function(x) x$bic))
-      m.choice = which(bics==min(bics))
-      
-      
-      possible_grid = expand.grid(1:6, unlist(models[[m.choice]]$lags)[-1])
-      start_values=colMins(possible_grid)
-      
-      lags_list = apply(possible_grid, 1, function(x) {
-        obj=list()
-        for (xi in seq(along=x)) obj[[xi]]<-start_values[xi]:x[xi]
-        names(obj) = names(models[[m.choice]]$lags)
-        obj=obj[!unlist(lapply(obj, function(x) all(x==0)))]
-        obj=lapply(obj, function(x) x[!x==0])
-        
-      })
-      
-      # pick number of lags for Xs
-      models=lapply(lags_list, function(lags) {
-        mx<-dynardl(formula, data=dat, lags = lags, diffs = diffs,
-                    lagdiffs = lagdiffs, levels=levels, ec = FALSE, simulate = FALSE, trend = use_trend)
-        autocorrel_test=dynardl.auto.correlated(mx, object.out=T)
-        autocorrel_test$bg$p.value
-        
-        list(bic=BIC(mx$model), model=mx, autocorrel_p=autocorrel_test$bg$p.value, lags = lags)
-      })
-      
-      # choose model with best bic to determine lag numbers
-      bics=unlist(lapply(models, function(x) x$bic))
-      autocorrel=unlist(lapply(models, function(x) x$autocorrel_p))
-      
-      if (length(which(autocorrel>.1))==0) return(paste0(mid, ': cannot remove autocorrel in first-differenced ARDL (no cointegration)'))
-      
-      
-      # choose model without autocorrel & highest BIC
-      m.choice = match(min(bics[autocorrel>.1]), bics)
-      
-      m=models[[m.choice]]$model
-      
-      # check for autocorrelation
-      plot(m$model$residuals)
-      
-      autocorrel_test=dynardl.auto.correlated(m, object.out=T)
-      autocorrel_test$bg$p.value
-      
-      
-      autocorrelation=autocorrel_test$bg$p.value<.1
-      
-      
-      info_msg=paste0('g) Is there autocorrelation in the residuals? ', ifelse(autocorrelation==T, 'yes', 'no'), '; p = ', autocorrel_test$bg$p.value, '; model choice: ', m.choice, '; bounds: ', boundstest_result, '; initial bounds: ', initial_bounds)
-      
-      return(paste0('OK ', mid, '. ', info_msg))
-      
-      
-    }  
     
     
   }
@@ -244,3 +178,106 @@ analyze_brand <- function(bid, quarters=T) {
 }
 
 #analyze_brand <- function(x,  ...) stop(paste0('error ', x))
+
+if(0) {
+  
+  if (boundstest_result=='cointegration') {
+    m<-run_ardl(type='ardl-ec')
+    #re-estimate & move down?
+    info_msg=paste0('g) Is there autocorrelation in the residuals? ', ifelse(m$autocorrelation==T, 'yes', 'no'), '; p = ', m$autocorrel_test$bg$p.value, '; model choice: ', m$m.choice, '.')
+    return(paste0('OK; market ', mid, '. ', info_msg, 'cointegration; initial bounds: ', initial_bounds))
+    
+  }
+  
+  
+  if (boundstest_result=='no cointegration') {
+    
+    # Model specification
+    formula=as.formula(paste0('d', dv,'~1+', paste(c(vars, quarter_vars), collapse='+')))
+    
+    levels = c(quarter_vars, vars)
+    
+    possible_grid = expand.grid(1, 0:3, 0:3, 0:3)
+    start_values=colMins(possible_grid)
+    
+    lags_list = apply(possible_grid, 1, function(x) {
+      obj=list()
+      for (xi in seq(along=x)) obj[[xi]]<-start_values[xi]:x[xi]
+      names(obj) = c(paste0('d',dv),vars)
+      obj=obj[!unlist(lapply(obj, function(x) all(x==0)))]
+      obj=lapply(obj, function(x) x[!x==0])
+      
+    })
+    
+    diffs = list() 
+    
+    lagdiffs = list()
+    
+    # pick number of lags for Xs
+    models=lapply(lags_list, function(lags) {
+      mx<-dynardl(formula, data=dat, lags = lags, diffs = diffs,
+                  lagdiffs = lagdiffs, levels=levels, ec = FALSE, simulate = FALSE, trend = use_trend)
+      autocorrel_test=dynardl.auto.correlated(mx, object.out=T)
+      autocorrel_test$bg$p.value
+      
+      list(bic=BIC(mx$model), model=mx, autocorrel_p=autocorrel_test$bg$p.value, lags = lags)
+    })
+    
+    # choose model with best bic to determine lag numbers
+    bics=unlist(lapply(models, function(x) x$bic))
+    m.choice = which(bics==min(bics))
+    
+    
+    possible_grid = expand.grid(1:6, unlist(models[[m.choice]]$lags)[-1])
+    start_values=colMins(possible_grid)
+    
+    lags_list = apply(possible_grid, 1, function(x) {
+      obj=list()
+      for (xi in seq(along=x)) obj[[xi]]<-start_values[xi]:x[xi]
+      names(obj) = names(models[[m.choice]]$lags)
+      obj=obj[!unlist(lapply(obj, function(x) all(x==0)))]
+      obj=lapply(obj, function(x) x[!x==0])
+      
+    })
+    
+    # pick number of lags for Xs
+    models=lapply(lags_list, function(lags) {
+      mx<-dynardl(formula, data=dat, lags = lags, diffs = diffs,
+                  lagdiffs = lagdiffs, levels=levels, ec = FALSE, simulate = FALSE, trend = use_trend)
+      autocorrel_test=dynardl.auto.correlated(mx, object.out=T)
+      autocorrel_test$bg$p.value
+      
+      list(bic=BIC(mx$model), model=mx, autocorrel_p=autocorrel_test$bg$p.value, lags = lags)
+    })
+    
+    # choose model with best bic to determine lag numbers
+    bics=unlist(lapply(models, function(x) x$bic))
+    autocorrel=unlist(lapply(models, function(x) x$autocorrel_p))
+    
+    if (length(which(autocorrel>.1))==0) return(paste0(mid, ': cannot remove autocorrel in first-differenced ARDL (no cointegration)'))
+    
+    
+    # choose model without autocorrel & highest BIC
+    m.choice = match(min(bics[autocorrel>.1]), bics)
+    
+    m=models[[m.choice]]$model
+    
+    # check for autocorrelation
+    plot(m$model$residuals)
+    
+    autocorrel_test=dynardl.auto.correlated(m, object.out=T)
+    autocorrel_test$bg$p.value
+    
+    
+    autocorrelation=autocorrel_test$bg$p.value<.1
+    
+    
+    info_msg=paste0('g) Is there autocorrelation in the residuals? ', ifelse(autocorrelation==T, 'yes', 'no'), '; p = ', autocorrel_test$bg$p.value, '; model choice: ', m.choice, '; bounds: ', boundstest_result, '; initial bounds: ', initial_bounds)
+    
+    return(paste0('OK ', mid, '. ', info_msg))
+    
+    
+  }
+}
+  
+  

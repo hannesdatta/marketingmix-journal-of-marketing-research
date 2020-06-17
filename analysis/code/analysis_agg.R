@@ -28,7 +28,12 @@ library(marketingtools)
 library(car)
 library(devtools)
 
-install_github('https://github.com/hannesdatta/dynamac', ref = 'firstdiff_nolags')
+#install_github('https://github.com/hannesdatta/dynamac', ref = 'firstdiff_nolags')
+
+# try out new dynamac distribution
+devtools::install_github("andyphilips/dynamac")
+library(dynamac)
+
 
 dir.create('../output')
 
@@ -125,7 +130,7 @@ dir.create('../output')
 #################################
 # PRELIMINARY UNIT ROOT TESTING #
 #################################
-  
+
 source('c1c5b3af32343d042fcbc8e249ae9ff6/proc_unitroots.R')
 
 # checking order of UR for category sales
@@ -160,32 +165,7 @@ source('proc_ardl.R')
 #out=sapply(unique(panel$market_id)[1:5], function(mid) try(analyze_market(mid, quarters=T), silent=T))
 
 
-
-out=sapply(unique(brand_panel$brand_id)[947], function(bid) try(analyze_brand(bid, quarters=T), silent=T), simplify=F)
-
-# "retrieve" resulting model, reestimate
-
-# simulation
-dv='lnusales'
-dt=data.table(brand_panel[brand_id==1])
-vars = c('lnrwpspr','lnllen','lnwpswdst')
-m<-ardl(type='ardl-ec', dt = dt, dv = dv, vars = c(vars, quarter_vars), exclude_cointegration = NULL,
-        adf_tests= NULL, maxlag = 6, pval = .1)
-
-shockvariable = vars[1]
-shockvalue = log(1.1)
-
-msim = dynardl(m$tested_model_specs$formula, data = dt, lags = m$tested_model_specs$lagstructure[[m$mchoice]]$lags,
-        diffs = m$tested_model_specs$diffs, lagdiffs = m$tested_model_specs$lagstructure[[m$mchoice]]$lagdiff,
-        levels= m$tested_model_specs$levels, ec = m$tested_model_specs$ec, trend = m$tested_model_specs$trend,
-        simulate = T, shockvar="lnrwpspr", range=48, time = 10, shockval=shockvalue, burnin=12, sig=90)
-
-dynardl.simulation.plot(msim, type='area', response='levels') #diffs
-
-#ardl-firstdiff
-#ardl-levels
-
-
+out=sapply(unique(brand_panel$brand_id)[18], function(bid) try(analyze_brand(bid, quarters=T), silent=T), simplify=F)
 
 
 ###########################
@@ -212,7 +192,68 @@ res=clusterApply(cl, unique(brand_panel$brand_id), function(bid) {
 })
 my_results=unlist(res)
 
-table(gsub(' [(].*', '', my_results))
+
+cases = data.table(brand_id = unique(brand_panel$brand_id),
+                   boundstest = gsub(' [(].*', '', my_results))
+cases[, case:=as.character(NA)]
+cases[is.na(case)&grepl('stationarity', boundstest), case:='stationarity']
+cases[is.na(case)&grepl('no cointegration$', boundstest), case:='nocointegration']
+cases[is.na(case)&grepl('cointegration$', boundstest), case:='cointegration']
+
+cases[, list(.N),by=c('case')]
+
+
+###########################
+# CLUSTER ESTIMATION      #
+###########################
+
+
+# Save cases DONE
+# Prototype model estimation, depending on the case
+# Determine exact configuration of lag structure and models-to-be-estimated
+# Estimate + simulate
+
+
+
+#######################################################
+# Save configuration (extracted from model)
+# Estimate model and simulate in another function
+# + add Copulas
+#######################################################
+
+
+# "retrieve" resulting model, reestimate
+quarter_vars = c('quarter1','quarter2','quarter3')
+
+# simulation
+dv='lnusales'
+dt=data.table(brand_panel[brand_id==1])
+vars = c('lnrwpspr','lnllen','lnwpswdst')
+
+
+m<-ardl(type='ardl-ec', dt = dt, dv = dv, vars = c(vars, quarter_vars), exclude_cointegration = NULL,
+        adf_tests= NULL, maxlag = 6, pval = .1)
+
+shockvariable = vars[1]
+shockvalue = log(1.1)
+
+msim = dynardl(m$tested_model_specs$formula, data = dt, lags = m$tested_model_specs$lagstructure[[m$mchoice]]$lags,
+               diffs = m$tested_model_specs$diffs, lagdiffs = m$tested_model_specs$lagstructure[[m$mchoice]]$lagdiff,
+               levels= m$tested_model_specs$levels, ec = m$tested_model_specs$ec, trend = m$tested_model_specs$trend,
+               simulate = T, shockvar="lnrwpspr", range=48, time = 10, shockval=shockvalue, burnin=12, sig=90)
+
+dynardl.simulation.plot(msim, type='area', response='levels') #diffs
+
+#ardl-firstdiff
+#ardl-levels
+
+
+
+
+# NEXT STEPS
+# FINAL MODEL
+
+
 
 
 # what about: cannot remove autocorrel
