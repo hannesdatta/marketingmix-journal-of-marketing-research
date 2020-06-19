@@ -211,7 +211,9 @@ cases[, list(.N),by=c('case')]
 # Save cases DONE
 # Prototype model estimation, depending on the case
 # Determine exact configuration of lag structure and models-to-be-estimated
-# Estimate + simulate
+# Estimate + simulate elasticities
+
+# How to combine final case w/ exact model? E.g., simulations? Needed?
 
 
 
