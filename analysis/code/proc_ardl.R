@@ -26,7 +26,8 @@ pval <- .1
 adf_tests <- NULL
 exclude_cointegration <- NULL
 
-ardl <- function(type = "ardl-ec", dt, dv, vars, exclude_cointegration = NULL, adf_tests = NULL, maxlag = 6, maxpq = 3, pval = .1, ...) {
+ardl <- function(type = "ardl-ec", dt, dv, vars, exclude_cointegration = NULL, controls = NULL, adf_tests = NULL, maxlag = 6, 
+                 maxpq = 3, pval = .1, ...) {
   # coint: variables to be included in cointegration
 
   tmp <- apply(dt[, vars, with = F], 2, function(x) all(x %in% c(0, 1)))
@@ -41,19 +42,29 @@ ardl <- function(type = "ardl-ec", dt, dv, vars, exclude_cointegration = NULL, a
 
   # run ADF tests if not done before
   if (is.null(adf_tests)) {
-    adf_tests <- rbindlist(lapply(c(dv, xvars), function(.var) {
+    adf_tests <- rbindlist(lapply(c(dv, xvars, controls), function(.var) {
       return(data.frame(variable = .var, cbind(t(adf_enders(unlist(dt[, .var, with = F]), maxlag = maxlag, pval = pval)))))
     }))
   }
+  
+  if (!is.null(controls)) {
+    controls_diffs = as.character(adf_tests[variable%in%controls&ur==1]$variable)
+    controls_levels = as.character(adf_tests[variable%in%controls&ur==0]$variable)
+  }else{
+    controls_diffs=NULL
+    controls_levels=NULL
+  }
+  
+    
   use_trend = as.logical(adf_tests[variable==dv]$trend)
   
   # Estimate ARDL in error correction form (case e, Philips 2018)
   if (type == "ardl-ec") {
-    formula <- as.formula(paste0(dv, "~1+", paste(c(xvars, dummies), collapse = "+")))
+    formula <- as.formula(paste0(dv, "~1+", paste(c(xvars, dummies, controls), collapse = "+")))
     lags_list <- lapply(c(dv, xvars_without_cointegration), function(x) 1)
     names(lags_list) <- c(dv, xvars_without_cointegration)
-    diffs <- xvars
-    levels <- dummies
+    diffs <- c(xvars, controls_diffs)
+    levels <- c(dummies, controls_levels)
     ec <- TRUE
     tmp <- get_lagdiffs_list(rep(list(0:maxpq), 2), list(dv, xvars))
     lagstructure <- lapply(tmp, function(x) list(lags = lags_list, lagdiff = x))
@@ -63,10 +74,11 @@ ardl <- function(type = "ardl-ec", dt, dv, vars, exclude_cointegration = NULL, a
     xvars_levels <- as.character(adf_tests[variable %in% xvars & order == 0]$variable)
     xvars_firstdiff <- setdiff(xvars, xvars_levels)
 
-    formula <- as.formula(paste0(dv, "~1+", paste(c(xvars, dummies), collapse = "+")))
+    formula <- as.formula(paste0(dv, "~1+", paste(c(xvars, dummies, controls), collapse = "+")))
 
-    levels <- c(xvars_levels, dummies)
-    diffs <- xvars_firstdiff
+    levels <- c(xvars_levels, dummies, controls_levels)
+    diffs <- c(xvars_firstdiff, controls_diffs)
+    
                                  # lags            # x variables in level
     tmp <- get_lagdiffs_list(list(1:maxpq, 0:maxpq), list(dv, xvars))
     lagstructure <- lapply(tmp, function(x) list(lags = x[names(x) %in% c(dv, xvars_levels)], 
@@ -76,11 +88,11 @@ ardl <- function(type = "ardl-ec", dt, dv, vars, exclude_cointegration = NULL, a
 
   if (type == "ardl-firstdiff") {
     dv = paste0('d', dv)
-    formula <- as.formula(paste0(paste0("", dv), "~1+", paste(c(xvars, dummies), collapse = "+")))
-    levels <- c(xvars, dummies)
-    diffs <- NULL # xvars
+    formula <- as.formula(paste0(paste0("", dv), "~1+", paste(c(xvars, dummies, controls), collapse = "+")))
+    levels <- c(xvars, dummies, controls_levels)
+    diffs <- c(controls_diffs)# NULL # xvars
 
-    ec <- FALSE
+    ec <- TRUE
                                   #DV  #lags #lags of differences
     tmp <- get_lagdiffs_list(list(1:maxpq, 0:maxpq,  0:maxpq), list(dv, xvars, paste0("_", xvars)))
 
@@ -95,10 +107,12 @@ ardl <- function(type = "ardl-ec", dt, dv, vars, exclude_cointegration = NULL, a
 
   # Estimate models with varying lag terms
   models <- lapply(lagstructure, function(.lagstructure) {
+    #print(.lagstructure)
     log <- capture.output({
       mx <- dynardl(formula,
-        data = dt, lags = .lagstructure$lags, diffs = diffs,
-        lagdiffs = .lagstructure$lagdiff, levels = levels, ec = ec, simulate = FALSE, trend = use_trend
+        data = dt, lags = .lagstructure$lags, diffs = c(diffs),
+        lagdiffs = .lagstructure$lagdiff, levels = c(levels), ec = ec, simulate = FALSE, trend = use_trend,
+        noLDV = ifelse(type=='ardl-firstdiff', T, F)
       )
 
       autocorrel_test <- dynardl.auto.correlated(mx, object.out = T)
@@ -136,7 +150,7 @@ ardl <- function(type = "ardl-ec", dt, dv, vars, exclude_cointegration = NULL, a
     type = type
   )
 
-  if (ec == T) {
+  if (ec == T & type == "ardl-ec") {
     log <- capture.output({
       boundstest <- pssbounds(m, object.out = T)
       boundstest_result <- "inconclusive"
@@ -165,7 +179,7 @@ summary.ardl_procedure <- function(object, ...) {
   
   cat('\n\n')
   
-  if(object$tested_model_specs$ec==T) {
+  if(object$tested_model_specs$ec==T & object$type=='ardl-ec') {
     cat(paste0('Bounds test:\n\n'))
     pssbounds(object$model)
   

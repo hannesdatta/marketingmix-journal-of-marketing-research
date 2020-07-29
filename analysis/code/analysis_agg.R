@@ -31,7 +31,7 @@ library(devtools)
 #install_github('https://github.com/hannesdatta/dynamac', ref = 'firstdiff_nolags')
 
 # try out new dynamac distribution
-devtools::install_github("andyphilips/dynamac")
+#devtools::install_github("andyphilips/dynamac")
 library(dynamac)
 
 
@@ -90,7 +90,10 @@ dir.create('../output')
     panel[, paste0('ln', var):=log(get(var)+anyzero), by = 'market_id']
     panel[, paste0('dln', var):= get(paste0('ln', var))-c(NA, get(paste0('ln', var))[-.N]), by = c('market_id')]
   }
+
   
+  
+    
   vars=c('rwpspr', 'llen', 'wpswdst', 'usales', 'lagusales')
   for (var in vars) {
     brand_panel[, anyzero:=as.numeric(any(get(var)==0),na.rm=T),by=c('market_id', 'brand')]
@@ -98,6 +101,18 @@ dir.create('../output')
     brand_panel[, paste0('ln', var):=log(get(var)+anyzero), by = c('market_id', 'brand')]
     brand_panel[, paste0('dln', var):= get(paste0('ln', var))-c(NA, get(paste0('ln', var))[-.N]), by = c('market_id', 'brand')]
   }
+  
+  
+  # competitive mmix
+  for (v in c('lnrwpspr', 'lnllen', 'lnwpswdst')) {
+    brand_panel[, paste0('sum_', v):=sum(get(v),na.rm=T), by = c('market_id', 'date')]
+    brand_panel[, paste0('N_', v):=length(which(!is.na(get(v)))), by = c('market_id', 'date')]
+    brand_panel[, paste0('comp_', v):=(get(paste0('sum_', v))-get(v))/(get(paste0('N_', v))-1)]
+    brand_panel[, paste0('sum_', v):=NULL]
+    brand_panel[, paste0('N_', v):=NULL]
+    
+    }
+  
   
 # Define copula terms
   for (var in c('rwpspr', 'wpsllen', 'wpswdst')) {
@@ -207,6 +222,38 @@ cases[, list(.N),by=c('case')]
 # CLUSTER ESTIMATION      #
 ###########################
 
+# - competing marketing mix? / first differences normaal
+# - attribute: levels erin steken 
+
+
+
+# Test cases
+
+# --> no cointegration, first differenves
+id=1337
+cases[brand_id==id]
+
+# --> cointegration / first differenves
+id=1737
+cases[brand_id==id]
+
+
+# Check three cases:
+
+
+
+
+
+#### Test simulation
+
+
+
+
+
+
+# - diff endogeneity correction
+
+
 
 # Save cases DONE
 # Prototype model estimation, depending on the case
@@ -214,7 +261,6 @@ cases[, list(.N),by=c('case')]
 # Estimate + simulate elasticities
 
 # How to combine final case w/ exact model? E.g., simulations? Needed?
-
 
 
 #######################################################
@@ -229,22 +275,134 @@ quarter_vars = c('quarter1','quarter2','quarter3')
 
 # simulation
 dv='lnusales'
-dt=data.table(brand_panel[brand_id==1])
-vars = c('lnrwpspr','lnllen','lnwpswdst')
+dt=data.table(brand_panel[brand_id==id])
+vars = c('lnrwpspr','lnllen','lnwpswdst') 
+
+# Marnik: can there be any LT effect in case of no cointegration?
+# Include vars as controls already when testing? (but assume they are there, either in levels or diffs?)
+
+
+controls = NULL # c('comp_lnrwpspr', 'comp_lnllen','comp_lnwpswdst', 'npublicholidays')
 
 
 m<-ardl(type='ardl-ec', dt = dt, dv = dv, vars = c(vars, quarter_vars), exclude_cointegration = NULL,
-        adf_tests= NULL, maxlag = 6, pval = .1)
+        adf_tests= NULL, maxlag = 6, pval = .1, maxpq=6, controls = controls)
 
-shockvariable = vars[1]
+summary(m)
+
+
+# simulation
+dv='dlnusales'
+dt=data.table(brand_panel[brand_id==id])
+
+m<-ardl(type='ardl-levels', dt = dt, dv = dv, vars = c(vars, quarter_vars), exclude_cointegration = NULL,
+        adf_tests= NULL, maxlag = 6, pval = .1, maxpq=6, controls = controls)
+m$tested_model_specs
+
+summary(m)
+
+
+dv='lnusales'
+m<-ardl(type="ardl-ec", dt = dt, dv = dv, vars = c(vars, quarter_vars), exclude_cointegration = NULL,
+        adf_tests= NULL, maxlag = 6, pval = .1, maxpq=6)#, controls = controls)
+
+summary(m)
+
+dv='lnusales'
+m<-ardl(type="ardl-firstdiff", dt = dt, dv = dv, vars = c(vars, quarter_vars), exclude_cointegration = NULL,
+        adf_tests= NULL, maxlag = 6, pval = .1, maxpq=6)#, controls = controls)
+
+summary(m)
+m$tested_model_specs
+
+# is this discrepancy because of my ardl function?
+
+# THIS IS A NO-COINTEGRATION MODEL
+
+# diff DV, rest is the same
+shockvariable='lnrwpspr'
+sims <- lapply(c(0,log(1.1)), function(simvalue) {
+               set.seed(1234)
+               dynardl(dlnusales ~ 1 + lnrwpspr + lnllen + lnwpswdst + quarter1 + quarter2 + 
+                 quarter3, data = dt, lags = list(dlnusales=1:2),
+               diffs = NULL, lagdiffs = NULL, ec=F,
+               levels= c( "lnrwpspr" , "lnllen"   , "lnwpswdst" ,"quarter1",  "quarter2",  "quarter3" ), 
+               trend = F, noLDV=F,
+               simulate = T, shockvar=eval(parse(text=paste0('"', shockvariable, '"'))), 
+               range=48, time = 20, shockval=simvalue, 
+               burnin=12, sig=90)})
+
+simmis = data.frame(do.call('cbind', lapply(sims, function(x) x$simulation$central)))
+colnames(simmis) <-c('base','sim')
+plot(simmis[,2],type='l',col='red')
+lines(simmis[,1],type='l')
+
+# it shows it may grow in general
+plot(cumsum(simmis[,2]),type='l',col='red')
+lines(cumsum(simmis[,1]),type='l')
+
+simmis$cumsum_base=cumsum(simmis$base)
+simmis$cumsum_sim=cumsum(simmis$sim)
+
+simmis$diffcum <- with(simmis, cumsum_sim-cumsum_base)
+simmis$diff <- with(simmis, sim-base)
+
+# AUC
+
+
+
+
+
+summary(test)
+# --> replicates model
+
+# now in first-diffs, automatic, w/ EC
+
+test = dynardl(lnusales ~ 1 + lnrwpspr + lnllen + lnwpswdst + quarter1 + quarter2 + 
+                 quarter3, data = dt, lags = list(dlnusales=1:2),
+               diffs = NULL, lagdiffs = NULL, #list(lnusales=1:2), #NULL,
+               levels= c( "lnrwpspr" , "lnllen"   , "lnwpswdst" ,"quarter1",  "quarter2",  "quarter3" ), 
+               ec = T, trend = F, noLDV=T)#,
+               #simulate = T, shockvar=eval(parse(text=paste0('"', shockvariable, '"'))), 
+               #range=48, time = 10, shockval=0,
+               #shockvalue, 
+               #burnin=12, sig=90)
+summary(test)
+
+sim1=test$simulation
+
+baseline=test$simulation
+
+
+
+dynardl.simulation.plot(test, type='area', response='diffs')
+
+dynardl.simulation.plot(test, type='area', response='levels') #diffs
+
+
+
+# check controls
+
+
+# simulation
+shockvariable = vars[3]
 shockvalue = log(1.1)
 
 msim = dynardl(m$tested_model_specs$formula, data = dt, lags = m$tested_model_specs$lagstructure[[m$mchoice]]$lags,
                diffs = m$tested_model_specs$diffs, lagdiffs = m$tested_model_specs$lagstructure[[m$mchoice]]$lagdiff,
                levels= m$tested_model_specs$levels, ec = m$tested_model_specs$ec, trend = m$tested_model_specs$trend,
-               simulate = T, shockvar="lnrwpspr", range=48, time = 10, shockval=shockvalue, burnin=12, sig=90)
+               noLDV = ifelse(m$type=='ardl-firstdiff',T,F),
+               simulate = T, shockvar=eval(parse(text=paste0('"', shockvariable, '"'))), 
+               range=48, time = 10, shockval=shockvalue, burnin=12, sig=90)
+summary(msim)
+
+dynardl.simulation.plot(msim, type='area', response='diffs')
 
 dynardl.simulation.plot(msim, type='area', response='levels') #diffs
+
+dynardl.simulation.plot(msim, type='area', response='levels') #diffs
+
+msim$simulation[,c('time','central')]
 
 #ardl-firstdiff
 #ardl-levels
