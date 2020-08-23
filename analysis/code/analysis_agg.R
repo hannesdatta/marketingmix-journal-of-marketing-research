@@ -180,7 +180,13 @@ source('proc_ardl.R')
 #out=sapply(unique(panel$market_id)[1:5], function(mid) try(analyze_market(mid, quarters=T), silent=T))
 
 
-out=sapply(unique(brand_panel$brand_id)[18], function(bid) try(analyze_brand(bid, quarters=T), silent=T), simplify=F)
+out=sapply(unique(brand_panel$brand_id)[1:18], function(bid) try(analyze_brand(bid, quarters=T), silent=T), simplify=F)
+
+out[[17]]
+
+unique(brand_panel$brand_id)[1:18][grepl('stationarity in DV',unlist(out))]
+
+
 
 
 ###########################
@@ -199,16 +205,17 @@ void<-clusterEvalQ(cl, source('proc_ardl.R'))
 void<-clusterEvalQ(cl, source('c1c5b3af32343d042fcbc8e249ae9ff6/proc_unitroots.R'))
 rm(void)
 
+bids <- unique(brand_panel$brand_id)[1:150]
 
 #res=clusterApply(cl, unique(panel$market_id), function(mid) try(analyze_market(mid, quarters=T), silent=T))
-res=clusterApply(cl, unique(brand_panel$brand_id), function(bid) {
+res=clusterApply(cl, bids, function(bid) {
   out=try(analyze_brand(bid, quarters=T), silent=T)
   if (class(out)=='try-error') return('error') else return(out)
 })
 my_results=unlist(res)
 
 
-cases = data.table(brand_id = unique(brand_panel$brand_id),
+cases = data.table(brand_id = bids,
                    boundstest = gsub(' [(].*', '', my_results))
 cases[, case:=as.character(NA)]
 cases[is.na(case)&grepl('stationarity', boundstest), case:='stationarity']
@@ -222,36 +229,12 @@ cases[, list(.N),by=c('case')]
 # CLUSTER ESTIMATION      #
 ###########################
 
+# Roadmap:
+
+# - determine "case"
+# - 
 # - competing marketing mix? / first differences normaal
-# - attribute: levels erin steken 
-
-
-
-# Test cases
-
-# --> no cointegration, first differenves
-id=1337
-cases[brand_id==id]
-
-# --> cointegration / first differenves
-id=1737
-cases[brand_id==id]
-
-
-# Check three cases:
-
-
-
-
-
-#### Test simulation
-
-
-
-
-
-
-# - diff endogeneity correction
+# - attribute: levels erin steken, not differnces
 
 
 
@@ -270,25 +253,261 @@ cases[brand_id==id]
 #######################################################
 
 
+
+# To do:
+
 # "retrieve" resulting model, reestimate
 quarter_vars = c('quarter1','quarter2','quarter3')
 
+unique(brand_panel$brand_id)[1:18][grepl('stationarity in DV',unlist(out))]
+# -> 1736 1739  951  952  953  958
+
+#
+unique(brand_panel$brand_id)[1:18][grepl('cointegration$',unlist(out))]
+# -> 1737 1738 1740 1741 1742  956  957
+
+unique(brand_panel$brand_id)[1:18][grepl('no cointegration$',unlist(out))]
+# ->  1741 1742  956  957
+
+
+
+
 # simulation
 dv='lnusales'
+id=1742
+
 dt=data.table(brand_panel[brand_id==id])
 vars = c('lnrwpspr','lnllen','lnwpswdst') 
 
 # Marnik: can there be any LT effect in case of no cointegration?
 # Include vars as controls already when testing? (but assume they are there, either in levels or diffs?)
 
-
+# re-estimate model
 controls = NULL # c('comp_lnrwpspr', 'comp_lnllen','comp_lnwpswdst', 'npublicholidays')
 
 
+res <- analyze_brand(id, quarters=T)
+mtype = as.character(NA)
+if(grepl('stationarity in DV',res)) mtype = 'ardl=levels'
+if(grepl('cointegration$',res)) mtype = 'ardl-ec'
+if(grepl('no cointegration$',res)) mtype = 'ardl-firstdiff'
+
+  # LEVELS
+# -> 1736 1739  951  952  953  958
+
+#
+unique(brand_panel$brand_id)[1:18][grepl('cointegration$',unlist(out))]
+# -> 1737 1738 1740 1741 1742  956  957
+
+unique(brand_panel$brand_id)[1:18][grepl('no cointegration$',unlist(out))]
+# ->  1741 1742  956  957
+
+
+m<-ardl(type='ardl-levels', dt = dt, dv = dv, vars = c(vars, quarter_vars), exclude_cointegration = NULL,
+       adf_tests= NULL, maxlag = 6, pval = .1, maxpq=6, controls = controls)
+summary(m)
+
+
+
+dv='lnusales'
 m<-ardl(type='ardl-ec', dt = dt, dv = dv, vars = c(vars, quarter_vars), exclude_cointegration = NULL,
         adf_tests= NULL, maxlag = 6, pval = .1, maxpq=6, controls = controls)
-
 summary(m)
+
+
+
+# first diffs
+dv='lnusales'
+m<-ardl(type='ardl-firstdiff', dt = dt, dv = dv, vars = c(vars, quarter_vars), exclude_cointegration = NULL,
+        adf_tests= NULL, maxlag = 6, pval = .1, maxpq=6, controls = controls)
+summary(m)
+
+
+
+# Extract data set
+
+sim_dat <- function(m, shockvar=NULL, shockperiod=20, Nperiods=30, shockvalue=log(1.1)) {
+  
+  dv <- m$model$model$model[,1]
+  dvname = colnames(m$model$model$model)[1]
+  dvblank=gsub('.*[.]|^d','', dvname)
+  
+  
+  # Xsim holds the "starting" values for the simulation data set (NOT the coefficients)
+  Xsim <- colMeans(m$model$model$model[,-1])
+  
+  # Set lags of main effect variables (i.e. not the DV) to the same (first) value
+  for (.var in grep('l[.][0-9][.]', names(Xsim),value=T))
+    blankvar = gsub('l[.][0-9][.]','',.var)
+    Xsim[.var] <- Xsim[grep(paste0('^', blankvar,'|l[.][0-9][.]',blankvar), names(Xsim), value=T)[1]]
+  
+  # set lagged DVs to NA (0 in case it's first differenced)
+  lagdvcol = grep(paste0('l[.][0-9][.]', dvblank, '|ld[.][0-9][.]', dvblank, '|l[.][0-9][.]d', dvblank), names(Xsim),value=T)
+  Xsim[lagdvcol] <- NA
+  Xsim[lagdvcol[grepl('l[.][0-9][.]d[.]|ld[.][0-9][.]|l[.][0-9][.]d', lagdvcol)]] <- 0
+  
+  # set all variables in differences to 0
+  Xsim[grep('^d[.][0-9][.]', names(Xsim))] <- 0
+  
+  # stretch out
+  Xsim_mat <- matrix(rep(Xsim,Nperiods),byrow=T, ncol=length(Xsim))
+  colnames(Xsim_mat)<-names(Xsim)
+  
+  # set lagged DV in the first period to mean observed DV 
+  meansales <- mean(dt$lnusales)
+  #indiff=F
+  #if (grepl('^d[.]', dvname)) indiff=T
+  
+  Xsim_mat[1, grep(paste0('l[.][0-9][.]', dvblank), names(Xsim),value=T)] <- meansales
+  
+  # Extract coefficients from model for simulation
+  #shockperiod = 25
+  #shockvar = vars[3]
+  #shockvalue = 0 #1.1
+  
+  # extend lagged dependent variables
+  relevant_vars=grep(paste0('l[.][0-9].', dvblank), colnames(Xsim_mat),value=T)
+  for (s in seq(from=1, length.out=length(relevant_vars))) Xsim_mat[seq(from=s, to=1), relevant_vars[s]] <- meansales
+  
+  if ('trendvar'%in%names(Xsim)) Xsim_mat[, 'trendvar']<-1:Nperiods
+
+  # collect variables pertaining to the variable that will be shocked
+  relevant_vars=grep(paste0('(d[.][0-9].){0,1}', shockvar), colnames(Xsim_mat),value=T) 
+  
+  if (is.null(shockvar)|shockvar=='base') {
+    # no shock
+  } else {
+    
+    relevant_vars_levels = grep('^d[.]', relevant_vars, invert=T,value=T)
+    lags = as.numeric(gsub("\\D", "", relevant_vars_levels))
+    lags[is.na(lags)] <- 0
+    
+    for (s in seq(from=1, length.out=length(relevant_vars_levels))) Xsim_mat[shockperiod + lags[s], relevant_vars_levels[s]] <- Xsim_mat[shockperiod, relevant_vars_levels[1]]+shockvalue
+    
+    relevant_vars_diffs = grep('^d[.]', relevant_vars, invert=F,value=T)
+    lags = as.numeric(gsub("\\D", "", relevant_vars_diffs))
+    lags[is.na(lags)] <- 0
+    
+    for (s in seq(from=1, length.out=length(relevant_vars_diffs))) Xsim_mat[shockperiod + lags[s]-1, relevant_vars_diffs[s]] <- Xsim_mat[shockperiod, relevant_vars_diffs[1]]+shockvalue
+    
+    }
+  
+  return(list(data=Xsim_mat, shockvar = shockvar, shockperiod=shockperiod))
+}
+  
+
+sim_ds = lapply(c('base', vars), function(x) sim_dat(m=m, shockvar=x, shockvalue = log(1.10), Nperiods = 48))
+ 
+View(sim_ds[[2]]$data)
+  
+Xsim_mat=sim_ds[[1]]$data
+  
+  
+  
+my_predict <- function(m, Xsim_mat) {
+  
+  # Draw coefficients
+  coefs =m$model$model$coefficients
+  Nperiods=nrow(Xsim_mat)
+  predlevels <- rep(NA,Nperiods)
+  preddiff <- rep(NA,Nperiods)
+  pred <- rep(NA,Nperiods)
+  
+  dvname = colnames(m$model$model$model)[1]
+  dvblank=gsub('.*[.]|^d','', dvname)
+  
+  Xsim <- colMeans(m$model$model$model[,-1])
+  
+ # dvmean = Xsim[grep(paste0('^l[.][0-9][.]', dvblank,'$|^', dvblank,'$'), colnames(m$model$model$model[,-1]),value=T)][1]
+  
+  #if(is.na(dvmean)) dvmean=mean(eval(parse(text=paste0('dt$`',dvblank,'`'))))
+  
+  meansales <- mean(dt$lnusales)
+
+  indiff=F
+  if (grepl('^d[.]|^d', dvname)) indiff=T
+    
+  for (p in seq(from=1, to=Nperiods)) {
+    
+    pred[p] = t(coefs)%*%cbind(c(1,Xsim_mat[p,]))
+    
+    if(indiff==T) {
+      # in differences
+      if (p==1) {
+        predlevels[p] = meansales + pred[p]
+        preddiff[p] <- pred[p]
+      }
+      if (p>1) {
+        predlevels[p] = predlevels[p-1]+pred[p]
+        preddiff[p] <- pred[p]
+      }
+      
+    } else {
+      # in levels
+      predlevels[p] = pred[p]
+      
+    }
+    
+    # filling lag DVs in levels
+    relevant_vars=grep(paste0('l[.][0-9][.]', dvblank, '|^', dvblank), colnames(Xsim_mat),value=T)
+    lags = as.numeric(gsub("\\D", "", relevant_vars))
+    lags[is.na(lags)] <- 0
+    
+    for (nextp in seq(from=1, length.out=length(relevant_vars))) if (p+lags[nextp]<=Nperiods) Xsim_mat[p+lags[nextp], relevant_vars[nextp]] <- predlevels[p]
+    
+    # filling lag DVs in differences
+    relevant_vars=grep(paste0('ld[.][0-9][.]', dvblank, '|^', dvblank, '|l[.][0-9][.]d', dvblank), colnames(Xsim_mat),value=T)
+    lags = as.numeric(gsub("\\D", "", relevant_vars))
+    lags[is.na(lags)] <- 0
+    
+    for (nextp in seq(from=1, length.out=length(relevant_vars))) if (p+lags[nextp]<=Nperiods) Xsim_mat[p+lags[nextp], relevant_vars[nextp]] <- preddiff[p]
+    
+  }
+  
+  return(cbind(ylevels_pred=predlevels, y_pred = pred, Xsim_mat))
+  
+ # par(mfrow=c(3,1))
+  #plot(pred, type='l')
+  #plot(predlevels, type='l')
+  
+  #plot(m$model$model$model[,1], type='l')
+  }
+  
+  
+  # Create data sets across various circumstances
+  
+res=lapply(sim_ds, function(x) my_predict(m, x$data))
+  
+#View(res[[2]])
+
+
+  for (i in 2:4){
+    varname=unlist(lapply(sim_ds, function(x) x$shockvar))[i]
+    shockp=unlist(lapply(sim_ds, function(x) x$shockperiod))[i]
+    cat(varname,fill=T)
+    plot(res[[i]][,'ylevels_pred'], type='l', ylab = 'log usales', xlab = 'simulation period', main = paste0('Shock in ', varname))
+    lines(res[[1]][,'ylevels_pred'], type='l',lty=2)
+    outc=res[[i]][,'ylevels_pred']-res[[1]][,'ylevels_pred']
+    print(sum(outc[shockp:(shockp+6-1)]))
+    print(sum(outc[shockp:(shockp+12-1)]))
+    print(sum(outc[shockp:(shockp+24-1)]))
+    
+    #plot(outc, type='l', main=varname)
+  }
+  
+  plot(dt$dlnusales,type='l')
+  plot(dt$lnusales,type='l')
+  
+
+  
+  
+  
+  
+  
+  
+
+colnames(m$model$model$model)
+
 
 
 # simulation

@@ -90,9 +90,10 @@ ardl <- function(type = "ardl-ec", dt, dv, vars, exclude_cointegration = NULL, c
     dv = paste0('d', dv)
     formula <- as.formula(paste0(paste0("", dv), "~1+", paste(c(xvars, dummies, controls), collapse = "+")))
     levels <- c(xvars, dummies, controls_levels)
-    diffs <- c(controls_diffs)# NULL # xvars
+    diffs <- c(xvars, controls_diffs)# NULL # xvars
 
-    ec <- TRUE
+    ec <- FALSE
+    
                                   #DV  #lags #lags of differences
     tmp <- get_lagdiffs_list(list(1:maxpq, 0:maxpq,  0:maxpq), list(dv, xvars, paste0("_", xvars)))
 
@@ -111,8 +112,8 @@ ardl <- function(type = "ardl-ec", dt, dv, vars, exclude_cointegration = NULL, c
     log <- capture.output({
       mx <- dynardl(formula,
         data = dt, lags = .lagstructure$lags, diffs = c(diffs),
-        lagdiffs = .lagstructure$lagdiff, levels = c(levels), ec = ec, simulate = FALSE, trend = use_trend,
-        noLDV = ifelse(type=='ardl-firstdiff', T, F)
+        lagdiffs = .lagstructure$lagdiff, levels = c(levels), ec = ec, simulate = FALSE, trend = use_trend#,
+        #noLDV = ifelse(type=='ardl-firstdiff', T, F)
       )
 
       autocorrel_test <- dynardl.auto.correlated(mx, object.out = T)
