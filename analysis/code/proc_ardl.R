@@ -173,6 +173,7 @@ summary.ardl_procedure <- function(object, ...) {
   print(object$adf_tests)
   
   cat('\nModel estimates\n')
+  cat(paste0('\nDependent variable: ', colnames(object$model$model$model)[1], '\n'))
   print(summary(object$model))
   cat('\n\n')
   

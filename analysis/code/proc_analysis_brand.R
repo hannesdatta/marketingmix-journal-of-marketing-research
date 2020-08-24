@@ -5,8 +5,11 @@ require(stats4)
 analyze_brand <- function(bid, quarters=T) {
   dat=brand_panel[brand_id==bid]
   
-  print(unique(dat$category))
-  print(unique(dat$country))
+  cat('==================================\n')
+  cat('Running ARDL Bounds Procedure for:\n')
+  cat(unique(dat$category), fill=T)
+  cat(unique(dat$country),fill = T)
+  cat(paste0(unique(dat$brand), ' (brand ID: ', unique(dat$brand_id), ')'), fill=T)
   
   # plotting
   par(mfrow=c(2,2))
@@ -31,16 +34,18 @@ analyze_brand <- function(bid, quarters=T) {
   # UNIT ROOTS #
   ##############
   
+  #cat('\nADF tests:\n')
   adf_tests=rbindlist(lapply(c(dv,vars), function(.var) {
-    print(.var)
+    #print(.var)
     return(data.frame(variable=.var, cbind(t(adf_enders(unlist(dat[, .var,with=F]), maxlag=6, pval=.1)))))
   }))
   
-  print(adf_tests)
+  #print(adf_tests)
   
   
   dv_unitroot = adf_tests[variable==dv]$ur
   
+  cat('\nARDL Bounds Procedure:\n\n')
   print(paste0('a) Is the DV non-stationary? ', ifelse(dv_unitroot==1, 'yes', 'no')))
   
   if(dv_unitroot==1) {
