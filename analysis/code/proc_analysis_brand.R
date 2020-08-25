@@ -176,6 +176,7 @@ analyze_brand <- function(bid, quarters=T) {
     
     
   }
+  print(adf_tests)
   
   return('stationarity in DV')
   
