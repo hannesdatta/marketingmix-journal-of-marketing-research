@@ -1,13 +1,23 @@
 
-newfkt <- function(id) {
+newfkt <- function(id, withcontrols=T) {
   
   # 1.0 Conduct bounds test
   dv='lnusales'
   dt=data.table(brand_panel[brand_id==id])
   vars = c('lnrwpspr','lnllen','lnwpswdst') 
+  
+  dt[, lngdp := log(gdppercapita)]
+  dt[, lnholiday := log(npublicholidays+1)]
+  
+  control_vars = c('lngdp', 'lnholiday', grep('comp[_]', colnames(dt),value=T))
+  if(withcontrols==F) control_vars = NULL
+  control_vars = control_vars[unlist(lapply(dt[, control_vars, with=F], use_ts))]
+  
   quarter_vars = c('quarter1','quarter2','quarter3')
   
-  res <- analyze_brand(id, quarters=T)
+  res <- analyze_brand(id, quarters=T, xs = vars, controls = control_vars, dat = dt)
+  
+  cat(paste0('\n\nOutput of the bounds procedure: ', res))
   
   mtype = as.character(NA)
   if(grepl('stationarity in DV',gsub(' [(].*', '', res))) mtype = 'ardl-levels'
@@ -16,21 +26,24 @@ newfkt <- function(id) {
   
   cat(paste0('\n\nFinal result of bounds procedure: ', mtype,'\n\n'))
   
+
   # 2.0 Determine lag structure on the basis of `mtype`
-  m<-ardl(type=mtype, dt = dt, dv = dv, vars = c(vars, quarter_vars), exclude_cointegration = NULL,
-          adf_tests= NULL, maxlag = 6, pval = .1, maxpq=6, controls = NULL)
-  
+  autocorrel_lags= c(3,6,9,12,15,18)
+  for (maxpq in autocorrel_lags) {
+    m<-ardl(type=mtype, dt = dt, dv = dv, vars = c(vars, quarter_vars), exclude_cointegration = NULL,
+            adf_tests= NULL, maxlag = 6, pval = .1, maxpq = maxpq, controls = control_vars)
+    if (class(m)=='ardl_procedure') break
+  }
+ 
   cat('\nResult of lag structure:\n')
   print(summary(m$model))
   
   # 3.0 Reestimate model, adding extra covariates
   
-  # Public holidays
-  dt[, lnhol:=log(npublicholidays+1)]
-  
   # Attributes
   retain_attr=unlist(lapply(dt[, grep('^attr',colnames(dt),value=T),with=F], function(x) !all(is.na(x))))
   attr_vars = names(retain_attr[which(retain_attr==T)])
+  attr_vars = attr_vars[unlist(lapply(dt[, attr_vars, with=F], use_ts))]
   
   # Reassemble model matrix and data
   df = m$model$model$model
@@ -38,7 +51,7 @@ newfkt <- function(id) {
   setkey(identifiers, market_id, date, brand)
   
   # Define controls
-  controls = c('lnhol', 'comp_lnrwpspr', 'comp_lnllen','comp_lnwpswdst', attr_vars)
+  controls = c(attr_vars)
   newdf <- dt[-m$model$model$na.action, controls,with=F]
   finaldf = cbind(df, newdf)
   
@@ -108,14 +121,14 @@ newfkt <- function(id) {
       lags = as.numeric(gsub("\\D", "", relevant_vars_levels))
       lags[is.na(lags)] <- 0
       
-      for (s in seq(from=1, length.out=length(relevant_vars_levels))) Xsim_mat[shockperiod + lags[s], relevant_vars_levels[s]] <- Xsim_mat[shockperiod, relevant_vars_levels[1]]+shockvalue
+      for (s in seq(from=1, length.out=length(relevant_vars_levels))) Xsim_mat[shockperiod + lags[s], relevant_vars_levels[s]] <- Xsim_mat[shockperiod + lags[s], relevant_vars_levels[s]]+shockvalue
       
       relevant_vars_diffs = grep('^d[.]|^ld[.]', relevant_vars, invert=F,value=T)
       lags = as.numeric(gsub("\\D", "", relevant_vars_diffs))
       lags[is.na(lags)] <- 0
       lags[grepl('^d[.]', relevant_vars_diffs)] <- 0
       
-      for (s in seq(from=1, length.out=length(relevant_vars_diffs))) Xsim_mat[shockperiod + lags[s], relevant_vars_diffs[s]] <- Xsim_mat[shockperiod, relevant_vars_diffs[1]]+shockvalue
+      for (s in seq(from=1, length.out=length(relevant_vars_diffs))) Xsim_mat[shockperiod + lags[s], relevant_vars_diffs[s]] <- Xsim_mat[shockperiod + lags[s], relevant_vars_diffs[s]]+shockvalue
       
     }
     
@@ -123,14 +136,13 @@ newfkt <- function(id) {
   }
   
   # 4.1 Generate scenarios
-  sim_ds = lapply(c('base', vars), function(x) sim_dat(m=m2, shockvar=x, shockvalue = log(1.01), Nperiods = 48))
+  sim_ds = lapply(c('base', vars), function(x) sim_dat(m=m2, shockvar=x, shockvalue = log(1.01), shockperiod=25, Nperiods = 48))
   
   ## reset copulas to zero
   #if(length(which(grepl('cop[_]', colnames(dset))))>0) coefs[which(grepl('cop[_]', colnames(dset)))]<-0
   
   #View(sim_ds[[2]]$data)
-  
-  #Xsim_mat=sim_ds[[1]]$data
+  #Xsim_mat=sim_ds[[2]]$data
   
   
   library(MASS)

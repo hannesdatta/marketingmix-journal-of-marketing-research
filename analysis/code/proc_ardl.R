@@ -1,6 +1,12 @@
-get_lagdiffs_list <- function(gridlist = list(), namesarg) {
+get_lagdiffs_list <- function(gridlist = list(), namesarg, constraints = NULL) {
   possible_grid <- expand.grid(gridlist) # 0:3, 0:3, 0:3, 0:3)
   start_values <- colMins(possible_grid)
+  
+  if (!is.null(constraints)) {
+    for (constr in constraints)
+      possible_grid <- possible_grid[with(possible_grid, eval(parse(text=constr))),]
+    
+  }
   
   lagdiffs_list <- apply(possible_grid, 1, function(x) {
     
@@ -14,6 +20,7 @@ get_lagdiffs_list <- function(gridlist = list(), namesarg) {
   })
   return(lagdiffs_list)
 }
+
 
 # see https://stackoverflow.com/questions/8343509/better-error-message-for-stopifnot
 assert <- function(expr, error) {
@@ -95,7 +102,7 @@ ardl <- function(type = "ardl-ec", dt, dv, vars, exclude_cointegration = NULL, c
     ec <- FALSE
     
                                   #DV  #lags #lags of differences
-    tmp <- get_lagdiffs_list(list(1:maxpq, 0:maxpq,  0:maxpq), list(dv, xvars, paste0("_", xvars)))
+    tmp <- get_lagdiffs_list(list(p=1:maxpq, l=0:maxpq,  q=0:maxpq), list(dv, xvars, paste0("_", xvars)), constraints=list('l<q|l==0&q==0'))
 
     lagstructure <- lapply(tmp, function(x) {
       lagdiff <- x[names(x) %in% c(paste0("_", xvars))]
@@ -107,8 +114,11 @@ ardl <- function(type = "ardl-ec", dt, dv, vars, exclude_cointegration = NULL, c
   }
 
   # Estimate models with varying lag terms
+  #cnt=0
   models <- lapply(lagstructure, function(.lagstructure) {
+    #cnt<<-cnt+1
     #print(.lagstructure)
+    #print(cnt)
     log <- capture.output({
       mx <- dynardl(formula,
         data = dt, lags = .lagstructure$lags, diffs = c(diffs),

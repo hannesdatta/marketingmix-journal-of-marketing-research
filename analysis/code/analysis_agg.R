@@ -233,27 +233,34 @@ cases[, list(.N),by=c('case')]
 ##################################
 source('proc_salesresponse.R')
 
+for (i in unique(brand_panel$brand_id)[1:30]){
+  print(i)
+  out <- newfkt(i)
+  if (out$model_type=='ardl-firstdiff') readline(prompt="Press [enter] to continue")
+}
 
-id=unique(brand_panel$brand_id)[3]
-
-
-
+bids= unique(brand_panel$brand_id)[1:150]
 
 out <- newfkt(1734)
 View(out$simulation_data[[2]][,,1])
 
 out <- newfkt(1736)
-View(out$simulation_data[[3]][,,1])
+View(out$simulation_data[[2]][,,1])
 
+# exploding series
+out <- newfkt(1737, withcontrols=T)
 
-out <- newfkt(1737)
+out <- newfkt(1737, withcontrols=F)
+
+# "shocked log-level - baseline log-level" does not explode
+plot(rowMeans(out$simulated_levels[[2]]-out$simulated_levels[[1]]),type='l')
+
 
 length(out$simulated_dv)
 dim(out$simulated_dv[[1]])
 plot(rowMeans(out$simulated_dv[[2]]), type = 'l')
 
 
-plot(rowMeans(out$simulated_levels[[2]]-out$simulated_levels[[1]]),type='l')
 
 
 plot(rowMeans(out$simulated_dv[[2]]), type = 'l')
@@ -269,6 +276,8 @@ View(out$simulation_data[[2]][,,1])
 out <- newfkt(811)
 View(out$simulation_data[[2]][,,1])
 
+
+out <- newfkt(bids[48])
 
 
 out <- newfkt(460)
@@ -309,11 +318,13 @@ res=sapply(unique(brand_panel$brand_id)[1:20], function(i) {
   })
   
   checks=unlist(lapply(res, class))
+  table(checks)
+  which(checks!='list')
   
   bids[which(!checks=='list')]
   # -> error cases
-  #955  460  149 1424 1425 1426 1427 1428 1429 1430  816  820  158  162  164 1598 1600 1432 1433 1434 1435 1436 1437 1438 1439 1440 1441  463
-  #[29]  466  470  704
+  # [1] 1424 1425 1426 1427 1428 1429 1430  816  158  162  164 1598 1600 1432 1433 1434 1435 1436 1437 1438 1439 1440 1441  463  470
+  #[26]  704
   
   elast = rbindlist(lapply(res[checks=='list'], function(x) x$elasticities))
   summary(elast)
@@ -322,6 +333,8 @@ res=sapply(unique(brand_panel$brand_id)[1:20], function(i) {
   
   elast[abs(elast6)>10]
   
+  
+  out <- newfkt(1439)
   
 ##### SELECTED COVARIATES
   

@@ -2,8 +2,8 @@ library(urca)
 library(dynamac)
 require(stats4)
 
-analyze_brand <- function(bid, quarters=T) {
-  dat=brand_panel[brand_id==bid]
+analyze_brand <- function(bid, quarters=T, xs=c('lnrwpspr','lnllen','lnwpswdst'), controls = NULL, dat) {
+  #dat=df[brand_id==bid]
   
   cat('==================================\n')
   cat('Running ARDL Bounds Procedure for:\n')
@@ -12,10 +12,11 @@ analyze_brand <- function(bid, quarters=T) {
   cat(paste0(unique(dat$brand), ' (brand ID: ', unique(dat$brand_id), ')'), fill=T)
   
   # plotting
+  
   par(mfrow=c(2,2))
   dv='lnusales'
   
-  vars = c('lnrwpspr','lnllen','lnwpswdst')
+  vars = c(xs, controls) #c('lnrwpspr','lnllen','lnwpswdst')
   
   vars = vars[unlist(lapply(dat[, vars, with=F], use_ts))]
   
@@ -26,7 +27,7 @@ analyze_brand <- function(bid, quarters=T) {
   if (quarters==T) quarter_vars = c('quarter1','quarter2','quarter3')
   if (quarters==F) quarter_vars = NULL
   
-  for (.var in c(dv,vars)) ts.plot(dat[, .var,with=F], main = .var)
+  for (.var in c(dv,vars)[1:4]) ts.plot(dat[, .var,with=F], main = .var)
   
   par(mfrow=c(1,1))
   
@@ -128,33 +129,35 @@ analyze_brand <- function(bid, quarters=T) {
       #browser()
       
       if (length(potential_exclusions)>0) {
-        if(length(potential_exclusions)==1 & length(setdiff(i0_vars, potential_exclusions[[1]]))==0) {
+        if(length(potential_exclusions)==1 & length(i0_vars)>0 & length(setdiff(i0_vars, potential_exclusions[[1]]))==0) {
           # if excluding ALL stationary regressors excludes all variables, conclude NO cointegration.
           
           all_boundstests = 'no cointegration'
           # just exclude in levels, right?
           
           
-        } else {
-          ot=lapply(potential_exclusions, function(x) {
-            if(length(x)==0) return(list(boundstest_result='no test'))
-            
-            for (maxpq in autocorrel_lags) {
-              me<-ardl(type='ardl-ec', dt = dat, dv = dv, vars = c(vars, quarter_vars), exclude_cointegration = x,
-                       adf_tests= adf_tests, maxlag = 6, pval = .1, maxpq = maxpq)
-              if (class(me)=='ardl_procedure') break
-            }
-            
-            return(me)
-          })
+          } else 
           
-          cat(paste0('Running another series of bounds tests, by excluding the following variables (test result in brackets):\n'))
-          #browser()
-          print_excl=paste0('- ', unlist(lapply(potential_exclusions, function(x) paste0(x, collapse= ', '))))
-          all_boundstests = unlist(lapply(ot, function(x) x$boundstest_result))
-          fused_excl = paste(print_excl, all_boundstests, sep = ': ')
-          cat(paste0(fused_excl, collapse='\n'))
-      }
+          {
+            ot=lapply(potential_exclusions, function(x) {
+              if(length(x)==0) return(list(boundstest_result='no test'))
+              
+              for (maxpq in autocorrel_lags) {
+                me<-ardl(type='ardl-ec', dt = dat, dv = dv, vars = c(vars, quarter_vars), exclude_cointegration = x,
+                         adf_tests= adf_tests, maxlag = 6, pval = .1, maxpq = maxpq)
+                if (class(me)=='ardl_procedure') break
+              }
+              
+              return(me)
+            })
+          
+            cat(paste0('Running another series of bounds tests, by excluding the following variables (test result in brackets):\n'))
+            #browser()
+            print_excl=paste0('- ', unlist(lapply(potential_exclusions, function(x) paste0(x, collapse= ', '))))
+            all_boundstests = unlist(lapply(ot, function(x) x$boundstest_result))
+            fused_excl = paste(print_excl, all_boundstests, sep = ': ')
+            cat(paste0(fused_excl, collapse='\n'))
+          }
         
         #browser()
         
