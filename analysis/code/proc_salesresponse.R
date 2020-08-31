@@ -28,10 +28,10 @@ newfkt <- function(id, withcontrols=T) {
   
 
   # 2.0 Determine lag structure on the basis of `mtype`
-  autocorrel_lags= c(3,6,9,12,15,18)
+  autocorrel_lags= c(3,6,9,12,15,18,1)
   for (maxpq in autocorrel_lags) {
-    m<-ardl(type=mtype, dt = dt, dv = dv, vars = c(vars, quarter_vars), exclude_cointegration = NULL,
-            adf_tests= NULL, maxlag = 6, pval = .1, maxpq = maxpq, controls = control_vars)
+    m<-try(ardl(type=mtype, dt = dt, dv = dv, vars = unique(c(vars, quarter_vars)), exclude_cointegration = NULL,
+            adf_tests= NULL, maxlag = 6, pval = .1, maxpq = maxpq, controls = control_vars),silent=T)
     if (class(m)=='ardl_procedure') break
   }
  
@@ -252,9 +252,9 @@ newfkt <- function(id, withcontrols=T) {
     plot(rowMeans(res[[i]]$simulated_levels), type='l', ylab = 'log usales', xlab = 'simulation period', main = paste0('Shock in ', v))
     lines(rowMeans(res[[1]]$simulated_levels), type='l',lty=2)
     
-    elast6 = colSums(outc[shockp:(shockp+6-1),])
-    elast12 = colSums(outc[shockp:(shockp+12-1),])
-    elast24 = colSums(outc[shockp:(shockp+24-1),])
+    elast6 = 100*colSums(outc[shockp:(shockp+6-1),])
+    elast12 = 100*colSums(outc[shockp:(shockp+12-1),])
+    elast24 = 100*colSums(outc[shockp:(shockp+24-1),])
     
     #print(mean(elast6))
     #print(mean(elast12))

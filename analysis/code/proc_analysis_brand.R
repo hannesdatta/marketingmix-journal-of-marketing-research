@@ -59,16 +59,19 @@ analyze_brand <- function(bid, quarters=T, xs=c('lnrwpspr','lnllen','lnwpswdst')
     use_trend=as.logical(adf_tests[variable=='lnusales']$trend)
     
     # ardl automatically finds the right number of lags p and q
-    # iteratively try to run test, first w/ max 3 lags, then 6, then 9, etc.
-    autocorrel_lags= c(3,6,9,12,15,18)
+    # iteratively try to run test, first w/ max 3 lags, then 6, then 9, etc.; if lags can't be used, set to max. 1
+    # (e.g., if not enough observations are available)
+    autocorrel_lags= c(3,6,9,12,15,18,1)
     for (maxpq in autocorrel_lags) {
-      m<-ardl(type='ardl-ec', dt = dat, dv = dv, vars = c(vars, quarter_vars), exclude_cointegration = NULL,
-              adf_tests= adf_tests, maxlag = 6, pval = .1, maxpq = maxpq)
+      print(maxpq)
+      m<-try(ardl(type='ardl-ec', dt = dat, dv = dv, vars = unique(c(vars, quarter_vars)), exclude_cointegration = NULL,
+              adf_tests= adf_tests, maxlag = 6, pval = .1, maxpq = maxpq),silent=T)
       if (class(m)=='ardl_procedure') break
     }
     
     cat(paste0('ARDL bounds test conducted with ', maxpq, ' lags in p and q.\n'))
     
+    if (maxpq==1) autocorrel_lags <- unique(c(1,autocorrel_lags))
     
     # chosen lag structure
     #cat('Chosen lag structure:\n')
@@ -143,8 +146,8 @@ analyze_brand <- function(bid, quarters=T, xs=c('lnrwpspr','lnllen','lnwpswdst')
               if(length(x)==0) return(list(boundstest_result='no test'))
               
               for (maxpq in autocorrel_lags) {
-                me<-ardl(type='ardl-ec', dt = dat, dv = dv, vars = c(vars, quarter_vars), exclude_cointegration = x,
-                         adf_tests= adf_tests, maxlag = 6, pval = .1, maxpq = maxpq)
+                me<-try(ardl(type='ardl-ec', dt = dat, dv = dv, vars = c(vars, quarter_vars), exclude_cointegration = x,
+                         adf_tests= adf_tests, maxlag = 6, pval = .1, maxpq = maxpq),silent=T)
                 if (class(me)=='ardl_procedure') break
               }
               

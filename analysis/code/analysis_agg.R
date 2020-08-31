@@ -252,8 +252,17 @@ out <- newfkt(1737, withcontrols=T)
 
 out <- newfkt(1737, withcontrols=F)
 
+#No contro --> 
+
+# Robustness +++ variabelen toevoegen
+
+View(out$simulation_data[[2]][,,1])
+
 # "shocked log-level - baseline log-level" does not explode
 plot(rowMeans(out$simulated_levels[[2]]-out$simulated_levels[[1]]),type='l')
+
+# seasonal unit root?!?!
+
 
 
 length(out$simulated_dv)
@@ -309,7 +318,7 @@ res=sapply(unique(brand_panel$brand_id)[1:20], function(i) {
   void<-clusterEvalQ(cl, source('c1c5b3af32343d042fcbc8e249ae9ff6/proc_unitroots.R'))
   rm(void)
   
-  bids <- unique(brand_panel$brand_id)[1:150]
+  bids <- unique(brand_panel$brand_id)
   
   #res=clusterApply(cl, unique(panel$market_id), function(mid) try(analyze_market(mid, quarters=T), silent=T))
   res=clusterApply(cl, bids, function(bid) {
@@ -323,20 +332,28 @@ res=sapply(unique(brand_panel$brand_id)[1:20], function(i) {
   
   bids[which(!checks=='list')]
   # -> error cases
-  # [1] 1424 1425 1426 1427 1428 1429 1430  816  158  162  164 1598 1600 1432 1433 1434 1435 1436 1437 1438 1439 1440 1441  463  470
-  #[26]  704
+
+  #sapply(errs, newfkt)
   
-  elast = rbindlist(lapply(res[checks=='list'], function(x) x$elasticities))
-  summary(elast)
+  #> 
+  
+  #elast = rbindlist(lapply(res[checks=='list'], function(x) x$elasticities))
+  #summary(elast)
+  elast = rbindlist(lapply(res[which(checks=='list')], function(x) x$elasticities))
+  
   
   elast[, lapply(.SD, mean),by=c('varname')] # positive price?!
   
-  elast[abs(elast6)>10]
+  # percent positive
+  elast[, lapply(.SD, function(x) length(which(x>0))/length(x)),by=c('varname')] # positive price?!
+  
+  #outliers?
+  summary(elast)
+  
+  results_salesrespone <- res
+  
+  save(results_salesrespone, file = '../output/results_salesresponse.RData')
   
   
-  out <- newfkt(1439)
-  
-##### SELECTED COVARIATES
-  
-# brand factors
+  #fwrite(elast, '../temp/save_elast.csv')
   
