@@ -38,20 +38,11 @@ library(dynamac)
 dir.create('../output')
 
 ## Load panel data
-	panel=fread('../temp/preclean_main_agg.csv')
-	panel[, ':=' (date = as.Date(date))]
-	setorder(panel, market_id, date)
-	
 	brand_panel=fread('../temp/preclean_main.csv')
 	brand_panel[, ':=' (date = as.Date(date))]
 
-	# generate brand specific weights
-	weights=brand_panel[, list(upsales=sum(upsales)),by=c('market_id','brand')]
-	weights[, weight:=upsales/sum(upsales), by = c('market_id')]
-	
-
 # define markets to run analysis on 
-	markets <- panel[, list(n_brands = length(unique(brand)),
+	markets <- brand_panel[, list(n_brands = length(unique(brand)),
 	                              n_obs = .N,
 								  n_dates = length(unique(date))), by=c('market_id','country', 'category')]
 
@@ -60,39 +51,14 @@ dir.create('../output')
   length(analysis_markets)
  
 # Define additional variables
-  
-  panel[selected==T, trend:=1:.N,by=c('market_id')]
-
-  for (q in 1:3) {  
-    panel[, paste0('quarter', q):=0]
-    panel[quarter==q, paste0('quarter', q):=1]
-  }
-
- brand_panel[selected==T, trend:=.GRP,by=c('market_id', 'date')]
- brand_panel[selected==T, trend:=trend-min(trend,na.rm=T)+1,by=c('market_id')]
+  brand_panel[selected==T, trend:=.GRP,by=c('market_id', 'date')]
+  brand_panel[selected==T, trend:=trend-min(trend,na.rm=T)+1,by=c('market_id')]
  
-  
+
   for (q in 1:3) {  
     brand_panel[, paste0('quarter', q):=0]
     brand_panel[quarter==q, paste0('quarter', q):=1]
   }  
-  
- for (m in 1:11) {  
-   brand_panel[, paste0('month', m):=0]
-   brand_panel[month(date)==m, paste0('month', m):=1]
- }  
- 
- 
-  vars=c('rwpspr', 'wpsllen', 'wpswdst', 'usales', 'lagusales', 'noofbrands')
-  for (var in vars) {
-    panel[, anyzero:=as.numeric(any(get(var)==0),na.rm=T),by=c('market_id')]
-    panel[is.na(anyzero), anyzero:=0]
-    panel[, paste0('ln', var):=log(get(var)+anyzero), by = 'market_id']
-    panel[, paste0('dln', var):= get(paste0('ln', var))-c(NA, get(paste0('ln', var))[-.N]), by = c('market_id')]
-  }
-
-  
-  
     
   vars=c('rwpspr', 'llen', 'wpswdst', 'usales', 'lagusales')
   for (var in vars) {
@@ -101,7 +67,6 @@ dir.create('../output')
     brand_panel[, paste0('ln', var):=log(get(var)+anyzero), by = c('market_id', 'brand')]
     brand_panel[, paste0('dln', var):= get(paste0('ln', var))-c(NA, get(paste0('ln', var))[-.N]), by = c('market_id', 'brand')]
   }
-  
   
   # competitive mmix
   for (v in c('lnrwpspr', 'lnllen', 'lnwpswdst')) {
@@ -113,13 +78,6 @@ dir.create('../output')
     
     }
   
-  
-# Define copula terms
-  for (var in c('rwpspr', 'wpsllen', 'wpswdst')) {
-    panel[, paste0('cop_', var):=make_copula(get(paste0('ln', var))), by = c('market_id')]
-    panel[, paste0('dcop_', var):=get(paste0('cop_', var))-c(NA,get(paste0('cop_', var))[-.N]), by = c('market_id')]
-  }
-  
   # Define copula terms
   for (var in c('rwpspr', 'llen', 'wpswdst')) {
     brand_panel[, paste0('cop_', var):=make_copula(get(paste0('ln', var))), by = c('market_id','brand')]
@@ -127,6 +85,7 @@ dir.create('../output')
   }
   
   # run shapiro-wilk tests to assess non-normality of untransformed inputs to the copula function
+  if(0){
   vars=c('lnrwpspr', 'lnwpsllen', 'lnwpswdst')
   cop=lapply(vars, function(var) {
     out=panel[, list(shap_pval = shapiro.test(get(var))$p), by = c('category', 'country', 'market_id')]
@@ -139,57 +98,33 @@ dir.create('../output')
   cop=rbindlist(cop)
   
   cop[, list(nonnormal_share=length(which(shap_pval<.1))/.N), by = c('variable')]
+  }
   
-  panel[, lntrend:=log(trend)]
+  brand_panel <- brand_panel[!grepl('allothers|unbranded',brand,ignore.case=T)]
   
-  brand_panel <- brand_panel[!grepl('allothers',brand,ignore.case=T)]
 #################################
 # PRELIMINARY UNIT ROOT TESTING #
 #################################
 
 source('c1c5b3af32343d042fcbc8e249ae9ff6/proc_unitroots.R')
-
-# checking order of UR for category sales
-vars = c('lnusales','lnrwpspr','lnwpsllen','lnwpswdst')
-tmp=panel[, lapply(.SD, function(x) adf_enders(x[!is.na(x)], maxlags=6, pval=.1)$order),by=c('market_id'), .SDcols=vars]
-tmp[lnusales>1] 
-any(tmp[,-1,with=F]>1)
-# looks good!
-colMeans(tmp)
-
+if(0){
 # checking order of UR for brand sales
 vars = c('lnusales','lnrwpspr','lnllen','lnwpswdst')
 tmp2=brand_panel[, lapply(.SD, function(x) adf_enders(x[!is.na(x)], maxlags=6, pval=.1)$order),by=c('market_id', 'brand'), .SDcols=vars]
 tmp2[lnusales>1] 
 any(tmp2[,-1,with=F]>1)
 # looks good, too!
-
+}
 ##########################
 # DYNAMAC ARDL PROCEDURE #
 ##########################
-
-mid = 1
-bid = 1
-
 
 source('proc_analysis_agg.R')
 source('proc_analysis.R')
 source('proc_analysis_brand.R')
 source('proc_ardl.R')
-
-# select a few markets for Marnik and Hannes to investigate
-#out=sapply(unique(panel$market_id)[1:5], function(mid) try(analyze_market(mid, quarters=T), silent=T))
-
-
-out=sapply(unique(brand_panel$brand_id)[1:18], function(bid) try(analyze_brand(bid, quarters=T), silent=T), simplify=F)
-
-out[[17]]
-
-unique(brand_panel$brand_id)[1:18][grepl('stationarity in DV',unlist(out))]
-
-
-
-
+source('c1c5b3af32343d042fcbc8e249ae9ff6/proc_unitroots.R')
+  
 ###########################
 # CLUSTER ESTIMATION      #
 ###########################
@@ -228,70 +163,12 @@ cases[, list(.N),by=c('case')]
 
 }
 
+  
+  
 ##################################
 # COMPLETE MODEL ESTIMATION      #
 ##################################
 source('proc_salesresponse.R')
-
-for (i in unique(brand_panel$brand_id)[1:30]){
-  print(i)
-  out <- newfkt(i)
-  if (out$model_type=='ardl-firstdiff') readline(prompt="Press [enter] to continue")
-}
-
-bids= unique(brand_panel$brand_id)[1:150]
-
-out <- newfkt(1734)
-View(out$simulation_data[[2]][,,1])
-
-out <- newfkt(1736)
-View(out$simulation_data[[2]][,,1])
-
-# exploding series
-out <- newfkt(1737, withcontrols=T)
-
-out <- newfkt(1737, withcontrols=F)
-
-#No contro --> 
-
-# Robustness +++ variabelen toevoegen
-
-View(out$simulation_data[[2]][,,1])
-
-# "shocked log-level - baseline log-level" does not explode
-plot(rowMeans(out$simulated_levels[[2]]-out$simulated_levels[[1]]),type='l')
-
-# seasonal unit root?!?!
-
-
-
-length(out$simulated_dv)
-dim(out$simulated_dv[[1]])
-plot(rowMeans(out$simulated_dv[[2]]), type = 'l')
-
-
-
-
-plot(rowMeans(out$simulated_dv[[2]]), type = 'l')
-
-
-out <- newfkt(955)
-
-# extreme case
-out <- newfkt(454)
-View(out$simulation_data[[2]][,,1])
-
-
-out <- newfkt(811)
-View(out$simulation_data[[2]][,,1])
-
-
-out <- newfkt(bids[48])
-
-
-out <- newfkt(460)
-View(out$simulation_data[[2]][,,1])
-
 
 res=sapply(unique(brand_panel$brand_id)[1:20], function(i) {
   cat('\n\n NEW MODEL \n\n')
@@ -326,11 +203,20 @@ res=sapply(unique(brand_panel$brand_id)[1:20], function(i) {
     if (class(out)=='try-error') return('error') else return(out)
   })
   
-  checks=unlist(lapply(res, class))
+  results_salesresponse <- res
+  
+  save(results_salesresponse, file = '../output/results_salesresponse.RData')
+  
+  
+  checks=unlist(lapply(results_salesresponse, class))
   table(checks)
   which(checks!='list')
   
-  bids[which(!checks=='list')]
+  errs <- bids[which(!checks=='list')]
+  errs <- c(1611,1884,1885,476,169,575,1077,978,1364,731,485,1245,1647,1648,1649,1650,1651,1652,1653,1665,1482,1485,1486,1487,1488,1498,369,371,1787,1789,1790,1791,1792,1793,1794,1800,1803,1805,1254,1259,1261,1265,213,216,220,222,231,233,234,1390,613,614,615,616,617,618,619,621,622,623,629,865,866,869,874,876,877,1103,1105,1107,1109,1111,1112,1114,1118,1014,41,497,498,500,504,507,82,90,98,660,901,917,398,400,1696,1833,1149,1163,1289,1295,1030,1032,531,103,104,105,106,107,108,109,110,111,112,113,114,115,116,117,666,667,668,669,670,671,672,673,279,280,281,282,283,284,285,286,287,288,289,290,291,1539,1540,1541,1542,1543,1544,1545,1546,1547,1548,1549,1550,1551,1552,1553,1554,1555,404,405,406,407,408,409,410,411,412,413,414,415,416,417,1700,1701,1702,1703,1704,1705,1706,1707,1708,1709,1839,1840,1842,1843,1844,1845,1166,1167,1168,1169,1170,1171,1172,1173,1174,1300,1302,1303,1304,1305,1306,1307,1308,1309,1411,1412,1035,1038,1039,1042,919,920,921,540,541,542,543,546,547,548,549,119,120,121,122,123,124,126,127,128,129,130,131,132,133,676,677,678,679,680,681,682,293,294,295,296,297,298,300,301,302,303,304,306,1557,1558,1559,1560,1562,1563,1564,1567,1568,1570,1572,1573,419,420,421,422,423,424,425,427,428,430,431,432,1711,1712,1714,1715,1718,1719,1847,1848,1850,1852,1853,1176,1177,1178,1180,1181,1182,1183,1184,1310,1312,1314,1315,1317,1318,1319,1320,1414,1415,551,552,553,554,557,558,559,560,1578,1417,1418,1856,1322,1323,1326,1328,1334,1336,320,434,435,437,439,441,443,445,447,1189,135,136,137,139,140,141,145,146,564)
+
+  newfkt(errs[10])
+  
   # -> error cases
 
   #sapply(errs, newfkt)
@@ -350,9 +236,6 @@ res=sapply(unique(brand_panel$brand_id)[1:20], function(i) {
   #outliers?
   summary(elast)
   
-  results_salesrespone <- res
-  
-  save(results_salesrespone, file = '../output/results_salesresponse.RData')
   
   
   #fwrite(elast, '../temp/save_elast.csv')

@@ -29,9 +29,6 @@ setkey(brands_countries, brand)
 lscall=ls(envir=.GlobalEnv)
 models <- setdiff(c(grep('results[_]', lscall, value=T)),'results_brands')
 
-# load code to calculate SBBE
-source('sbbe.R')
-
 # Extract elasticities
 out = lapply(models, function(model_name) {
   print(model_name)
@@ -43,25 +40,14 @@ out = lapply(models, function(model_name) {
   #markets=data.table(market_id=analysis_markets)[, ':=' (i=1:.N, available=!checks=='try-error')]
   
   # extract elasticities
-  elast <- rbindlist(lapply(results_brands[!checks=='try-error'], function(x) x$elast))
+  elast <- rbindlist(lapply(results_brands[!checks=='character'], function(x) x$elasticities))
+  setnames(elast, 'varname','variable')
+  setkey(elast, brand_id)
+  setkey(brand_panel, brand_id)
+  elast[brand_panel, ':=' (brand=i.brand, country = i.country, category = i.category, market_id=i.market_id)]
   
-  # extract and merge SBBE
-    sbbe <- rbindlist(lapply(results_brands[!checks=='try-error'], calc_sbbe))
-    # standardize SBBE by category
-    sbbe[,':=' (sbbe_std = (sbbe-mean(sbbe))/sd(sbbe)), by = c('market_id')]
-    # merge to elasticities
-    elast=merge(elast, sbbe, by = c('market_id', 'brand'),all.x=T)
   
-  # extract lagged market share coefficient
-  lambdas = rbindlist(lapply(results_brands[!checks=='try-error'], function(x) x$model@coefficients[unique(x$elast$index_lagms),]))
-  setkey(lambdas, market_id)
-  setkey(elast, market_id)
-  elast[lambdas, lagged_ms_coef := i.coef]
-  elast[is.na(lagged_ms_coef), lagged_ms_coef:=0]
-  
-  elast[, ':=' (sbbelt = sbbe/(1-lagged_ms_coef))]
-  
-  # tag global versus local brand
+ # tag global versus local brand
   elast[, ncountries:=length(unique(country)), by = c('brand')]
   elast[, globalbrand:=ncountries>2 & !brand=='unbranded']
   
@@ -75,7 +61,7 @@ out = lapply(models, function(model_name) {
   
   # merge country (high versus low income) and category class (camera, computer, phones, tv/dvd, white goods)
     # by market ID
-    vars = c('cat_class', 'country_class', 'market_growth', 'herf', 'c3', 'c5')
+    vars = c('cat_class', 'country_class', 'market_growth', 'market_herf', 'market_c3', 'market_c5')
     tmp = brand_panel[, c('market_id', vars), with=F]
     setkey(tmp, market_id)
     tmp = unique(tmp)
@@ -83,7 +69,7 @@ out = lapply(models, function(model_name) {
     elast = merge(elast, tmp, all.x=T, all.y=F, by = c('market_id'))
     
     # by brand/market_id
-    vars = c('overall_ms', 'overall_prindex', 'overall_prindexavg')
+    vars = c('brand_ms', 'brand_prindex_max', 'brand_prindex_mean')
     tmp = brand_panel[, c('market_id', 'brand', vars), with=F]
     setkey(tmp, market_id,brand)
     tmp = unique(tmp)

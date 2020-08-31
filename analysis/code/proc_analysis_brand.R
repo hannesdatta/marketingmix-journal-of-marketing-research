@@ -61,7 +61,7 @@ analyze_brand <- function(bid, quarters=T, xs=c('lnrwpspr','lnllen','lnwpswdst')
     # ardl automatically finds the right number of lags p and q
     # iteratively try to run test, first w/ max 3 lags, then 6, then 9, etc.; if lags can't be used, set to max. 1
     # (e.g., if not enough observations are available)
-    autocorrel_lags= c(3,6,9,12,15,18,1)
+    autocorrel_lags= c(3,6,9,12,15,18)
     for (maxpq in autocorrel_lags) {
       print(maxpq)
       m<-try(ardl(type='ardl-ec', dt = dat, dv = dv, vars = unique(c(vars, quarter_vars)), exclude_cointegration = NULL,
@@ -71,7 +71,8 @@ analyze_brand <- function(bid, quarters=T, xs=c('lnrwpspr','lnllen','lnwpswdst')
     
     cat(paste0('ARDL bounds test conducted with ', maxpq, ' lags in p and q.\n'))
     
-    if (maxpq==1) autocorrel_lags <- unique(c(1,autocorrel_lags))
+    #if (maxpq==1) autocorrel_lags <- unique(c(1,autocorrel_lags))
+    #if (maxpq==2) autocorrel_lags <- unique(c(2,autocorrel_lags))
     
     # chosen lag structure
     #cat('Chosen lag structure:\n')

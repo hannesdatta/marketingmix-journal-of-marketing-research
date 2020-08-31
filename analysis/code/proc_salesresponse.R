@@ -28,7 +28,7 @@ newfkt <- function(id, withcontrols=T) {
   
 
   # 2.0 Determine lag structure on the basis of `mtype`
-  autocorrel_lags= c(3,6,9,12,15,18,1)
+  autocorrel_lags= c(3,6,9,12,15,18,1, 2)
   for (maxpq in autocorrel_lags) {
     m<-try(ardl(type=mtype, dt = dt, dv = dv, vars = unique(c(vars, quarter_vars)), exclude_cointegration = NULL,
             adf_tests= NULL, maxlag = 6, pval = .1, maxpq = maxpq, controls = control_vars),silent=T)
