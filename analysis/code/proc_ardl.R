@@ -138,25 +138,33 @@ ardl <- function(type = "ardl-ec", dt, dv, vars, exclude_cointegration = NULL, c
   autocorrel <- unlist(lapply(models, function(x) x$autocorrel_p))
 
   if (length(which(autocorrel > pval)) == 0) {
-    return("cannot remove autocorrel")
-  }
-
-   # choose model without autocorrel & highest BIC
-  m.choice <- match(min(bics[autocorrel > pval]), bics)
-  m <- models[[m.choice]]$model
+   # return("cannot remove autocorrel")
+    m.choice <- match(min(bics), bics)
+    m <- models[[m.choice]]$model
+    
+  } else {
+    # choose model without autocorrel & highest BIC
+    
+    m.choice <- match(min(bics[autocorrel > pval]), bics)
+    m <- models[[m.choice]]$model
+    
+}
 
   # check for autocorrelation
   # plot(m$model$residuals)
 
   autocorrelation <- models[[m.choice]]$autocorrel_p < pval
-
+  autocorrelation_p <- models[[m.choice]]$autocorrel_p
+  
   res <- list(
     model = m, tested_model_specs = list(
       bic = bics, autocorrel = autocorrel, lagstructure = lagstructure,
       diffs = diffs, levels = levels, ec = ec, formula = formula,
       trend = use_trend
     ),
-    autocorrelation = autocorrelation, mchoice = m.choice,
+    autocorrelation = autocorrelation, 
+    autocorrelation_p = autocorrelation_p,
+    mchoice = m.choice,
     adf_tests = adf_tests,
     type = type
   )

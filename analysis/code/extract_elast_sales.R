@@ -12,8 +12,7 @@ library(data.table)
 #library(marketingtools)
 
 # Load results
-load(file = c('../output/results_salesresponse.RData'))
-results_salesresponse <- res
+load(file = '../output/results_salesresponsenew.RData')
 
 #unlink('../output/*.csv')
 
@@ -35,13 +34,13 @@ out = lapply(models, function(model_name) {
   results_brands=eval(parse(text=model_name))
 
   # identify model crashes
-  checks <- unlist(lapply(results_brands, class))
+  checks <- unlist(lapply(results_brands, function(x) class(x)[1]))
   
   #markets=data.table(market_id=analysis_markets)[, ':=' (i=1:.N, available=!checks=='try-error')]
   
   # extract elasticities
-  elast <- rbindlist(lapply(results_brands[!checks=='character'], function(x) x$elasticities))
-  setnames(elast, 'varname','variable')
+  elast <- rbindlist(results_brands) #lapply(results_brands[!checks=='character'], function(x) x$elasticities))
+  #setnames(elast, 'varname','variable')
   setkey(elast, brand_id)
   setkey(brand_panel, brand_id)
   elast[brand_panel, ':=' (brand=i.brand, country = i.country, category = i.category, market_id=i.market_id)]

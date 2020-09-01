@@ -6,6 +6,8 @@ newfkt <- function(id, withcontrols=T) {
   dt=data.table(brand_panel[brand_id==id])
   vars = c('lnrwpspr','lnllen','lnwpswdst') 
   
+  vars = vars[unlist(lapply(dt[, vars, with=F], use_ts))]
+  
   dt[, lngdp := log(gdppercapita)]
   dt[, lnholiday := log(npublicholidays+1)]
   
@@ -15,50 +17,69 @@ newfkt <- function(id, withcontrols=T) {
   
   quarter_vars = c('quarter1','quarter2','quarter3')
   
-  res <- analyze_brand(id, quarters=T, xs = vars, controls = control_vars, dat = dt)
+  m_ardlbounds <- analyze_brand(id, quarters=T, xs = vars, controls = control_vars, dat = dt)
   
-  cat(paste0('\n\nOutput of the bounds procedure: ', res))
+  cat(paste0('\n\nOutput of the bounds procedure: ', m_ardlbounds))
   
   mtype = as.character(NA)
-  if(grepl('stationarity in DV',gsub(' [(].*', '', res))) mtype = 'ardl-levels'
-  if(grepl('cointegration$', gsub(' [(].*', '', res))) mtype = 'ardl-ec'
-  if(grepl('no cointegration$', gsub(' [(].*', '', res))) mtype = 'ardl-firstdiff'
+  if(grepl('stationarity in DV',gsub(' [(].*', '', m_ardlbounds))) mtype = 'ardl-levels'
+  if(grepl('cointegration$', gsub(' [(].*', '', m_ardlbounds))) mtype = 'ardl-ec'
+  if(grepl('no cointegration$', gsub(' [(].*', '', m_ardlbounds))) mtype = 'ardl-firstdiff'
   
   cat(paste0('\n\nFinal result of bounds procedure: ', mtype,'\n\n'))
   
 
   # 2.0 Determine lag structure on the basis of `mtype`
-  autocorrel_lags= c(3,6,9,12,15,18,1, 2)
+  autocorrel_lags= c(3,6,9,12,15,18,1)
   for (maxpq in autocorrel_lags) {
     m<-try(ardl(type=mtype, dt = dt, dv = dv, vars = unique(c(vars, quarter_vars)), exclude_cointegration = NULL,
             adf_tests= NULL, maxlag = 6, pval = .1, maxpq = maxpq, controls = control_vars),silent=T)
-    if (class(m)=='ardl_procedure') break
+    if (class(m)=='ardl_procedure') if (m$autocorrelation==F) break
   }
  
+  if (maxpq == 1) autocorrel_lags <- unique(c(1, autocorrel_lags))
+  
   cat('\nResult of lag structure:\n')
   print(summary(m$model))
   
   # 3.0 Reestimate model, adding extra covariates
   
-  # Attributes
-  retain_attr=unlist(lapply(dt[, grep('^attr',colnames(dt),value=T),with=F], function(x) !all(is.na(x))))
-  attr_vars = names(retain_attr[which(retain_attr==T)])
-  attr_vars = attr_vars[unlist(lapply(dt[, attr_vars, with=F], use_ts))]
-  
   # Reassemble model matrix and data
   df = m$model$model$model
+  
+  # Attributes
+  retain_attr=unlist(lapply(dt[-m$model$model$na.action, grep('^attr',colnames(dt),value=T),with=F], function(x) !all(is.na(x))))
+  attr_vars = names(retain_attr[which(retain_attr==T)])
+  attr_vars = attr_vars[unlist(lapply(dt[-m$model$model$na.action, attr_vars, with=F], use_ts))]
+  
+  # kick out NA vars -> check why it can't be identified
+  
   identifiers = dt[-m$model$model$na.action,c('market_id','date', 'brand'),with=F]
   setkey(identifiers, market_id, date, brand)
   
   # Define controls
   controls = c(attr_vars)
-  newdf <- dt[-m$model$model$na.action, controls,with=F]
-  finaldf = cbind(df, newdf)
+  if (length(controls)>0) {
+    newdf <- dt[-m$model$model$na.action, controls,with=F]
+    finaldf = cbind(df, newdf)
+  }
+  else {
+    finaldf = df
+  }
   
-  # Add copulas (pending)
+  #####
+  ## Add copulas (pending)
+  #####
   
   # Reestimate
   m2 <- lm(as.formula(paste0(colnames(finaldf)[1], '~1+', paste0(colnames(finaldf)[-1],collapse='+'))), data=finaldf)
+  
+  na_coefs = names(m2$coefficients)[is.na(m2$coefficients)]
+  if (length(na_coefs)>0) {
+    finaldf =  finaldf[, -match(na_coefs, colnames(finaldf))]
+    m2 <- lm(as.formula(paste0(colnames(finaldf)[1], '~1+', paste0(colnames(finaldf)[-1],collapse='+'))), data=finaldf)
+  }
+            
   cat('\nResult of final model:\n')
   print(summary(m2))
   
@@ -235,7 +256,7 @@ newfkt <- function(id, withcontrols=T) {
   
   # 5.1 Execute simulation
   
-  res=lapply(sim_ds, function(x) my_predict(m2, x$data))
+  res=lapply(sim_ds, function(x) my_predict(m2, x$data, L = 1000))
   #View(res[[2]])
   
   # 5.2 Extract elasticities
@@ -273,9 +294,14 @@ newfkt <- function(id, withcontrols=T) {
   
   print(elast)
   
-  list(ardl_bounds = m, model_type = mtype, final_model = m2, simulation_data_raw = sim_ds, simulation_data = lapply(res, function(x) x$data), 
-       simulated_dv = lapply(res, function(x) x$simulated_dv), 
-       simulated_levels = lapply(res, function(x) x$simulated_levels) ,elasticities = elast)
+  list(m_ardlbounds = m_ardlbounds, 
+       m_lagstructure = m,
+       m_final = m2,
+       m_final_type = mtype,
+       #simulation_data_raw = sim_ds, simulation_data = lapply(res, function(x) x$data), 
+       #simulated_dv = lapply(res, function(x) x$simulated_dv), 
+       #simulated_levels = lapply(res, function(x) x$simulated_levels) ,
+       elasticities = elast)
 }
 
 #  plot(dt$dlnusales,type='l')
