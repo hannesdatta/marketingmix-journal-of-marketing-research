@@ -41,9 +41,9 @@ gci <- fread('../temp/gci.csv')
 elast=merge(elast, gci, by = c('country'),all.x=T)
 
 # take natural log of variables
-vars=c('herf','c3','c5', 'gini', 'market_growth','hdi2010','gdppercap2010', 'ncat_in_country', 'ncountry_in_category',
-       'overall_ms', 'gci_00.03_gdppercap_s', 'overall_prindex','overall_prindexavg', 'gci_sub_basicrequire_s','gci_sub_efficiencyenhance_s','gci_sub_innovation_s', 'gci_overall_s')
- 
+vars=c('market_herf','market_c3','market_c5', 'gini', 'market_growth','hdi2010','gdppercap2010', 'ncat_in_country', 'ncountry_in_category',
+       'brand_ms', 'brand_prindex_max','brand_prindex_mean')
+ #'gci_00.03_gdppercap_s',  #, 'gci_sub_basicrequire_s','gci_sub_efficiencyenhance_s','gci_sub_innovation_s', 'gci_overall_s'
 for (var in vars) {
   elast[, (paste0('ln_', var)):=log(get(var))]
   
@@ -51,6 +51,7 @@ for (var in vars) {
 
 # grand-mean centering by variable (llen, etc.) for all explanatory (continuous) variables
 for (var in unique(drop(unlist(lapply(c(vars, 'sbbe_std', 'sbbe', 'sbbelt', 'meanglobalx'), grep, colnames(elast), value=T))))) {
+  print(var)
   elast[, (paste0(var, '_mc')):=get(var)-mean(get(var)), by = c('variable')]
 }
 

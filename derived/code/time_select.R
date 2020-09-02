@@ -1,6 +1,28 @@
 load('../temp/brand_metrics.RData')
 library(data.table)
 
+holidays <- fread('../../../../data/holidays/holidays.csv')
+
+holidays[country=='AU', country:='australia']
+holidays[country=='CN', country:='china']
+holidays[country=='HK', country:='hong kong']
+holidays[country=='IN', country:='india']
+holidays[country=='ID', country:='indonesia']
+holidays[country=='JP', country:='japan']
+holidays[country=='MY', country:='malaysia']
+holidays[country=='NZ', country:='new zealand']
+holidays[country=='PH', country:='philippines']
+holidays[country=='SG', country:='singapore']
+holidays[country=='KO', country:='south korea']
+holidays[country=='TW', country:='taiwan']
+holidays[country=='TH', country:='thailand']
+holidays[country=='VN', country:='vietnam']
+
+holidays[, month:=as.Date(paste0(substr(date, 1,7),'-01'))]
+
+holiday_period= holidays[public==T, list(N=.N),by=c('country', 'month')]
+
+
 for (seldat in names(all_datasets)) {
 
 	all_data <- all_datasets[[seldat]]
@@ -11,6 +33,12 @@ for (seldat in names(all_datasets)) {
 	
 	# Prepare flat CSV file with data
 	brand_panel=rbindlist(lapply(all_data, function(x) if(!is.null(x)) return(rbindlist(x$data_cleaned))),fill=T)
+
+	setkey(brand_panel, country, date)
+	setkey(holiday_period, country, month)
+	brand_panel[holiday_period, npublicholidays:=i.N]
+	brand_panel[is.na(npublicholidays), npublicholidays:=0]
+	
 	setorder(brand_panel, market_id, category,country,brand,date)
 
 	brand_panel[which(!is.na(usales) & selected_t_brand==T & selected_brand == T), prelim_selected:=T, by=c('category', 'country', 'brand')]
@@ -88,6 +116,14 @@ for (seldat in names(all_datasets)) {
 	brand_panel_agg[is.na(prelim_selected), prelim_selected:=F, by=c('category', 'country', 'brand')]
 	
 	brand_panel_agg=merge(brand_panel_agg, tmp, by=c('market_id', 'category','country'), all.x=T)
+	
+	# Add holidays
+	
+	setkey(brand_panel_agg, country, date)
+	setkey(holiday_period, country, month)
+	brand_panel_agg[holiday_period, npublicholidays:=i.N]
+	brand_panel_agg[is.na(npublicholidays), npublicholidays:=0]
+	
 	
 	# Apply same time selection as for the brand-level data
 	

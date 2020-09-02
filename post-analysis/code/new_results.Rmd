@@ -23,39 +23,6 @@ options(knitr.kable.NA = '')
   source('proc_auxilary.R')
   source('proc_rename.R')
 
-# Preclean data
-  elast <- fread('../externals/elast_results_adv.csv') 
-  source('preclean.R')
-  elast_adv <- copy(elast)
-
-  elast <- fread('../externals/elast_results_novelty.csv') 
-  source('preclean.R')
-  elast_nov <- copy(elast)
-
-  elast <- fread('../externals/elast_results_firstobs.csv') 
-  source('preclean.R')
-  elast_firstobs <- copy(elast)
-  
-  elast <- fread('../externals/elast_results_lastobs.csv') 
-  source('preclean.R')
-  elast_lastobs <- copy(elast)
-    
-  elast <- fread('../externals/elast_results_laggedX.csv') 
-  source('preclean.R')
-  elast_laggedx <- copy(elast)
- 
-  elast <- fread('../externals/elast_results_simulation.csv') 
-  elast[, elastlt:=simelastlt]
-  elast[, elastlt_se:=simelastlt_sd]
-  elast[, elast:=simelast]
-  elast[, elast_se:=simelast_sd]
-  source('preclean.R')
-  
-  elast_simulated <- copy(elast)
-  
-  elast_marketshare <- fread('../externals/elast_results_main.csv') 
-  source('preclean.R')
-  
   elast <- fread('../externals/elast_results_salesresponsenew.csv') 
   elast[, elastlt:=elast6]
   elast[, elastlt_se:=elast6_sd]
@@ -68,20 +35,16 @@ options(knitr.kable.NA = '')
  
   
 # Keep only brands that are common in first/last dataset
-  firstobs = with(elast_firstobs, unique(paste(market_id,brand)))
-  lastobs = with(elast_lastobs, unique(paste(market_id,brand)))
-  bothobs = intersect(firstobs, lastobs)
+  #firstobs = with(elast_firstobs, unique(paste(market_id,brand)))
+  #lastobs = with(elast_lastobs, unique(paste(market_id,brand)))
+  #bothobs = intersect(firstobs, lastobs)
   
-  elast_firstobs = elast_firstobs[paste(market_id,brand)%in%bothobs]
-  elast_lastobs = elast_lastobs[paste(market_id,brand)%in%bothobs]
-  elast_main_avail = copy(elast)
-  elast_main_avail = elast_main_avail[paste(market_id,brand)%in%bothobs]
-
-# set order of variables to appear in figures and tables
-ordered_vars = c('rwpspr', 'wpswdst','llen', 'nov12sh')
+ 
+  # set order of variables to appear in figures and tables
+ordered_vars = c('lnrwpspr', 'lnwpswdst','lnllen')
 ordered_vars = ordered_vars[which(ordered_vars%in%elast$variable)]
 
-names(ordered_vars) <- paste0(unlist(sanitize_table(data.frame(ordered_vars))), ' elasticity')
+names(ordered_vars) <- paste0(unlist(sanitize_table(data.frame(gsub('^ln', '', ordered_vars)))), ' elasticity')
 
 lmerctrl = lmerControl(optimizer ="Nelder_Mead", check.conv.singular="ignore")
 
@@ -153,9 +116,9 @@ kable(tmp, format='html', digits=2, format.args = list(big.mark = ","), initial.
 tmp=data.table(elast)
 tmp[, ncountries:=length(unique(country)),by=c('category')]
 
-tmp=tmp[!grepl('allothers|unbranded', brand,ignore.case=T), list(overall_ms=mean(overall_ms), ncountries=mean(ncountries)), by = c('category', 'appliance', 'brand')]
+tmp=tmp[!grepl('allothers|unbranded', brand,ignore.case=T), list(brand_ms=mean(brand_ms), ncountries=mean(ncountries)), by = c('category', 'appliance', 'brand')]
 
-setorderv(tmp, c('category', 'appliance', 'overall_ms'), order=-1L)
+setorderv(tmp, c('category', 'appliance', 'brand_ms'), order=-1L)
 tmp[!brand%in%c('unbranded','local'), rank:=1:.N, by = c('category')]
 tmp[, brand_include:= rank%in%1:5]
 
@@ -214,11 +177,6 @@ elast_all=data.table(elast)
 elast=elast[!is.na(country_of_origin)&!tolower(brand)%in%c('unbranded')]
 excluded_brands=setdiff(unique(elast_all$brand), unique(elast$brand))
 excluded_brands<-unique(gsub('Allothers.*', 'Composite brands (allothers)', excluded_brands))
-
-elast_laggedx=elast_laggedx[!is.na(country_of_origin)&!tolower(brand)%in%c('unbranded')]
-elast_nov=elast_nov[!is.na(country_of_origin)&!tolower(brand)%in%c('unbranded')]
-elast_firstobs=elast_firstobs[!is.na(country_of_origin)&!tolower(brand)%in%c('unbranded')]
-elast_lastobs=elast_lastobs[!is.na(country_of_origin)&!tolower(brand)%in%c('unbranded')]
 
 
 ```
@@ -383,7 +341,7 @@ for (iter in iters) {
 
 ```{r summarystats, echo=FALSE, results='asis'}
 
-covars_summary <- c('sbbe_std', 'herf', 'market_growth', 'appliance', 'gini', 'local_to_market')
+covars_summary <- c('brandz', 'market_herf', 'market_growth', 'appliance', 'gini', 'local_to_market')
 
 tmp=data.table(elast)
 nbrands=length(unique(tmp$brand))
@@ -428,7 +386,7 @@ print(kable(dtf, format='html', initial.zero = FALSE, digits=3,caption = tab(pas
 
 ```{r analysis_for_all_mmix, results = 'asis', include = T, echo=FALSE}
 
-upd_models = list(m4 = .~1 + emerging + sbbe_std_mc + I(sbbe_std_mc*emerging)+ (1|country) + (1|category) + (1|brand) + ln_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market)
+upd_models = list(m4 = .~1 + emerging + brandz + I(brandz*emerging)+ (1|country) + (1|category) + (1|brand) + ln_market_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market)
                    
 out1=regmodel(formula=c(upd_models), dat=elast, model='lmer')
 
@@ -446,8 +404,8 @@ for (lev in c(.5,.25,.1)) {
   
  elast[, l_brandequity:=NULL]
  elast[, l_brandequity:='NA']
- elast[sbbe_std_mc<=quantile(sbbe_std_mc,probs=lev,na.rm=T), l_brandequity:='weak brand', by = c('variable','category','country','market_id')]
- elast[sbbe_std_mc>quantile(sbbe_std_mc,probs=lev,na.rm=T), l_brandequity:='strong brand', by = c('variable','category','country','market_id')]
+ elast[brandz==0, l_brandequity:='weak brand', by = c('variable','category','country','market_id')]
+ elast[brandz==1, l_brandequity:='strong brand', by = c('variable','category','country','market_id')]
  elast[l_brandequity=='NA', l_brandequity:=NA]
  elast[, l_brandequity:=factor(l_brandequity, levels=c('weak brand','strong brand'))]
 
@@ -524,8 +482,8 @@ kable(tmp, caption = tab('Country-of-origins for brands in sample^1^', prefix ='
 
 <P style='page-break-before: always'>
 ```{r VIFS, echo=FALSE,results='asis', include=FALSE}
-
-m1 = ~1+ appliance + ln_market_growth_mc + ln_herf_mc + local_to_market  + ln_overall_prindexavg_mc + sbbe_std_mc
+if(0){
+m1 = ~1+ appliance + ln_market_growth_mc + ln_market_herf_mc + local_to_market  + ln_brand_prindex_mean_mc + brandz
 
 m<-lm(update(elast~., m1), data=elast[variable=='llen'])
 
@@ -539,6 +497,7 @@ cat("<P style='page-break-before: always'>")
 
 if(0){
 kable(frame1,format='html', caption = tab('Assessing multicollinearity^1^', prefix='A'))%>% kable_styling() %>% footnote(number=paste0('Table reports VIFs values calculated in regression models using main effects for all variables listed above (i.e., excluding brand, category, and country effects).'))
+}
 }
 ```
 
@@ -581,7 +540,7 @@ print(kable(tabl, digits=3, caption = tab('Overview of physical search attribute
 
 ```{r summarystats_msmodel, echo=FALSE, results='asis'}
 
-covars_summary <- c('usalessh', gsub('rwpspr', 'rwpsprd', ordered_vars))
+covars_summary <- gsub('ln', '', c('usalessh', gsub('rwpspr', 'rwpsprd', ordered_vars)))
 
 tmp=data.table(brand_panel)
 nbrands=length(unique(brand_panel$brand))
@@ -626,7 +585,7 @@ dtf=cbind(dtf,correl$cor[,-ncol(correl$cor)])
 dtf=sanitize_table(dtf)
 
 
-print(kable(dtf, format='html', initial.zero = FALSE, digits=3,caption = tab(paste0('Summary statistics and correlations for variables in market share attraction model^1^'),prefix='A')) %>% kable_styling() %>% footnote(number=c(paste0('Summary statistics and correlations for variables (prior to the log-operation and mean-centering) are computed across ', prettyNum(nobs, big.mark = ','), ' observations in our sample.'),'Converted to USD.')) %>% add_header_above(c(" " = 1, "Summary statistics" = 3, "Correlations" = length(covars_summary)-1)))
+print(kable(dtf, format='html', initial.zero = FALSE, digits=3,caption = tab(paste0('Summary statistics and correlations for variables in sales response model^1^'),prefix='A')) %>% kable_styling() %>% footnote(number=c(paste0('Summary statistics and correlations for variables (prior to the log-operation and mean-centering) are computed across ', prettyNum(nobs, big.mark = ','), ' observations in our sample.'),'Converted to USD.')) %>% add_header_above(c(" " = 1, "Summary statistics" = 3, "Correlations" = length(covars_summary)-1)))
 
 ```
 
@@ -644,7 +603,7 @@ setnames(printtmp, gsub('elastlt[_]','',colnames(printtmp)))
 
 setcolorder(printtmp, ordered_vars)
 
-setnames(printtmp, 'llen', 'llendash')
+#setnames(printtmp, 'llen', 'llendash')
 
 setnames(printtmp, paste0(rename.fkt(colnames(printtmp)), ' elasticity'))
 
@@ -687,6 +646,7 @@ for (byvar in c('category')) {
 
 
 ```{r newanalysis_robust, results = 'asis', include = TRUE, echo=FALSE}
+if(0){
 # formulas for models
 
 elast_backup = data.table(elast)
@@ -742,236 +702,5 @@ for (i in seq(along=ordered_vars)) {
 }
 
 #sink()
-
-```
-
-```{r elasticities_advertising, echo = FALSE, results='asis'}
-  
-out= NULL
-for (i in 1:2) {
-    if (i==1) obj=c('elast', 'w_elast', 'z_elast')
-    if (i==2) obj=c('elastlt','w_elastlt', 'z_elastlt')
-    
-    adv = copy(elast_adv[!is.na(get(obj[1]))][, ':=' (val=get(obj[1]), 
-                                             val_w=get(obj[2]),
-                                             val_z=get(obj[3]))])
-    
-    # retain markets with adv
-    tmp = adv[, list(has_adv=any(variable%in%'adv')),by=c('market_id', 'brand')]
-    setkey(tmp, market_id, brand)
-    setkey(adv, market_id, brand)
-    adv[tmp, has_adv:=i.has_adv]
-    adv=adv[has_adv==T]
-    
-    setkey(adv, market_id, brand)
-    
-    tmp_matched = copy(elast[!is.na(get(obj[1]))][, ':=' (val=get(obj[1]), 
-                                             val_w=get(obj[2]),
-                                             val_z=get(obj[3]))])
-    setkey(tmp_matched, market_id, brand)
-    
-    adv[, market_brand:=paste(market_id,brand)]
-    tmp_matched[, market_brand:=paste(market_id,brand)]
-    
-    tmp_matched=tmp_matched[market_brand%in%adv$market_brand]
-    
-    cols = intersect(colnames(adv),colnames(tmp_matched))
-    
-    tmp_combined = rbind(cbind(adv[, cols,with=F], type='adv'), cbind(tmp_matched[, cols, with=F],type='noadv'))
-    
-   
-    # different t-tests
-  
-    diff_tests=lapply(c(wls='wls'), function(tvalrep) {
-      
-      if (tvalrep=='wls') {
-      # OLS-based p values   
-      diff_tests=rbindlist(lapply(unique(tmp_combined$variable), function(.var) {
-        data.table(variable=.var, effect=c('constant', 'adv'), summary(lm(val~1+I(type=='adv'), weights=val_w,data=tmp_combined[variable==.var]))$coefficients)
-      }))
-            taddition = paste0('Tests on differences carried out by regressing elasticities (', estimnoteshort, ') on an intercept and an indicator variable which is 1 if advertising was included in the model, and 0 otherwise. Reported t-value is obtained from the estimate of the indicator variable.')
-  
-            }
-    
-    diff_tests<-diff_tests[!variable=='adv']
-
-    setnames(diff_tests, c('variable', 'effect', 'diff_est', 'diff_se', 'diff_t','diff_p'))
-    diff_tests=diff_tests[effect=='adv'][, effect:=NULL]
-    diff_tests[,testtype:=tvalrep]
-    return(list(diff_tests=diff_tests, notes=taddition))
-    })
-    
-    
-    ttests=melt(rbindlist(lapply(diff_tests, function(x) x$diff_tests))[, ':=' (var=variable,variable=NULL)], id.vars=c('var','testtype'))
-    
-    ttests=dcast(ttests, var~testtype+variable)
-    setnames(ttests, 'var', 'variable')
-    
-    notes<-lapply(diff_tests, function(x) x$notes)
-    
-    
-    tmp_combined = merge(tmp_combined, ttests, all.x=T,all.y=F,by = c('variable'))
-    
-    tmp_combined[is.na(wls_diff_p),wls_diff_p:=Inf]
-    
-    tmp=tmp_combined[, list(adv_Neffects= length(which(!is.na(val[type=='adv']))),
-				           adv_ftmelast = sum(val[type=='adv']*val_w[type=='adv'])/sum(val_w[type=='adv']),
-									 adv_3sig = signstars(sum(val_z[type=='adv'])/sqrt(length(which(!is.na(val[type=='adv']))))),
-									 nadv_Neffects= length(which(!is.na(val[!type=='adv']))),
-				           nadv_ftmelast = sum(val[!type=='adv']*val_w[!type=='adv'])/sum(val_w[!type=='adv']),
-									 nadv_3sig = signstars(sum(val_z[type=='adv'])/sqrt(length(which(!is.na(val[!type=='adv']))))),
-									 wls_t = unique(wls_diff_t), 
-									 wls_sig = psignstars(unique(wls_diff_p))), by=c('variable')]
-    
-    
-  tmp=tmp[match(c('adv', ordered_vars), variable)]
-  setnames(tmp, 'variable', 'mmixinstr')
-
-  out[[i]]<-tmp
-  }
-
-  
-names(out)<-c('st','lt')
-
-stats_markets = length(unique(adv$market_id))
-stats_brands = length(unique(adv$market_brand))
-stats_categories = length(unique(adv$category))
-
-stats_marketnames = sapply(c('china','hong kong'), function(x) {
-  x = unlist(sanitize_table(data.frame(unique(adv[country==x]$category))))
-  x=x[order(x)]
-  
-  return(paste0(x, collapse= ', '))
-})
-
-stats_categorynames = unlist(sanitize_table(data.frame(unique(adv$category))))
-stats_categorynames=paste0(stats_categorynames[order(stats_categorynames)], collapse = ', ')
-
-mainnote = paste0('We add to our main model the advertising expenditures for ', stats_brands, ' brands, and re-estimate marketing-mix elasticities in all markets for which advertising data is available to us (in total ', stats_markets, ' markets from ', stats_categories, ' categories in two countries, China and Hong Kong). We then compare the marketing-mix elasticities from this model to those elasticities estimated from our main model; in the comparison, we only include those ', stats_brands, ' brands for which advertising expenditures are available.')
-
-iters = list(lt=c('lt', 'Long-term'))
-for (iter in iters) {
-  print(kable(sanitize_table(out[[iter[1]]]), digits=3, format='html', format.args = list(big.mark = ","),
-        caption=tab(paste0('Differences in ', tolower(iter[2]), ' elasticities in models with and without advertising spending^1^'),prefix='A')) %>% kable_styling() %>% 
-        footnote(number=c(paste0(notes_sig, ' ', mainnote),estimnote, 'Significance tested using meta-analytic p-value.', notes[1])) %>% add_header_above(c(" " = 1, "Advertising included" = 3, "Main model (advertising not included)" = 3, 'Tests on differences' =2)))
 }
 ```
-
-```{r elasticities_novelty, echo = FALSE, results='asis'}
-  
-out= NULL
-for (i in 2) {
-    if (i==1) obj=c('elast', 'w_elast', 'z_elast')
-    if (i==2) obj=c('elastlt','w_elastlt', 'z_elastlt')
-    
-    nov = copy(elast_nov[!is.na(get(obj[1]))][, ':=' (val=get(obj[1]), 
-                                             val_w=get(obj[2]),
-                                             val_z=get(obj[3]))])
-    
-    setkey(nov, market_id, brand)
-    tmp_matched = copy(elast[!is.na(get(obj[1]))][, ':=' (val=get(obj[1]), 
-                                             val_w=get(obj[2]),
-                                             val_z=get(obj[3]))])
-    setkey(tmp_matched, market_id, brand)
-    
-    nov[, market_brand:=paste(market_id,brand)]
-    tmp_matched[, market_brand:=paste(market_id,brand)]
-    
-    tmp_matched=tmp_matched[market_brand%in%nov$market_brand]
-    
-    cols = intersect(colnames(nov),colnames(tmp_matched))
-    
-    tmp_combined = rbind(cbind(nov[, cols,with=F], type='nov'), cbind(tmp_matched[, cols, with=F],type='nonov'))
-    
-   
-    # different t-tests
-  
-    diff_tests=rbindlist(lapply(unique(tmp_combined$variable), function(.var) {
-        data.table(variable=.var, effect=c('constant', 'nov'), summary(lm(val~1+I(type=='nov'), weights=val_w,data=tmp_combined[variable==.var]))$coefficients)
-      }))
-    
-    taddition = paste0('Tests on differences carried out by regressing elasticities (', estimnoteshort, ') on an intercept and an indicator variable which is 1 if new-product activity was included in the model, and 0 otherwise. Reported t-value is obtained from the estimate of the indicator variable.')
-  
-  
-    
-    diff_tests<-diff_tests[!grepl('^nov', variable)]
-    
-    setnames(diff_tests, c('variable', 'effect', 'diff_est', 'diff_se', 'diff_t','diff_p'))
-    diff_tests=diff_tests[effect=='nov'][, effect:=NULL]
-    setcolorder(diff_tests, 'variable')
-    
-    
-    tmp_combined = merge(tmp_combined, diff_tests, all.x=T,all.y=F,by = c('variable'))
-    
-    tmp_combined[is.na(diff_p),diff_p:=Inf]
-    
-    tmp=tmp_combined[, list(nov_Neffects= length(which(!is.na(val[type=='nov']))),
-				           nov_ftmelast = sum(val[type=='nov']*val_w[type=='nov'])/sum(val_w[type=='nov']),
-									 nov_3sig = signstars(sum(val_z[type=='nov'])/sqrt(length(which(!is.na(val[type=='nov']))))),
-									 nnov_Neffects= length(which(!is.na(val[!type=='nov']))),
-				           nnov_ftmelast = sum(val[!type=='nov']*val_w[!type=='nov'])/sum(val_w[!type=='nov']),
-									 nnov_3sig = signstars(sum(val_z[type=='nov'])/sqrt(length(which(!is.na(val[!type=='nov']))))),
-									 wls_t = unique(diff_t), 
-									 wls_sig = psignstars(unique(diff_p))), by=c('variable')]
-    
-    
-  tmp=tmp[match(c('nov12sh', ordered_vars), variable)]
-  setnames(tmp, 'variable', 'mmixinstr')
-
-  out[[i]]<-tmp
-  }
-
-  
-names(out)<-c('st','lt')
-
-stats_markets = length(unique(nov$market_id))
-stats_brands = length(unique(nov$market_brand))
-stats_categories = length(unique(nov$category))
-
-
-mainnote = paste0('We add to our main model a variable that captures a brand\'s new-product activity (defined as the number of SKUs introduced by the focal brand in a rolling window of one year (t-11, t-10, ..., t), expressed as share of the total number of unique SKUs sold by the focal brand over the same period; 0 = none of the SKUs is new, 100 = all of the SKUs are new). The model is then re-estimated to obtain long-term marketing mix elasticities in all ', stats_markets, ' markets. We then compare the marketing-mix elasticities from this model to those elasticities estimated from our main model.')
-
-iters = list(lt=c('lt', 'Long-term'))
-for (iter in iters) {
-  print(kable(sanitize_table(out[[iter[1]]]), digits=3, format='html', format.args = list(big.mark = ","),
-        caption=tab(paste0('Differences in ', tolower(iter[2]), ' elasticities in models with and without new-product activity^1^'),prefix='A')) %>% kable_styling() %>% 
-        footnote(number=c(paste0(notes_sig, ' ', mainnote),estimnote, 'Significance tested using meta-analytic p-value.', taddition)) %>% add_header_above(c(" " = 1, "New-product activity included" = 3, "Main model (new-product activity not included)" = 3, 'Tests on differences' =2)))
-}
-```
-
-```{r analysis_for_all_mmix_wnovelty, results = 'asis', include = T, echo=FALSE}
-elast_firstobs[, time := 'first']
-elast_lastobs[, time := 'last']
-elast_time = rbind(elast_firstobs, elast_lastobs,fill=T)
-elast_time[, emerging_last:=as.numeric(as.numeric(time=='last')*as.numeric(emerging))]
-elast_time[, developed_last:=as.numeric(as.numeric(time=='last')*as.numeric(1-emerging))]
-elast_time[, brandmarket:=paste(market_id,brand)]
-
-res = NULL
-
-  # emerging
-  for (emerg in c(T,F)) {
-  
-  for (.var in ordered_vars) {
-  #cat(paste0('==========================\n',.var,'\n==============================\n\n\n'))
-
-    wls=summary(lm(elastlt~1+time, data=elast_time[variable==.var&emerging==emerg], weight=1/elastlt_se))$coefficients[2,]
-    means=summary(lm(elastlt~-1+as.factor(time), data=elast_time[variable==.var&emerging==emerg], weight=1/elastlt_se))$coefficients
-    
-    res=rbind(res,cbind(.var, ifelse(emerg==T,'Emerging market','Developed market'),as.numeric(length(unique(elast_time[variable==.var&emerging==emerg]$brandmarket))),means[1,1], means[2,1], wls[1], wls[3], wls[4]))
-  
-  #print(summary(lm(elastlt~1+emerging+emerging_last+developed_last, data=elast_time[variable==.var], weight=1/elastlt_se)))
-  }
-  }
-
-suppressWarnings({res=data.frame(res)})
-
-for (i in seq(from=3, to=ncol(res))) res[,i]<-as.numeric(as.character(res[,i]))
-
-colnames(res)<-c('variable','country_class','nobs','Mean','Mean','difference_abs','tval','pval')
-rownames(res)=NULL
-
-print(kable(sanitize_table(res), digits=3, format='html', format.args = list(big.mark = ","),     caption=tab(paste0('Time trends in marketing-mix elasticities across emerging and developed markets^1^'),prefix='A')) %>% kable_styling() %>% add_header_above(c(" " = 3, "First 60% of observations" = 1, "Last 60% of observations" = 1, 'Tests on differences' =3)))
-
-```
-

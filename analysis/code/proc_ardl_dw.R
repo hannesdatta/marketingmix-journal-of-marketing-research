@@ -114,57 +114,59 @@ ardl <- function(type = "ardl-ec", dt, dv, vars, exclude_cointegration = NULL, c
   }
 
   # Estimate models with varying lag terms
-  #cnt=0
+  cnt=0
   models <- lapply(lagstructure, function(.lagstructure) {
     #cnt<<-cnt+1
     #print(.lagstructure)
     #print(cnt)
     log <- capture.output({
-      mx <- dynardl(formula,
+      mx <- try(dynardl(formula,
         data = dt, lags = .lagstructure$lags, diffs = c(diffs),
         lagdiffs = .lagstructure$lagdiff, levels = c(levels), ec = ec, simulate = FALSE, trend = use_trend#,
         #noLDV = ifelse(type=='ardl-firstdiff', T, F)
-      )
-
-      autocorrel_test <- dynardl.auto.correlated(mx, object.out = T)
-      autocorrel_test$bg$p.value
+      ), silent=T)
+  
+      #if (class(mx)!='try-error') {
+      autocorrel_test_bg <- try(dynardl.auto.correlated(mx, object.out = T),
+                             silent=T)
+      autocorrel_test_bg_p <- NA
+      if (class(autocorrel_test_bg)!='try-error') autocorrel_test_bg_p = autocorrel_test$bg$p.value
+      
+      autocorrel_test_dw = try(dwtest(mx$model), silent = T)
+      autocorrel_test_dw_p <- NA
+      
+      if (class(autocorrel_test_dw)!='try-error') autocorrel_test_dw_p = dwtest(mx$model)$p.value
+      
     })
 
-    list(bic = BIC(mx$model), model = mx, autocorrel_p = autocorrel_test$bg$p.value)
+    list(bic = BIC(mx$model), model = mx, autocorrel_bg_p = autocorrel_test_bg_p,
+         autocorrel_dw_p = autocorrel_test_dw_p)
   })
 
   # choose the one with lowest BIC & no auto correlation
   bics <- unlist(lapply(models, function(x) x$bic))
-  autocorrel <- unlist(lapply(models, function(x) x$autocorrel_p))
+  autocorrel <- unlist(lapply(models, function(x) x$autocorrel_test_bg_p))
 
   if (length(which(autocorrel > pval)) == 0) {
-   # return("cannot remove autocorrel")
-    m.choice <- match(min(bics), bics)
-    m <- models[[m.choice]]$model
-    
-  } else {
-    # choose model without autocorrel & highest BIC
-    
-    m.choice <- match(min(bics[autocorrel > pval]), bics)
-    m <- models[[m.choice]]$model
-    
-}
+    return("cannot remove autocorrel")
+  }
+
+   # choose model without autocorrel & highest BIC
+  m.choice <- match(min(bics[autocorrel > pval]), bics)
+  m <- models[[m.choice]]$model
 
   # check for autocorrelation
   # plot(m$model$residuals)
 
   autocorrelation <- models[[m.choice]]$autocorrel_p < pval
-  autocorrelation_p <- models[[m.choice]]$autocorrel_p
-  
+
   res <- list(
     model = m, tested_model_specs = list(
       bic = bics, autocorrel = autocorrel, lagstructure = lagstructure,
       diffs = diffs, levels = levels, ec = ec, formula = formula,
       trend = use_trend
     ),
-    autocorrelation = autocorrelation, 
-    autocorrelation_p = autocorrelation_p,
-    mchoice = m.choice,
+    autocorrelation = autocorrelation, mchoice = m.choice,
     adf_tests = adf_tests,
     type = type
   )
