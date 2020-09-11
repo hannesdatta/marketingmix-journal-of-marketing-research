@@ -73,7 +73,7 @@ ardl <- function(type = "ardl-ec", dt, dv, vars, exclude_cointegration = NULL, c
     diffs <- c(xvars, controls_diffs)
     levels <- c(dummies, controls_levels)
     ec <- TRUE
-    tmp <- get_lagdiffs_list(rep(list(0:maxpq), 2), list(dv, xvars))
+    tmp <- get_lagdiffs_list(list(1:maxpq, 0:maxpq), list(dv, xvars))
     lagstructure <- lapply(tmp, function(x) list(lags = lags_list, lagdiff = x))
   }
 
@@ -130,7 +130,8 @@ ardl <- function(type = "ardl-ec", dt, dv, vars, exclude_cointegration = NULL, c
       autocorrel_test$bg$p.value
     })
 
-    list(bic = BIC(mx$model), model = mx, autocorrel_p = autocorrel_test$bg$p.value)
+    list(bic = BIC(mx$model), caic = AIC(mx$model) + (2*length(mx$coefficients)^2+2*length(mx$coefficients))/(length(mx$fitted.values)-length(mx$coefficients)-1),
+         model = mx, autocorrel_p = autocorrel_test$bg$p.value)
   })
 
   # choose the one with lowest BIC & no auto correlation

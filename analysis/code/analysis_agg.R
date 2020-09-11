@@ -241,6 +241,8 @@ res=lapply(unique(brand_panel$brand_id)[1:20], function(i) {
   summary(lm(elast12~1+developed, data=elast[grepl('llen', varname,ignore.case=T)], weights=1/elast12_sd))
   
   
+  out=newfkt(1697, withcontrols=F, withattributes=T)
+  
   
   # percent positive
   elast[, lapply(.SD, function(x) length(which(x>0))/length(x)),by=c('varname')] # positive price?!
@@ -256,4 +258,7 @@ res=lapply(unique(brand_panel$brand_id)[1:20], function(i) {
   
   
   #fwrite(elast, '../temp/save_elast.csv')
+  
+  
+  
   
