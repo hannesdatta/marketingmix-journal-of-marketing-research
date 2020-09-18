@@ -1,5 +1,10 @@
 
-newfkt <- function(id, withcontrols=T, withattributes=T) {
+newfkt <- function(id, withcontrols=T, controls_in_bounds = T, withattributes=T, 
+                   autocorrel_lags= c(3,6,9,12,15,18,1),
+                   control_ur = F,
+                   return_models = F, return_simulations = F, shockperiods=NA,
+                   ndraws=5, covar = 'no',
+                   kickout_ns_controls = F, pval = .1) {
   
   # 1.0 Conduct bounds test
   dv='lnusales'
@@ -17,7 +22,14 @@ newfkt <- function(id, withcontrols=T, withattributes=T) {
   
   quarter_vars = c('quarter1','quarter2','quarter3')
   
-  m_ardlbounds <- analyze_brand(id, quarters=T, xs = vars, controls = control_vars, dat = dt)
+  if (controls_in_bounds==T) {
+    controls_ardl = control_vars
+  } else {
+  
+    controls_ardl = NULL}
+  
+  m_ardlbounds <- analyze_brand(id, quarters=T, xs = vars, controls = controls_ardl, dat = dt,
+                                autocorrel_lags=autocorrel_lags, pval = pval)
   
   cat(paste0('\n\nOutput of the bounds procedure: ', m_ardlbounds))
   
@@ -30,10 +42,10 @@ newfkt <- function(id, withcontrols=T, withattributes=T) {
   
 
   # 2.0 Determine lag structure on the basis of `mtype`
-  autocorrel_lags= c(3,6,9,12,15,18,1)
+  #autocorrel_lags= c(3,6,9,12,15,18,1)
   for (maxpq in autocorrel_lags) {
     m<-try(ardl(type=mtype, dt = dt, dv = dv, vars = unique(c(vars, quarter_vars)), exclude_cointegration = NULL,
-            adf_tests= NULL, maxlag = 6, pval = .1, maxpq = maxpq, controls = control_vars),silent=T)
+            adf_tests= NULL, maxlag = 6, pval = pval, maxpq = maxpq, controls = controls_ardl),silent=T)
     if (class(m)=='ardl_procedure') if (m$autocorrelation==F) break
   }
  
@@ -61,6 +73,23 @@ newfkt <- function(id, withcontrols=T, withattributes=T) {
   if (withattributes==T) controls = c(attr_vars)
   if (withattributes==F) controls = NULL
   
+  if (withcontrols==T & controls_in_bounds ==F) controls = c(controls, control_vars)
+  
+  control_adf_tests=rbindlist(lapply(c(controls), function(.var) {
+    print(.var)
+    return(data.frame(variable=.var, cbind(t(adf_enders(unlist(dt[, .var,with=F]), maxlag=6, pval=pval)))))
+  }))
+  
+  if (control_ur == T & length(controls)>0) {
+    controls_levels = as.character(control_adf_tests[ur==0]$variable)
+    controls_differences = as.character(control_adf_tests[ur==1]$variable)
+  
+    for (.ctr in controls_differences) if (!is.null(.ctr)) dt[, paste0('d.1.', .ctr):=dshift(get(.ctr),1)]
+  
+    controls = c(controls_levels)
+    if (length(controls_differences)>0) controls = c(controls, paste0('d.1.', controls_differences))
+  }
+  
   if (length(controls)>0) {
     newdf <- dt[-m$model$model$na.action, controls,with=F]
     finaldf = cbind(df, newdf)
@@ -70,6 +99,16 @@ newfkt <- function(id, withcontrols=T, withattributes=T) {
   
   #####
   ## Add copulas (pending)
+ # .v=vars[1]
+  
+ # .res=grep(paste0('^',.v,'$'),colnames(df),value=T)
+ # .res=grep(paste0('^d.1.',.v,'$'),colnames(df),value=T)
+  
+ # c('d.1.'
+    
+ # grep(paste0(vars,collapse='|'), colnames(df),value=T)
+  
+  
   #####
   
   # Reestimate
@@ -79,6 +118,32 @@ newfkt <- function(id, withcontrols=T, withattributes=T) {
   if (length(na_coefs)>0) {
     finaldf =  finaldf[, -match(na_coefs, colnames(finaldf))]
     m2 <- lm(as.formula(paste0(colnames(finaldf)[1], '~1+', paste0(colnames(finaldf)[-1],collapse='+'))), data=finaldf)
+  }
+  
+  # Kick out ns. controls
+  if (kickout_ns_controls==T) {
+    #nscoefs = names(m2$coefficients)[summary(m2)$coefficients[,4]>.1]
+    #nscoefs = names(m2$coefficients)[abs(summary(m2)$coefficients[,3])<1]
+    nscoefs = names(m2$coefficients)[abs(summary(m2)$coefficients[,3])<1]
+    
+    exclude_from_kickout = c('(Intercept)', grep(paste0(c(vars,'lnusales'), collapse = '|'), colnames(finaldf),value=T))
+    exclude_from_kickout = grep('comp[_]', exclude_from_kickout, value=T, invert=T)
+    
+    nscoefs = nscoefs[!nscoefs%in%exclude_from_kickout]
+    
+    if (length(nscoefs)>0) {
+      finaldf =  finaldf[, -match(nscoefs, colnames(finaldf))]
+      cat('Before removal\n\n')
+      print(summary(m2))
+      
+      m2 <- lm(as.formula(paste0(colnames(finaldf)[1], '~1+', paste0(colnames(finaldf)[-1],collapse='+'))), data=finaldf)
+     
+      cat('\nRemoval of n.s. coefficients:\n')
+      cat(paste0(nscoefs,collapse=', '))
+      cat('\n\n')
+      
+    }
+      
   }
             
   cat('\nResult of final model:\n')
@@ -166,7 +231,7 @@ newfkt <- function(id, withcontrols=T, withattributes=T) {
   
   
   
-  sim_dat2 <- function(m, shockvar=NULL, shockperiod=20, shockvalue=log(1.01)) {
+  sim_dat2 <- function(m, shockvar=NULL, shockperiods=20, shockvalue=log(1.01)) {
     
     dv <- m$model[,1]
     dvname = colnames(m$model)[1]
@@ -179,92 +244,78 @@ newfkt <- function(id, withcontrols=T, withattributes=T) {
     
     # set lagged DVs (or any derivative of it) to NA; except in period 1
     lagdvcol = grep(paste0('l[.][0-9][.]', dvblank, '|ld[.][0-9][.]', dvblank, '|l[.][0-9][.]d', dvblank), colnames(Xsim_mat),value=T)
-    Xsim_mat[-1, lagdvcol] <- NA
     
+    lags = as.numeric(gsub("\\D", "", lagdvcol))
+    lags[is.na(lags)] <- 0
+    
+    for (s in seq(from=1, length.out=length(lagdvcol))) {
+      Xsim_mat[-c(1:lags[s]), lagdvcol[s]] <- NA
+    }
+   
+    # lagged differences
     lagdvcol = grep(paste0('ld[.][0-9][.]', dvblank, '|l[.][0-9][.]d', dvblank), colnames(Xsim_mat),value=T)
-    Xsim_mat[1, lagdvcol] <- 0
-    Xsim_mat[-1, lagdvcol] <- NA
+    lags = as.numeric(gsub("\\D", "", lagdvcol))
+    lags[is.na(lags)] <- 0
     
-    Nperiods = nrow(Xsim_mat)
-    # stretch out
+    for (s in seq(from=1, length.out=length(lagdvcol))) Xsim_mat[1:lags[s], lagdvcol[s]] <- 0
     
-    # set lagged DV in the first period to mean observed DV 
-    #meansales <- mean(dt[!is.na(lnusales)]$lnusales[1:3])
-    
-    #Xsim_mat[1, grep(paste0('l[.][0-9][.]', dvblank), names(Xsim),value=T)] <- meansales
-    
-    
-    # Extract coefficients from model for simulation
-    #shockperiod = 25
-    #shockvar = vars[3]
-    #shockvalue = 0 #1.1
-    
-    # extend lagged dependent variables / check whether this is still needed!!!
-    #relevant_vars=grep(paste0('l[.][0-9].', dvblank), colnames(Xsim_mat),value=T)
-    #for (s in seq(from=1, length.out=length(relevant_vars))) Xsim_mat[seq(from=s, to=1), relevant_vars[s]] <- meansales
-    
-    #if ('trendvar'%in%colnames(Xsim_mat)) Xsim_mat[, 'trendvar']<-1:Nperiods
-    
+
     # collect variables pertaining to the variable that will be shocked
     relevant_vars=grep(paste0('(d[.][0-9].){0,1}', shockvar), colnames(Xsim_mat),value=T) 
     relevant_vars = grep('comp[_]', relevant_vars, invert=T,value=T)
     
-    if (is.null(shockvar)|shockvar=='base') {
-      # no shock
-    } else {
-      
-      relevant_vars_levels = grep('^d[.]|^ld[.]', relevant_vars, invert=T,value=T)
-      lags = as.numeric(gsub("\\D", "", relevant_vars_levels))
-      lags[is.na(lags)] <- 0
-      
-      for (s in seq(from=1, length.out=length(relevant_vars_levels))) Xsim_mat[shockperiod + lags[s], relevant_vars_levels[s]] <- Xsim_mat[shockperiod + lags[s], relevant_vars_levels[s]]+shockvalue
-      
-      relevant_vars_diffs = grep('^d[.]|^ld[.]', relevant_vars, invert=F,value=T)
-      lags = as.numeric(gsub("\\D", "", relevant_vars_diffs))
-      lags[is.na(lags)] <- 0
-      lags[grepl('^d[.]', relevant_vars_diffs)] <- 0
-      
-      for (s in seq(from=1, length.out=length(relevant_vars_diffs))) {
-        Xsim_mat[shockperiod + lags[s], relevant_vars_diffs[s]] <- Xsim_mat[shockperiod + lags[s], relevant_vars_diffs[s]]+shockvalue
-        #antishock
-        if (length(relevant_vars_levels)>0) Xsim_mat[shockperiod + lags[s] + 1, relevant_vars_diffs[s]] <- Xsim_mat[shockperiod + lags[s] + 1, relevant_vars_diffs[s]] - shockvalue
+    Xsim_mat_copy = Xsim_mat
+    
+    retobj=lapply(shockperiods, function(shockperiod) {
+      Xsim_mat = Xsim_mat_copy
+      if (is.null(shockvar)|shockvar=='base') {
+        # no shock
+        } else {
         
+        relevant_vars_levels = grep('^d[.]|^ld[.]', relevant_vars, invert=T,value=T)
+        lags = as.numeric(gsub("\\D", "", relevant_vars_levels))
+        lags[is.na(lags)] <- 0
+        
+        for (s in seq(from=1, length.out=length(relevant_vars_levels))) Xsim_mat[shockperiod + lags[s], relevant_vars_levels[s]] <- Xsim_mat[shockperiod + lags[s], relevant_vars_levels[s]]+shockvalue
+        
+        relevant_vars_diffs = grep('^d[.]|^ld[.]', relevant_vars, invert=F,value=T)
+        lags = as.numeric(gsub("\\D", "", relevant_vars_diffs))
+        lags[is.na(lags)] <- 0
+        lags[grepl('^d[.]', relevant_vars_diffs)] <- 0
+        
+        for (s in seq(from=1, length.out=length(relevant_vars_diffs))) {
+          Xsim_mat[shockperiod + lags[s], relevant_vars_diffs[s]] <- Xsim_mat[shockperiod + lags[s], relevant_vars_diffs[s]]+shockvalue
+          #antishock
+          if (length(relevant_vars_levels)>0) Xsim_mat[shockperiod + lags[s] + 1, relevant_vars_diffs[s]] <- Xsim_mat[shockperiod + lags[s] + 1, relevant_vars_diffs[s]] - shockvalue
+          
+        }
       }
-    }
     
     return(list(data=Xsim_mat, shockvar = shockvar, shockperiod=shockperiod))
+    })
+  retobj
   }
   
   # 4.1 Generate scenarios
-  sim_ds = lapply(c('base', vars), function(x) sim_dat2(m=m2, shockvar=x, shockvalue = log(1.01), shockperiod=12))
+  
+  if (any(is.na(shockperiods))) shockperiods = 13:(nrow(df)-12)
+  
+  sim_ds = lapply(c('base', vars), function(x) sim_dat2(m=m2, shockvar=x, shockvalue = log(1.01), shockperiod=shockperiods))
  # sim_ds = lapply(c('base', vars), function(x) sim_dat(m=m2, shockvar=x, shockvalue = log(1.01), shockperiod=12))
   
-  #View(sim_ds[[1]]$data)
-  
-       
-  
+
   ## reset copulas to zero
   #if(length(which(grepl('cop[_]', colnames(dset))))>0) coefs[which(grepl('cop[_]', colnames(dset)))]<-0
   
   #View(sim_ds[[2]]$data)
   #Xsim_mat=sim_ds[[1]]$data
-  
-  Xsim_mat=as.matrix(m2$model[,-1])
-  
-  
-  out=my_predict(m2, Xsim_mat, L=1000, covar='no',use_residerror = T, shockvar=NA, dynamic = F)
-  
-  plot(out$simulated_dv[,120],type='l')
-  plot(out$simulated_levels[,150],type='l')
-  
+   
   
   
   library(MASS)
   
   # 5.0 Predict/simulate
-  #mclone=m2
-  #mclone$coefficients <- c()
-  
+ 
   my_predict <- function(m, Xsim_mat, L = 100, covar=c('no'), use_residerror = F, shockvar=NULL, dynamic = T) {
     
     # Draw coefficients
@@ -277,13 +328,15 @@ newfkt <- function(id, withcontrols=T, withattributes=T) {
     if (is.na(shockvar)) shockvar = NULL
     # only use variance/covariance of shockable variables
     if (covar=='no') Sigma = matrix(rep(0, prod(dim(Sigma))), ncol=ncol(Sigma))
+    
+    if (covar=='base' & is.null(shockvar)) Sigma = matrix(rep(0, prod(dim(Sigma))), ncol=ncol(Sigma))
+    
     #if (covar=='partly') {
     # keep=grep(paste0(dvblank,'|',shockvar),names(coefs))
     # 
     #   Sigma[-keep,-keep] <-0
     #    
     #}
-    
     set.seed(1234)
     draws=mvrnorm(n=L, mu=coefs, Sigma = Sigma)
     
@@ -386,20 +439,10 @@ newfkt <- function(id, withcontrols=T, withattributes=T) {
   
   # 5.1 Execute simulation
   
- res=lapply(1:length(sim_ds), function(i) my_predict(m2, sim_ds[[i]]$data, L = 1000, covar='no', 
-                                                     use_residerror = F, dynamic = T, shockvar=c(NA, vars)[i]))
-   #View(res[[2]])
-  #plot(res[[1]]$simulated_dv[,3],type='l')
-# plot(res[[1]]$simulated_levels[,100],type='l')
+ res=lapply(1:length(sim_ds), function(i) lapply(sim_ds[[i]], function(simset) my_predict(m2, simset$data, L = ndraws, covar=covar, 
+                                                     use_residerror = F, dynamic = T, shockvar=c(NA, vars)[i])))
  
- 
- 
- # Marnik/Nijs: - simulate from the mean, then use rsidual standard error to be added to each prediction
- # liefst: unconditional simulation of y (like I have done it now)
- 
- # varying shock period: 
-  # hoe de variance te bepalen; 
- 
+
  #for 1:1000
  
   # for shock period in second year -- last year-1:
@@ -412,77 +455,73 @@ newfkt <- function(id, withcontrols=T, withattributes=T) {
   
 #mean and SD over draws 
     
- 
-  # 
-
-#plot(res[[1]]$simulated_levels[,5],type='l')
-  
- # plot(cumsum(res[[1]]$simulated_dv[,9]),type='l')
-  
-  #lines(cumsum(res[[2]]$simulated_dv[,9]),type='l', lty=2)
-  
-  
-  #plot(res[[1]]$simulated_levels[,9],type='l')
-  #plot(res[[1]]$simulated_levels[,2],type='l')
-  
-  #plot(res[[2]]$simulated_levels[,1]-res[[1]]$simulated_levels[,1],type='l')
-  #plot(res[[2]]$simulated_levels[,2]-res[[1]]$simulated_levels[,2],type='l')
-  
-  #plot(res[[1]]$simulated_levels[,2],type='l')
-  
-  
-  #plot(res[[1]]$simulated_levels[,1],type='l')
-  #lines(res[[2]]$simulated_levels[,1],type='l')
-  
-  #res[[2]]$simulated_levels[,1]- res[[1]]$simulated_levels[,1]
-
-  
   
   # 5.2 Extract elasticities
   
-  varnames=unlist(lapply(sim_ds, function(x) x$shockvar))
+  varnames=unlist(lapply(sim_ds, function(x) x[[1]]$shockvar))
   
   elast=rbindlist(lapply(varnames[-1], function(v) {
     #cat(v,fill=T)
     i=match(v,varnames)
-    shockp=unlist(lapply(sim_ds, function(x) x$shockperiod))[i]
     
-    outc=res[[i]]$simulated_levels-res[[1]]$simulated_levels
+    outc=lapply(seq(along=shockperiods), function(shockindex) {
+      
+      shockp=shockperiods[shockindex]
+      
+      outc=res[[i]][[shockindex]]$simulated_levels-res[[1]][[shockindex]]$simulated_levels
+      
+      elast1 = 100*outc[shockp,]
+      elast6 = 100*colSums(outc[shockp:(shockp+6-1),])
+      elast12 = 100*colSums(outc[shockp:(shockp+12-1),])
+      elastlt12 = 100 * outc[(shockp+12-1),]
+      o=as.matrix(c(elast1,elast6,elast12,elastlt12))
+      dim(o) <-c(length(elast1),4)
+      o
+      })
+    aa=unlist(outc)
+    dim(aa) <- c(dim(outc[[1]]), length(shockperiods))
     
-    plot(rowMeans(res[[i]]$simulated_levels), type='l', ylab = 'log usales', xlab = 'simulation period', main = paste0('Shock in ', v))
-    lines(rowMeans(res[[1]]$simulated_levels), type='l',lty=2)
-    
-    elast1 = 100*outc[shockp,]
-    elast6 = 100*colMeans(outc[shockp:(shockp+6-1),])
-    elast12 = 100*colMeans(outc[shockp:(shockp+12-1),])
-    elast24 = 100*colMeans(outc[shockp:(shockp+24-1),])
+    outp=apply(aa,2,rowMeans)             
     
     return(data.frame(brand_id = id, varname=v, 
-                      elast1 = mean(elast1),
-                      elast6 = mean(elast6),
-                      elast12 = mean(elast12),
-                      elast24 = mean(elast24),
-                      elast1_sd = sd(elast1),
-                      elast6_sd = sd(elast6),
-                      elast12_sd = sd(elast12),
-                      elast24_sd = sd(elast24)))
-    
+                      Ndraws=dim(outp)[1],
+                      Nperiods=length(shockperiods),
+                      elast1 = mean(outp[,1]),
+                      elast6 = mean(outp[,2]),
+                      elast12 = mean(outp[,3]),
+                      elastlt12 = mean(outp[,4]),
+                      elast1_sd = sd(outp[,1]),
+                      elast6_sd = sd(outp[,2]),
+                      elast12_sd = sd(outp[,3]),
+                      elastlt12_sd = sd(outp[,4])))
+                      
   }))
   
   print(elast)
   
   ### FIRST: first check face avlidity of mean parameter estimates
   ### NEXT: uncertainity; alleen errors, conditional forecast vs. unconditional; weer parameter uncertainty
-   
+  rm(sim_ds)
+  rm(res)
   
-  list(m_ardlbounds = m_ardlbounds, 
-       m_lagstructure = m,
-       m_final = m2,
-       m_final_type = mtype,
-       #simulation_data_raw = sim_ds, simulation_data = lapply(res, function(x) x$data), 
-       #simulated_dv = lapply(res, function(x) x$simulated_dv), 
-       #simulated_levels = lapply(res, function(x) x$simulated_levels) ,
-       elasticities = elast)
+  retobj = list(elasticities = elast,
+                m_final_type = mtype,
+                m_autocorrelation = m$autocorrelation)
+  
+  if(return_models==T) {
+    retobj$m_ardlbounds = m_ardlbounds
+    retobj$m_lagstructure = m
+    retobj$m_final = m2
+  }
+  
+  if(return_simulations==T) {
+    retobj$simulation_data_raw = sim_ds
+    retobj$simulation_data = lapply(res, function(x) x$data)
+    retobj$simulated_dv = lapply(res, function(x) x$simulated_dv)
+    retobj$simulated_levels = lapply(res, function(x) x$simulated_levels)
+  }
+  
+  retobj
 }
 
 

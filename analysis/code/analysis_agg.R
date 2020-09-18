@@ -170,13 +170,26 @@ cases[, list(.N),by=c('case')]
 ##################################
 source('proc_salesresponse.R')
 
-res=lapply(unique(brand_panel$brand_id)[1:20], function(i) {
+  bids <- unique(brand_panel$brand_id)
+  length(bids)
+  
+res=lapply(unique(brand_panel$brand_id), function(i) {
   cat('\n\n NEW MODEL \n\n')
   print(i)
   cat('\n\n======================= \n\n')
-  return(try(newfkt(i), silent=T))
+  return(newfkt(
+    i,
+    withcontrols = T,
+    withattributes = T,
+    shockperiods = 12,
+    ndraws = 1000,
+    covar = 'yes',
+    autocorrel_lags = c(1,2,3,1)
+  ))
   })
 
+
+# correct 
 ##########################
 ### CLUSTER ESTIMATION ###
 ##########################
@@ -198,51 +211,213 @@ res=lapply(unique(brand_panel$brand_id)[1:20], function(i) {
   bids <- unique(brand_panel$brand_id)
   length(bids)
   
-  results_salesresponse=clusterApply(cl, bids, function(bid) try(newfkt(bid), silent=T))
   
-  elast <- rbindlist(lapply(results_salesresponse[checks=='list'], function(x) x$elasticities))
+  results_salesresponse = clusterApply(cl, bids, function(bid) {
+    #sink(file='log.txt',append=T)
+    #print(bid)
+    #sink()
+    #print(bid)
+    
+    ret=try(newfkt(
+      bid,
+      withcontrols = T,
+      withattributes = T,
+      shockperiods = 12,
+      ndraws = 1000,
+      covar = 'yes'
+    ),
+    silent = T)
+    return(ret)}
+  )
   
-  save(results_salesresponse, file = '../output/results_salesresponse.RData')
+  results_salesresponse_max3 = clusterApply(cl, bids, function(bid)
+    try(newfkt(
+      bid,
+      withcontrols = T,
+      withattributes = T,
+      shockperiods = 12,
+      ndraws = 1000,
+      covar = 'yes',
+      autocorrel_lags = c(1,2,3,1)
+    ),
+    silent = T)
+  )
+ 
   
-  results_salesresponse2 <- lapply(results_salesresponse, function(x) x$elasticities)
   
-  save(results_salesresponse2, file = '../output/results_salesresponse2.RData')
+  results_salesresponse_max1 = clusterApply(cl, bids, function(bid)
+    try(newfkt(
+      bid,
+      withcontrols = T,
+      withattributes = T,
+      shockperiods = 12,
+      ndraws = 1000,
+      covar = 'yes',
+      autocorrel_lags = c(1)
+    ),
+    silent = T)
+  )
+ 
+  results_salesresponse_max3_kickoutns = clusterApply(cl, bids, function(bid)
+    try(newfkt(
+      bid,
+      withcontrols = T,
+      withattributes = T,
+      shockperiods = 12,
+      ndraws = 1000,
+      covar = 'yes',
+      autocorrel_lags = c(1,2,3,1), 
+      kickout_ns_controls=T
+    ),
+    silent = T)
+  )
   
-  checks=unlist(lapply(results_salesresponse, class))
-  table(checks)
-  which(checks!='list')
+  
+  # favorite
+  results_salesresponse_max3_kickoutns_urcontrols = clusterApply(cl, bids, function(bid)
+    try(newfkt(
+      bid,
+      withcontrols = T,
+      withattributes = T,
+      shockperiods = 12,
+      ndraws = 1000,
+      covar = 'yes',
+      #autocorrel_lags = c(1,2,3,1), 
+      kickout_ns_controls=T,
+      control_ur=T 
+      
+    ),
+    silent = T)
+  )
+  
+  
+  results_salesresponse_max3_kickoutns_urcontrols_ctrnobounds = clusterApply(cl, bids, function(bid)
+    try(newfkt(
+      bid,
+      withcontrols = T,
+      withattributes = T,
+      shockperiods = 12,
+      ndraws = 1000,
+      covar = 'yes',
+      autocorrel_lags = c(1,2,3,1), 
+      kickout_ns_controls=T,
+      control_ur=T,
+      controls_in_bounds =F
+      
+    ),
+    silent = T)
+  )
+  
+  # favorite
+  results_salesresponse_max12_kickoutns_urcontrols = clusterApply(cl, bids[1:50], function(bid)
+    try(newfkt(
+      bid,
+      withcontrols = T,
+      withattributes = T,
+      shockperiods = 12,
+      ndraws = 1000,
+      covar = 'yes',
+      #autocorrel_lags = c(1,2,3,1), 
+      kickout_ns_controls=T,
+      control_ur=T 
+      
+    ),
+    silent = T)
+  )
+  
+  # favorite
+  results_salesresponse_max3_kickoutns_urcontrols_p05 = clusterApply(cl, bids, function(bid)
+    try(newfkt(
+      bid,
+      withcontrols = T,
+      withattributes = T,
+      shockperiods = 12,
+      ndraws = 1000,
+      covar = 'yes',
+      autocorrel_lags = c(1,2,3,1), 
+      kickout_ns_controls=T,
+      control_ur=T,
+      pval=.05
+      
+    ),
+    silent = T)
+  )
+  comp <- rbindlist(lapply(results_salesresponse_max12_kickoutns_urcontrols_p05, function(x) x$elasticities))
+  #comp <- rbindlist(lapply(results_salesresponse_max3_kickoutns_urcontrols_ctrnobounds, function(x) x$elasticities))
+  comp2 <- rbindlist(lapply(results_salesresponse_max12_kickoutns_urcontrols, function(x) x$elasticities))
+  #comp2 <- rbindlist(lapply(results_salesresponse_max3_kickoutns_urcontrols, function(x) x$elasticities))
+  comp[, z:=elast6/elast6_sd]
+  comp2[, z:=elast6/elast6_sd]
+  summary(abs(comp$z))
+  summary(abs(comp2$z))
+  
+  
+  
+  for (bid in bids[200:250]) {
+    print(bid)
+    newfkt(
+      bid,
+      withcontrols = T,
+      withattributes = T,
+      shockperiods = 12,
+      ndraws = 1000,
+      covar = 'yes',
+      autocorrel_lags = c(3, 2, 1), 
+      kickout_ns_controls=T,
+      control_ur=T,
+      pval=.05
+      
+    )
+  }
+  
+  
+  
+  save(results_salesresponse, results_salesresponse_max1, results_salesresponse_max3,
+       results_salesresponse_max3_kickoutns,
+       results_salesresponse_max12_kickoutns_urcontrols,
+    #   results_salesresponse_max3_kickoutns_urcontrols,
+    #   results_salesresponse_max3_kickoutns_urcontrols_ctrnobounds,
+    #   results_salesresponse_max12_kickoutns_urcontrols,
+       
+       file = '../output/results_salesresponse_comparison2.RData')
+  
+ # save(results_salesresponse, file = '../output/results_salesresponse_se.RData')
+  
+  if(0){
+  
+    
+    # Extract model names from .RData file
+    lscall=ls(envir=.GlobalEnv)
+    models <- setdiff(c(grep('results[_]', lscall, value=T)),'results_brands')
+    
+    # Extract elasticities
+    for (model_name in models) {
+      print(model_name)
+      results_brands=eval(parse(text=model_name))
+      
+        checks=unlist(lapply(results_brands, class))
+    table(checks)
+    which(checks!='list')
+  
+   elast <- rbindlist(lapply(results_brands[checks=='list'], function(x) data.table(modeltype=x$m_final_type, x$elasticities)))
+  
+  #library(xlsx)
+  #write.xlsx(elast, file = '../output/elasticities_revision_se.xlsx', row.names=FALSE)
+  fwrite(elast, file = paste0('../output/elasticities_revision_', gsub('results[_]','', model_name), '.csv'), row.names=FALSE)
+    }
+  
+  hist(elast[grepl('rwps',varname, ignore.case=T)]$elast6,breaks=100)
+  mean(elast[grepl('rwps',varname, ignore.case=T)]$elast6,breaks=100)
+  median(elast[grepl('rwps',varname, ignore.case=T)]$elast6,breaks=100)
+  
+  
+  hist(elast[grepl('rwps',varname, ignore.case=T)]$elast12,breaks=100)
+  mean(elast[grepl('rwps',varname, ignore.case=T)]$elast12,breaks=100)
+  median(elast[grepl('rwps',varname, ignore.case=T)]$elast12,breaks=100)
+  
   
   # just one AC remains!
-  table(unlist(lapply(results_salesresponse, function(x) x$m_lagstructure$autocorrelation)))
-  
-  
-  #summary(elast)
-  elast = rbindlist(lapply(results_salesresponse[which(checks=='list')], function(x) x$elasticities))
-  
-  
-  elast[, lapply(.SD, mean),by=c('varname')] # positive price?!
-  
-  # ctry
-  setkey(elast, brand_id)
-  setkey(brand_panel, brand_id)
-  elast[brand_panel, ':=' (developed=i.developed, country=i.country, category=i.category)]
-  
-  summary(lm(elast6~1+developed, data=elast[grepl('pr', varname,ignore.case=T)]))
-  summary(lm(elast6~1+developed, data=elast[grepl('pr', varname,ignore.case=T)], weights=1/elast6_sd))
-  summary(lm(elast12~1+developed, data=elast[grepl('pr', varname,ignore.case=T)], weights=1/elast12_sd))
-  
-  
-  summary(lm(elast6~1+developed, data=elast[grepl('dst', varname,ignore.case=T)]))
-  summary(lm(elast6~1+developed, data=elast[grepl('dst', varname,ignore.case=T)], weights=1/elast6_sd))
-  summary(lm(elast12~1+developed, data=elast[grepl('dst', varname,ignore.case=T)], weights=1/elast12_sd))
- 
-  summary(lm(elast6~1+developed, data=elast[grepl('llen', varname,ignore.case=T)]))
-  summary(lm(elast6~1+developed, data=elast[grepl('llen', varname,ignore.case=T)], weights=1/elast6_sd))
-  summary(lm(elast12~1+developed, data=elast[grepl('llen', varname,ignore.case=T)], weights=1/elast12_sd))
-  
-  
-  out=newfkt(1697, withcontrols=F, withattributes=T)
-  
+  table(unlist(lapply(results_salesresponse, function(x) x$m_autocorrelation)))
   
   # percent positive
   elast[, lapply(.SD, function(x) length(which(x>0))/length(x)),by=c('varname')] # positive price?!
@@ -250,6 +425,112 @@ res=lapply(unique(brand_panel$brand_id)[1:20], function(i) {
   hist(elast[grepl('pr', varname,ignore.case=T)]$elast6)
   hist(elast[grepl('llen', varname,ignore.case=T)]$elast6)
   hist(elast[grepl('dst', varname,ignore.case=T)]$elast6)
+  
+  }
+  
+  
+  
+  out=newfkt(1023, withcontrols=T, withattributes=T, shockperiods=12, ndraws=1000, covar='yes', kickout_ns_controls=T,
+             control_ur=T, controls_in_bounds=F)
+  
+  out2=newfkt(1023, withcontrols=T, withattributes=T, shockperiods=12, ndraws=1000, covar='yes', kickout_ns_controls=T,
+              control_ur=T, controls_in_bounds=T)
+  
+  out$elasticities
+  out2$elasticities
+  
+  out=newfkt(1697, withcontrols=T, withattributes=T, shockperiods=12, ndraws=1000, covar='yes', kickout_ns_controls=T)
+  out2=newfkt(1697, withcontrols=T, withattributes=T, shockperiods=12, ndraws=1000, covar='yes', kickout_ns_controls=F)
+  out$elasticities
+  out2$elasticities
+  
+  out=newfkt(151, withcontrols=T, withattributes=T, shockperiods=12, ndraws=1000, covar='yes', kickout_ns_controls=T)
+  out2=newfkt(151, withcontrols=T, withattributes=T, shockperiods=12, ndraws=1000, covar='yes', kickout_ns_controls=F)
+  out$elasticities
+  out2$elasticities
+  
+  out2=newfkt(1697, withcontrols=T, withattributes=T, shockperiods=12, ndraws=1000, covar = 'yes')
+  out3=newfkt(1697, withcontrols=T, withattributes=T, shockperiods=NA, ndraws=1000, covar = 'yes')
+  
+  out4=newfkt(1697, withcontrols=T, withattributes=T, shockperiods=NA, ndraws=1000, covar = 'base')
+  
+  out4=newfkt(151, withcontrols=T, withattributes=T, shockperiods=12, ndraws=1000, covar = 'yes')
+  out4=newfkt(bids[5], withcontrols=T, withattributes=T, shockperiods=12, ndraws=1000, covar = 'yes')
+  
+  
+  out4=newfkt(bids[2], withcontrols=T, withattributes=T, 
+              shockperiods=12, ndraws=1000, covar = 'yes')
+  
+  out5=newfkt(bids[2], withcontrols=F, withattributes=T, 
+              shockperiods=12, ndraws=1000, covar = 'yes',
+              autocorrel_lags=c(1,2,3,1))
+  
+  # Case 1: max
+  out5=newfkt(bids[1], withcontrols=T, withattributes=T, 
+              controls_in_bounds = F, control_ur = F,
+              shockperiods=12, ndraws=1000, covar = 'yes',
+              autocorrel_lags=c(1,2,3,1))
+  # Case 1: max
+  out5=newfkt(bids[1], withcontrols=T, withattributes=T, 
+              controls_in_bounds = T,
+              shockperiods=12, ndraws=1000, covar = 'yes',
+              autocorrel_lags=c(1,2,3,1))
+  
+  # with controls in EC but do not vary AC structure
+  # without controls in EC, but add later as controls
+   #a in levels always
+   #b in differences depending on UR outcome
+  
+  out=newfkt(
+    1023,
+    withcontrols = T,
+    withattributes = T,
+    shockperiods = 12,
+    ndraws = 1000,
+    covar = 'yes',
+    autocorrel_lags = c(1,2,3,1)
+  )
+  
+  
+  
+  out$elasticities
+  out2$elasticities
+  out3$elasticities
+
+  xout=newfkt(151, withcontrols=T, withattributes=T, shockperiods=12, ndraws=5)
+  xout2=newfkt(151, withcontrols=T, withattributes=T, shockperiods=12, ndraws=1000, covar = 'yes')
+  xout3=newfkt(151, withcontrols=T, withattributes=T, shockperiods=NA, ndraws=1000, covar = 'yes')
+  
+  xout$elasticities
+  xout2$elasticities
+  xout3$elasticities
+  
+  
+   out2=newfkt(1697, withcontrols=T, withattributes=T, shockperiods=12:14, ndraws=5)
+  
+  
+  out=newfkt(151, withcontrols=T, withattributes=T, shockperiods=NA, ndraws=5)
+  out2=newfkt(151, withcontrols=T, withattributes=T, shockperiods=12:14, ndraws=5)
+  out$elasticities
+  out2$elasticities
+  
+  
+  out=newfkt(1697, withcontrols=T, withattributes=T, shockperiods=NA, ndraws=5)
+  out2=newfkt(1697, withcontrols=T, withattributes=T, shockperiods=12:14, ndraws=5)
+  out$elasticities
+  out2$elasticities
+  
+  
+  out=newfkt(bids[1], withcontrols=T, withattributes=T, shockperiods=NA, ndraws=5)
+  out2=newfkt(bids[1], withcontrols=T, withattributes=T, shockperiods=12:14, ndraws=5)
+  out$elasticities
+  out2$elasticities
+  
+  out=newfkt(1740, withcontrols=T, withattributes=T)
+ 
+  out=newfkt(151, withcontrols=T, withattributes=T)
+  
+  
   
   
   #outliers?

@@ -7,7 +7,7 @@ get_lagdiffs_list <- function(gridlist = list(), namesarg, constraints = NULL) {
       possible_grid <- possible_grid[with(possible_grid, eval(parse(text=constr))),]
     
   }
-  
+
   lagdiffs_list <- apply(possible_grid, 1, function(x) {
     
     obj=mapply(function(arg, startval, gridval) {
@@ -27,11 +27,11 @@ assert <- function(expr, error) {
   if (!expr) stop(error, call. = FALSE)
 }
 
-dt <- brand_panel[brand_id==18]
-maxlag <- 6
-pval <- .1
-adf_tests <- NULL
-exclude_cointegration <- NULL
+#dt <- brand_panel[brand_id==18]
+#maxlag <- 6
+#pval <- .1
+#adf_tests <- NULL
+#exclude_cointegration <- NULL
 
 ardl <- function(type = "ardl-ec", dt, dv, vars, exclude_cointegration = NULL, controls = NULL, adf_tests = NULL, maxlag = 6, 
                  maxpq = 3, pval = .1, ...) {

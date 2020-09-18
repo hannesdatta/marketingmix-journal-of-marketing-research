@@ -2,7 +2,9 @@ library(urca)
 library(dynamac)
 require(stats4)
 
-analyze_brand <- function(bid, quarters=T, xs=c('lnrwpspr','lnllen','lnwpswdst'), controls = NULL, dat) {
+analyze_brand <- function(bid, quarters=T, xs=c('lnrwpspr','lnllen','lnwpswdst'), 
+                          controls = NULL, dat,
+                          autocorrel_lags= c(3,6,9,12,15,18,1), pval =.1) {
   #dat=df[brand_id==bid]
   
   cat('==================================\n')
@@ -38,7 +40,7 @@ analyze_brand <- function(bid, quarters=T, xs=c('lnrwpspr','lnllen','lnwpswdst')
   #cat('\nADF tests:\n')
   adf_tests=rbindlist(lapply(c(dv,vars), function(.var) {
     #print(.var)
-    return(data.frame(variable=.var, cbind(t(adf_enders(unlist(dat[, .var,with=F]), maxlag=6, pval=.1)))))
+    return(data.frame(variable=.var, cbind(t(adf_enders(unlist(dat[, .var,with=F]), maxlag=6, pval=pval)))))
   }))
   
   #print(adf_tests)
@@ -61,11 +63,11 @@ analyze_brand <- function(bid, quarters=T, xs=c('lnrwpspr','lnllen','lnwpswdst')
     # ardl automatically finds the right number of lags p and q
     # iteratively try to run test, first w/ max 3 lags, then 6, then 9, etc.; if lags can't be used, set to max. 1
     # (e.g., if not enough observations are available)
-    autocorrel_lags= c(3,6,9,12,15,18,1)
+    #autocorrel_lags= c(3,6,9,12,15,18,1)
     for (maxpq in autocorrel_lags) {
       print(maxpq)
       m<-try(ardl(type='ardl-ec', dt = dat, dv = dv, vars = unique(c(vars, quarter_vars)), exclude_cointegration = NULL,
-              adf_tests= adf_tests, maxlag = 6, pval = .1, maxpq = maxpq),silent=T)
+              adf_tests= adf_tests, maxlag = 6, pval = pval, maxpq = maxpq),silent=T)
       if (class(m)=='ardl_procedure') if (m$autocorrelation==F) break
     }
     
@@ -150,7 +152,7 @@ analyze_brand <- function(bid, quarters=T, xs=c('lnrwpspr','lnllen','lnwpswdst')
               
               for (maxpq in autocorrel_lags) {
                 me<-try(ardl(type='ardl-ec', dt = dat, dv = dv, vars = c(vars, quarter_vars), exclude_cointegration = x,
-                         adf_tests= adf_tests, maxlag = 6, pval = .1, maxpq = maxpq),silent=T)
+                         adf_tests= adf_tests, maxlag = 6, pval = pval, maxpq = maxpq),silent=T)
                 if (class(me)=='ardl_procedure') if (me$autocorrelation==F) break
               }
               
@@ -269,11 +271,11 @@ if(0) {
     bics=unlist(lapply(models, function(x) x$bic))
     autocorrel=unlist(lapply(models, function(x) x$autocorrel_p))
     
-    if (length(which(autocorrel>.1))==0) return(paste0(mid, ': cannot remove autocorrel in first-differenced ARDL (no cointegration)'))
+    if (length(which(autocorrel>pval))==0) return(paste0(mid, ': cannot remove autocorrel in first-differenced ARDL (no cointegration)'))
     
     
     # choose model without autocorrel & highest BIC
-    m.choice = match(min(bics[autocorrel>.1]), bics)
+    m.choice = match(min(bics[autocorrel>pval]), bics)
     
     m=models[[m.choice]]$model
     
@@ -284,7 +286,7 @@ if(0) {
     autocorrel_test$bg$p.value
     
     
-    autocorrelation=autocorrel_test$bg$p.value<.1
+    autocorrelation=autocorrel_test$bg$p.value<pval
     
     
     info_msg=paste0('g) Is there autocorrelation in the residuals? ', ifelse(autocorrelation==T, 'yes', 'no'), '; p = ', autocorrel_test$bg$p.value, '; model choice: ', m.choice, '; bounds: ', boundstest_result, '; initial bounds: ', initial_bounds)

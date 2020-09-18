@@ -12,7 +12,7 @@ library(data.table)
 #library(marketingtools)
 
 # Load results
-load(file = '../output/results_salesresponsenew.RData')
+load(file = '../output/results_salesresponse_comparison.RData')
 
 #unlink('../output/*.csv')
 

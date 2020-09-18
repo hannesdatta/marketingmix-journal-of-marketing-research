@@ -21,6 +21,10 @@ library(Matrix)
         # invalid series if it only contains one unique value (no variation)        
         if (length(unique(tmp))<=1) return(F)
 				
+        # invalid series if 95% are the same value
+        if (.tmp/length(tmp)>.95) return(F)
+        
+        
         # invalid series if it has less than x months of non-zero observations
 				if (length(which(!tmp==min(tmp, na.rm=T)))<12) return(F)
 				
