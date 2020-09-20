@@ -124,56 +124,18 @@ source('proc_analysis.R')
 source('proc_analysis_brand.R')
 source('proc_ardl.R')
 source('c1c5b3af32343d042fcbc8e249ae9ff6/proc_unitroots.R')
+source('proc_salesresponse.R')
   
-###########################
-# CLUSTER ESTIMATION      #
-###########################
-
-if(0) {
-require(parallel)
-cl<-makePSOCKcluster(7)
-clusterExport(cl, c('panel', 'brand_panel'))
-clusterEvalQ(cl, library(data.table))
-clusterEvalQ(cl, library(timeSeries))
-void<-clusterEvalQ(cl, source('proc_analysis_agg.R'))
-void<-clusterEvalQ(cl, source('proc_analysis_brand.R'))
-void<-clusterEvalQ(cl, source('proc_analysis.R'))
-void<-clusterEvalQ(cl, source('proc_ardl.R'))
-void<-clusterEvalQ(cl, source('c1c5b3af32343d042fcbc8e249ae9ff6/proc_unitroots.R'))
-rm(void)
-
-bids <- unique(brand_panel$brand_id)[1:150]
-
-#res=clusterApply(cl, unique(panel$market_id), function(mid) try(analyze_market(mid, quarters=T), silent=T))
-res=clusterApply(cl, bids, function(bid) {
-  out=try(analyze_brand(bid, quarters=T), silent=T)
-  if (class(out)=='try-error') return('error') else return(out)
-})
-my_results=unlist(res)
-
-
-cases = data.table(brand_id = bids,
-                   boundstest = gsub(' [(].*', '', my_results))
-cases[, case:=as.character(NA)]
-cases[is.na(case)&grepl('stationarity', boundstest), case:='stationarity']
-cases[is.na(case)&grepl('no cointegration$', boundstest), case:='nocointegration']
-cases[is.na(case)&grepl('cointegration$', boundstest), case:='cointegration']
-
-cases[, list(.N),by=c('case')]
-
-}
-
   
   
 ##################################
 # COMPLETE MODEL ESTIMATION      #
 ##################################
-source('proc_salesresponse.R')
 
-  bids <- unique(brand_panel$brand_id)
-  length(bids)
-  
-res=lapply(unique(brand_panel$brand_id), function(i) {
+bids <- unique(brand_panel$brand_id)
+length(bids)
+
+res=lapply(unique(brand_panel$brand_id)[1:5], function(i) {
   cat('\n\n NEW MODEL \n\n')
   print(i)
   cat('\n\n======================= \n\n')
@@ -189,7 +151,6 @@ res=lapply(unique(brand_panel$brand_id), function(i) {
   })
 
 
-# correct 
 ##########################
 ### CLUSTER ESTIMATION ###
 ##########################
@@ -204,33 +165,17 @@ res=lapply(unique(brand_panel$brand_id), function(i) {
   void<-clusterEvalQ(cl, source('proc_analysis.R'))
   void<-clusterEvalQ(cl, source('proc_ardl.R'))
   void<-clusterEvalQ(cl, source('proc_salesresponse.R'))
-  
   void<-clusterEvalQ(cl, source('c1c5b3af32343d042fcbc8e249ae9ff6/proc_unitroots.R'))
   rm(void)
+  
   
   bids <- unique(brand_panel$brand_id)
   length(bids)
   
-  
-  results_salesresponse = clusterApply(cl, bids, function(bid) {
-    #sink(file='log.txt',append=T)
-    #print(bid)
-    #sink()
-    #print(bid)
-    
-    ret=try(newfkt(
-      bid,
-      withcontrols = T,
-      withattributes = T,
-      shockperiods = 12,
-      ndraws = 1000,
-      covar = 'yes'
-    ),
-    silent = T)
-    return(ret)}
-  )
-  
-  results_salesresponse_max3 = clusterApply(cl, bids, function(bid)
+  #set.seed(1234)
+  #bids = sample(bids, 40)
+
+  results_salesresponse_max3_p10 = parLapplyLB(cl, bids, function(bid)
     try(newfkt(
       bid,
       withcontrols = T,
@@ -238,124 +183,18 @@ res=lapply(unique(brand_panel$brand_id), function(i) {
       shockperiods = 12,
       ndraws = 1000,
       covar = 'yes',
-      autocorrel_lags = c(1,2,3,1)
-    ),
-    silent = T)
-  )
- 
-  
-  
-  results_salesresponse_max1 = clusterApply(cl, bids, function(bid)
-    try(newfkt(
-      bid,
-      withcontrols = T,
-      withattributes = T,
-      shockperiods = 12,
-      ndraws = 1000,
-      covar = 'yes',
-      autocorrel_lags = c(1)
-    ),
-    silent = T)
-  )
- 
-  results_salesresponse_max3_kickoutns = clusterApply(cl, bids, function(bid)
-    try(newfkt(
-      bid,
-      withcontrols = T,
-      withattributes = T,
-      shockperiods = 12,
-      ndraws = 1000,
-      covar = 'yes',
-      autocorrel_lags = c(1,2,3,1), 
-      kickout_ns_controls=T
-    ),
-    silent = T)
-  )
-  
-  
-  # favorite
-  results_salesresponse_max3_kickoutns_urcontrols = clusterApply(cl, bids, function(bid)
-    try(newfkt(
-      bid,
-      withcontrols = T,
-      withattributes = T,
-      shockperiods = 12,
-      ndraws = 1000,
-      covar = 'yes',
-      #autocorrel_lags = c(1,2,3,1), 
-      kickout_ns_controls=T,
-      control_ur=T 
-      
-    ),
-    silent = T)
-  )
-  
-  
-  results_salesresponse_max3_kickoutns_urcontrols_ctrnobounds = clusterApply(cl, bids, function(bid)
-    try(newfkt(
-      bid,
-      withcontrols = T,
-      withattributes = T,
-      shockperiods = 12,
-      ndraws = 1000,
-      covar = 'yes',
-      autocorrel_lags = c(1,2,3,1), 
+      autocorrel_lags = c(3, 2, 1), 
       kickout_ns_controls=T,
       control_ur=T,
-      controls_in_bounds =F
+      pval=.1
       
     ),
     silent = T)
   )
   
   # favorite
-  results_salesresponse_max12_kickoutns_urcontrols = clusterApply(cl, bids[1:50], function(bid)
+  results_salesresponse_max3_p05 = parLapplyLB(cl, bids, function(bid)
     try(newfkt(
-      bid,
-      withcontrols = T,
-      withattributes = T,
-      shockperiods = 12,
-      ndraws = 1000,
-      covar = 'yes',
-      #autocorrel_lags = c(1,2,3,1), 
-      kickout_ns_controls=T,
-      control_ur=T 
-      
-    ),
-    silent = T)
-  )
-  
-  # favorite
-  results_salesresponse_max3_kickoutns_urcontrols_p05 = clusterApply(cl, bids, function(bid)
-    try(newfkt(
-      bid,
-      withcontrols = T,
-      withattributes = T,
-      shockperiods = 12,
-      ndraws = 1000,
-      covar = 'yes',
-      autocorrel_lags = c(1,2,3,1), 
-      kickout_ns_controls=T,
-      control_ur=T,
-      pval=.05
-      
-    ),
-    silent = T)
-  )
-  comp <- rbindlist(lapply(results_salesresponse_max12_kickoutns_urcontrols_p05, function(x) x$elasticities))
-  #comp <- rbindlist(lapply(results_salesresponse_max3_kickoutns_urcontrols_ctrnobounds, function(x) x$elasticities))
-  comp2 <- rbindlist(lapply(results_salesresponse_max12_kickoutns_urcontrols, function(x) x$elasticities))
-  #comp2 <- rbindlist(lapply(results_salesresponse_max3_kickoutns_urcontrols, function(x) x$elasticities))
-  comp[, z:=elast6/elast6_sd]
-  comp2[, z:=elast6/elast6_sd]
-  summary(abs(comp$z))
-  summary(abs(comp2$z))
-  
-  
-  
-  for (bid in bids[200:250]) {
-    print(bid)
-    newfkt(
       bid,
       withcontrols = T,
       withattributes = T,
@@ -367,19 +206,26 @@ res=lapply(unique(brand_panel$brand_id), function(i) {
       control_ur=T,
       pval=.05
       
-    )
+    ),
+    silent = T)
+  )
+  
+  if(0){
+  
+  comp <- rbindlist(lapply(results_salesresponse_max3_p05, function(x) x$elasticities))
+  comp2 <- rbindlist(lapply(results_salesresponse_max3_p10, function(x) x$elasticities))
+  comp[, z:=elast6/elast6_sd]
+  comp2[, z:=elast6/elast6_sd]
+  summary(abs(comp$z))
+  summary(abs(comp2$z))
   }
   
   
   
-  save(results_salesresponse, results_salesresponse_max1, results_salesresponse_max3,
-       results_salesresponse_max3_kickoutns,
-       results_salesresponse_max12_kickoutns_urcontrols,
-    #   results_salesresponse_max3_kickoutns_urcontrols,
-    #   results_salesresponse_max3_kickoutns_urcontrols_ctrnobounds,
-    #   results_salesresponse_max12_kickoutns_urcontrols,
+  
+  save(results_salesresponse_max3_p05, results_salesresponse_max3_p10,
        
-       file = '../output/results_salesresponse_comparison2.RData')
+       file = '../output/results_salesresponse_comparison_upd.RData')
   
  # save(results_salesresponse, file = '../output/results_salesresponse_se.RData')
   

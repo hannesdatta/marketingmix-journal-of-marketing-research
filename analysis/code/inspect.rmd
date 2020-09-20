@@ -1,5 +1,5 @@
 ---
-title: "Inspection of new elasticities (with standard errors, max 12 lags, kick out ns. coefs, use TS properties of controls)"
+title: "Inspection of new elasticities (p = .05)"
 output: pdf_document
 ---
 
@@ -8,7 +8,7 @@ knitr::opts_chunk$set(echo = TRUE)
 library(data.table)
 library(knitr)
 library(kableExtra)
-elast <- fread('../output/elasticities_revision_salesresponse_max12_kickoutns_urcontrols.csv')
+elast <- fread('../output/elasticities_revision_salesresponse_max3_p05.csv')
 vars <- grep('elast.*[0-9]{1,2}$', colnames(elast), value=T)
 
 for (.v in vars) {
