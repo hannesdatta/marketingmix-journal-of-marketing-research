@@ -12,7 +12,7 @@ library(data.table)
 #library(marketingtools)
 
 # Load results
-load(file = '../output/results_salesresponse_comparison.RData')
+load(file = '../output/results_salesresponse_comparison_upd2.RData')
 
 #unlink('../output/*.csv')
 
@@ -39,13 +39,14 @@ out = lapply(models, function(model_name) {
   #markets=data.table(market_id=analysis_markets)[, ':=' (i=1:.N, available=!checks=='try-error')]
   
   # extract elasticities
-  elast <- rbindlist(results_brands) #lapply(results_brands[!checks=='character'], function(x) x$elasticities))
+  elast <- rbindlist(lapply(results_brands[checks=='list'], function(x) x$elasticities))
+  elast[, varname:=gsub('^ln', '', varname)]
   #setnames(elast, 'varname','variable')
   setkey(elast, brand_id)
   setkey(brand_panel, brand_id)
   elast[brand_panel, ':=' (brand=i.brand, country = i.country, category = i.category, market_id=i.market_id)]
   
-  
+  elast[brand_panel, ':=' (catvolatility_sd=i.catvolatility_sd, catvolatility_range=i.catvolatility_range)]
  # tag global versus local brand
   elast[, ncountries:=length(unique(country)), by = c('brand')]
   elast[, globalbrand:=ncountries>2 & !brand=='unbranded']

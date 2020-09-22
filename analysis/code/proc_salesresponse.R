@@ -4,7 +4,8 @@ newfkt <- function(id, withcontrols=T, controls_in_bounds = T, withattributes=T,
                    control_ur = F,
                    return_models = F, return_simulations = F, shockperiods=NA,
                    ndraws=5, covar = 'no',
-                   kickout_ns_controls = F, pval = .1) {
+                   kickout_ns_controls = F, pval = .1,
+                   with_copulas= F) {
   
   # 1.0 Conduct bounds test
   dv='lnusales'
@@ -56,10 +57,10 @@ newfkt <- function(id, withcontrols=T, controls_in_bounds = T, withattributes=T,
   
   # 3.0 Reestimate model, adding extra covariates
   
-  # Reassemble model matrix and data
+  # Collect model matrix and data
   df = m$model$model$model
   
-  # Attributes
+  # Add brand attributes
   retain_attr=unlist(lapply(dt[-m$model$model$na.action, grep('^attr',colnames(dt),value=T),with=F], function(x) !all(is.na(x))))
   attr_vars = names(retain_attr[which(retain_attr==T)])
   attr_vars = attr_vars[unlist(lapply(dt[-m$model$model$na.action, attr_vars, with=F], use_ts))]
@@ -99,16 +100,21 @@ newfkt <- function(id, withcontrols=T, controls_in_bounds = T, withattributes=T,
   
   #####
   ## Add copulas (pending)
- # .v=vars[1]
-  
- # .res=grep(paste0('^',.v,'$'),colnames(df),value=T)
- # .res=grep(paste0('^d.1.',.v,'$'),colnames(df),value=T)
-  
- # c('d.1.'
+  if (with_copulas==T) {
+    cop_terms = sapply(vars, function(.v) {
+      tmp1=grep(paste0('^',.v,'$'),colnames(df),value=T)
+      if (length(tmp1)>0) return(tmp1)
+      tmp1=grep(paste0('^d.1.',.v,'$'),colnames(df),value=T)
+      if (length(tmp1)>0) return(tmp1)
+      return(NULL)
+    })
     
- # grep(paste0(vars,collapse='|'), colnames(df),value=T)
-  
-  
+    if (length(cop_terms)>0) {
+      newdf <- dt[-m$model$model$na.action, paste0('cop_', cop_terms),with=F]
+      finaldf = cbind(finaldf, newdf)
+    }
+  }
+
   #####
   
   # Reestimate
@@ -127,7 +133,7 @@ newfkt <- function(id, withcontrols=T, controls_in_bounds = T, withattributes=T,
     nscoefs = names(m2$coefficients)[abs(summary(m2)$coefficients[,3])<1]
     
     exclude_from_kickout = c('(Intercept)', grep(paste0(c(vars,'lnusales'), collapse = '|'), colnames(finaldf),value=T))
-    exclude_from_kickout = grep('comp[_]', exclude_from_kickout, value=T, invert=T)
+    exclude_from_kickout = grep('comp[_]|cop[_]', exclude_from_kickout, value=T, invert=T)
     
     nscoefs = nscoefs[!nscoefs%in%exclude_from_kickout]
     
@@ -231,7 +237,7 @@ newfkt <- function(id, withcontrols=T, controls_in_bounds = T, withattributes=T,
   
   
   
-  sim_dat2 <- function(m, shockvar=NULL, shockperiods=20, shockvalue=log(1.01)) {
+  sim_dat2 <- function(m, shockvar=NULL, shockperiods=20, shockvalue=log(1.01), reset_terms = NULL) {#'^cop[_]') {
     
     dv <- m$model[,1]
     dvname = colnames(m$model)[1]
@@ -241,6 +247,14 @@ newfkt <- function(id, withcontrols=T, controls_in_bounds = T, withattributes=T,
     # Xsim holds the "starting" values for the simulation data set (NOT the coefficients)
     Xsim_mat <- as.matrix(m$model[,-1])
     #colnames(Xsim_mat) <- colnames(m$model)
+    
+    if (!is.null(reset_terms)) {
+      reset_vars <- grep(reset_terms, colnames(Xsim_mat),value=T)
+      
+      for (r in seq(along=reset_vars)) {
+        Xsim_mat[,reset_vars[r]]<-0
+      }
+    }
     
     # set lagged DVs (or any derivative of it) to NA; except in period 1
     lagdvcol = grep(paste0('l[.][0-9][.]', dvblank, '|ld[.][0-9][.]', dvblank, '|l[.][0-9][.]d', dvblank), colnames(Xsim_mat),value=T)

@@ -79,9 +79,11 @@ dir.create('../output')
     }
   
   # Define copula terms
-  for (var in c('rwpspr', 'llen', 'wpswdst')) {
-    brand_panel[, paste0('cop_', var):=make_copula(get(paste0('ln', var))), by = c('market_id','brand')]
-    brand_panel[, paste0('dcop_', var):=get(paste0('cop_', var))-c(NA,get(paste0('cop_', var))[-.N]), by = c('market_id', 'brand')]
+  for (var in c('lnrwpspr', 'lnllen', 'lnwpswdst')) {
+    brand_panel[, paste0('cop_', var):=make_copula(get(paste0(var))), by = c('market_id','brand')]
+    brand_panel[, paste0('cop_d.1.', var):=make_copula(dshift(get(paste0(var)),1)), by = c('market_id','brand')]
+    
+    #brand_panel[, paste0('dcop_', var):=get(paste0('cop_', var))-c(NA,get(paste0('cop_', var))[-.N]), by = c('market_id', 'brand')]
   }
   
   # run shapiro-wilk tests to assess non-normality of untransformed inputs to the copula function
@@ -172,8 +174,8 @@ res=lapply(unique(brand_panel$brand_id)[1:5], function(i) {
   bids <- unique(brand_panel$brand_id)
   length(bids)
   
-  #set.seed(1234)
-  #bids = sample(bids, 40)
+ # set.seed(1234)
+ # bids = sample(bids, 40)
 
   results_salesresponse_max3_p10 = parLapplyLB(cl, bids, function(bid)
     try(newfkt(
@@ -210,10 +212,48 @@ res=lapply(unique(brand_panel$brand_id)[1:5], function(i) {
     silent = T)
   )
   
+  
+  results_salesresponse_max3_p10_cop = parLapplyLB(cl, bids, function(bid)
+    try(newfkt(
+      bid,
+      withcontrols = T,
+      withattributes = T,
+      shockperiods = 12,
+      ndraws = 1000,
+      covar = 'yes',
+      autocorrel_lags = c(3, 2, 1), 
+      kickout_ns_controls=T,
+      control_ur=T,
+      pval=.1,
+      with_copulas=T
+      
+    ),
+    silent = T)
+  )
+  
+  # favorite
+  results_salesresponse_max3_p05_cop = parLapplyLB(cl, bids, function(bid)
+    try(newfkt(
+      bid,
+      withcontrols = T,
+      withattributes = T,
+      shockperiods = 12,
+      ndraws = 1000,
+      covar = 'yes',
+      autocorrel_lags = c(3, 2, 1), 
+      kickout_ns_controls=T,
+      control_ur=T,
+      pval=.05,
+      with_copulas=T
+      
+    ),
+    silent = T)
+  )
+  
   if(0){
   
-  comp <- rbindlist(lapply(results_salesresponse_max3_p05, function(x) x$elasticities))
-  comp2 <- rbindlist(lapply(results_salesresponse_max3_p10, function(x) x$elasticities))
+  comp <- rbindlist(lapply(results_salesresponse_max3_p05_cop, function(x) x$elasticities))
+  comp2 <- rbindlist(lapply(results_salesresponse_max3_p10_cop, function(x) x$elasticities))
   comp[, z:=elast6/elast6_sd]
   comp2[, z:=elast6/elast6_sd]
   summary(abs(comp$z))
@@ -223,9 +263,10 @@ res=lapply(unique(brand_panel$brand_id)[1:5], function(i) {
   
   
   
-  save(results_salesresponse_max3_p05, results_salesresponse_max3_p10,
+  save(results_salesresponse_max3_p05, results_salesresponse_max3_p10,results_salesresponse_max3_p05_cop,
+       results_salesresponse_max3_p10_cop,
        
-       file = '../output/results_salesresponse_comparison_upd.RData')
+       file = '../output/results_salesresponse_comparison_upd2.RData')
   
  # save(results_salesresponse, file = '../output/results_salesresponse_se.RData')
   
@@ -276,11 +317,12 @@ res=lapply(unique(brand_panel$brand_id)[1:5], function(i) {
   
   
   
-  out=newfkt(1023, withcontrols=T, withattributes=T, shockperiods=12, ndraws=1000, covar='yes', kickout_ns_controls=T,
-             control_ur=T, controls_in_bounds=F)
-  
-  out2=newfkt(1023, withcontrols=T, withattributes=T, shockperiods=12, ndraws=1000, covar='yes', kickout_ns_controls=T,
-              control_ur=T, controls_in_bounds=T)
+  out=newfkt(1697, withcontrols=T, withattributes=T, shockperiods=12, ndraws=1000, covar='yes', kickout_ns_controls=T,
+             control_ur=T, controls_in_bounds=T,
+             with_copulas = F)
+  out2=newfkt(1697, withcontrols=T, withattributes=T, shockperiods=12, ndraws=1000, covar='yes', kickout_ns_controls=T,
+             control_ur=T, controls_in_bounds=T,
+             with_copulas = T)
   
   out$elasticities
   out2$elasticities
