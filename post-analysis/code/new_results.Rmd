@@ -23,7 +23,7 @@ options(knitr.kable.NA = '')
   source('proc_auxilary.R')
   source('proc_rename.R')
 
-  elast <- fread('../externals/elast_results_salesresponsenew.csv') 
+  elast <- fread('../externals/elast_results_salesresponse_max3_p10_cop.csv') 
   elast[, elastlt:=elast6]
   elast[, elastlt_se:=elast6_sd]
   elast[, elast:=elast6]
@@ -41,7 +41,7 @@ options(knitr.kable.NA = '')
   
  
   # set order of variables to appear in figures and tables
-ordered_vars = c('lnrwpspr', 'lnwpswdst','lnllen')
+ordered_vars = c('rwpspr', 'wpswdst','llen')
 ordered_vars = ordered_vars[which(ordered_vars%in%elast$variable)]
 
 names(ordered_vars) <- paste0(unlist(sanitize_table(data.frame(gsub('^ln', '', ordered_vars)))), ' elasticity')
@@ -386,7 +386,7 @@ print(kable(dtf, format='html', initial.zero = FALSE, digits=3,caption = tab(pas
 
 ```{r analysis_for_all_mmix, results = 'asis', include = T, echo=FALSE}
 
-upd_models = list(m4 = .~1 + emerging + brandz + I(brandz*emerging)+ (1|country) + (1|category) + (1|brand) + ln_market_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market)
+upd_models = list(m4 = .~1 + (1|country) + (1|category) + (1|brand) + emerging + brandz + ln_market_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market)
                    
 out1=regmodel(formula=c(upd_models), dat=elast, model='lmer')
 

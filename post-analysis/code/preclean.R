@@ -1,4 +1,5 @@
 # preclean for second-stage analysis
+library(stringi)
 
 # requires: elast (dataset with elasticities)
 elast[country_of_origin=='', country_of_origin:=NA]
@@ -72,6 +73,10 @@ western=c('australia', 'canada','finland','france', 'germany','great britain',
           'switzerland', 'turkey', 'usa')
 
 elast[, western_brand:=as.numeric(country_of_origin%in%western)]
+
+jbcountries=c('japan', 'usa','switzerland','germany','sweden')
+
+elast[, jbcountries_brand:=as.numeric(country_of_origin%in%jbcountries)]
 
 elast[, worldbank := '']
 elast[country%in%c('india','indonesia', 'vietnam', 'philippines'), worldbank:='lowermid']
