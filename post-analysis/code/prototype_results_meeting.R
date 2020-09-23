@@ -78,8 +78,8 @@ library(lme4)
 #formula_basic = list(m4 = . ~ 1 + ln_gdppercap2010_mc + ln_gini_mc + sbbe_round1_mc + ln_brnovelty + local_to_market + ln_market_herf_mc + ln_market_growth_mc ) #log(catvolatility_range))
 
 formula = list(m1 = . ~ 1 + (1|country) + (1|category) + (1|brand) + 
-                 ln_gdppercap2010_mc + ln_gini_mc + sbbe_round1_mc + ln_brnovelty + local_to_market+
-                 ln_market_herf_mc + ln_market_growth_mc)
+                 ln_gdppercap2010_mc + ln_gini_mc + sbbe_round1_mc + ln_brnovelty  + local_to_market+
+                 ln_market_herf_mc + ln_market_growth_mc + appliance)
 
 formula$m1b <- update(formula$m1, .~.+log(brandstrength)-sbbe_round1_mc)
 formula$m1c <- update(formula$m1, .~.+brandz-sbbe_round1_mc)
@@ -100,6 +100,20 @@ formula2$m1b <- update(formula$m1, .~.+ln_hdi2010_mc-ln_gdppercap2010_mc)
 formula2$m1c <- update(formula$m1, .~.+log(gci_overall_s)-ln_gdppercap2010_mc)
 formula2$m1d <- update(formula$m1, .~.+emerging-ln_gdppercap2010_mc)
 
+
+formula3 = list(m1 = . ~ 1 + (1|country) + (1|category) + (1|brand) + 
+                  ln_gdppercap2010_mc + ln_gini_mc + sbbe_round1_mc + ln_brnovelty  + local_to_market+
+                  ln_market_herf_mc + ln_market_growth_mc + appliance,
+                m2 = . ~ 1 + (1|country) + (1|category) + (1|brand) + 
+                  ln_gdppercap2010_mc + ln_gini_mc + sbbe_round1_mc*ln_gdppercap2010_mc + ln_brnovelty*ln_gdppercap2010_mc  + local_to_market*ln_gdppercap2010_mc+
+                  ln_market_herf_mc*ln_gdppercap2010_mc + ln_market_growth_mc*ln_gdppercap2010_mc + appliance*ln_gdppercap2010_mc+
+                  sbbe_round1_mc*ln_gini_mc + ln_brnovelty*ln_gini_mc  + local_to_market*ln_gini_mc+
+                  ln_market_herf_mc*ln_gini_mc + ln_market_growth_mc*ln_gini_mc + appliance*ln_gini_mc,
+                m3 = . ~ 1 + (1|country) + (1|category) + (1|brand) + 
+                  ln_gdppercap2010_mc*sbbe_round1_mc + ln_gini_mc*sbbe_round1_mc + local_to_market*sbbe_round1_mc+
+                  ln_market_herf_mc*sbbe_round1_mc + ln_market_growth_mc*sbbe_round1_mc + appliance*sbbe_round1_mc+
+                  ln_gdppercap2010_mc*ln_brnovelty + ln_gini_mc*ln_brnovelty + sbbe_round1_mc*ln_brnovelty+ local_to_market*ln_brnovelty+
+                  ln_market_herf_mc*ln_brnovelty + ln_market_growth_mc*ln_brnovelty + appliance*ln_brnovelty)
 
 #formula = list(m4 = . ~ 1 + emerging + sbbe_round1 + ln_market_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market)
 vars= unique(c('rwpspr','wpswdst','llen'))
@@ -138,6 +152,12 @@ lbls=rep(vars, each=length(regs_unlisted)/length(vars))
 
 stargazer(regs_unlisted,type='html', column.labels=lbls, out = 'output-devindicators.html')
 
+
+
+regs_unlisted = do.call('c', process_regs(formula3))
+lbls=rep(vars, each=length(regs_unlisted)/length(vars))
+
+stargazer(regs_unlisted,type='html', column.labels=lbls, out = 'output-interactions')
 
 
 

@@ -78,8 +78,23 @@ library(lme4)
 #formula_basic = list(m4 = . ~ 1 + ln_gdppercap2010_mc + ln_gini_mc + sbbe_round1_mc + ln_brnovelty + local_to_market + ln_market_herf_mc + ln_market_growth_mc ) #log(catvolatility_range))
 
 formula = list(m1 = . ~ 1 + (1|country) + (1|category) + (1|brand) + 
-                 ln_gdppercap2010_mc + ln_gini_mc + sbbe_round1_mc + ln_brnovelty + local_to_market+
-                 ln_market_herf_mc + ln_market_growth_mc)
+                 ln_gdppercap2010_mc + ln_gini_mc + sbbe_round1_mc + ln_brnovelty  + local_to_market+
+                 ln_market_herf_mc + ln_market_growth_mc + appliance,
+               m2 = . ~ 1 + (1|country) + (1|category) + (1|brand) + 
+                 ln_gdppercap2010_mc + ln_gini_mc + sbbe_round1_mc*ln_gdppercap2010_mc + ln_brnovelty*ln_gdppercap2010_mc  + local_to_market*ln_gdppercap2010_mc+
+                 ln_market_herf_mc*ln_gdppercap2010_mc + ln_market_growth_mc*ln_gdppercap2010_mc + appliance*ln_gdppercap2010_mc+
+                 sbbe_round1_mc*ln_gini_mc + ln_brnovelty*ln_gini_mc  + local_to_market*ln_gini_mc+
+                 ln_market_herf_mc*ln_gini_mc + ln_market_growth_mc*ln_gini_mc + appliance*ln_gini_mc,
+               m3 = . ~ 1 + (1|country) + (1|category) + (1|brand) + 
+                 ln_gdppercap2010_mc + ln_gini_mc + sbbe_round1_mc + ln_brnovelty  + local_to_market+
+                 ln_market_herf_mc + ln_market_growth_mc + appliance+
+                 ln_gdppercap2010_mc + ln_gini_mc + sbbe_round1_mc + ln_brnovelty  + local_to_market+
+                 ln_market_herf_mc + ln_market_growth_mc + appliance,
+               
+               
+               m3 = . ~ 1 + (1|country) + (1|category) + (1|brand) + 
+                 ln_gdppercap2010_mc + ln_gini_mc + sbbe_round1_mc + ln_brnovelty  + local_to_market+
+                 ln_market_herf_mc + ln_market_growth_mc + appliance)
 
 formula$m1b <- update(formula$m1, .~.+log(brandstrength)-sbbe_round1_mc)
 formula$m1c <- update(formula$m1, .~.+brandz-sbbe_round1_mc)

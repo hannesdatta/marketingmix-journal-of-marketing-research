@@ -86,9 +86,11 @@ zval = qnorm(1-sigvalue/2)
 
 ```
 
-`r fig('Conceptual framework (see Word document)')`
+```{r, echo = FALSE}
+#`r fig('Conceptual framework (see Word document)')`
 
-`r tab('Expected Effects on Marketing Elasticities (see Word document)')`
+#`r tab('Expected Effects on Marketing Elasticities (see Word document)')`
+```
 
 # Data
 
@@ -137,11 +139,11 @@ kable(tmp, format='html', caption=tab('Category overview^1^')) %>%
 
 `r tab('Variable operationalization')`
 
-**Panel A. Variables in market-share attraction model**
+**Panel A. Variables in sales response model**
 
 Variable             | Operationalization
 -------------------- | ------------------------------------------------------------------
-Market share         | Unit sales for brand *i* in period *t*, divided by total unit sales in period *t* in a market (category/country combination).
+Sales                | Unit sales for brand *i* in period *t*.
 Price                | Average price of brand *i*, computed as a sales-weighted^1^ average across its SKUs sold in period *t*, expressed in local currency and adjusted by a country's consumer price index^2^.
 Distribution         | Average distribution of brand *i*, computed as a sales-weighted^1^ average across its SKUs' store-weighted distribution in period *t* (0 = no market coverage, 100 = full market coverage).
 Line length          | Number of unique SKUs sold by brand *i* in period *t*.
@@ -151,14 +153,22 @@ Line length          | Number of unique SKUs sold by brand *i* in period *t*.
 
 Variable                  | Operationalization                                    
 -------------------- | ------------------------------------------------------------------
-Brand equity       | Sales-based brand equity, derived from the market-share attraction model, standardized by category.
+Brand equity       | Sales-based brand equity (Datta et al. 2017), derived from a market-share attraction model, standardized by category.
+Brand equity (BAV) | Brand strength, obtained by Young & Rubicam / BAV Consulting for a subset of countries.
+Brand equity (BrandZ) | Indicator variable, equaling 1 if brand was listed in BrandZ rankings between 2004 and 2014.
+Price index        | Brand's average price, divided by the average price in focal category and country.
+Domestic (vs. foreign brand) | Dummy variable, equaling 1 if a brand's headquarter is located in the focal country, 0 if not.
+Western brand (vs. non-Western brand) | Indicator variable, equaling 1 if a brand's headquarter is located in a Western country, 0 otherwise.
+"Strong" country brand | Indicator variable, equaling 1 if a brand's headquarter is located in Japan, the US, Switzerland, Germany or Sweden, 0 otherwise.
+Assortment novelty of brand | A brand's average number of newly introduced SKUs over a rolling window of 6 months, divided by the brand's average line length over the same period.
 Category concentration  | Herfindahl index in a market (category/country combination).
 Category growth       | Average geometric growth rate in a market (category/country combination).^4^
+Category novelty | Category average of all brands' assortment novelties (category/country combination)
+Category volatility | SD of the category sales in a moving window of 3 months  (category/country combination)
 Appliances (vs. electronics)| Dummy variable, equaling 1 for appliances (washing machines, microwaves and refrigerators), 0 for all other categories.
 Income inequality    | Gini index in a country.^5^
-Domestic (vs. foreign brand) | Dummy variable, equaling 1 if a brand's headquarter is located in the focal country, 0 if not.
 
-^1^ Weights equal to a SKU's unit sales in the most recent quarter (months *t*-2, *t*-1, *t*).
+^1^ Weights equal to a SKU's unit sales in the most recent quarter (months *t*-2, *t*-1, *t*). Geometric averages used throughout.
 
 ^2^ Consumer price indices obtained from Thomson Reuters Datastream.
 
@@ -383,76 +393,6 @@ print(kable(dtf, format='html', initial.zero = FALSE, digits=3,caption = tab(pas
 
 ```
 
-
-```{r analysis_for_all_mmix, results = 'asis', include = T, echo=FALSE}
-
-upd_models = list(m4 = .~1 + (1|country) + (1|category) + (1|brand) + emerging + brandz + ln_market_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market)
-                   
-out1=regmodel(formula=c(upd_models), dat=elast, model='lmer')
-
-cat("<P style='page-break-before: always'>")
-
-printout(out1, 'lt', title = tab(paste0('Regression with long-term elasticities'), prefix=''), vars=ordered_vars,  notes=notes_base, covariate_choices = covars)
-
-```
-
-```{r plot_be_interaction, fig.width=16,fig.height=6,echo=F}
-
-for (lev in c(.5,.25,.1)) {
- em_levels = c('Emerging Market (EM)','Developed Market (DM)')
- elast[, ':=' (l_emerging=factor(ifelse(emerging==1,em_levels[1],em_levels[2]), levels=em_levels))]
-  
- elast[, l_brandequity:=NULL]
- elast[, l_brandequity:='NA']
- elast[brandz==0, l_brandequity:='weak brand', by = c('variable','category','country','market_id')]
- elast[brandz==1, l_brandequity:='strong brand', by = c('variable','category','country','market_id')]
- elast[l_brandequity=='NA', l_brandequity:=NA]
- elast[, l_brandequity:=factor(l_brandequity, levels=c('weak brand','strong brand'))]
-
- if(lev==999) {
- elast[, ':=' (l_brandequity2=factor(as.character(ifelse(sbbe_std_mc>median(sbbe_std_mc,na.rm=T), 'strong brand','weak brand')), levels=c('weak brand','strong brand'))),by=c('variable','category','country','market_id')]
- }
-
- sims = elast[!is.na(l_brandequity), list(est=sum(elastlt*w_elast)/sum(w_elast)), by = c('variable', 'l_brandequity', 'l_emerging')]
- 
-  sims[, lbl:=formatC(round(est,2), format='f',digits=2)]
-  
-  lbl=c('2a)', '2b)', '2c)')
-  cnt=1
-  out <- lapply(ordered_vars, function(mod) {
-    simtmp=sims[variable==mod]
-    
-    p<-ggplot(simtmp, aes(x=l_brandequity,y=est, fill = l_emerging)) + theme_tufte() +geom_bar(stat="identity", position = 'dodge', width= .5) + geom_text(aes(label=lbl),vjust=ifelse(mod=='rwpspr', 1.2,-.4), hjust=.5,size=2.2,position = position_dodge(0.5)) + ggtitle(paste0(lbl[cnt], ' ', gsub('Line length', 'Line-length', rename.fkt(mod)), ' elasticity')) + xlab('Brand Equity') + ylab('Mean elasticity') + labs(fill="Country\'s degree of development  ") + scale_fill_grey(start = 0, end = .9)+
-    theme(plot.title = element_text(hjust = 0.5))#+
-   # theme(plot.margin=unit(c(.6,.5,.6,.5),"cm"))
-    png(paste0('../output/elasticity_plots_', gsub('[.]','',as.character(lev)), '_', mod,'.png'), res=200, units='in', height=2.5, width=4)
-  
-    p2<-ggplot(simtmp, aes(x=l_brandequity,y=est, fill = l_emerging)) + theme_tufte() +geom_bar(stat="identity", position = 'dodge', width= .5) + geom_text(aes(label=lbl),vjust=ifelse(mod=='rwpspr', 1.2,-.4), hjust=.5,size=2.2,position = position_dodge(0.5)) + xlab('Brand Equity') + ylab('Mean elasticity') + scale_fill_grey(start = 0, end = .9)+ theme(legend.position = "none")
-    print(p2)  
-    dev.off()
-  
-    cnt<<-cnt+1
-      return(p)
-  
-  })
-  
-  if (lev==.5) annot = 'Note: Plots show estimated long-term marketing-mix elasticities (weighted by inverse standard errors), based on a country\'s degree of development (DM versus EM), and a median split (by category) on brand equity.'
-  if (lev==.25) annot = 'Note: Plots show estimated long-term marketing-mix elasticities (weighted by inverse standard errors), based on a country\'s degree of development (DM versus EM), for brands below the 25th percentile (weak brands) and above the 75th percentile (strong brands) of brand equity by category.'
-  if (lev==.1) annot = 'Note: Plots show estimated long-term marketing-mix elasticities (weighted by inverse standard errors), based on a country\'s degree of development (DM versus EM), for brands below the 10th percentile (weak brands) and above the 90th percentile (strong brands) of brand equity by category.'
-
-  
-    p <- ggarrange(plotlist=out, nrow=ifelse(length(ordered_vars)==3,3,2), ncol=ifelse(length(ordered_vars)==3,1,2), common.legend=TRUE, legend='bottom')
-  full_plot = annotate_figure(p, top=fig('Elasticity plots'), bottom = text_grob(annot, size= 8, just='left', x = 0))
-  full_plot
-  
-  png(paste0('../output/elasticity_plots_', gsub('[.]','',as.character(lev)), '.png'), res=200, units='in', height=8, width=6)
-  print(full_plot)
-  dev.off()
-
-
-}
-
-```
 
 ```{r reset, echo=FALSE,results='asis'}
 tableno<<-0

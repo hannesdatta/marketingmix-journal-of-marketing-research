@@ -74,9 +74,9 @@ western=c('australia', 'canada','finland','france', 'germany','great britain',
 
 elast[, western_brand:=as.numeric(country_of_origin%in%western)]
 
-jbcountries=c('japan', 'usa','switzerland','germany','sweden')
+jbcountries=c('japan', 'usa','switzerland','germany','sweden') #'japan', 
 
-elast[, jbcountries_brand:=as.numeric(country_of_origin%in%jbcountries)]
+elast[, `brand_from_jp-us-ch-ge-sw`:=as.numeric(country_of_origin%in%jbcountries)]
 
 elast[, worldbank := '']
 elast[country%in%c('india','indonesia', 'vietnam', 'philippines'), worldbank:='lowermid']
