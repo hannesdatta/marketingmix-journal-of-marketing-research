@@ -24,6 +24,17 @@ setnames(elast, 'varname', 'variable')
 
 source('preclean.R')
 
+# get reputation data
+rep <- fread('reputation.csv')
+rep[, score2013:=as.numeric(gsub('[,]','.', rep2013))]
+rep[, score2015:=as.numeric(gsub('[,]','.', rep2015))]
+rep[!is.na(score2013)&!is.na(score2015), total_score:=(score2013+score2015)/2]
+rep[is.na(score2013)&!is.na(score2015), total_score:=(score2015)]
+
+setkey(rep, country)
+setkey(elast, country_of_origin)
+elast[rep, repscore:=i.total_score]
+
 
 # load SBBE
 sbbe <- fread('../externals/elast_results_main.csv')
@@ -77,23 +88,35 @@ library(lme4)
 #+ (1|brand) +  sbbe_round1 ln_brand_prindex_mean_mcgci_p06_goods_s
 #formula_basic = list(m4 = . ~ 1 + ln_gdppercap2010_mc + ln_gini_mc + sbbe_round1_mc + ln_brnovelty + local_to_market + ln_market_herf_mc + ln_market_growth_mc ) #log(catvolatility_range))
 
+####### TESTING COUNTRY FACTORS
+
 formula = list(m1 = . ~ 1 + (1|country) + (1|category) + (1|brand) + 
-                 ln_gdppercap2010_mc + ln_gini_mc + sbbe_round1_mc + ln_brnovelty  + local_to_market+
+                 ln_gdppercap2010_mc + ln_gini_mc + sbbe_round1_mc + ln_brnovelty  + local_to_market +
                  ln_market_herf_mc + ln_market_growth_mc + appliance)
+formula$m2 <- update(formula$m1, .~.+log(gci_p01_institutions_s))
+formula$m3 <- update(formula$m1, .~.+log(gci_p02_infrastructure_s))
+formula$m3b <- update(formula$m1, .~.+log(gci_p06_goods_s))
+formula$m4 <- update(formula$m1, .~.+log(gci_p09_tech_s))
+formula$m6 <- update(formula$m1, .~.+log(ruleoflaw))
+formula$m7 <- update(formula$m1, .~.+log(secularity))
+formula$m8 <- update(formula$m1, .~.+log(emancipation))
+formula$m9 <- update(formula$m1, .~.+log(repscore))
 
-formula$m1b <- update(formula$m1, .~.+log(brandstrength)-sbbe_round1_mc)
-formula$m1c <- update(formula$m1, .~.+brandz-sbbe_round1_mc)
+####### TESTING BRAND AND CATEGORY FACTORS
 
-formula$m2 <- update(formula$m1, .~.+ln_brand_prindex_mean_mc)
-formula$m2b <- update(formula$m1, .~.+`brand_from_jp-us-ch-ge-sw`)
+formula_brand = list(m1=formula$m1)
 
-formula$m3 <- update(formula$m1, .~.+log(catvolatility_sd))
-formula$m3b <- update(formula$m1, .~.+ln_catnovelty)
-formula$m3c <- update(formula$m1, .~.+appliance)
+formula_brand$m1b <- update(formula$m1, .~.+log(brandstrength)-sbbe_round1_mc)
+formula_brand$m1c <- update(formula$m1, .~.+brandz-sbbe_round1_mc)
 
-formula$m4 <- update(formula$m1, .~.+log(gci_p06_goods_s))
-##formula$m2 <- update(formula$m1, .~.+log(catvolatility_range))
-#formula$m2 <- update(formula$m1, .~.+log(catvolatility_range))
+formula_brand$m2 <- update(formula$m1, .~.+ln_brand_prindex_mean_mc)
+formula_brand$m2b <- update(formula$m1, .~.+`brand_from_jp-us-ch-ge-sw`)
+
+formula_brand$m3 <- update(formula$m1, .~.+log(catvolatility_sd))
+formula_brand$m3b <- update(formula$m1, .~.+ln_catnovelty)
+
+###### TESTING DIFFERENT DEVELOPMENT INDICATORS
+
 
 formula2 <- list(m1=formula$m1)
 formula2$m1b <- update(formula$m1, .~.+ln_hdi2010_mc-ln_gdppercap2010_mc)
@@ -144,24 +167,32 @@ library(stargazer)
 regs_unlisted = do.call('c', process_regs(formula))
 lbls=rep(vars, each=length(regs_unlisted)/length(vars))
 
-stargazer(regs_unlisted,type='html', column.labels=lbls, out = 'output-covariates.html')
+stargazer(regs_unlisted,type='html', column.labels=lbls, out = 'explore-countryfactors.html')
 
 
+# by variable: all
+regs_unlisted = do.call('c', process_regs(formula_brand))
+lbls=rep(vars, each=length(regs_unlisted)/length(vars))
+
+stargazer(regs_unlisted,type='html', column.labels=lbls, out = 'explore-categorybrandfactors.html')
+
+# development indicators
 regs_unlisted = do.call('c', process_regs(formula2))
 lbls=rep(vars, each=length(regs_unlisted)/length(vars))
 
-stargazer(regs_unlisted,type='html', column.labels=lbls, out = 'output-devindicators.html')
+stargazer(regs_unlisted,type='html', column.labels=lbls, out = 'explore-devindicators.html')
 
-
-
-regs_unlisted = do.call('c', process_regs(formula3))
+# development indicators
+regs_unlisted = do.call('c', process_regs(list(formula$m1)))
 lbls=rep(vars, each=length(regs_unlisted)/length(vars))
 
-stargazer(regs_unlisted,type='html', column.labels=lbls, out = 'output-interactions')
+stargazer(regs_unlisted,type='html', column.labels=lbls, out = 'explore-singleresults.html')
 
 
 
+#regs_unlisted = do.call('c', process_regs(formula3))
+#lbls=rep(vars, each=length(regs_unlisted)/length(vars))#
+#
+#stargazer(regs_unlisted,type='html', column.labels=lbls, out = 'output-interactions.html')
 
-# Calculate new models
-# Calculate VIF
 

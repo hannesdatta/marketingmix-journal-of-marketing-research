@@ -4,6 +4,42 @@ library(stringi)
 # requires: elast (dataset with elasticities)
 elast[country_of_origin=='', country_of_origin:=NA]
 
+# worldvalue
+worldvalues06 <- fread('../../../../data/worldvalue/WV6-SACSECVAL-RESEMAVAL.csv')
+setnames(worldvalues06, c('country','SACSECVAL06','RESEMAVAL06'))
+
+worldvalues05 <- fread('../../../../data/worldvalue/WV5-SACSECVAL-RESEMAVAL.csv')
+setnames(worldvalues05, c('country','SACSECVAL05','RESEMAVAL05'))
+
+worldvalues <- merge(worldvalues05, worldvalues06, by = c('country'), all.x=T, all.y=T)
+
+worldvalues[, SACSECVAL:=SACSECVAL05]
+worldvalues[is.na(SACSECVAL), SACSECVAL:=SACSECVAL06]
+
+worldvalues[, RESEMAVAL:=RESEMAVAL05]
+worldvalues[is.na(RESEMAVAL), RESEMAVAL:=RESEMAVAL06]
+
+worldvalues[, country:=tolower(country)]
+
+setkey(elast, country)
+setkey(worldvalues, country)
+elast[worldvalues, ':=' (secularity=i.SACSECVAL, emancipation = i.RESEMAVAL)]
+
+
+# rule of law
+ruleoflaw <- fread('../../../../data/worldbank/4742d3fa-a9ea-41fb-b562-c0378a6bec56_Data.csv')
+ruleoflaw[, country:=gsub('[,].*', '', tolower(`Country Name`))]
+ruleoflaw[, country:=gsub('[ ]sar$', '', country)]
+ruleoflaw[country=='korea', country:='south korea']
+ruleoflaw[, ruleoflaw:=`2010 [YR2010]`]
+ruleoflaw <- ruleoflaw[!is.na(ruleoflaw)]
+
+
+setkey(elast, country)
+setkey(ruleoflaw, country)
+elast[ruleoflaw, ':=' (ruleoflaw=ruleoflaw)]
+
+
 # load data for extra variables
 hdi <- fread('../temp/hdi.csv')
 

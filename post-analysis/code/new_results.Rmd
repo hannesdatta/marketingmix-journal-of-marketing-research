@@ -153,31 +153,7 @@ Line length          | Number of unique SKUs sold by brand *i* in period *t*.
 
 Variable                  | Operationalization                                    
 -------------------- | ------------------------------------------------------------------
-Brand equity       | Sales-based brand equity (Datta et al. 2017), derived from a market-share attraction model, standardized by category.
-Brand equity (BAV) | Brand strength, obtained by Young & Rubicam / BAV Consulting for a subset of countries.
-Brand equity (BrandZ) | Indicator variable, equaling 1 if brand was listed in BrandZ rankings between 2004 and 2014.
-Price index        | Brand's average price, divided by the average price in focal category and country.
-Domestic (vs. foreign brand) | Dummy variable, equaling 1 if a brand's headquarter is located in the focal country, 0 if not.
-Western brand (vs. non-Western brand) | Indicator variable, equaling 1 if a brand's headquarter is located in a Western country, 0 otherwise.
-"Strong" country brand | Indicator variable, equaling 1 if a brand's headquarter is located in Japan, the US, Switzerland, Germany or Sweden, 0 otherwise.
-Assortment novelty of brand | A brand's average number of newly introduced SKUs over a rolling window of 6 months, divided by the brand's average line length over the same period.
-Category concentration  | Herfindahl index in a market (category/country combination).
-Category growth       | Average geometric growth rate in a market (category/country combination).^4^
-Category novelty | Category average of all brands' assortment novelties (category/country combination)
-Category volatility | SD of the category sales in a moving window of 3 months  (category/country combination)
-Appliances (vs. electronics)| Dummy variable, equaling 1 for appliances (washing machines, microwaves and refrigerators), 0 for all other categories.
-Income inequality    | Gini index in a country.^5^
-
-^1^ Weights equal to a SKU's unit sales in the most recent quarter (months *t*-2, *t*-1, *t*). Geometric averages used throughout.
-
-^2^ Consumer price indices obtained from Thomson Reuters Datastream.
-
-^3^ All continuous variables are first logged and then mean-centred before model estimation (except brand strength, which is only mean-centred as this variable can take on negative values). 
-
-^4^ Geometric growth rate is the *n*-th's square root of the ratio of the total number of unit sales in a market in the last year over the brand's total number of unit sales in the first year (both years having 12 months of data), where *n* is equal to the number of years in the observation window.
-
-^5^ Obtained from multiple sources (World Bank, OECD and CIA World Factbook) for the year 2010. When 2010 data was unavailable, we took the closest available estimate.
-
+... | ...
 
 <P style='page-break-before: always'>
 # Results
@@ -349,50 +325,6 @@ for (iter in iters) {
 
 <P style='page-break-before: always'>
 
-```{r summarystats, echo=FALSE, results='asis'}
-
-covars_summary <- c('brandz', 'market_herf', 'market_growth', 'appliance', 'gini', 'local_to_market')
-
-tmp=data.table(elast)
-nbrands=length(unique(tmp$brand))
-nmarkets=length(unique(tmp$market_id))
-tmp = unique(tmp, by = c('market_id','brand', 'emerging'))
-nobs=nrow(tmp)
-
-# test for differences in means
-diff_tests=rbindlist(lapply(covars_summary, function(.var) {
-      tmp[, val:=get(.var)]
-      data.table(variable=.var, effect=c('constant', 'emerging'), summary(lm(val~1+emerging,data=tmp))$coefficients)
-    }))
-
-setnames(diff_tests, c('variable', 'effect', 'diff_est', 'diff_se', 'diff_t','diff_p'))
-diff_tests=diff_tests[effect=='emerging'][, effect:=NULL]
-
-
-tmp=tmp[, lapply(.SD, function(x) c(mean=mean(x,na.rm=T),sd=sd(x,na.rm=T),min=min(x,na.rm=T), max=max(x,na.rm=T))), by = c('emerging'), .SDcols=c(covars_summary)]
-tmp[, var:=rep(c('meancap', 'sdcap','mincap', 'maxcap'),2)]
-tmp=melt(tmp, id.var=c('emerging', 'var'))
-tmp[, emerging_label:=ifelse(emerging==1, 'emerging', 'developed')]
-
-dtf=dcast(tmp, variable~emerging_label+var)
-setcolorder(dtf, c('variable', paste0(rep(c('emerging_', 'developed_'), each=4), rep(c('meancap', 'sdcap', 'mincap','maxcap'),2))))
-
-setnames(dtf, gsub('developed_', '', colnames(dtf)))
-setnames(dtf, gsub('emerging_', '', colnames(dtf)))
-
-setkey(diff_tests, variable)
-setkey(dtf, variable)
-
-dtf[diff_tests, ':=' (comb_t=i.diff_t, comb_sig=gsub('[*]', '\\*', psignstars(i.diff_p)))]
-
-dtf=sanitize_table(dtf)
-
-
-print(kable(dtf, format='html', initial.zero = FALSE, digits=3,caption = tab(paste0('Summary statistics for covariates in second-stage analysis, split by a country\'s development status^1^'))
-      ) %>% kable_styling() %>% footnote(number=c(paste0('Summary statistics for variables (prior to the log-operation and mean-centering) are computed across the ', prettyNum(nobs, big.mark=','), ' observations in our sample.'),'Tests on differences carried out by regressing variables on an intercept and an emerging-country indicator. The reported t-value is obtained from the estimate of the emerging-country indicator.')) %>% add_header_above(c(" " = 1, "Emerging markets" = 4, "Developed markets" = 4, "Test on differences^2^"=2)))
-
-```
-
 
 ```{r reset, echo=FALSE,results='asis'}
 tableno<<-0
@@ -400,6 +332,7 @@ figureno<<-0
 cat("<P style='page-break-before: always'>")
   
 ```
+
 # Appendix
 
 ```{r sample_origin, echo=FALSE, results='asis'}
