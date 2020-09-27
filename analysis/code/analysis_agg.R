@@ -272,6 +272,8 @@ res=lapply(unique(brand_panel$brand_id)[1:5], function(i) {
   
   if(0){
   
+    table(unlist(lapply(results_salesresponse_max3_p10_cop, function(x) x$m_autocorrelation)))
+    
     
     # Extract model names from .RData file
     lscall=ls(envir=.GlobalEnv)
