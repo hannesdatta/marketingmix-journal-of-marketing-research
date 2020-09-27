@@ -1,0 +1,176 @@
+---
+title: "Simulation of Latent Instrumental Variables"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+---
+
+```{r, echo = FALSE}
+set.seed(1234)
+```
+
+As a first step towards our own LIV estimation for the GfK project, I propose to code up:
+
+Ebbes, P., Wedel, M., Böckenholt, U., & Steerneman, T. (2005). Solving and testing for regressor-error (in) dependence when no instrumental variables are available: With new evidence for the effect of education on income. *Quantitative Marketing and Economics*, 3(4), 365-392. To the extent possible, I adhere to the notation in that paper.
+
+# 2.0 LIV 
+
+# 2.1 Simulate data
+
+```{r}
+
+sim_data <- function(rho = .5, N = 1000) {
+  # Number of observations
+  #N = 1000
+  
+  # Coefficients on latent instruments
+  pi = c(5, 7) 
+  
+  # Class probabilities
+  p = c(.7, .3)
+  
+  # Assert the probs sum to 1
+  stopifnot(sum(p)==1)
+  
+  # Number of latent instruments
+  k = length(pi)
+  
+  # Correlation matrix
+  R = matrix(c(1, rho,
+                  rho, 1), ncol=2)
+  # Standard deviations
+  S <- c(2, 1)
+  
+  cor2cov <- function(R, S) {
+   sweep(sweep(R, 1, S, "*"), 2, S, "*")
+  }
+  
+  Sigma = cor2cov(R, S)
+  
+  # Draws from the Var-Covar Matrix
+  
+  library(MASS)
+  set.seed(1234)
+  errorterm = mvrnorm(n = N, mu = c(0,0), Sigma =Sigma)
+  
+  cor(errorterm)
+  cov(errorterm)
+  
+  z <- sample(1:k, N, replace = T, prob = p)
+  cbind(class = 1:k, frequency = table(z), prob = table(z)/sum(table(z)))
+  
+  # Simulate data
+  x = pi[z] + errorterm[,2]
+  
+  y = 1 + 3 * x + errorterm[,1]
+  
+  return(list(data = data.frame(y, x)))
+
+}
+```
+
+## 2.2 Estimate using OLS
+
+Bias when `rho = .5`
+
+```{r}
+# bias:
+out=sim_data(rho = .5)
+summary(lm(y~1+x, data = out$data))
+```
+
+No bias when `rho = 0`
+
+```{r}
+# no bias:
+out=sim_data(rho = 0)
+summary(lm(y~1+x, data = out$data))
+```
+
+## 2.3 Recovery using MLE a la Ebbes et al. 
+
+### Log-likelihood
+
+```{r}
+
+library(mvtnorm)
+
+map_pars <- function(pars) {
+  beta0 = pars[1]
+  beta1 = pars[2]
+  
+  # Covariance/correlation structure
+  lchol = diag(2)
+  lchol[1,1] <- pars[3]
+  lchol[2,1] <- pars[4]
+  lchol[2,2] <- pars[5]
+  
+  sigma <- crossprod(lchol)
+  
+  # class memberships
+  prob <- exp(pars[6])/(1+exp(pars[6]))
+  
+  # instrument coefficients
+  lambdas <- double(2)
+  lambdas[1] <- pars[7]
+  lambdas[2] <- pars[7] + exp(pars[8])
+  
+  return(list(beta0=beta0, beta1=beta1, lchol=lchol, sigma=sigma, prob=prob, lambdas=lambdas))
+}
+
+llik <- function(pars) {
+  
+  mapped_pars = map_pars(pars)
+  beta0 = mapped_pars$beta0
+  beta1 = mapped_pars$beta1
+  sigma = mapped_pars$sigma
+  prob = mapped_pars$prob
+  lambdas = mapped_pars$lambdas
+  
+  # expected values
+  x_pred <- prob * lambdas[1] + (1-prob) * lambdas[2] 
+  y_pred = beta0 + beta1 * x_pred
+
+  llik = dmvnorm(cbind(y-y_pred, x-x_pred),mean=c(0,0), sigma=sigma, log=T)
+  
+  return(-sum(llik))
+}
+
+```
+
+### Estimation
+```{r}
+library(stats4)
+
+# Simulate data
+set.seed(999)
+out=sim_data(rho = .5, N = 10000)
+y=out$data$y
+x=out$data$x
+
+start_val <- c(1,3,1,1,1, .5, 5, log(2))
+
+# Test log-likelihood function
+llik(start_val)
+
+# Determine starting values (y~x)
+ols1 <- lm(y~1+x)
+
+start_vals = c(drop(ols1$coefficients)[1], drop(ols1$coefficients)[2], 1, 0, 1, 0, 0,0)
+
+MLE = optim(start_vals, fn = llik,
+            method = 'L-BFGS-B',
+            lower = .000001)
+
+# recovery is not quite there yet...
+map_pars(MLE$par)
+
+```
+
+Correlation is quite extreme
+
+```{r}
+# correlation
+cov2cor(map_pars(MLE$par)$sigma)
+```
