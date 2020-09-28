@@ -1,15 +1,20 @@
+library(MASS)
 
-newfkt <- function(id, withcontrols=T, controls_in_bounds = T, withattributes=T, 
+# Configure model type and calibrate lag structure
+model_configure <- function(id, withcontrols=T, controls_in_bounds = T, withattributes=T, 
                    autocorrel_lags= c(3,6,9,12,15,18,1),
                    control_ur = F,
                    return_models = F, return_simulations = F, shockperiods=NA,
-                   ndraws=5, covar = 'no',
+                   ndraws=5,
                    kickout_ns_controls = F, pval = .1,
                    with_copulas= F) {
   
   # 1.0 Conduct bounds test
   dv='lnusales'
   dt=data.table(brand_panel[brand_id==id])
+  
+  brands_in_market <- unique(brand_panel[market_id%in%unique(brand_panel[brand_id==id]$market_id)]$brand)
+  
   vars = c('lnrwpspr','lnllen','lnwpswdst') 
   
   vars = vars[unlist(lapply(dt[, vars, with=F], use_ts))]
@@ -17,7 +22,9 @@ newfkt <- function(id, withcontrols=T, controls_in_bounds = T, withattributes=T,
   dt[, lngdp := log(gdppercapita)]
   dt[, lnholiday := log(npublicholidays+1)]
   
-  control_vars = c('lngdp', 'lnholiday', grep('comp[_]', colnames(dt),value=T))
+  if (length(brands_in_market)>2) control_vars = c('lngdp', 'lnholiday', grep('comp[_]', colnames(dt),value=T))
+  if (length(brands_in_market)<=2) control_vars = c('lngdp', 'lnholiday')
+  
   if(withcontrols==F) control_vars = NULL
   control_vars = control_vars[unlist(lapply(dt[, control_vars, with=F], use_ts))]
   
@@ -67,7 +74,7 @@ newfkt <- function(id, withcontrols=T, controls_in_bounds = T, withattributes=T,
   
   # kick out NA vars -> check why it can't be identified
   
-  identifiers = dt[-m$model$model$na.action,c('market_id','date', 'brand'),with=F]
+  identifiers = dt[-m$model$model$na.action,c('market_id', 'category','country', 'brand', 'brand_id' , 'date'),with=F]
   setkey(identifiers, market_id, date, brand)
   
   # Define controls
@@ -155,89 +162,150 @@ newfkt <- function(id, withcontrols=T, controls_in_bounds = T, withattributes=T,
   cat('\nResult of final model:\n')
   print(summary(m2))
   
-  # 4.0 Extract estimation data set and manipulate for simulation
+  retobj = list(m_final_type = mtype,
+              m_autocorrelation = m$autocorrelation,
+              model_matrix = m2$model, 
+              paneldimension = identifiers, 
+              dt=dt)
   
-  sim_dat <- function(m, shockvar=NULL, shockperiod=20, Nperiods=48, shockvalue=log(1.01)) {
-    
-    dv <- m$model[,1]
-    dvname = colnames(m$model)[1]
-    dvblank=gsub('.*[.]|^d','', dvname)
-    
-    
-    # Xsim holds the "starting" values for the simulation data set (NOT the coefficients)
-    Xsim <- colMeans(m$model[,-1])
-    
-    # Set lags of main effect variables (i.e. not the DV) to the same (first) value
-    for (.var in grep('l[.][0-9][.]', names(Xsim),value=T)) {
-      blankvar = gsub('l[.][0-9][.]','',.var)
-      Xsim[.var] <- Xsim[grep(paste0('^', blankvar,'|l[.][0-9][.]',blankvar), names(Xsim), value=T)[1]]
-    }
-    
-    # set lagged DVs to NA (0 in case it's first differenced)
-    lagdvcol = grep(paste0('l[.][0-9][.]', dvblank, '|ld[.][0-9][.]', dvblank, '|l[.][0-9][.]d', dvblank), names(Xsim),value=T)
-    Xsim[lagdvcol] <- NA
-    Xsim[lagdvcol[grepl('l[.][0-9][.]d[.]|ld[.][0-9][.]|l[.][0-9][.]d', lagdvcol)]] <- 0
-    
-    # set all variables in differences to 0
-    Xsim[grep('^d[.][0-9][.]|^ld[.][0-9][.]', names(Xsim))] <- 0
-    
-    # stretch out
-    Xsim_mat <- matrix(rep(Xsim,Nperiods),byrow=T, ncol=length(Xsim))
-    colnames(Xsim_mat)<-names(Xsim)
-    
-    # set lagged DV in the first period to mean observed DV 
-    meansales <- mean(dt[!is.na(lnusales)]$lnusales[1:3])
-    #indiff=F
-    #if (grepl('^d[.]', dvname)) indiff=T
-    
-    Xsim_mat[1, grep(paste0('l[.][0-9][.]', dvblank), names(Xsim),value=T)] <- meansales
-    
-    # Extract coefficients from model for simulation
-    #shockperiod = 25
-    #shockvar = vars[3]
-    #shockvalue = 0 #1.1
-    
-    # extend lagged dependent variables
-    relevant_vars=grep(paste0('l[.][0-9].', dvblank), colnames(Xsim_mat),value=T)
-    for (s in seq(from=1, length.out=length(relevant_vars))) Xsim_mat[seq(from=s, to=1), relevant_vars[s]] <- meansales
-    
-    if ('trendvar'%in%names(Xsim)) Xsim_mat[, 'trendvar']<-1:Nperiods # check whether this shouldn't have been in logs?!
-    
-    # collect variables pertaining to the variable that will be shocked
-    relevant_vars=grep(paste0('(d[.][0-9].){0,1}', shockvar), colnames(Xsim_mat),value=T) 
-    relevant_vars = grep('comp[_]', relevant_vars, invert=T,value=T)
-    
-    if (is.null(shockvar)|shockvar=='base') {
-      # no shock
-    } else {
-      
-      relevant_vars_levels = grep('^d[.]|^ld[.]', relevant_vars, invert=T,value=T)
-      lags = as.numeric(gsub("\\D", "", relevant_vars_levels))
-      lags[is.na(lags)] <- 0
-      
-      for (s in seq(from=1, length.out=length(relevant_vars_levels))) Xsim_mat[shockperiod + lags[s], relevant_vars_levels[s]] <- Xsim_mat[shockperiod + lags[s], relevant_vars_levels[s]]+shockvalue
-      
-      relevant_vars_diffs = grep('^d[.]|^ld[.]', relevant_vars, invert=F,value=T)
-      lags = as.numeric(gsub("\\D", "", relevant_vars_diffs))
-      lags[is.na(lags)] <- 0
-      lags[grepl('^d[.]', relevant_vars_diffs)] <- 0
-      
-      #for (s in seq(from=1, length.out=length(relevant_vars_diffs))) Xsim_mat[shockperiod + lags[s], relevant_vars_diffs[s]] <- Xsim_mat[shockperiod + lags[s], relevant_vars_diffs[s]]+shockvalue
-      
-      for (s in seq(from=1, length.out=length(relevant_vars_diffs))) {
-        Xsim_mat[shockperiod + lags[s], relevant_vars_diffs[s]] <- Xsim_mat[shockperiod + lags[s], relevant_vars_diffs[s]]+shockvalue
-        #antishock
-        if (length(relevant_vars_levels)>0) Xsim_mat[shockperiod + lags[s] + 1, relevant_vars_diffs[s]] <- Xsim_mat[shockperiod + lags[s] + 1, relevant_vars_diffs[s]] - shockvalue
-        
-      }
-    }
-    
-    return(list(data=Xsim_mat, shockvar = shockvar, shockperiod=shockperiod))
+  
+  if(return_models==T) {
+    retobj$m_ardlbounds = m_ardlbounds
+    retobj$m_lagstructure = m
+    retobj$m_final = m2
   }
   
+  return(retobj)
+  
+}
+
+
+# Estimate models jointly
+model_sur <- function(focal_models) {
+  
+  single_eqs <- lapply(seq(along=focal_models), function(x) {
+    tmp = focal_models[[x]]$model_matrix
+    #add intercept
+    newtmp = cbind(tmp[,1], 1, tmp[,-1])
+    names(newtmp)[2]<-'(Intercept)'
+    brid=paste0('bid', gsub('[ ]', '0', prettyNum(x,width=3)), '_')
+    names(newtmp) <- paste0(brid, names(newtmp))
+    names(newtmp) <- c('y', names(newtmp)[-1])
+    
+    newret = as.matrix(newtmp)
+    
+    #colnames(newtmp) <- names(newtmp)
+    return(data.frame(newret))
+  })
+  #colnames(single_eqs[[1]])
+  #single_eqs[[1]][1:2,]
+  
+  #if (length(single_eqs)==2) {
+  #  single_eqs = lapply(single_eqs, function(x) {
+  #  cols <- grep('comp[_]', colnames(x),value=T)
+  #  if (length(cols)>0) return(x[, -match(cols,colnames(x))])
+  #  return(x)
+  #})}
+  
+  stacked_eq = rbindlist(single_eqs,fill=T)
   
   
-  sim_dat2 <- function(m, shockvar=NULL, shockperiods=20, shockvalue=log(1.01), reset_terms = NULL) {#'^cop[_]') {
+  index_list = rbindlist(lapply(seq(along=focal_models), function(x) {
+    focal_models[[x]]$paneldimension 
+  }))
+  index_list[, ordered:=1:.N]
+  setorder(index_list, date, market_id, brand)
+  index_list[, period:=.GRP,by=c('date')]
+  setorder(index_list, ordered)
+  
+  
+  for (resetvar in colnames(stacked_eq)) {
+    vals = stacked_eq[,resetvar, with=F]
+    stacked_eq[, (resetvar) := ifelse(is.na(get(resetvar)), 0, get(resetvar))]
+  }
+  
+  # separate DVs from IVs for estimation
+  X = stacked_eq[,!colnames(stacked_eq)%in%'y',with=F]
+  Y = data.frame(stacked_eq[,'y',with=F])
+  
+  index=data.frame(date=index_list$period,brand=index_list$brand)
+  
+  if(0){
+  # remove all-zero columns from X (e.g., where a brand variable is removed earlier ("NA"), and contains zeros for all other brands).
+  delvars = colnames(X)[which(colSums(abs(X))==0)]
+  keepv = setdiff(colnames(X), delvars)
+  X = X[, keepv, with=F]
+  
+  # kick out incomplete ('diffed') vars, i.e., their first observation (as it is NA) by brand
+  X=as.matrix(X[complete_eqs,])
+  Y=as.matrix(Y[complete_eqs,])
+  index=data.frame(index[complete_eqs,])
+  }
+  
+  #################
+  # Estimate SURs #
+  #################
+  
+  # rescale X matrix (normalize to 1?) - strongly recommended for these models to help conversion
+  rescale = TRUE
+  
+  # save ranges before rescaling
+  #res$ranges=list(before=data.table(original_variable=colnames(X), min = colMins(X), max=colMaxs(X))[!grepl('[_]sq|[_]cop[_]|[_]dum', original_variable)])
+  
+  if (rescale==T) rescale_values = apply(X, 2, function(x) max(abs(x)))
+  if (rescale==F) rescale_values = apply(X, 2, function(x) 1)
+  
+  div_matrix <- matrix(rep(rescale_values, nrow(X)), byrow=TRUE, ncol=length(rescale_values))
+  X=X/div_matrix
+  
+  # save ranges after rescaling
+  #if (rescale==T) res$ranges$after=data.table(original_variable=colnames(X), min = colMins(X), max=colMaxs(X))[!grepl('[_]sq|[_]cop[_]|[_]dum', original_variable)]
+  
+  estmethod = "FGLS"
+  maxiter=5000
+  m<-itersur(X=as.matrix(X),Y=as.matrix(Y),index=index, method = estmethod, maxiter=maxiter)
+      
+  if (rescale == T) {
+    retr_coefs <- coef(m)$coef
+    mvarcovar=m@varcovar
+    
+    rescale_after = rescale_values #[keep_vars]
+    retr_coefs[seq(length.out=length(rescale_after))] = retr_coefs[seq(length.out=length(rescale_after))] / rescale_after
+    
+    for (ch in seq(length.out=length(rescale_after))) {
+      mvarcovar[ch,] <- mvarcovar[ch,] / rescale_after[ch]
+      mvarcovar[,ch] <- mvarcovar[,ch] / rescale_after[ch]
+    }
+    
+    m@coefficients[,2:3] <- cbind(retr_coefs, sqrt(diag(mvarcovar)))
+    m@varcovar <- mvarcovar
+  }
+  
+  m@coefficients$type = gsub('[_].*', '', m@coefficients$variable)
+  m@coefficients$varname = gsub('bid[0-9]{1,3}[_]', '', m@coefficients$variable)
+  m@coefficients$coef_index = 1:nrow(m@coefficients)
+  
+  coefs = lapply(split(m@coefficients$coef_index, m@coefficients$type), function(x) {
+    m@coefficients[x,]
+  })
+  
+  
+  varcovar = lapply(split(m@coefficients$coef_index, m@coefficients$type), function(x) {
+    m@varcovar[x,x]
+  })
+  
+  return(list(coefs=coefs, varcovar=varcovar))
+  
+}
+
+# Simulate elasticities on the basis of SUR estimates
+model_simulate <- function(focal_model, shockperiods = 12, covar = 'yes', ndraws=1000, return_simulations=F) {
+
+  vars = c('lnrwpspr','lnllen','lnwpswdst') 
+  
+  # 4.0 Extract estimation data set and manipulate for simulation
+  
+  sim_dat <- function(m, shockvar=NULL, shockperiods=20, shockvalue=log(1.01), reset_terms = NULL) { 
     
     dv <- m$model[,1]
     dvname = colnames(m$model)[1]
@@ -314,27 +382,15 @@ newfkt <- function(id, withcontrols=T, controls_in_bounds = T, withattributes=T,
   
   if (any(is.na(shockperiods))) shockperiods = 13:(nrow(df)-12)
   
-  sim_ds = lapply(c('base', vars), function(x) sim_dat2(m=m2, shockvar=x, shockvalue = log(1.01), shockperiod=shockperiods))
- # sim_ds = lapply(c('base', vars), function(x) sim_dat(m=m2, shockvar=x, shockvalue = log(1.01), shockperiod=12))
-  
-
-  ## reset copulas to zero
-  #if(length(which(grepl('cop[_]', colnames(dset))))>0) coefs[which(grepl('cop[_]', colnames(dset)))]<-0
-  
-  #View(sim_ds[[2]]$data)
-  #Xsim_mat=sim_ds[[1]]$data
-   
-  
-  
-  library(MASS)
+  sim_ds = lapply(c('base', vars), function(x) sim_dat(m=list(model=focal_model$model_matrix), shockvar=x, shockvalue = log(1.01), shockperiod=shockperiods))
   
   # 5.0 Predict/simulate
  
-  my_predict <- function(m, Xsim_mat, L = 100, covar=c('no'), use_residerror = F, shockvar=NULL, dynamic = T) {
+  my_predict <- function(coefs, Sigma, m, Xsim_mat, L = 100, covar='yes', shockvar=NULL, dynamic = T, dt) {
     
     # Draw coefficients
-    coefs =m$coefficients
-    Sigma=vcov(m)
+    #coefs =m$coefficients
+    #Sigma=vcov(m)
     
     dvname = colnames(m$model)[1]
     dvblank=gsub('.*[.]|^d','', dvname)
@@ -358,9 +414,6 @@ newfkt <- function(id, withcontrols=T, controls_in_bounds = T, withattributes=T,
     #draws[,1] <- coefs[1]
     
     Nperiods=nrow(Xsim_mat)
-    
-    set.seed(6312)
-    residerror = matrix(rnorm(L*Nperiods, mean = 0, sd = summary(m)$sigma),ncol=L)
     
     
     predlevels <- matrix(rep(NA,Nperiods*L),ncol=L)
@@ -388,8 +441,6 @@ newfkt <- function(id, withcontrols=T, controls_in_bounds = T, withattributes=T,
       
       #pred[p] = t(coefs)%*%cbind(c(1,Xsim_mat[p,]))
       pred[p,] =  rowSums(draws*t(Xsim_mat_L[p,,])) #draws%*%Xsim_mat_L[p,,]
-      
-      if (use_residerror ==T) pred[p,] <- pred[p,] + residerror[p,]
       
       if (dynamic == T) {
         if(indiff==T) {
@@ -452,26 +503,16 @@ newfkt <- function(id, withcontrols=T, controls_in_bounds = T, withattributes=T,
   
   
   # 5.1 Execute simulation
-  
- res=lapply(1:length(sim_ds), function(i) lapply(sim_ds[[i]], function(simset) my_predict(m2, simset$data, L = ndraws, covar=covar, 
-                                                     use_residerror = F, dynamic = T, shockvar=c(NA, vars)[i])))
- 
-
- #for 1:1000
- 
-  # for shock period in second year -- last year-1:
-    
-  #  predictions
-    
- #   four elasticities: 1, 6, 12, 24
-    
- # mean across 36 shock periods
-  
-#mean and SD over draws 
-    
-  
-  # 5.2 Extract elasticities
-  
+  res=lapply(1:length(sim_ds), function(i) lapply(sim_ds[[i]], function(simset) my_predict(coefs=focal_model$sur$coefs$coef,
+                                                                                          Sigma=focal_model$sur$varcovar,
+                                                                                          m=list(model=focal_model$model_matrix),
+                                                                                          Xsim_mat = simset$data, 
+                                                                                          L = ndraws, 
+                                                                                          covar=covar, 
+                                                                                          dynamic = T, 
+                                                                                          dt=focal_model$dt,
+                                                                                          shockvar=c(NA, vars)[i])))
+ # 5.2 Extract elasticities
   varnames=unlist(lapply(sim_ds, function(x) x[[1]]$shockvar))
   
   elast=rbindlist(lapply(varnames[-1], function(v) {
@@ -497,7 +538,7 @@ newfkt <- function(id, withcontrols=T, controls_in_bounds = T, withattributes=T,
     
     outp=apply(aa,2,rowMeans)             
     
-    return(data.frame(brand_id = id, varname=v, 
+    return(data.frame(varname=v, 
                       Ndraws=dim(outp)[1],
                       Nperiods=length(shockperiods),
                       elast1 = mean(outp[,1]),
@@ -511,6 +552,7 @@ newfkt <- function(id, withcontrols=T, controls_in_bounds = T, withattributes=T,
                       
   }))
   
+  elast$brand_id = unique(focal_model$paneldimension$brand_id)
   print(elast)
   
   ### FIRST: first check face avlidity of mean parameter estimates
@@ -518,15 +560,7 @@ newfkt <- function(id, withcontrols=T, controls_in_bounds = T, withattributes=T,
   rm(sim_ds)
   rm(res)
   
-  retobj = list(elasticities = elast,
-                m_final_type = mtype,
-                m_autocorrelation = m$autocorrelation)
-  
-  if(return_models==T) {
-    retobj$m_ardlbounds = m_ardlbounds
-    retobj$m_lagstructure = m
-    retobj$m_final = m2
-  }
+  retobj = list(elasticities = elast)
   
   if(return_simulations==T) {
     retobj$simulation_data_raw = sim_ds
