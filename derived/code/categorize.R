@@ -74,6 +74,8 @@ load('../temp/unzipped.RData')
 datlist_by_cat = lapply(datlist_by_cat, function(x) {
   x[Brand=='RONGSHENG', Brand:='RONSHEN']
   x[Brand=='RONGSHENGG', Brand:='RONSHEN']
+  x[Brand=='EVERCOSS/CROS', Brand:='EVERCOSS']
+  x[Brand=='EVERCOSS/CROSS', Brand:='EVERCOSS']
   
 })
 	
@@ -523,3 +525,6 @@ for (i in 1:length(datlist_final)) {
 	}
 dir.create('../temp/')
 save(datlist_final, file='..\\temp\\categorized.RData')
+
+
+
