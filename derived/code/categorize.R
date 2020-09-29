@@ -71,11 +71,17 @@ load('../temp/unzipped.RData')
 # RELABEL BRANDS #
 ##################
 
+# get unique brands
+#br=unique(unlist(lapply(datlist_by_cat, function(x) unique(x$Brand))))
+#grep('mobi',br,ignore.case=T,value=T)
+	
 datlist_by_cat = lapply(datlist_by_cat, function(x) {
   x[Brand=='RONGSHENG', Brand:='RONSHEN']
   x[Brand=='RONGSHENGG', Brand:='RONSHEN']
   x[Brand=='EVERCOSS/CROS', Brand:='EVERCOSS']
   x[Brand=='EVERCOSS/CROSS', Brand:='EVERCOSS']
+  x[Brand=='MOBISTAR', Brand:='MOBIISTAR']
+  
   
 })
 	
