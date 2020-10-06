@@ -23,13 +23,15 @@ options(knitr.kable.NA = '')
   source('proc_auxilary.R')
   source('proc_rename.R')
 
-  elast <- fread('../externals/elast_results_salesresponse_max3_p10_cop.csv') 
+  #elast <- fread('../externals/elast_results_salesresponse_max3_p10_cop_sur.csv') 
+  elast = fread('../temp/elast_updated.csv')
   elast[, elastlt:=elast6]
   elast[, elastlt_se:=elast6_sd]
   elast[, elast:=elast6]
   elast[, elast_se:=elast6_sd]
-  setnames(elast, 'varname', 'variable')
-  source('preclean.R')
+  elast <- elast[!elast6_sd==0]
+  #setnames(elast, 'varname', 'variable')
+  #source('preclean.R')
   
   elast <- copy(elast)
  
@@ -193,6 +195,43 @@ for (iter in iters) {
   print(kable(sanitize_table(out[[iter[1]]]), digits=3, format='html', format.args = list(big.mark = ","),
         caption=tab(paste0(iter[2], ' elasticities by marketing-mix instrument^1^'),prefix='')) %>% kable_styling() %>% 
         footnote(number=c(paste0('Table reports ', tolower(iter[2]), ' elasticities. The number of observations differs slightly across marketing-mix instruments because some brands in some markets (category/country combinations) do not have variation in these variables.'), estimnote)))
+  #cat("<P style='page-break-before: always'>")
+
+  }
+
+```
+
+```{r elasts_by_dekimpe, echo=F,results='asis'}
+
+out = lapply(list(st=c('elast', 'z_elast', 'w_elast'), lt = c('elastlt','z_elastlt','w_elastlt')), function(obj) {
+  tmp = elast[!is.na(get(obj[1]))][, ':=' (val=get(obj[1]), val_z=get(obj[2]), val_w=get(obj[3]))]
+  tmp=tmp[, list(Neffects=.N, 
+   						  ftmelast = sum(val*val_w)/sum(val_w),
+   						  median_elast = median(val), 
+  						  interval90 = paste0('[',paste(sprintf("%.3f",quantile(val, c(.05,.95))),collapse=', '),']')),
+  												#  perc_positive = length(which(val_z>=(zval)))/.N, 
+  												#  perc_null = length(which(abs(val_z)<zval))/.N, 
+  												#  perc_negative = length(which(val_z<=(-zval)))/.N), 
+  												by=c('variable', 'ur_dv','ur_focalmmix')]
+ # tmp=tmp[match(ordered_vars, variable)]
+  setnames(tmp, 'variable', 'mmixinstr')
+  tmp[, ur_dv_lbl := ifelse(ur_dv==1, 'ur1_sales_persistent', 'ur0_sales_temporary')]
+  tmp[, ur_focalmmix_lbl := ifelse(ur_focalmmix==1, 'ur1_mmix_sustained', 'ur0_mmix_temporary')]
+  
+  return(tmp)
+  })
+  
+tmp=lapply(ordered_vars, function(x) {
+  dcast(out$lt[mmixinstr==x], ur_dv_lbl~ur_focalmmix_lbl,value.var='ftmelast')
+})
+
+#dcast(out$lt,dekimpe_classification~mmixinstr,value.var='ftmelast')
+
+for (iter in seq(along=tmp)) {
+
+  print(kable(sanitize_table(tmp[[iter]]), digits=3, format='html', format.args = list(big.mark = ","),
+        caption=tab(paste0(gsub('city', 'cities', names(ordered_vars)[iter]), ' by temporary vs. permanent effort/response ^1^'),prefix='')) %>% kable_styling() %>% 
+        footnote(number=c(paste0('Table reports ', tolower(paste0(gsub('city', 'cities', names(ordered_vars)[iter]))), '.'), estimnote)))
   #cat("<P style='page-break-before: always'>")
 
   }
@@ -409,9 +448,11 @@ setorder(tabl, Category)
 print(kable(tabl, digits=3, caption = tab('Overview of physical search attributes per category^1^', prefix='A')) %>% kable_styling() %>% footnote(number=c(paste0('The unit of analysis is the brand-month level. Indicator variables are either 0 or 1 at the SKU-month-level; when aggregating them to the brand-month level for the analysis, they are averaged and hence measure the share of a brand\'s SKUs that carry a particular product attribute.'))))
 ```
 
+
 <P style='page-break-before: always'>
 
-```{r summarystats_msmodel, echo=FALSE, results='asis'}
+
+```{r summarystats_msmodel, echo=FALSE, results= 'asis'}
 
 covars_summary <- gsub('ln', '', c('usalessh', gsub('rwpspr', 'rwpsprd', ordered_vars)))
 
@@ -447,10 +488,10 @@ return(list(cor=correl,p=p))
 
 correl = give_cor(data.frame(brand_panel[, covars_summary,with=F]))
 
-sink('../output/tableA4.txt')
-correl$cor
-correl$p
-sink()
+#sink('../output/tableA4.txt')
+#correl$cor
+#correl$p
+#sink()
 
 dtf=cbind(dtf,correl$cor[,-ncol(correl$cor)])
 

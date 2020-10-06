@@ -1,4 +1,7 @@
 # Load data
+library(lme4)
+library(bit64)
+library(data.table)
 
 brand_panel=fread('../../analysis/temp/preclean_main.csv')
 brand_panel[, ':=' (date = as.Date(date))]
@@ -7,11 +10,13 @@ brand_panel[, ':=' (date = as.Date(date))]
 source('proc_auxilary.R')
 source('proc_rename.R')
 
-
-elast <- fread('../externals/elast_results_salesresponse_max3_p10_cop.csv') 
+#_maxiter
+elast <- fread('../externals/elast_results_salesresponse_max3_p10_cop_sur.csv') 
+elast = elast[!elast6_sd==0]
 elast[, elastlt:=elast6]
 elast[, elastlt_se:=elast6_sd]
-elast[, w_elastlt := (1/elast6_sd)/sum(1/elast6_sd)]
+elast[, w_elastlt := (1/elast6_sd)/sum(1/elast6_sd), by = c('varname')]
+
 
 #,
 #catnoveltysum = i.sumnov6sh,
@@ -75,8 +80,146 @@ elast[novel, ':=' (ln_catnovelty=log((i.sumnovelty-brnovelty)/(i.Nbrand-1)))]
 elast[, sbbe_round1_mc:=sbbe_round1-mean(sbbe_round1,na.rm=T),by=c('variable')]
 lmerctrl = lmerControl(optimizer ="Nelder_Mead", check.conv.singular="ignore")
 
-library(lme4)
 
+fwrite(elast, '../temp/elast_updated.csv')
+
+
+elast[, ncountries:=uniqueN(country),by=c('brand')]
+elast[, ncategories:=uniqueN(category),by=c('brand')]
+
+with(unique(elast,by=c('brand')), table(ncountries, ncategories))
+
+#elast = elast[ncategories>1|ncountries>1]
+with(unique(elast,by=c('brand')), table(ncountries, ncategories))
+
+###### AOV #####
+library(sjstats)
+vars=unique(elast$variable)
+#elast[, rebrand:=as.character(.GRP), by = c('category','brand')]
+
+for (i in vars) {
+  cat('========================\n')
+  cat(i,fill=T)
+  cat('========================\n\n')
+  
+  m0_1<-aov(elastlt~brand, data=elast, subset=variable==i, weights=1/elastlt_se)
+  m0_2<-aov(elastlt~country, data=elast, subset=variable==i, weights=1/elastlt_se)
+  m0_3<-aov(elastlt~category, data=elast, subset=variable==i, weights=1/elastlt_se)
+  m0_4<-aov(elastlt~(brand*country)-brand-country, data=elast, subset=variable==i, weights=1/elastlt_se)
+  m0_5<-aov(elastlt~(brand*category)-brand-category, data=elast, subset=variable==i, weights=1/elastlt_se)
+  m0_6<-aov(elastlt~(country*category)-country-category, data=elast, subset=variable==i, weights=1/elastlt_se)
+  #m<-aov(elastlt~brand+country+category, data=elast, subset=variable==i, weights=1/elastlt_se)
+  m1<-aov(elastlt~brand+country+category, data=elast, subset=variable==i, weights=1/elastlt_se)
+  m3<-aov(elastlt~brand*country + brand*category + category*country, data=elast, subset=variable==i, weights=1/elastlt_se)
+  
+  mlist = list(m0_1,m0_2, m0_3, m0_4, m0_5, m0_6, m1, m3)
+  etasq=rbindlist(lapply(seq(along=mlist), function(x) data.table(i=x, anova_stats(mlist[[x]]))))
+  etasq[i%in%1:6, model:='m0']
+  
+  etasq[i%in%7, model:='m1']
+  etasq[i%in%8, model:='m2']
+  
+  
+  cat('\n\nPercent explained\n')
+  tmp = (dcast(etasq[!term=='Residuals'], model~term, value.var='etasq'))
+  
+  setnames(tmp, gsub('[:]', ' x ', colnames(tmp)))
+  setcolorder(tmp, c('model','brand','category','country','brand x category','brand x country','country x category'))
+  
+  print(tmp)      
+  #print(dcast(etasq[!term=='Residuals'], model~term, value.var='etasq'))
+  
+}
+
+
+
+###### AOV2 #####
+if(0) {
+library(sjstats)
+vars=unique(elast$variable)
+elast[, brand_country:=as.character(.GRP), by = c('country','brand')]
+
+for (i in vars) {
+  cat('========================\n')
+  cat(i,fill=T)
+  cat('========================\n\n')
+  
+  mkts<-lapply(unique(elast$category), function(.category) {
+    m<-aov(elastlt~brand+country+brand*country, data=elast[category==.category], subset=variable==i, weights=1/elastlt_se)
+    m2<-aov(elastlt~brand+country+brand_country, data=elast[category==.category], subset=variable==i, weights=1/elastlt_se)
+    return(list(m1=data.table(category=.category, anova_stats(m)),
+           m2=data.table(category=.category, anova_stats(m2))))
+    #as.list(summary(m))[[1]]
+  })
+  
+  print(rbindlist(lapply(mkts,function(x) x$m1))[!term=='Residuals', list(mean_etasq=mean(etasq,na.rm=T)),by=c('term')])
+#  print(rbindlist(lapply(mkts,function(x) x$m2))[!term=='Residuals', list(mean_etasq=mean(etasq,na.rm=T)),by=c('term')])
+
+  mkts2<-lapply(unique(elast$country), function(.country) {
+    m<-aov(elastlt~brand+category+brand*category, data=elast[country==.country], subset=variable==i, weights=1/elastlt_se)
+    return(list(m1=data.table(country=.country, anova_stats(m))))
+    #as.list(summary(m))[[1]]
+  })
+  
+  print(rbindlist(lapply(mkts2,function(x) x$m1))[!term=='Residuals', list(mean_etasq=mean(etasq,na.rm=T)),by=c('term')])
+  #  print(rbindlist(lapply(mkts,function(x) x$m2))[!term=='Residuals', list(mean_etasq=mean(etasq,na.rm=T)),by=c('term')])
+  
+  }
+
+}
+
+############
+# ANALYSIS #
+############
+
+#if(0){
+library(foreign)
+library(nnet)
+library(stargazer)
+vars = c('rwpspr', 'wpswdst','llen')
+
+res=lapply(vars, function(.v) {
+multi1 = multinom(dekimpe_classification ~ ln_gdppercap2010_mc + ln_gini_mc + sbbe_round1_mc + local_to_market + ln_brnovelty +
+                    ln_market_herf_mc + ln_market_growth_mc, data=elast[variable==.v])
+return(multi1)
+})
+
+m2 <- glm(ur_focalmmix ~ ln_gdppercap2010_mc + ln_gini_mc + sbbe_round1_mc + local_to_market + ln_brnovelty +
+  ln_market_herf_mc + ln_market_growth_mc + as.factor(variable), data=elast)
+
+m1 <- glm(ur_dv ~ ln_gdppercap2010_mc + ln_gini_mc + sbbe_round1_mc + local_to_market + ln_brnovelty +
+                 ln_market_herf_mc + ln_market_growth_mc, data=unique(elast,by=c('market_id','brand_id')))
+
+
+stargazer(list(m1,m2), type="html", column.labels=lbls, out=paste0("multi2.html"))
+
+
+lbls=rep(vars, each=length(unique(elast$dekimpe_classification))-1)
+
+stargazer(res, type="html", column.labels=lbls, out=paste0("multi.html"))
+
+if(0){
+uniq_elast = unique(elast, by = c('market_id','brand'))
+
+uniq_elast[,modeltype:=factor(modeltype, levels= c('ardl-levels','ardl-ec','ardl-firstdiff'))]
+multi1 = multinom(modeltype ~ ln_gdppercap2010_mc + ln_gini_mc + sbbe_round1_mc + local_to_market + ln_brnovelty +
+                    ln_market_herf_mc + ln_market_growth_mc, data=uniq_elast)
+
+stargazer(multi1, type="html", out=paste0("modeltype.html"))
+}
+
+# Overview categories by countries
+
+# N brands of N brands total
+
+tmp_dek=elast[, list(cases=.N),by=c('country','dekimpe_classification','variable')]
+tmp_all=elast[, list(tot=.N, gdp=unique(gdppercap2010)),by=c('country', 'variable')]
+tmp = merge(tmp_dek, tmp_all, by = c('country','variable'))
+tmp[, perc:=cases/tot]
+
+#write.table(dcast(tmp, gdp+country~variable+dekimpe_classification, value.var='perc'),'clipboard')
+
+#}
 
 # descriptives of elastitcities
 # main model like this
@@ -90,9 +233,15 @@ library(lme4)
 
 ####### TESTING COUNTRY FACTORS
 
+elast[, nbrands:=uniqueN(brand),by=c('market_id')]
+
+
 formula = list(m1 = . ~ 1 + (1|country) + (1|category) + (1|brand) + 
-                 ln_gdppercap2010_mc + ln_gini_mc + sbbe_round1_mc + ln_brnovelty  + local_to_market +
-                 ln_market_herf_mc + ln_market_growth_mc + appliance)
+                 ln_gdppercap2010_mc + ln_gini_mc + sbbe_round1_mc + local_to_market + ln_brnovelty +
+                 ln_market_herf_mc + ln_market_growth_mc)# + as.factor(dekimpe_classification))
+formulasingle <- list(formula$m1, m2=update(formula$m1, .~.+as.factor(dekimpe_classification)))
+
+
 formula$m2 <- update(formula$m1, .~.+log(gci_p01_institutions_s))
 formula$m3 <- update(formula$m1, .~.+log(gci_p02_infrastructure_s))
 formula$m3b <- update(formula$m1, .~.+log(gci_p06_goods_s))
@@ -145,7 +294,8 @@ process_regs <- function(formula) {
   regs <- lapply(vars, function(varname) {
     fit=NULL
     lt = lapply(formula, function(form) lmer(update(form, elastlt ~ .),  control = lmerctrl, 
-                                             REML = F, data = data.table(elast[variable==varname&!is.na(elastlt)]), weights=w_elastlt))
+                                             REML = F, data = data.table(elast[variable==varname&!is.na(elastlt)]),
+                                             weights=w_elastlt))
     return(lt)
   })}
 
@@ -162,6 +312,21 @@ process_regs <- function(formula) {
 
 
 library(stargazer)
+
+# development indicators
+regs_unlisted = do.call('c', process_regs(list(formula$m1)))
+lbls=rep(vars, each=length(regs_unlisted)/length(vars))
+
+stargazer(regs_unlisted,type='html', column.labels=lbls, out = 'explore-singleresults.html')
+
+# development indicators
+regs_unlisted = do.call('c', process_regs(formulasingle))
+lbls=rep(vars, each=length(regs_unlisted)/length(vars))
+
+stargazer(regs_unlisted,type='html', column.labels=lbls, out = 'explore-singleresults_URclassific.html')
+
+
+
 
 # by variable: all
 regs_unlisted = do.call('c', process_regs(formula))
@@ -181,14 +346,6 @@ regs_unlisted = do.call('c', process_regs(formula2))
 lbls=rep(vars, each=length(regs_unlisted)/length(vars))
 
 stargazer(regs_unlisted,type='html', column.labels=lbls, out = 'explore-devindicators.html')
-
-# development indicators
-regs_unlisted = do.call('c', process_regs(list(formula$m1)))
-lbls=rep(vars, each=length(regs_unlisted)/length(vars))
-
-stargazer(regs_unlisted,type='html', column.labels=lbls, out = 'explore-singleresults.html')
-
-
 
 #regs_unlisted = do.call('c', process_regs(formula3))
 #lbls=rep(vars, each=length(regs_unlisted)/length(vars))#
