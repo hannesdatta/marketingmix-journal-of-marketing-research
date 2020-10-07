@@ -1,3 +1,6 @@
+library(data.table)
+library(xlsx)
+
 bav <- fread('../output/bav.csv')
 
 # try to match w/ our list of brands
@@ -57,12 +60,12 @@ tmp[, ':=' (share_total=total_bav_brands/total_brands, share_top5 = total_bav_br
 
 setorder(tmp, share_total)
 
-write.xlsx(tmp, '../output/bav_overview.xlsx', sheetName = 'market_overview')
+write.xlsx(tmp, '../audit/bav.xlsx', sheetName = 'market_overview')
 
 # OVERVIEW
 
 tmp2 = dcast(bav, country+brand~year, value.var=c('Brand_Strength_R'))
 
-write.xlsx(tmp2, '../output/bav_overview.xlsx', sheetName = 'brand_strength', append=T)
+write.xlsx(tmp2, '../audit/bav.xlsx', sheetName = 'brand_strength', append=T)
 
 # match brands with our data?

@@ -15,7 +15,7 @@ all: build
 build: $(OUTPUT_DIR)/datasets.txt auxilary
 
 # audit
-audit: $(TEMP_DIR)/audit_rawplot.txt $(TEMP_DIR)/audit_markets.txt $(TEMP_DIR)/audit_brands.txt $(TEMP_DIR)/audit_attributes.txt $(TEMP_DIR)/audit_advertising.txt  $(TEMP_DIR)/audit_markets_agg.txt
+audit: $(TEMP_DIR)/audit_rawplot.txt $(TEMP_DIR)/audit_markets.txt $(TEMP_DIR)/audit_brands.txt $(TEMP_DIR)/audit_attributes.txt $(TEMP_DIR)/audit_advertising.txt  $(TEMP_DIR)/audit_markets_agg.txt $(AUDIT_DIR)/bav.xlsx
 
 # building parts of the project
 unzip: $(TEMP_DIR)/unzipped.RData
@@ -25,7 +25,7 @@ uniq: $(TEMP_DIR)/uniqueness_and_lagsales.RData
 exatt: $(TEMP_DIR)/extract_attributes.RData 
 setatt: $(TEMP_DIR)/attributes.RData
 metr: $(TEMP_DIR)/brand_metrics.RData
-auxilary: $(OUTPUT_DIR)/hdi.csv $(OUTPUT_DIR)/gini.csv $(OUTPUT_DIR)/dev_indicators.csv
+auxilary: $(OUTPUT_DIR)/hdi.csv $(OUTPUT_DIR)/gini.csv $(OUTPUT_DIR)/dev_indicators.csv $(OUTPUT_DIR)/ruleoflaw.csv $(OUTPUT_DIR)/worldvalue.csv $(OUTPUT_DIR)/bav.csv
 
 clean:
 	RM -f -r "$(TEMP_DIR)"
@@ -77,6 +77,8 @@ $(TEMP_DIR)/brand_metrics.RData: brand_metrics.R $(TEMP_DIR)/exch_cpi.RData $(TE
 # do final time selection
 $(OUTPUT_DIR)/datasets.txt: time_select.R $(TEMP_DIR)/brand_metrics.RData
 	R --vanilla --args "" < "time_select.R"
+
+###### AUDIT ######
 	
 # --> audit: create category sales plots
 $(TEMP_DIR)/audit_rawplot.txt: audit_rawplot.R $(TEMP_DIR)/categorized.RData
@@ -102,15 +104,32 @@ $(TEMP_DIR)/audit_attributes.txt: audit_attributes.R $(OUTPUT_DIR)/datasets.txt
 $(TEMP_DIR)/audit_advertising.txt: audit_advertising.R #(TEMP_DIR)/advertising.csv
 	R --vanilla --args "" < "audit_advertising.R"
 
+###### COVARIATES ######
+
 # Prepare HDI data
-$(OUTPUT_DIR)/hdi.csv: hdi.R
-	R --vanilla --args "" < "hdi.R"
+$(OUTPUT_DIR)/hdi.csv: covar_hdi.R
+	R --vanilla --args "" < "covar_hdi.R"
 
 # Prepare Gini coefficients
-$(OUTPUT_DIR)/gini.csv: gini.R
-	R --vanilla --args "" < "gini.R"
+$(OUTPUT_DIR)/gini.csv: covar_gini.R
+	R --vanilla --args "" < "covar_gini.R"
 
 # Prepare remaining Development Indicators
-$(OUTPUT_DIR)/dev_indicators.csv: dev_indicators.R
-	R --vanilla --args "" < "dev_indicators.R"
+$(OUTPUT_DIR)/dev_indicators.csv: covar_devindicators.R
+	R --vanilla --args "" < "covar_devindicators.R"
 
+# Prepare BAV data
+$(OUTPUT_DIR)/bav.csv: covar_bav.R
+	R --vanilla --args "" < "covar_bav.R"
+
+# Prepare Rule of Law
+$(OUTPUT_DIR)/ruleoflaw.csv: covar_ruleoflaw.R
+	R --vanilla --args "" < "covar_ruleoflaw.R"
+
+# Prepare World Value Survey
+$(OUTPUT_DIR)/worldvalue.csv: covar_worldvalue.R
+	R --vanilla --args "" < "covar_worldvalue.R"
+
+# Audit BAV data
+$(AUDIT_DIR)/bav.xlsx: audit_bav.R $(OUTPUT_DIR)/bav.csv $(OUTPUT_DIR)/datasets.txt
+	R --vanilla --args "" < "audit_bav.R"
