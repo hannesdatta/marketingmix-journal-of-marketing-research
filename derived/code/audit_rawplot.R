@@ -1,9 +1,13 @@
 # Perform audit on all files and produce plots
 
 # Preamble
+  .libPaths()
 	library(data.table)
 	library(lattice)
+	cat('loading data\n')	
 	library(latticeExtra)
+	library(RColorBrewer)
+  cat('loading data\n')	
 	load(file='..\\temp\\categorized.RData')
 
 

@@ -16,7 +16,7 @@
 	library(data.table)
 	library(lattice)
 	library(latticeExtra)
-
+	library(RColorBrewer)
 # Load externals
 	source('../external/proc_rename.R')
 

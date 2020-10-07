@@ -34,11 +34,143 @@ for (seldat in names(all_datasets)) {
 	# Prepare flat CSV file with data
 	brand_panel=rbindlist(lapply(all_data, function(x) if(!is.null(x)) return(rbindlist(x$data_cleaned))),fill=T)
 
+	# Create brand IDs
+	brand_panel[, brand_id:=.GRP, by = c('market_id', 'brand')]
+	
+	# Merge holiday data
 	setkey(brand_panel, country, date)
 	setkey(holiday_period, country, month)
 	brand_panel[holiday_period, npublicholidays:=i.N]
 	brand_panel[is.na(npublicholidays), npublicholidays:=0]
+
+	# Add quarter and year variables
+	brand_panel[, quarter := quarter(date)]
+	brand_panel[, year:=year(date)]
 	
+	##############
+	# Attributes #
+	##############
+	
+	# Rename
+	attr= grep('^attr',colnames(brand_panel),value=T)
+	attrnew=attr
+	
+	attrnew = gsub('[<][=]','smeqth', attrnew)
+	attrnew = gsub('[>][=]','greqth', attrnew)
+	attrnew = gsub('[>]','grth', attrnew)
+	attrnew = gsub('[<]','smth', attrnew)
+	attrnew = gsub('[/]','_', attrnew)
+	attrnew = gsub('[/]','_', attrnew)
+	attrnew = gsub('[-]','', attrnew)
+	attrnew = gsub('[ ]','', attrnew)
+	attrnew = tolower(attrnew)
+	
+	for (i in seq(along=attrnew)) setnames(brand_panel,attr[i], attrnew[i])
+	
+	# Scale shares between 0 and 100
+	for (var in grep('^attr', colnames(brand_panel),value=T)) {
+	  if (min(brand_panel[, var,with=F],na.rm=T)==0&max(brand_panel[, var,with=F],na.rm=T)<=1) {
+	    brand_panel[, (paste0(var)):=get(var)*100+1]
+	  }  
+	}
+	
+	# Add 1 for variables that contain 0s
+	for (var in grep('^attr', colnames(brand_panel),value=T)) {
+	  if (min(brand_panel[, var,with=F],na.rm=T)==0&max(brand_panel[, var,with=F],na.rm=T)>1) {
+	    brand_panel[, (paste0(var)):=get(var)+1]
+	  }  
+	}
+	
+	
+	###################################
+	# Define category-level meta data #
+	###################################
+	
+	brand_panel[grepl('camera', category), cat_class := 'cam']
+	brand_panel[grepl('phones|tablets', category), cat_class := 'ph']
+	brand_panel[grepl('desktoppc|laptop', category), cat_class := 'cp']
+	brand_panel[grepl('tv[_]|dvd', category), cat_class := 'tvdvd']
+	brand_panel[grepl('washing|cooling|microwave', category), cat_class := 'wte']
+	
+	brand_panel[, appliance:=0]
+	brand_panel[grepl('washing|cooling|microwave', category), appliance:=1]
+	
+	brand_panel[, hedon := category %in% c('tablets', 'phones_smart', 'phones_mobile', 'camera_slr', 'camera_compact', 'dvd', 'tv_gen1_crtv', 'tv_gen2_lcd')]
+	
+	##################################
+	# Define country-level meta data #
+	##################################
+	
+	brand_panel[country %in% c('australia', 'hong kong', 'japan', 'new zealand', 'singapore', 'south korea', 'taiwan'), country_class := 'hinc']
+	brand_panel[is.na(country_class), country_class := 'linc']
+	
+	brand_panel[, developed:=0]
+	brand_panel[country%in%c('australia', 'singapore', 'japan', 'new zealand', 'hong kong', 'south korea', 'taiwan'), developed := 1]
+	
+	brand_panel[, emerging:=1-developed]
+	
+	brand_panel[, worldbank := '']
+	brand_panel[country%in%c('india','indonesia', 'vietnam', 'philippines'), worldbank:='lowermid']
+	brand_panel[country%in%c('china', 'malaysia','thailand'), worldbank:='uppermid']
+	brand_panel[worldbank=='', worldbank:='high']
+	
+	# add world bank classifications
+	brand_panel[, wb_lowermid:=country%in%c('india','indonesia', 'vietnam', 'philippines')]
+	brand_panel[, wb_uppermid:=country%in%c('china', 'malaysia','thailand')]
+	
+	################################
+	# Define brand-level meta data #
+	################################
+	
+	# Load brand-country classifications
+	brands_countries <- fread('../../../../data/brands_countries/brands_countries.tsv')
+	setkey(brands_countries, brand)
+	
+	brand_panel[, ncountries:=length(unique(country)), by = c('brand')]
+	brand_panel[, globalbrand:=ncountries>2 & !brand=='unbranded']
+	
+	brand_panel[, ncat_in_country:=length(unique(category)), by = c('brand','country')]
+	brand_panel[, ncountry_in_category:=length(unique(country)), by = c('brand','category')]
+	
+	
+	# merge country of origins for brands
+	brands_countries <- brands_countries[!brand=='']
+	brands_countries[country_cleaned=='', country_cleaned:=NA]
+	
+	setkey(brand_panel, brand)
+	setkey(brands_countries, brand)
+	
+	brand_panel[brands_countries, country_of_origin:=i.country_cleaned]
+	
+	# Domestic brands / local_to_market
+	brand_panel[, local_to_market:=as.numeric(country_of_origin==country & ncountries==1)]#
+	brand_panel[, local_multip_market:=as.numeric(country_of_origin==country&ncountries>1)]
+	
+	################
+	# Brand equity #
+	################
+	
+	brand_panel[, brandz:=0]
+	brandz_brands_globalonly<-c('samsung', 'sony', 'apple', 'hp', 'nokia', 'dell','blackberry', 'ge', 'siemens', 'ibm','vodafone')
+	brand_panel[brand%in%brandz_brands_globalonly, brandz:=1]
+	
+	brand_panel[, brandz_financial500:=0]
+	brandz_brands_fin<-c('samsung', 'sony', 'apple', 'hp', 'nokia', 'dell','blackberry', 'ge', 'siemens', 'ibm','vodafone', 'canon', 'motorola',
+	                     'fujifilm', 'huawei', 'lenovo', 'lg', 'panasonic', 'philips', 'toshiba', 'zte')
+	brand_panel[brand%in%brandz_brands_fin, brandz_financial500:=1]
+	
+	brand_panel[, interbrand:=0]
+	
+	interbrand_brands <- c('apple', 'dell', 'ge', 'hp', 'ibm', 'nokia', 'samsung', 'siemens', 'sony', 'canon', 'motorola', 'blackberry', 'htc', 'huawei', 'kodak', 'lg', 'panasonic', 'philips') 
+	brand_panel[brand%in%interbrand_brands, interbrand:=1]
+	
+	brand_panel[, brandequity_interbr_brandz := ifelse(interbrand+brandz_financial500+brandz>0,1,0)]
+	
+	###############
+	# FINAL TOUCH #
+	###############
+	
+	# Order data
 	setorder(brand_panel, market_id, category,country,brand,date)
 
 	brand_panel[which(!is.na(usales) & selected_t_brand==T & selected_brand == T), prelim_selected:=T, by=c('category', 'country', 'brand')]
