@@ -1,27 +1,7 @@
 load('../temp/brand_metrics.RData')
 library(data.table)
 
-holidays <- fread('../../../../data/holidays/holidays.csv')
-
-holidays[country=='AU', country:='australia']
-holidays[country=='CN', country:='china']
-holidays[country=='HK', country:='hong kong']
-holidays[country=='IN', country:='india']
-holidays[country=='ID', country:='indonesia']
-holidays[country=='JP', country:='japan']
-holidays[country=='MY', country:='malaysia']
-holidays[country=='NZ', country:='new zealand']
-holidays[country=='PH', country:='philippines']
-holidays[country=='SG', country:='singapore']
-holidays[country=='KO', country:='south korea']
-holidays[country=='TW', country:='taiwan']
-holidays[country=='TH', country:='thailand']
-holidays[country=='VN', country:='vietnam']
-
-holidays[, month:=as.Date(paste0(substr(date, 1,7),'-01'))]
-
-holiday_period= holidays[public==T, list(N=.N),by=c('country', 'month')]
-
+unlink('../temp/dataset*')
 
 for (seldat in names(all_datasets)) {
 
@@ -37,12 +17,6 @@ for (seldat in names(all_datasets)) {
 	# Create brand IDs
 	brand_panel[, brand_id:=.GRP, by = c('market_id', 'brand')]
 	
-	# Merge holiday data
-	setkey(brand_panel, country, date)
-	setkey(holiday_period, country, month)
-	brand_panel[holiday_period, npublicholidays:=i.N]
-	brand_panel[is.na(npublicholidays), npublicholidays:=0]
-
 	# Add quarter and year variables
 	brand_panel[, quarter := quarter(date)]
 	brand_panel[, year:=year(date)]
@@ -118,6 +92,7 @@ for (seldat in names(all_datasets)) {
 	brand_panel[, wb_lowermid:=country%in%c('india','indonesia', 'vietnam', 'philippines')]
 	brand_panel[, wb_uppermid:=country%in%c('china', 'malaysia','thailand')]
 	
+	
 	################################
 	# Define brand-level meta data #
 	################################
@@ -132,7 +107,6 @@ for (seldat in names(all_datasets)) {
 	brand_panel[, ncat_in_country:=length(unique(category)), by = c('brand','country')]
 	brand_panel[, ncountry_in_category:=length(unique(country)), by = c('brand','category')]
 	
-	
 	# merge country of origins for brands
 	brands_countries <- brands_countries[!brand=='']
 	brands_countries[country_cleaned=='', country_cleaned:=NA]
@@ -146,10 +120,27 @@ for (seldat in names(all_datasets)) {
 	brand_panel[, local_to_market:=as.numeric(country_of_origin==country & ncountries==1)]#
 	brand_panel[, local_multip_market:=as.numeric(country_of_origin==country&ncountries>1)]
 	
-	################
-	# Brand equity #
-	################
+	brand_panel[, asian_brand:=0]
+	brand_panel[country_of_origin%in%c('south korea', 'japan','taiwan', 'thailand', 'indonesia', 'philippines',
+	                             'india', 'singapore', 'malaysia', 'vietnam', 'cambodja', 'pakistan', 
+	                             'hong kong'), asian_brand:=1]
 	
+	
+	# country classifications
+	western=c('australia', 'canada','finland','france', 'germany','great britain', 
+	          'italy','luxembourg', 'netherlands','new zealand', 'spain', 'sweden',
+	          'switzerland', 'turkey', 'usa')
+	
+	brand_panel[, western_brand:=as.numeric(country_of_origin%in%western)]
+	
+	jbcountries=c('japan', 'usa','switzerland','germany','sweden') #'japan', 
+	
+	brand_panel[, `brand_from_jp-us-ch-ge-sw`:=as.numeric(country_of_origin%in%jbcountries)]
+	
+	brand_panel[, other_brand:=1-asian_brand-western_brand]
+	
+	
+	# Brand equity metrics
 	brand_panel[, brandz:=0]
 	brandz_brands_globalonly<-c('samsung', 'sony', 'apple', 'hp', 'nokia', 'dell','blackberry', 'ge', 'siemens', 'ibm','vodafone')
 	brand_panel[brand%in%brandz_brands_globalonly, brandz:=1]
@@ -165,6 +156,66 @@ for (seldat in names(all_datasets)) {
 	brand_panel[brand%in%interbrand_brands, interbrand:=1]
 	
 	brand_panel[, brandequity_interbr_brandz := ifelse(interbrand+brandz_financial500+brandz>0,1,0)]
+	
+	################################
+	# INTERNALLY GENERATED METRICS #
+	################################
+	
+	# calculate growth rates in markets
+	growth = brand_panel[, list(sales=sum(usales,na.rm=T)), by = c('market_id', 'category', 'country', 'date')]
+	growth[, year:=year(date)]
+	growth[, months_with_sales:=length(which(sales>0)), by = c('market_id', 'year')]
+	
+	growth[, N:=1:.N,by = c('market_id')]
+	windowsize=3
+	suppressWarnings(growth[, catvolatility_range:=sapply(N, function(x) max(sales[N<x&(N>=(x-windowsize))])-min(sales[N<x&(N>=(x-windowsize))])), by = c('market_id')])
+	growth[, catvolatility_sd:=sapply(N, function(x) sd(sales[N<x&(N>=(x-windowsize))])), by = c('market_id')]
+	growth[N<=windowsize, ':=' (catvolatility_range=NA, catvolatility_sd=NA)]
+	
+	setkey(brand_panel, market_id, date)
+	setkey(growth, market_id, date)
+	brand_panel[growth, ':=' (catvolatility_range=i.catvolatility_range, catvolatility_sd=i.catvolatility_sd)]
+	
+	# remove incomplete years
+	growth = growth[months_with_sales==12]
+	growth[, year_to_year_growth := sales/c(NA, sales[-.N]), by = c('market_id')]
+	tmp=growth[, list(sales_first=sum(sales[year==min(year)]),
+	                  sales_last=sum(sales[year==max(year)]),
+	                  nyears = max(year)-min(year)+1,
+	                  sd_growth=sd(year_to_year_growth, na.rm=T)), by = c('market_id', 'category', 'country')]
+	tmp[, growth := (sales_last/sales_first)^(1/nyears)]
+	setorder(tmp, growth)
+	
+	setkey(tmp, market_id)
+	setkey(brand_panel, market_id)
+	brand_panel[tmp, ':=' (market_growth = i.growth, market_sdgrowth = i.sd_growth)]
+	
+	# calculate (for the complete sample) market shares and price indices
+	overall_metrics = brand_panel[, list(sumunits=sum(usales, na.rm=T),
+	                                     sumvalue=sum(rvsales, na.rm=T)), by = c('market_id', 'brand')]
+	overall_metrics[, ':=' (overall_ms = sumunits/sum(sumunits,na.rm=T),
+	                        overall_avglocalrpr = sumvalue/sumunits), by = c('market_id')]
+	
+	# rank market shares
+	setorderv(overall_metrics, c('market_id', 'overall_ms'), order=-1L)
+	overall_metrics[, rank_ms:=.N-rank(overall_ms)+1, by = c('market_id')]
+	
+	# compute price indices (devided by mean)
+	overall_metrics[, ':=' (overall_rprindex = overall_avglocalrpr/max(overall_avglocalrpr),
+	                        overall_rprindexavg = overall_avglocalrpr/mean(overall_avglocalrpr)),
+	                by = c('market_id')]
+	
+	
+	setkey(brand_panel, market_id, brand)
+	setkey(overall_metrics, market_id, brand)
+	
+	brand_panel[overall_metrics, ':=' (brand_ms=i.overall_ms, brand_prindex_max = i.overall_rprindex,
+	                                   brand_prindex_mean = i.overall_rprindexavg)]
+	
+	concentration=overall_metrics[, list(market_herf = sum(overall_ms^2), 
+	                                     market_c3=sum(overall_ms[rank_ms<=3])/sum(overall_ms),
+	                                     market_c5=sum(overall_ms[rank_ms<=5])/sum(overall_ms)), by = c('market_id')]
+	brand_panel <- merge(brand_panel, concentration, by = c('market_id'), all.x=T, all.y=F)
 	
 	###############
 	# FINAL TOUCH #
@@ -217,7 +268,7 @@ for (seldat in names(all_datasets)) {
 	brand_panel[,selected:=ifelse(prelim_selected==T&selected_t_cat_1brand==T, T, F)]
 
 	# Prepare CSV file with data
-	fwrite(brand_panel, file = paste0('..\\output\\datasets_', seldat, '.csv'), row.names=F)
+	fwrite(brand_panel, file = paste0('..\\temp\\datasets_', seldat, '.csv'), row.names=F)
 
 	# Load GDP per capita, and put into data sets
 	load('..\\temp\\gdppercap.RData')
@@ -236,40 +287,8 @@ for (seldat in names(all_datasets)) {
 	tmp[!first_sales==first_tcat]
 
 	
-	#######################
-	# CATEGORY-LEVEL DATA #
-	#######################
-	
-	# Prepare flat CSV file with data
-	brand_panel_agg=rbindlist(lapply(all_data, function(x) if(!is.null(x)) return(rbindlist(x$data_cleaned_agg))),fill=T)
-	setorder(brand_panel_agg, market_id, category,country,brand,date)
-	
-	brand_panel_agg[which(!is.na(usales) & selected_t_brand==T & selected_brand == T), prelim_selected:=T, by=c('category', 'country', 'brand')]
-	brand_panel_agg[is.na(prelim_selected), prelim_selected:=F, by=c('category', 'country', 'brand')]
-	
-	brand_panel_agg=merge(brand_panel_agg, tmp, by=c('market_id', 'category','country'), all.x=T)
-	
-	# Add holidays
-	
-	setkey(brand_panel_agg, country, date)
-	setkey(holiday_period, country, month)
-	brand_panel_agg[holiday_period, npublicholidays:=i.N]
-	brand_panel_agg[is.na(npublicholidays), npublicholidays:=0]
-	
-	
-	# Apply same time selection as for the brand-level data
-	
-	brand_panel_agg[,selected:=ifelse(prelim_selected==T&date>=first_tcat&date<=last_tcat, T, F)]
-	brand_panel_agg[, ':=' (first_sales=NULL, first_tcat=NULL, last_tcat=NULL)]
-	
-	brand_panel_agg[, year:=year(date)]
-	brand_panel_agg = merge(brand_panel_agg, gdppercap, by = c('country', 'year'), all.x=T)
-	
-	# Prepare CSV file with data
-	fwrite(brand_panel_agg, file = paste0('..\\output\\datasets_', seldat, '_agg.csv'), row.names=F)
-	
 	}
 
-sink('../output/datasets.txt')
+sink('../temp/datasets.txt')
 cat('done prepping datasets: ', paste0(names(all_datasets), collapse=', '))
 sink()

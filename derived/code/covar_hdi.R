@@ -51,6 +51,9 @@ dir.create('../temp')
   # add Taiwan (2007 data: https://en.wikipedia.org/w/index.php?title=List_of_countries_by_Human_Development_Index_(2009)&oldid=817625828)
   dat<-rbindlist(list(dat, data.frame('taiwan', 0.943))) # not reliable data probably
   
+  # change taiwan (reported value from China is not reliable)
+  dat[, hdi2010:=ifelse(country=='taiwan', .879, hdi2010)]
+  
   dat[country%in%c('australia', 'japan', 'hong kong', 'new zealand', 'thailand', 'indonesia','vietnam', 'taiwan','singapore', 'south korea', 'china', 'india', 'philippines', 'malaysia')]
   
   fwrite(dat, '../output/hdi.csv')

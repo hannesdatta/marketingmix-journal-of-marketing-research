@@ -25,7 +25,7 @@ uniq: $(TEMP_DIR)/uniqueness_and_lagsales.RData
 exatt: $(TEMP_DIR)/extract_attributes.RData 
 setatt: $(TEMP_DIR)/attributes.RData
 metr: $(TEMP_DIR)/brand_metrics.RData
-auxilary: $(OUTPUT_DIR)/hdi.csv $(OUTPUT_DIR)/gini.csv $(OUTPUT_DIR)/dev_indicators.csv $(OUTPUT_DIR)/ruleoflaw.csv $(OUTPUT_DIR)/worldvalue.csv $(OUTPUT_DIR)/bav.csv
+auxilary: $(OUTPUT_DIR)/hdi.csv $(OUTPUT_DIR)/gini.csv $(OUTPUT_DIR)/dev_indicators.csv $(OUTPUT_DIR)/ruleoflaw.csv $(OUTPUT_DIR)/worldvalue.csv $(OUTPUT_DIR)/bav.csv $(OUTPUT_DIR)/gci.csv
 
 clean:
 	RM -f -r "$(TEMP_DIR)"
@@ -75,8 +75,12 @@ $(TEMP_DIR)/brand_metrics.RData: brand_metrics.R $(TEMP_DIR)/exch_cpi.RData $(TE
 	R --vanilla --args "" < "brand_metrics.R"
 
 # do final time selection
-$(OUTPUT_DIR)/datasets.txt: time_select.R $(TEMP_DIR)/brand_metrics.RData
+$(TEMP_DIR)/datasets.txt: time_select.R $(TEMP_DIR)/brand_metrics.RData
 	R --vanilla --args "" < "time_select.R"
+
+# do final time selection
+$(OUTPUT_DIR)/datasets.txt: merge_and_document.R $(TEMP_DIR)/datasets.txt
+	R --vanilla --args "" < "merge_and_document.R"
 
 ###### AUDIT ######
 	
@@ -129,6 +133,10 @@ $(OUTPUT_DIR)/ruleoflaw.csv: covar_ruleoflaw.R
 # Prepare World Value Survey
 $(OUTPUT_DIR)/worldvalue.csv: covar_worldvalue.R
 	R --vanilla --args "" < "covar_worldvalue.R"
+
+# Prepare World Value Survey
+$(OUTPUT_DIR)/gci.csv: covar_gci.R
+	R --vanilla --args "" < "covar_gci.R"
 
 # Audit BAV data
 $(AUDIT_DIR)/bav.xlsx: audit_bav.R $(OUTPUT_DIR)/bav.csv $(OUTPUT_DIR)/datasets.txt
