@@ -102,6 +102,13 @@ for (fn in fns) {
   #setkey(gdp, country)
   #elast[gdp, gdppercap2010:=i.gdppercap2010]
   
+  ############
+  # HOFSTEDE #
+  ############
+  
+  tmp <- fread('../../../../data/hofstede/hofstede_rule_of_law.csv')
+  tmp[, country:=tolower(country)]
+  brand_panel=merge(brand_panel, tmp, by = c('country'),all.x=T)
   
   brand_panel[, brand_capitalized:=my_capitalize(brand)]
   setorder(brand_panel, market_id, brand, date)
