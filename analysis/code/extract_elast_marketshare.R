@@ -65,7 +65,7 @@ for (i in seq(along=out)) {
  fwrite(out[[i]]$elast, file=paste0('../output/elast_', out[[i]]$model,'.csv'), row.names=F) 
 }
 
-sink('../output/elasticities.txt')
+sink('../output/elasticities_marketshare.txt')
 cat('Finished building extract_elast.R at:\n')
 print(Sys.time())
 for (i in seq(along=out)) {

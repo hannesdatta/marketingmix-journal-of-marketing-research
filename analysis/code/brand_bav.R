@@ -17,6 +17,8 @@
 # | |_______________| ||___|| 
 # |___________________|_____|
 
+# Generate overview for BAV for which brand data is required
+
 ### LOAD DATA SETS
 library(data.table)
 source('../../post-analysis/code/proc_rename.R')

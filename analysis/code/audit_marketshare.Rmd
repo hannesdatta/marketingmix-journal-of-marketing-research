@@ -1,5 +1,5 @@
 ---
-title: "GfK Singapore"
+title: "GfK Singapore - Marketshare model audit"
 output:
   html_document
 date: "`r format(Sys.time(), '%d %B %Y')`"
@@ -19,10 +19,10 @@ library(metap)
 options(xtable.comment = FALSE)
 
 # Load results
-load(file = c('../output/results.RData'))
+load(file = c('../output/results_marketshare.RData'))
 
 # determine model to analyze
-  results_brands <-  results_main 
+  results_brands <-  results_marketshare
   
 # identify model crashes
 	checks <- unlist(lapply(results_brands, class))
@@ -104,7 +104,7 @@ zval=1.64
   
 	kable(tmp, caption = tab('Short- and long-term elasticities by variable and a country\'s development status, excluding the brands unbranded, super, and amazon (significance tested at p<.1 (z >= 1.64).'))
 
-	sbbe<-fread('../output/elast_results_main.csv')
+	sbbe<-fread('../output/elast_results_marketshare.csv')
 	setkey(sbbe, market_id, brand)
 	setkey(elast, market_id, brand)
 	elast[sbbe, sbbe:=i.sbbe_std]
@@ -260,5 +260,103 @@ summary(abs(autocorrel))
 r2s= rbindlist(lapply(results_brands[!checks=='try-error'], function(x) x$R2))
 
 summary(r2s$R2)
+
+```
+
+
+```{r, include=FALSE}
+library(data.table)
+library(knitr)
+library(kableExtra)
+
+vars <- c('elast','elastlt')
+
+
+for (.v in vars) {
+  elast[, paste0(.v,'_z'):=get(.v)/get(paste0(.v,'_se'))]
+  elast[, paste0(.v,'_w'):=(1/get(paste0(.v,'_se')))/sum((1/get(paste0(.v,'_se'))))]
+}
+
+```
+
+
+
+## Descriptive statistics
+
+```{r, echo = FALSE}
+void<-capture.output({
+  
+  suppressWarnings({tmp = melt(elast, id.vars=c('market_id','brand', 'variable'), measure.vars=grep('elast',colnames(elast),value=T))})
+})
+
+setnames(tmp, 'variable','varname')
+setnames(tmp, c('variable.1'), 'variable')
+
+tmp[, brand_id:=.GRP,by=c('market_id','brand')]
+
+tmp[, raw_variable:=gsub('[_].*$','', variable)]
+tmp[, stat:=gsub('.*[_]','', variable)]
+tmp[!stat%in%c('se','z','w'), stat:='est']
+
+tmp = data.table(dcast(tmp, brand_id+varname+raw_variable~stat))
+
+setnames(tmp, 'raw_variable','variable')
+
+tmp2 = tmp[, list(N=.N, mean=mean(est), median=median(est), weightedmean = sum(est*w)/sum(w), min = min(est), max=max(est),
+                  perc_positive = length(which(est>0&abs(z)>=1.69))/.N,
+                  perc_negative = length(which(est<0&abs(z)>=1.69))/.N,
+                  perc_ns = length(which(abs(z)<1.69))/.N), by = c('varname','variable')]
+
+tmp2[, orderv:=match(varname, c('rwpspr', 'wpswdst','llen'))]
+setorder(tmp2, orderv, variable)
+tmp2[, orderv:=NULL]
+kable(tmp2, format = "latex", booktabs = TRUE, digits = 3) %>%
+          kable_styling(latex_options = "scale_down")
+
+```
+
+## Plots
+
+## Plots
+
+- Distribution of mean parameter
+- Distribution of standard errors
+- Distribution of z values
+
+### Short-term (elast1)
+
+```{r, echo=FALSE}
+par(mfrow=c(1,3))
+hist(tmp[grepl('elast$', variable)&grepl('pr', varname)]$est,breaks=100, main = 'Price (mean elast)', xlab = 'variable')
+hist(tmp[grepl('elast$', variable)&grepl('pr', varname)]$se,breaks=100, main = 'Price (SD elast)', xlab = 'variable')
+hist(tmp[grepl('elast$', variable)&grepl('pr', varname)]$z,breaks=100, main = 'Price (Z elast)', xlab = 'variable')
+
+hist(tmp[grepl('elast$', variable)&grepl('llen', varname)]$est,breaks=100, main = 'Line length (elast)', xlab = 'variable')
+hist(tmp[grepl('elast$', variable)&grepl('llen', varname)]$se,breaks=100, main = 'Line length (SD elast)', xlab = 'variable')
+hist(tmp[grepl('elast$', variable)&grepl('llen', varname)]$z,breaks=100, main = 'Line length (Z elast)', xlab = 'variable')
+
+hist(tmp[grepl('elast$', variable)&grepl('dst', varname)]$est,breaks=100, main = 'Distribution (elast)', xlab = 'variable')
+hist(tmp[grepl('elast$', variable)&grepl('dst', varname)]$se,breaks=100, main = 'Distribution (SD elast)', xlab = 'variable')
+hist(tmp[grepl('elast$', variable)&grepl('dst', varname)]$z,breaks=100, main = 'Distribution (Z elast)', xlab = 'variable')
+
+```
+
+
+### Long-term (elastlt)
+
+
+```{r, echo=FALSE}
+par(mfrow=c(1,3))
+hist(tmp[grepl('elastlt$', variable)&grepl('pr', varname)]$est,breaks=100, main = 'Price (mean elastlt)', xlab = 'variable')
+hist(tmp[grepl('elastlt$', variable)&grepl('pr', varname)]$se,breaks=100, main = 'Price (SD elastlt)', xlab = 'variable')
+hist(tmp[grepl('elastlt$', variable)&grepl('pr', varname)]$z,breaks=100, main = 'Price (Z elastlt)', xlab = 'variable')
+
+hist(tmp[grepl('elastlt$', variable)&grepl('llen', varname)]$est,breaks=100, main = 'Line length (elastlt)', xlab = 'variable')
+hist(tmp[grepl('elastlt$', variable)&grepl('llen', varname)]$se,breaks=100, main = 'Line length (SD elastlt)', xlab = 'variable')
+hist(tmp[grepl('elastlt$', variable)&grepl('llen', varname)]$z,breaks=100, main = 'Line length (Z elastlt)', xlab = 'variable')
+
+hist(tmp[grepl('elastlt$', variable)&grepl('dst', varname)]$est,breaks=100, main = 'Distribution (elastlt)', xlab = 'variable')
+hist(tmp[grepl('elastlt$', variable)&grepl('dst', varname)]$se,breaks=100, main = 'Distribution (SD elastlt)', xlab = 'variable')
+hist(tmp[grepl('elastlt$', variable)&grepl('dst', varname)]$z,breaks=100, main = 'Distribution (Z elastlt)', xlab = 'variable')
 
 ```
