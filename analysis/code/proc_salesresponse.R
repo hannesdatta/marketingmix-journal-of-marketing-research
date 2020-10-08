@@ -22,8 +22,10 @@ model_configure <- function(id, withcontrols=T, controls_in_bounds = T, withattr
   dt[, lngdp := log(gdppercapita)]
   dt[, lnholiday := log(npublicholidays+1)]
   
-  if (length(brands_in_market)>2) control_vars = c('lngdp', 'lnholiday', grep('comp[_]', colnames(dt),value=T))
-  if (length(brands_in_market)<=2) control_vars = c('lngdp', 'lnholiday')
+  #if (length(brands_in_market)>2) 
+  #if (length(brands_in_market)<=2) control_vars = c('lngdp', 'lnholiday')
+  
+  control_vars = c('lngdp', 'lnholiday', grep('comp[_]', colnames(dt),value=T))
   
   if(withcontrols==F) control_vars = NULL
   control_vars = control_vars[unlist(lapply(dt[, control_vars, with=F], use_ts))]
@@ -166,6 +168,7 @@ model_configure <- function(id, withcontrols=T, controls_in_bounds = T, withattr
               m_autocorrelation = m$autocorrelation,
               model_matrix = m2$model, 
               paneldimension = identifiers, 
+              adf_tests=cbind(identifiers[,!colnames(identifiers)%in%'date',with=F][1], m$adf_tests),
               dt=dt)
   
   
@@ -181,7 +184,7 @@ model_configure <- function(id, withcontrols=T, controls_in_bounds = T, withattr
 
 
 # Estimate models jointly
-model_sur <- function(focal_models) {
+model_sur <- function(focal_models, maxiter = 5000) {
   
   single_eqs <- lapply(seq(along=focal_models), function(x) {
     tmp = focal_models[[x]]$model_matrix
@@ -230,11 +233,14 @@ model_sur <- function(focal_models) {
   
   index=data.frame(date=index_list$period,brand=index_list$brand)
   
-  if(0){
-  # remove all-zero columns from X (e.g., where a brand variable is removed earlier ("NA"), and contains zeros for all other brands).
-  delvars = colnames(X)[which(colSums(abs(X))==0)]
-  keepv = setdiff(colnames(X), delvars)
-  X = X[, keepv, with=F]
+  #dcast(index, date~brand)
+  if(0) {
+  # remove rows where only 1 brand is observed
+  nbrands_eval <- aggregate(index$brand, by=list(index$date),FUN = length)
+  # first and last stretch of at least two brands
+  nbrands_eval$larger_two <- nbrands_eval$x>=4
+  
+  complete_eqs <- nbrands_eval$`Group.1`[which(nbrands_eval$larger_two==T)]
   
   # kick out incomplete ('diffed') vars, i.e., their first observation (as it is NA) by brand
   X=as.matrix(X[complete_eqs,])
@@ -260,11 +266,39 @@ model_sur <- function(focal_models) {
   
   # save ranges after rescaling
   #if (rescale==T) res$ranges$after=data.table(original_variable=colnames(X), min = colMins(X), max=colMaxs(X))[!grepl('[_]sq|[_]cop[_]|[_]dum', original_variable)]
+  if(0){
+  # flatten correlation
+  tmp=data.table(melt(cor(X)))
+  
+  uniqvar = unique(tmp$Var2)
+  tmp[, Var1index:=match(Var1,uniqvar)]
+  tmp[, Var2index:=match(Var2,uniqvar)]
+  tmp <- tmp[Var1index<Var2index]
+  
+  tmp[abs(value)>.9]
+  tmp[,abscor:=abs(value)]
+  ct=tmp[Var1=='bid001_d.1.comp_lnllen'|Var2=='bid001_d.1.comp_lnllen']
+  setorder(ct, abscor)
+  
+  }
   
   estmethod = "FGLS"
-  maxiter=5000
-  m<-itersur(X=as.matrix(X),Y=as.matrix(Y),index=index, method = estmethod, maxiter=maxiter)
-      
+  #maxiter=5000
+  
+  # remove var from itersur
+  #tmp=sapply(1:ncol(X), function(rem) try(itersur(X=as.matrix(X[,-rem]),Y=as.matrix(Y),index=index, method = estmethod, maxiter=maxiter),silent=T))
+  
+  #unlist(lapply(tmp,class))
+  
+
+  #colnames(X)[which(unlist(lapply(tmp,class))=='character')]
+  
+  
+  
+  m<-itersur(X=as.matrix(X),Y=as.matrix(Y),index=index, method = estmethod, maxiter=maxiter) #, use_ginv=F
+  if (m@iterations==maxiter&maxiter>1) stop("Reached max. number of iterations with SUR. Likely did not converge.")
+  
+      # compare parameter estimates
   if (rescale == T) {
     retr_coefs <- coef(m)$coef
     mvarcovar=m@varcovar
@@ -302,6 +336,8 @@ model_sur <- function(focal_models) {
 model_simulate <- function(focal_model, shockperiods = 12, covar = 'yes', ndraws=1000, return_simulations=F) {
 
   vars = c('lnrwpspr','lnllen','lnwpswdst') 
+  
+  vars = vars[sapply(vars, function(x) any(grepl(paste0('[.]|^',x), colnames(focal_model$model_matrix))))]
   
   # 4.0 Extract estimation data set and manipulate for simulation
   
@@ -512,7 +548,9 @@ model_simulate <- function(focal_model, shockperiods = 12, covar = 'yes', ndraws
                                                                                           dynamic = T, 
                                                                                           dt=focal_model$dt,
                                                                                           shockvar=c(NA, vars)[i])))
- # 5.2 Extract elasticities
+  #coefs=focal_model$sur$coef
+  
+  # 5.2 Extract elasticities
   varnames=unlist(lapply(sim_ds, function(x) x[[1]]$shockvar))
   
   elast=rbindlist(lapply(varnames[-1], function(v) {

@@ -198,11 +198,11 @@ length(bids)
   sur_res = parLapplyLB(cl, split_by_market, function(focal_models) {
     mid=focal_models[[1]]$paneldimension$market_id[1]
     
-    #if(0){
+    if(0){
     res=suppressWarnings(try(model_sur(focal_models), silent=T))
     if(class(res)=='try-error') res=suppressWarnings(try(model_sur(focal_models, maxiter=1), silent=T))
-    #}
-    #res=suppressWarnings(try(model_sur(focal_models, maxiter=1), silent=T))
+    }
+    res=suppressWarnings(try(model_sur(focal_models, maxiter=1), silent=T))
     
     list(market_id=mid, results=res)
   })
@@ -303,8 +303,8 @@ length(bids)
   
   
   
-  results_salesresponse_max3_p10_cop_sur <- saveres
-  save(results_salesresponse_max3_p10_cop_sur, file = '../output/results_experimental.RData')
+  results_salesresponse_max3_p10_cop_sur_maxiter1 <- saveres
+  save(results_salesresponse_max3_p10_cop_sur_maxiter1, file = '../output/results_experimental2.RData')
  # save(elast_sum, file = '../output/results_salesresponse_sur_elast.RData')
   
  # remove elasticities w/ 0 elast? (probably not included variables...)
