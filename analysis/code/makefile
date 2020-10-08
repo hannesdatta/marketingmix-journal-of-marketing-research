@@ -7,13 +7,12 @@ OUTPUT_DIR = ../output
 
 
 ###### BUILD COMMANDS ######
-all: elast markdown
-onlysim: sim 
-elast: $(OUTPUT_DIR)/elasticities_marketshare.txt 
+all: marketshare 
+
 pre: $(TEMP_DIR)/preclean.txt
-results: $(OUTPUT_DIR)/results.RData
-sim: $(OUTPUT_DIR)/simulation.RData $(OUTPUT_DIR)/simulation.txt
-markdown: $(OUTPUT_DIR)/model_results.html
+
+marketshare: $(OUTPUT_DIR)/elasticities_marketshare.txt $(OUTPUT_DIR)/audit_marketshare.html
+
 
 ###### Build parts ######
 
