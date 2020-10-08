@@ -64,7 +64,7 @@ dir.create('../output')
 	
 ### Function to initialize all required functions (on a cluster)
 	init <- function() {
-		source('proc_analysis.R')
+		source('proc_analysis_marketshare.R')
 		library(marketingtools)
 		}
 	

@@ -38,7 +38,7 @@ model_configure <- function(id, withcontrols=T, controls_in_bounds = T, withattr
   
     controls_ardl = NULL}
   
-  m_ardlbounds <- analyze_brand(id, quarters=T, xs = vars, controls = controls_ardl, dat = dt,
+  m_ardlbounds <- analyze_ardlbounds(id, quarters=T, xs = vars, controls = controls_ardl, dat = dt,
                                 autocorrel_lags=autocorrel_lags, pval = pval)
   
   cat(paste0('\n\nOutput of the bounds procedure: ', m_ardlbounds))

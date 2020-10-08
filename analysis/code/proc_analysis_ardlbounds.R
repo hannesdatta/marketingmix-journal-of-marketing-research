@@ -2,10 +2,9 @@ library(urca)
 library(dynamac)
 require(stats4)
 
-analyze_brand <- function(bid, quarters=T, xs=c('lnrwpspr','lnllen','lnwpswdst'), 
+analyze_ardlbounds <- function(bid, quarters=T, xs=c('lnrwpspr','lnllen','lnwpswdst'), 
                           controls = NULL, dat,
                           autocorrel_lags= c(3,6,9,12,15,18,1), pval =.1) {
-  #dat=df[brand_id==bid]
   
   cat('==================================\n')
   cat('Running ARDL Bounds Procedure for:\n')
