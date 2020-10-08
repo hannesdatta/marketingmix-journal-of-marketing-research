@@ -9,7 +9,7 @@ OUTPUT_DIR = ../output
 ###### BUILD COMMANDS ######
 all: elast markdown
 onlysim: sim 
-elast: $(OUTPUT_DIR)/elasticities.txt 
+elast: $(OUTPUT_DIR)/elasticities_marketshare.txt 
 pre: $(TEMP_DIR)/preclean.txt
 results: $(OUTPUT_DIR)/results.RData
 sim: $(OUTPUT_DIR)/simulation.RData $(OUTPUT_DIR)/simulation.txt
@@ -17,25 +17,24 @@ markdown: $(OUTPUT_DIR)/model_results.html
 
 ###### Build parts ######
 
-# Pre-clean the data
-$(TEMP_DIR)/preclean.txt: preclean.R ../../derived/output/datasets.txt ../../derived/output/hdi.csv ../../derived/output/dev_indicators.csv ../../derived/output/gini.csv
+## DATA CLEANING
+
+### Pre-clean the data
+$(TEMP_DIR)/preclean.txt: preclean.R ../../derived/output/datasets.txt 
 	R --vanilla --args "" < "preclean.R"
 
-# Run the model
-$(OUTPUT_DIR)/results.RData: analysis.R $(TEMP_DIR)/preclean.txt preclean.R proc_analysis.R
-	R --vanilla --args "" < "analysis.R"
+## MODEL ESTIMATION
 
-# Run the simulation
-$(OUTPUT_DIR)/simulation.RData: simulation.R $(OUTPUT_DIR)/results.RData proc_simulate.R
-	R --vanilla --args "" < "simulation.R"
+### Market-share attraction model
 
-# Produce overall statistics on estimated models (e.g., elasticities, carry-over parameters, sign. of copula terms)
-$(OUTPUT_DIR)/elasticities.txt: extract_elast.R $(OUTPUT_DIR)/results.RData sbbe.R
-	R --vanilla --args "" < "extract_elast.R"
+#### Model estimation
+$(OUTPUT_DIR)/results_marketshare.RData: analysis_marketshare.R $(TEMP_DIR)/preclean.txt proc_analysis.R
+	R --vanilla --args "" < "analysis_marketshare.R"
 
-# Augment main results with simulations
-$(OUTPUT_DIR)/simulation.txt: extract_sim_elast.R $(OUTPUT_DIR)/results.RData
-	R --vanilla --args "" < "extract_sim_elast.R"
+#### Produce overall statistics on estimated models (e.g., elasticities, carry-over parameters, sign. of copula terms)
+$(OUTPUT_DIR)/elasticities_marketshare.txt: extract_elast_marketshare.R $(OUTPUT_DIR)/results_marketshare.RData sbbe.R
+	R --vanilla --args "" < "extract_elast_marketshare.R"
 
-$(OUTPUT_DIR)/model_results.html: $(OUTPUT_DIR)/results.RData model_results.Rmd
-	R -e "rmarkdown::render('model_results.Rmd', output_file = '../output/model_results.html')"
+#### Model diagnostics
+$(OUTPUT_DIR)/audit_marketshare.html: $(OUTPUT_DIR)/results_marketshare.RData audit_marketshare.Rmd
+	R -e "rmarkdown::render('audit_marketshare.Rmd', output_file = '../output/audit_marketshare.html')"
