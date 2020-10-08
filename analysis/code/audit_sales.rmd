@@ -8,7 +8,7 @@ knitr::opts_chunk$set(echo = TRUE)
 library(data.table)
 library(knitr)
 library(kableExtra)
-elast <- fread('../output/elasticities_revision_salesresponse_max3_p05_cop.csv')
+elast <- fread('../output/elast_results_salesresponse_max3_p10_cop_sur.csv')
 vars <- grep('elast.*[0-9]{1,2}$', colnames(elast), value=T)
 
 for (.v in vars) {

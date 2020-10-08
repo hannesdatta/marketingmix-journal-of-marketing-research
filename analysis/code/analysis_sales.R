@@ -127,10 +127,6 @@ init()
 # COMPLETE MODEL ESTIMATION      #
 ##################################
 
-bids <- unique(brand_panel$brand_id)
-length(bids)
-
-
 get_elasticities <- function(results_model) {
   
     estimated_markets <- rbindlist(lapply(results_model, function(x) x$paneldimension[,-c('date'),with=F][1]))
@@ -205,11 +201,8 @@ void<-clusterEvalQ(cl, init())
 init()
 
 
-bids <- unique(brand_panel$brand_id)[c(212:213,360:380)] #[1:400c(212:213,360:380)]#[1:255] # #[1:255]
+bids <- unique(brand_panel$brand_id)
 length(bids)
-
-#set.seed(1234)
-#bids = sample(bids, 80)
 
 results_salesresponse_max3_p10_cop = parLapplyLB(cl, bids, function(bid)
     try(model_configure(
