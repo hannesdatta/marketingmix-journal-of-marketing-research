@@ -96,6 +96,14 @@ for (fn in fns) {
   gci <- fread('../output/gci.csv')
   brand_panel=merge(brand_panel, gci[, c('country', grep('(p[0-9]|overall|sub).*[_]s$', colnames(gci), value=T)),with=F], by = c('country'),all.x=T)
   
+  ################
+  # NEAREST GINI #
+  ################
+  
+  # Load GCI infrastructure data
+  gini <- fread('../output/gini.csv')
+  brand_panel=merge(brand_panel, gini, by = c('country'),all.x=T)
+  
   # Load GDP
   #gdp <- fread('../temp/gdp.csv')
   #
