@@ -219,7 +219,8 @@ results_salesresponse_max3_p10_cop = parLapplyLB(cl, bids, function(bid)
     ),
     silent = T)
   )
-  
+save(results_salesresponse_max3_p10_cop, file = '../output/results_sales_notfinal.RData')
+
 results = get_elasticities(results_salesresponse_max3_p10_cop)
 
 results_salesresponse_max3_p10_cop_sur_full <- results
