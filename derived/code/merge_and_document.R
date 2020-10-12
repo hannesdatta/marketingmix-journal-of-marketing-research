@@ -86,7 +86,13 @@ for (fn in fns) {
   ###############
   
   tmp <- fread('../output/bav.csv')
+  .vars=grep('[_]R$',colnames(tmp),value=T)
+  tmp_means <- tmp[, lapply(.SD,mean,na.rm=T),by=c('country','brand'),
+                   .SDcols=.vars]
+  for (.var in .vars) setnames(tmp_means, .var, paste0('bav_',gsub('[_]R$|[_]','',tolower(.var),ignore.case=T)))
+  
   brand_panel <- merge(brand_panel, tmp,by=c('country', 'year', 'brand'), all.x=T)
+  brand_panel <- merge(brand_panel, tmp_means,by=c('country', 'brand'), all.x=T)
   
   ###############
   # GCI METRICS #
@@ -94,8 +100,8 @@ for (fn in fns) {
   
   # Load GCI infrastructure data
   gci <- fread('../output/gci.csv')
-  brand_panel=merge(brand_panel, gci[, c('country', grep('(p[0-9]|overall|sub).*[_]s$', colnames(gci), value=T)),with=F], by = c('country'),all.x=T)
-  
+  brand_panel=merge(brand_panel, gci[, c('country', grep('(p[0-9]|overall|sub|population).*[_]s$', colnames(gci), value=T)),with=F], by = c('country'),all.x=T)
+
   ################
   # NEAREST GINI #
   ################
@@ -117,6 +123,48 @@ for (fn in fns) {
   tmp <- fread('../../../../data/hofstede/hofstede_rule_of_law.csv')
   tmp[, country:=tolower(country)]
   brand_panel=merge(brand_panel, tmp, by = c('country'),all.x=T)
+  
+  
+  ######################
+  # COUNTRY REPUTATION #
+  ######################
+  
+  
+  # get reputation data
+  rep <- fread('../../../../data/reptrak/reputation.csv')
+  rep[, score2013:=as.numeric(gsub('[,]','.', rep2013))]
+  rep[, score2015:=as.numeric(gsub('[,]','.', rep2015))]
+  rep[!is.na(score2013)&!is.na(score2015), total_score:=(score2013+score2015)/2]
+  rep[is.na(score2013)&!is.na(score2015), total_score:=(score2015)]
+  
+  setkey(rep, country)
+  setkey(brand_panel, country_of_origin)
+  brand_panel[rep, repscore:=i.total_score]
+  
+  ####################
+  # INTERNAL METRICS #
+  ####################
+  
+  # brand novelty
+  novelvar = 'nov6sh'
+  brandnovel = brand_panel[, list(novelty=mean(get(novelvar))),by=c('category','country', 'brand')]
+  
+  # category novelty
+  catnovel = brand_panel[, list(novelty=mean(get(novelvar)),
+                             Nbrand=length(unique(brand)),
+                             sumnovelty=sum(get(novelvar))
+  ),by=c('category','country')]
+  
+  setkey(brandnovel, category,country,brand)
+  setkey(brand_panel, category,country,brand)
+  brand_panel[brandnovel, brandnovelty:=i.novelty]
+  
+  setkey(catnovel, category,country)
+  setkey(brand_panel, category,country)
+  brand_panel[catnovel, catnoveltybrand:=(i.sumnovelty-brandnovelty)/(i.Nbrand-1)]
+  brand_panel[catnovel, catnovelty:=(i.novelty)]
+  
+  ##### FINALIZE
   
   brand_panel[, brand_capitalized:=my_capitalize(brand)]
   setorder(brand_panel, market_id, brand, date)
