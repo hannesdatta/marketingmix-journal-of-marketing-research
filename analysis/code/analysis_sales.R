@@ -123,77 +123,7 @@ init()
 
   
   
-##################################
-# COMPLETE MODEL ESTIMATION      #
-##################################
 
-get_sur <- function(results_model) {
-  
-    estimated_markets <- rbindlist(lapply(results_model, function(x) x$paneldimension[,-c('date'),with=F][1]))
-    estimated_markets[, ordered:=1:.N,by=c('market_id')]
-    estimated_markets[, index:=1:.N]
-    
-    # ESTIMATE SUR
-    split_by_market = split(results_model, estimated_markets$market_id)
-    
-    cat(paste0('Estimating SUR for ', length(split_by_market), ' markets...\n'))
-    
-    sur_res = parLapplyLB(cl, split_by_market, function(focal_models) {
-      mid=focal_models[[1]]$paneldimension$market_id[1]
-      cat(mid,fill=T)
-      #if(0){
-      res=suppressWarnings(try(model_sur(focal_models), silent=T))
-      if(class(res)=='try-error') res=suppressWarnings(try(model_sur(focal_models, maxiter=1), silent=T))
-      #}
-      #res=suppressWarnings(try(model_sur(focal_models, maxiter=1), silent=T))
-      
-      list(market_id=mid, results=res)
-    })
-    # verify errors in SUR estimation
-    cat('Reporting on errors in SUR estimation...\n')
-    sur_errs <- which(unlist(lapply(sur_res, function(x) class(x$results)))=='try-error')
-    print(sur_errs)
-    
-    
-    
-    # WRITE RESULTS OF SUR TO MAIN RESULT SET
-    for (i in seq(along=sur_res)) {
-      mid = unlist(lapply(sur_res, function(x) x$market_id))[i]
-      for (j in estimated_markets[market_id==mid]$ordered) {
-        ck=try(sur_res[[i]]$results$coefs[[j]],silent=T)
-        if (class(ck)!='try-error') {
-          results_model[[estimated_markets[market_id==mid]$index[j]]]$sur <- list(coefs=sur_res[[i]]$results$coefs[[j]],
-                                                                                  varcovar=sur_res[[i]]$results$varcovar[[j]])
-        }
-      }
-    }
-    
-    
-    return(results_model)
-}
-
-get_simulation <- function(results_model) {
-      # EXECUTE SIMULATIONS
-      cat('Start the simulations...\n')
-      
-      sims = parLapplyLB(cl, results_model, function(focal_model) {
-        if (is.null(focal_model$sur)) return(NULL)
-        try(model_simulate(focal_model),
-        silent = T)
-      }
-      )
-      
-      # write sims to final final
-      for (i in seq(along=sims)) {
-        results_model[[i]]$elasticities <- sims[[i]]$elasticities
-      }
-    
-    cat('Done.\n')
-    return(results_model)
-    }
-
-
-  
 ##########################
 ### CLUSTER ESTIMATION ###
 ##########################
@@ -216,7 +146,7 @@ length(bids)
 
 # estimate
 
-results_brands = parLapplyLB(cl, bids, function(bid)
+results_model = parLapplyLB(cl, bids, function(bid)
     try(model_configure(
       bid,
       withcontrols = T,
@@ -232,22 +162,70 @@ results_brands = parLapplyLB(cl, bids, function(bid)
     silent = T)
   )
 
-results_brands <- get_sur(results_brands)
 
-results_brands <- get_simulation(results_brands)
+estimated_markets <- rbindlist(lapply(results_model, function(x) x$paneldimension[,-c('date'),with=F][1]))
+estimated_markets[, ordered:=1:.N,by=c('market_id')]
+estimated_markets[, index:=1:.N]
+
+# ESTIMATE SUR
+split_by_market = split(results_model, estimated_markets$market_id)
+
+cat(paste0('Estimating SUR for ', length(split_by_market), ' markets...\n'))
+
+sur_res = parLapplyLB(cl, split_by_market, function(focal_models) {
+  mid=focal_models[[1]]$paneldimension$market_id[1]
+  cat(mid,fill=T)
+  #if(0){
+  res=suppressWarnings(try(model_sur(focal_models), silent=T))
+  if(class(res)=='try-error') res=suppressWarnings(try(model_sur(focal_models, maxiter=1), silent=T))
+  #}
+  #res=suppressWarnings(try(model_sur(focal_models, maxiter=1), silent=T))
+  
+  list(market_id=mid, results=res)
+})
+# verify errors in SUR estimation
+cat('Reporting on errors in SUR estimation...\n')
+sur_errs <- which(unlist(lapply(sur_res, function(x) class(x$results)))=='try-error')
+print(sur_errs)
 
 
-#results_salesresponse_max3_p10_cop_sur_full <- results_brands
+
+# WRITE RESULTS OF SUR TO MAIN RESULT SET
+for (i in seq(along=sur_res)) {
+  mid = unlist(lapply(sur_res, function(x) x$market_id))[i]
+  for (j in estimated_markets[market_id==mid]$ordered) {
+    ck=try(sur_res[[i]]$results$coefs[[j]],silent=T)
+    if (class(ck)!='try-error') {
+      results_model[[estimated_markets[market_id==mid]$index[j]]]$sur <- list(coefs=sur_res[[i]]$results$coefs[[j]],
+                                                                              varcovar=sur_res[[i]]$results$varcovar[[j]])
+    }
+  }
+}
+
+# calculate elasticities
+cat('Start the simulations...\n')
+sims = parLapplyLB(cl, results_model, function(focal_model) {
+  if (is.null(focal_model$sur)) return(NULL)
+  try(model_simulate(focal_model), silent = T)
+})
+
+# write sims to final final
+for (i in seq(along=sims)) {
+  results_model[[i]]$elasticities <- sims[[i]]$elasticities
+}
+
+
 
 #save(results_salesresponse_max3_p10_cop_sur, file = '../output/results_sales.RData')
 
 #elast_sum = rbindlist(lapply(results_brands,function(x) x$elasticities))
 #summary(elast_sum)
 
-results_salesresponse_max3_p10_cop_sur <- lapply(results_brands, function(x) {x$dt=NULL;x$model_matrix=NULL;return(x)})
+results_salesresponse_max3_p10_cop_sur <- lapply(results_model, function(x) {x$dt=NULL;x$model_matrix=NULL;return(x)})
   
+results_salesresponse_max3_p10_cop_sur_full <- results_model
 
 
 save(results_salesresponse_max3_p10_cop_sur, file = '../output/results_sales.RData')
 
-#save(results_salesresponse_max3_p10_cop_sur_full, file = '../output/results_sales_full.RData')
+save(results_salesresponse_max3_p10_cop_sur_full, file = '../output/results_sales_full.RData')
