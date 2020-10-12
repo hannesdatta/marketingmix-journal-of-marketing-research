@@ -127,7 +127,7 @@ init()
 # COMPLETE MODEL ESTIMATION      #
 ##################################
 
-get_elasticities <- function(results_model) {
+get_elasticities <- function(results_model, simulate = T) {
   
     estimated_markets <- rbindlist(lapply(results_model, function(x) x$paneldimension[,-c('date'),with=F][1]))
     estimated_markets[, ordered:=1:.N,by=c('market_id')]
@@ -136,10 +136,11 @@ get_elasticities <- function(results_model) {
     # ESTIMATE SUR
     split_by_market = split(results_model, estimated_markets$market_id)
     
-    cat('Estimating SUR...\n')
+    cat(paste0('Estimating SUR for ', length(split_by_market), ' markets...\n'))
+    
     sur_res = parLapplyLB(cl, split_by_market, function(focal_models) {
       mid=focal_models[[1]]$paneldimension$market_id[1]
-      
+      cat(mid,fill=T)
       #if(0){
       res=suppressWarnings(try(model_sur(focal_models), silent=T))
       if(class(res)=='try-error') res=suppressWarnings(try(model_sur(focal_models, maxiter=1), silent=T))
@@ -166,19 +167,21 @@ get_elasticities <- function(results_model) {
       }
     }
     
-    # EXECUTE SIMULATIONS
-    cat('Start the simulations...\n')
-    
-    sims = parLapplyLB(cl, results_model, function(focal_model) {
-      if (is.null(focal_model$sur)) return(NULL)
-      try(model_simulate(focal_model),
-      silent = T)
-    }
-    )
-    
-    # write sims to final final
-    for (i in seq(along=sims)) {
-      results_model[[i]]$elasticities <- sims[[i]]$elasticities
+    if (simulate==T) {
+      # EXECUTE SIMULATIONS
+      cat('Start the simulations...\n')
+      
+      sims = parLapplyLB(cl, results_model, function(focal_model) {
+        if (is.null(focal_model$sur)) return(NULL)
+        try(model_simulate(focal_model),
+        silent = T)
+      }
+      )
+      
+      # write sims to final final
+      for (i in seq(along=sims)) {
+        results_model[[i]]$elasticities <- sims[[i]]$elasticities
+      }
     }
     cat('Done.\n')
     return(results_model)
@@ -219,9 +222,15 @@ results_salesresponse_max3_p10_cop = parLapplyLB(cl, bids, function(bid)
     ),
     silent = T)
   )
-save(results_salesresponse_max3_p10_cop, file = '../output/results_sales_notfinal.RData')
+#save(results_salesresponse_max3_p10_cop, file = '../output/results_sales_notfinal.RData')
 
-results = get_elasticities(results_salesresponse_max3_p10_cop)
+load('../output/results_sales_notfinal.RData')
+
+table(unlist(lapply(results_salesresponse_max3_p10_cop, class)))
+
+
+results2 = get_elasticities(results_salesresponse_max3_p10_cop, simulate = F)
+
 
 results_salesresponse_max3_p10_cop_sur_full <- results
 
