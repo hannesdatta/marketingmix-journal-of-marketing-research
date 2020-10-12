@@ -127,7 +127,7 @@ init()
 # COMPLETE MODEL ESTIMATION      #
 ##################################
 
-get_elasticities <- function(results_model, simulate = T) {
+get_sur <- function(results_model) {
   
     estimated_markets <- rbindlist(lapply(results_model, function(x) x$paneldimension[,-c('date'),with=F][1]))
     estimated_markets[, ordered:=1:.N,by=c('market_id')]
@@ -149,25 +149,30 @@ get_elasticities <- function(results_model, simulate = T) {
       
       list(market_id=mid, results=res)
     })
-   
     # verify errors in SUR estimation
     cat('Reporting on errors in SUR estimation...\n')
     sur_errs <- which(unlist(lapply(sur_res, function(x) class(x$results)))=='try-error')
     print(sur_errs)
     
-   # WRITE RESULTS OF SUR TO MAIN RESULT SET
+    
+    
+    # WRITE RESULTS OF SUR TO MAIN RESULT SET
     for (i in seq(along=sur_res)) {
       mid = unlist(lapply(sur_res, function(x) x$market_id))[i]
       for (j in estimated_markets[market_id==mid]$ordered) {
         ck=try(sur_res[[i]]$results$coefs[[j]],silent=T)
         if (class(ck)!='try-error') {
           results_model[[estimated_markets[market_id==mid]$index[j]]]$sur <- list(coefs=sur_res[[i]]$results$coefs[[j]],
-                                                                                               varcovar=sur_res[[i]]$results$varcovar[[j]])
+                                                                                  varcovar=sur_res[[i]]$results$varcovar[[j]])
         }
       }
     }
     
-    if (simulate==T) {
+    
+    return(results_model)
+}
+
+get_simulation <- function(results_model) {
       # EXECUTE SIMULATIONS
       cat('Start the simulations...\n')
       
@@ -182,11 +187,12 @@ get_elasticities <- function(results_model, simulate = T) {
       for (i in seq(along=sims)) {
         results_model[[i]]$elasticities <- sims[[i]]$elasticities
       }
-    }
+    
     cat('Done.\n')
     return(results_model)
-  }
-  
+    }
+
+
   
 ##########################
 ### CLUSTER ESTIMATION ###
@@ -204,10 +210,13 @@ void<-clusterEvalQ(cl, init())
 init()
 
 
-bids <- unique(brand_panel$brand_id)
+bids <- unique(brand_panel$brand_id) #[1:50]
 length(bids)
 
-results_salesresponse_max3_p10_cop = parLapplyLB(cl, bids, function(bid)
+
+# estimate
+
+results_brands = parLapplyLB(cl, bids, function(bid)
     try(model_configure(
       bid,
       withcontrols = T,
@@ -222,25 +231,23 @@ results_salesresponse_max3_p10_cop = parLapplyLB(cl, bids, function(bid)
     ),
     silent = T)
   )
-#save(results_salesresponse_max3_p10_cop, file = '../output/results_sales_notfinal.RData')
 
-load('../output/results_sales_notfinal.RData')
+results_brands <- get_sur(results_brands)
 
-table(unlist(lapply(results_salesresponse_max3_p10_cop, class)))
-
-
-results2 = get_elasticities(results_salesresponse_max3_p10_cop, simulate = F)
+results_brands <- get_simulation(results_brands)
 
 
-results_salesresponse_max3_p10_cop_sur_full <- results
+#results_salesresponse_max3_p10_cop_sur_full <- results_brands
 
 #save(results_salesresponse_max3_p10_cop_sur, file = '../output/results_sales.RData')
 
-#elast_sum = rbindlist(lapply(results,function(x) x$elasticities))
+#elast_sum = rbindlist(lapply(results_brands,function(x) x$elasticities))
 #summary(elast_sum)
 
-results_salesresponse_max3_p10_cop_sur <- lapply(results, function(x) {x$dt=NULL;x$model_matrix=NULL;return(x)})
+results_salesresponse_max3_p10_cop_sur <- lapply(results_brands, function(x) {x$dt=NULL;x$model_matrix=NULL;return(x)})
   
+
+
 save(results_salesresponse_max3_p10_cop_sur, file = '../output/results_sales.RData')
 
-save(results_salesresponse_max3_p10_cop_sur_full, file = '../output/results_sales_full.RData')
+#save(results_salesresponse_max3_p10_cop_sur_full, file = '../output/results_sales_full.RData')
