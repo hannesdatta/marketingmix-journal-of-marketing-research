@@ -2,6 +2,7 @@
 library(lme4)
 library(bit64)
 library(data.table)
+library(stargazer)
 
 brand_panel=fread('../../analysis/temp/preclean_main.csv')
 brand_panel[, ':=' (date = as.Date(date))]
@@ -26,7 +27,7 @@ source('proc_rename.R')
   elast_sales <- copy(elast)
   
 # 2
-#  if(0){
+  if(0){
   elast <- fread('../externals/elast_results_main.csv') 
   for (.var in c('elast', 'elastlt')) {
       eval(parse(text=paste0("elast[!is.na(get(.var)), paste0('w_', .var) := 1/get(paste0(.var, '_se'))]")))
@@ -37,17 +38,17 @@ source('proc_rename.R')
   
   grepfilter = 'market[_]id|^brand$|varname|variable|^elast|^w[_]elast|^category$|^country$'
   elast <- elast[, grep(grepfilter,colnames(elast),value=T),with=F]
-#  }
   
   elast_combin = merge(elast_sales, elast, by = c('category','country','brand', 'variable'),all.x=T)
   
   with(elast_combin, cor(elast6, elastlt.y,use='pairwise'))
   with(elast_combin, cor(elast6*(1/elast6_sd), `elastlt.y`/(1/`elastlt_se.y`),use='pairwise'))
   
+  }
   
   
 # load SBBE
-  sbbe <- fread('../externals/elast_results_main.csv')
+  sbbe <- fread('../externals/elast_results_marketshare.csv')
   setkey(sbbe, category,country,brand)
   elast[, lower_brand:=tolower(brand)]
   setkey(elast, category,country,lower_brand)
@@ -77,7 +78,7 @@ lmerctrl = lmerControl(optimizer ="Nelder_Mead", check.conv.singular="ignore")
 
 
 
-if(0){
+
 ###### AOV #####
 library(sjstats)
 vars=unique(elast$variable)
@@ -115,12 +116,11 @@ for (i in vars) {
   print(tmp)      
   #print(dcast(etasq[!term=='Residuals'], model~term, value.var='etasq'))
   
-}
+
 
 
 
 ###### AOV2 #####
-if(0) {
 library(sjstats)
 vars=unique(elast$variable)
 elast[, brand_country:=as.character(.GRP), by = c('country','brand')]
@@ -153,7 +153,7 @@ for (i in vars) {
   }
 
 }
-}
+
 
 
 
@@ -290,13 +290,16 @@ obs = c('Observations',obss)
 stargazer(do.call('c', mods),type='html', 
           column.labels = rep(c('price','line length','distribution'), length(model)), 
           out = fn, add.lines = list(r2s,obs))
+return(mods)
 }
 
+
+if(0) {
 newmod(country_factors, fn = '../temp/without-re.html')
 
 newmod(country_factors2, fn = '../temp/with-re.html')
 
-
+}
 
 
 main_mod = list(m1 = . ~ 1 + (1|country) + (1|category) + (1|brand) + 
@@ -384,152 +387,142 @@ newmod(lapply(int4, update.formula, .~  (1|country) + (1|category) + (1|brand) +
 
 
 
+#########################################################
+# Narrowing down after meeting with Marnik, 12 Oct 2020 #
+#########################################################
+
+secondstage <- list(m1 = . ~ 1 + (1|country) + (1|category) + (1|brand) + 
+                    sbbe_round1_mc + local_to_market_mc + ln_brandnovelty_mc+
+                    ln_gdppercapita2010_mc + ln_ginicoef_mc + 
+                    tradrat_mc + survself_mc +
+                    ln_gci_p01_institutions_s_mc + ruleoflaw_mc +
+                    
+                  ln_market_herf_mc + ln_market_growth_mc + ln_catnovelty_mc,
+                  m2 = . ~ 1 + (1|country) + (1|category) + (1|brand) + 
+                    sbbe_round1_mc + local_to_market_mc + ln_brandnovelty_mc+
+                    ln_gdppercapita2010_mc + ln_ginicoef_mc + 
+                    tradrat_mc + survself_mc +
+                    ln_gci_p01_institutions_s_mc + ruleoflaw_mc +
+                    
+                    ln_market_herf_mc*sbbe_round1_mc + ln_market_herf_mc*local_to_market_mc + ln_market_herf_mc*ln_brandnovelty_mc+
+                    ln_market_growth_mc*sbbe_round1_mc + ln_market_growth_mc*local_to_market_mc + ln_market_growth_mc*ln_brandnovelty_mc+
+                    ln_catnovelty_mc*sbbe_round1_mc + ln_catnovelty_mc*local_to_market_mc + ln_catnovelty_mc*ln_brandnovelty_mc,
+                  m3 = . ~ 1 + (1|country) + (1|category) + (1|brand) + 
+                    sbbe_round1_mc + local_to_market_mc + ln_brandnovelty_mc+
+                    ln_gdppercapita2010_mc + ln_ginicoef_mc + 
+                    tradrat_mc + survself_mc +
+                    ln_gci_p01_institutions_s_mc + ruleoflaw_mc +
+                    ln_market_herf_mc + ln_market_growth_mc + ln_catnovelty_mc +
+                    
+                    ln_gdppercapita2010_mc*sbbe_round1_mc + ln_gdppercapita2010_mc*local_to_market_mc + ln_gdppercapita2010_mc*ln_brandnovelty_mc+
+                    ln_ginicoef_mc*sbbe_round1_mc + ln_ginicoef_mc*local_to_market_mc + ln_ginicoef_mc*ln_brandnovelty_mc,
+                  m4 = . ~ 1 + (1|country) + (1|category) + (1|brand) + 
+                    sbbe_round1_mc + local_to_market_mc + ln_brandnovelty_mc+
+                    ln_gdppercapita2010_mc + ln_ginicoef_mc + 
+                    tradrat_mc + survself_mc +
+                    ln_gci_p01_institutions_s_mc + ruleoflaw_mc +
+                    ln_market_herf_mc + ln_market_growth_mc + ln_catnovelty_mc +
+                    
+                    tradrat_mc*sbbe_round1_mc + tradrat_mc*local_to_market_mc + tradrat_mc*ln_brandnovelty_mc+
+                    survself_mc*sbbe_round1_mc + survself_mc*local_to_market_mc + survself_mc*ln_brandnovelty_mc,
+                  m5 = . ~ 1 + (1|country) + (1|category) + (1|brand) + 
+                    sbbe_round1_mc + local_to_market_mc + ln_brandnovelty_mc+
+                    ln_gdppercapita2010_mc + ln_ginicoef_mc + 
+                    tradrat_mc + survself_mc +
+                    ln_gci_p01_institutions_s_mc + ruleoflaw_mc +
+                    ln_market_herf_mc + ln_market_growth_mc + ln_catnovelty_mc +
+                    
+                    ln_gci_p01_institutions_s_mc*sbbe_round1_mc + ln_gci_p01_institutions_s_mc*local_to_market_mc + ln_gci_p01_institutions_s_mc*ln_brandnovelty_mc+
+                    ruleoflaw_mc*sbbe_round1_mc + ruleoflaw_mc*local_to_market_mc + ruleoflaw_mc*ln_brandnovelty_mc,
+                  m6 = . ~ 1 + (1|country) + (1|category) + (1|brand) + 
+                    sbbe_round1_mc + local_to_market_mc + ln_brandnovelty_mc+
+                    ln_gdppercapita2010_mc + ln_ginicoef_mc + 
+                    tradrat_mc + survself_mc +
+                    ln_gci_p01_institutions_s_mc + ruleoflaw_mc +
+                    ln_market_herf_mc + ln_market_growth_mc + ln_catnovelty_mc +
+                    
+                    ln_gdppercapita2010_mc*sbbe_round1_mc + ln_gdppercapita2010_mc*local_to_market_mc + ln_gdppercapita2010_mc*ln_brandnovelty_mc+
+                    ln_ginicoef_mc*sbbe_round1_mc + ln_ginicoef_mc*local_to_market_mc + ln_ginicoef_mc*ln_brandnovelty_mc+
+                  tradrat_mc*sbbe_round1_mc + tradrat_mc*local_to_market_mc + tradrat_mc*ln_brandnovelty_mc+
+                    survself_mc*sbbe_round1_mc + survself_mc*local_to_market_mc + survself_mc*ln_brandnovelty_mc+
+                  ln_gci_p01_institutions_s_mc*sbbe_round1_mc + ln_gci_p01_institutions_s_mc*local_to_market_mc + ln_gci_p01_institutions_s_mc*ln_brandnovelty_mc+
+                    ruleoflaw_mc*sbbe_round1_mc + ruleoflaw_mc*local_to_market_mc + ruleoflaw_mc*ln_brandnovelty_mc
+                  
+                  
+                  ) # + as.factor(dekimpe_classification))
+
+models<-newmod(secondstage, fn = '../temp/explore-blockinteractions.html')
+
+names(models) <- names(secondstage)
+
+# collect interaction terms
+
+interacts=rbindlist(lapply(c('m2','m3','m4','m5','m6'), function(x) rbindlist(lapply(1:3, function(i) data.table(modeltype=x, var_index=i, varname=rownames(summary(models[[x]][[i]])$coefficients), summary(models[[x]][[i]])$coefficients)))))
+interacts[, variable:=c('pr','llen','dst')[var_index]]
+
+interacts <- interacts[grepl('[:]',varname)]
 
 
-
-newmod(country_factors_int1,
-       fn = '../temp/explore-interactions_country_culture_nore.html')
-newmod(country_factors_int2,
-       fn = '../temp/explore-interactions_country_economic_nore.html')
-
-newmod(country_factors_int3,
-       fn = '../temp/explore-interactions_country_regulative_nore.html')
-
-newmod(int4,
-       fn = '../temp/explore-interactions_categories_nore.html')
+maineffects = . ~ 1 + (1|country) + (1|category) + (1|brand) + 
+  sbbe_round1_mc + local_to_market_mc + ln_brandnovelty_mc+
+  ln_gdppercapita2010_mc + ln_ginicoef_mc + 
+  tradrat_mc + survself_mc +
+  ln_gci_p01_institutions_s_mc + ruleoflaw_mc +
+  ln_market_herf_mc + ln_market_growth_mc + ln_catnovelty_mc
 
 
+get_formulas <- function(sel) {
+ forms= lapply(c('pr','llen','dst'), function(x) {
+    effects=sel[variable==x]
+    if (nrow(effects)>0) return(update.formula(maineffects, formula(paste0('.~.+', paste0(effects$varname,collapse='+')))))
+    return(maineffects)
+  
+ })
+ names(forms) <- c('pr','llen','dst')
+ forms
+ }
 
 
-library(stargazer)
+all_mods <- function(models) {
+  lapply(models, function(forms) {
+    list(m1 = lmer(update.formula(elastlt~1, forms$pr),
+                      data=elast[grep('pr',variable)], weights=w_elastlt,
+                      control = lmerctrl, REML=F),
+            m2 = lmer(update.formula(elastlt~1, forms$llen),
+                      data=elast[grep('llen',variable)], weights=w_elastlt,
+                      control = lmerctrl, REML=F),
+            m3 = lmer(update.formula(elastlt~1, forms$dst),
+                      data=elast[grep('dst',variable)], weights=w_elastlt,
+                      control = lmerctrl, REML=F))
+  })
+}
+# estimate models
+newmodV2 <- function(model, fn) {
+  
+  mods = all_mods(model)
+  rsqs=unlist(lapply(mods, function(x) lapply(x, rsq)))
+  obss = unlist(lapply(mods, function(x) lapply(x, function(i) length(which(!is.na(residuals(i)))))))
+  
+  r2s = c('R-squared', sub('^(-)?0[.]', '\\1.', formatC(rsqs, digits=3, format='f', flag='#')))
+  obs = c('Observations',obss)
+  
+  stargazer(do.call('c', mods),type='html', 
+            column.labels = rep(c('price','line length','distribution'), length(model)), 
+            out = fn, add.lines = list(r2s,obs))
+  return(mods)
+}
 
-# development indicators
-regs_unlisted = do.call('c', process_regs(country_factors))
-lbls=rep(vars, each=length(regs_unlisted)/length(vars))
+forms = get_formulas(interacts[modeltype%in%c('m2', 'm3','m4','m5')&abs(`t value`>=1)])
+forms2 = get_formulas(interacts[modeltype%in%c('m2', 'm6')&abs(`t value`>=1)])
 
-stargazer(regs_unlisted,type='html', column.labels=lbls, out = '../temp/explore-country.html')
+forms3 = get_formulas(interacts[modeltype%in%c('m2', 'm3','m4','m5')&abs(`t value`>=1.644854)])
+forms4 = get_formulas(interacts[modeltype%in%c('m2', 'm6')&abs(`t value`>=1.644854)])
 
-                     #    rand: price positioning, size, brand equity, country of origin
-
-
-formula = list(m1 = . ~ 1 + (1|country) + (1|category) + (1|brand) + 
-                 ln_gdppercap2010_mc + ln_gini_mc + sbbe_round1_mc + local_to_market + ln_brnovelty +
-                 ln_market_herf_mc + ln_market_growth_mc)# + as.factor(dekimpe_classification))
-formulasingle <- list(formula$m1, m2=update(formula$m1, .~.+as.factor(dekimpe_classification)))
-
-
-formula$m2 <- update(formula$m1, .~.+log(gci_p01_institutions_s))
-formula$m3 <- update(formula$m1, .~.+log(gci_p02_infrastructure_s))
-formula$m3b <- update(formula$m1, .~.+log(gci_p06_goods_s))
-formula$m4 <- update(formula$m1, .~.+log(gci_p09_tech_s))
-formula$m6 <- update(formula$m1, .~.+log(ruleoflaw))
-formula$m7 <- update(formula$m1, .~.+log(secularity))
-formula$m8 <- update(formula$m1, .~.+log(emancipation))
-formula$m9 <- update(formula$m1, .~.+log(repscore))
-
-####### TESTING BRAND AND CATEGORY FACTORS
-
-formula_brand = list(m1=formula$m1)
-
-formula_brand$m1b <- update(formula$m1, .~.+log(brandstrength)-sbbe_round1_mc)
-formula_brand$m1c <- update(formula$m1, .~.+brandz-sbbe_round1_mc)
-
-formula_brand$m2 <- update(formula$m1, .~.+ln_brand_prindex_mean_mc)
-formula_brand$m2b <- update(formula$m1, .~.+`brand_from_jp-us-ch-ge-sw`)
-
-formula_brand$m3 <- update(formula$m1, .~.+log(catvolatility_sd))
-formula_brand$m3b <- update(formula$m1, .~.+ln_catnovelty)
-
-###### TESTING DIFFERENT DEVELOPMENT INDICATORS
+mods=newmodV2(list(forms,forms2, forms3, forms4), '../temp/explore-keep-significant-effects.html')
 
 
-formula2 <- list(m1=formula$m1)
-formula2$m1b <- update(formula$m1, .~.+ln_hdi2010_mc-ln_gdppercap2010_mc)
-formula2$m1c <- update(formula$m1, .~.+log(gci_overall_s)-ln_gdppercap2010_mc)
-formula2$m1d <- update(formula$m1, .~.+emerging-ln_gdppercap2010_mc)
+#stargazer(mods, type = 'text', column.labels=rep(c('price','line length','distribution'), length(mods)),
+ #         object.names=T, out = '../temp/test.html')
 
-
-formula3 = list(m1 = . ~ 1 + (1|country) + (1|category) + (1|brand) + 
-                  ln_gdppercap2010_mc + ln_gini_mc + sbbe_round1_mc + ln_brnovelty  + local_to_market+
-                  ln_market_herf_mc + ln_market_growth_mc + appliance,
-                m2 = . ~ 1 + (1|country) + (1|category) + (1|brand) + 
-                  ln_gdppercap2010_mc + ln_gini_mc + sbbe_round1_mc*ln_gdppercap2010_mc + ln_brnovelty*ln_gdppercap2010_mc  + local_to_market*ln_gdppercap2010_mc+
-                  ln_market_herf_mc*ln_gdppercap2010_mc + ln_market_growth_mc*ln_gdppercap2010_mc + appliance*ln_gdppercap2010_mc+
-                  sbbe_round1_mc*ln_gini_mc + ln_brnovelty*ln_gini_mc  + local_to_market*ln_gini_mc+
-                  ln_market_herf_mc*ln_gini_mc + ln_market_growth_mc*ln_gini_mc + appliance*ln_gini_mc,
-                m3 = . ~ 1 + (1|country) + (1|category) + (1|brand) + 
-                  ln_gdppercap2010_mc*sbbe_round1_mc + ln_gini_mc*sbbe_round1_mc + local_to_market*sbbe_round1_mc+
-                  ln_market_herf_mc*sbbe_round1_mc + ln_market_growth_mc*sbbe_round1_mc + appliance*sbbe_round1_mc+
-                  ln_gdppercap2010_mc*ln_brnovelty + ln_gini_mc*ln_brnovelty + sbbe_round1_mc*ln_brnovelty+ local_to_market*ln_brnovelty+
-                  ln_market_herf_mc*ln_brnovelty + ln_market_growth_mc*ln_brnovelty + appliance*ln_brnovelty)
-
-#formula = list(m4 = . ~ 1 + emerging + sbbe_round1 + ln_market_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market)
-vars= unique(c('rwpspr','wpswdst','llen'))
-
-process_regs <- function(formula) {
-  regs <- lapply(vars, function(varname) {
-    fit=NULL
-    lt = try(lapply(formula, function(form) lmer(update(form, elastlt ~ .),  control = lmerctrl, 
-                                             REML = F, data = data.table(elast[variable==varname&!is.na(elastlt)]),
-                                             weights=w_elastlt)),silent=T)
-    lt = try(lapply(formula, function(form) lm(update(form, elastlt ~ .), data = data.table(elast[variable==varname&!is.na(elastlt)]),
-                                                 weights=w_elastlt)),silent=T)
-    
-    return(lt)
-  })}
-
-#m<-lm(update(formula_basic[[1]], elastlt ~ .), data = elast[variable==vars[1]&!is.na(elastlt)], weights=w_elastlt)
-#vif(m)
-
-#out1=regmodel(formula=formula, dat=elast, model='lmer')
-
-
-#cat("<P style='page-break-before: always'>")
-
-#printout(out1, 'lt', title = tab(paste0('Regression with long-term elasticities'), prefix=''), vars=ordered_vars,  notes=notes_base, covariate_choices = covars)
-
-
-
-
-library(stargazer)
-
-# development indicators
-regs_unlisted = do.call('c', process_regs(list(formula$m1)))
-lbls=rep(vars, each=length(regs_unlisted)/length(vars))
-
-stargazer(regs_unlisted,type='html', column.labels=lbls, out = 'explore-singleresults.html')
-
-# development indicators
-regs_unlisted = do.call('c', process_regs(formulasingle))
-lbls=rep(vars, each=length(regs_unlisted)/length(vars))
-
-stargazer(regs_unlisted,type='html', column.labels=lbls, out = 'explore-singleresults_URclassific.html')
-
-
-
-
-# by variable: all
-regs_unlisted = do.call('c', process_regs(formula))
-lbls=rep(vars, each=length(regs_unlisted)/length(vars))
-
-stargazer(regs_unlisted,type='html', column.labels=lbls, out = 'explore-countryfactors.html')
-
-
-# by variable: all
-regs_unlisted = do.call('c', process_regs(formula_brand))
-lbls=rep(vars, each=length(regs_unlisted)/length(vars))
-
-stargazer(regs_unlisted,type='html', column.labels=lbls, out = 'explore-categorybrandfactors.html')
-
-# development indicators
-regs_unlisted = do.call('c', process_regs(formula2))
-lbls=rep(vars, each=length(regs_unlisted)/length(vars))
-
-stargazer(regs_unlisted,type='html', column.labels=lbls, out = 'explore-devindicators.html')
-
-#regs_unlisted = do.call('c', process_regs(formula3))
-#lbls=rep(vars, each=length(regs_unlisted)/length(vars))#
-#
-#stargazer(regs_unlisted,type='html', column.labels=lbls, out = 'output-interactions.html')
 
 
