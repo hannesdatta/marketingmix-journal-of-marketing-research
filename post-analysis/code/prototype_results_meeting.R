@@ -46,7 +46,7 @@ source('proc_rename.R')
   
   }
   
-  
+
 # load SBBE
   sbbe <- fread('../externals/elast_results_marketshare.csv')
   setkey(sbbe, category,country,brand)
@@ -61,6 +61,7 @@ fns <- list.files('../output/',pattern='covariates.*csv', full.names = T)
 for (fn in fns) {
   tmp <- fread(fn)
   aggkey = unlist(strsplit(gsub('[.]csv', '', rev(strsplit(fn,'_')[[1]])[1]), '[-]'))
+  
   setkeyv(tmp, aggkey)
   setkeyv(elast, aggkey)
   elast <- merge(elast, tmp, all.x=T, all.y=F)
@@ -71,96 +72,29 @@ for (fn in fns) {
   }
 }
 
-
-
-
-lmerctrl = lmerControl(optimizer ="Nelder_Mead", check.conv.singular="ignore")
-
-
-
-if(0) {
-  
-###### AOV #####
-library(sjstats)
-vars=unique(elast$variable)
-
-for (i in vars) {
-  cat('========================\n')
-  cat(i,fill=T)
-  cat('========================\n\n')
-  
-  m0_1<-aov(elastlt~brand, data=elast, subset=variable==i, weights=1/elastlt_se)
-  m0_2<-aov(elastlt~country, data=elast, subset=variable==i, weights=1/elastlt_se)
-  m0_3<-aov(elastlt~category, data=elast, subset=variable==i, weights=1/elastlt_se)
-  m0_4<-aov(elastlt~(brand*country)-brand-country, data=elast, subset=variable==i, weights=1/elastlt_se)
-  m0_5<-aov(elastlt~(brand*category)-brand-category, data=elast, subset=variable==i, weights=1/elastlt_se)
-  m0_6<-aov(elastlt~(country*category)-country-category, data=elast, subset=variable==i, weights=1/elastlt_se)
-  #m<-aov(elastlt~brand+country+category, data=elast, subset=variable==i, weights=1/elastlt_se)
-  m1<-aov(elastlt~brand+country+category, data=elast, subset=variable==i, weights=1/elastlt_se)
-  m3<-aov(elastlt~brand*country + brand*category + category*country, data=elast, subset=variable==i, weights=1/elastlt_se)
-  
-  mlist = list(m0_1,m0_2, m0_3, m0_4, m0_5, m0_6, m1, m3)
-  etasq=rbindlist(lapply(seq(along=mlist), function(x) data.table(i=x, anova_stats(mlist[[x]]))))
-  etasq[i%in%1:6, model:='m0']
-  
-  etasq[i%in%7, model:='m1']
-  etasq[i%in%8, model:='m2']
-  
-  
-  cat('\n\nPercent explained\n')
-  tmp = (dcast(etasq[!term=='Residuals'], model~term, value.var='etasq'))
-  
-  setnames(tmp, gsub('[:]', ' x ', colnames(tmp)))
-  setcolorder(tmp, c('model','brand','category','country','brand x category','brand x country','country x category'))
-  
-  print(tmp)      
-  #print(dcast(etasq[!term=='Residuals'], model~term, value.var='etasq'))
-  
-}
-
-################################
-# TESTING ALL OF OUR VARIABLES #
-################################
-
-## Country factors
-
-country_factors = list(country_cult1 = . ~ tradrat_mc + survself_mc,
-                       country_cult2 = . ~ ln_pdi_mc + ln_idv_mc + ln_mas_mc + ln_uai_mc + ln_ltowvs_mc + ln_ivr_mc,
-                       
-                       country_economic =  . ~ ln_gdppercapita2010_mc + 
-                         ln_ginicoef_mc + 
-                         ln_population2010_mc+ 
-                         ln_gci_p06_goods_s_mc+
-                         ln_gci_p02_infrastructure_s_mc,
-                       
-                       country_regulative = . ~ln_gci_p01_institutions_s + 
-                         ruleoflaw,
-                       brand = . ~  brand_prindex_mean_mc + sbbe_round1_mc + ln_brandnovelty_mc + local_to_market_mc,
-                       category = . ~ ln_market_herf_mc + ln_market_growth_mc + catvolatility_sd_mean_mc + ln_catnovelty_mc)
-# add random effects
-country_factors2 = lapply(country_factors, update.formula, .~  (1|country) + (1|category) + (1|brand) + .)
+### Auxilary functions
 
 estim_models <- function(models) {
   lapply(seq(along=models), function(i) {
     print(i)
     if (grepl('[|]', as.character(models[[i]])[3])) {
       m1 <- lmer(update.formula(elastlt~1, models[[i]]),
-              data=elast[grep('pr',variable)], weights=w_elastlt,
-              control = lmerctrl, REML=F)
+                 data=elast[grep('pr',variable)], weights=w_elastlt,
+                 control = lmerctrl, REML=F)
       m2 <- lmer(update.formula(elastlt~1, models[[i]]),
-              data=elast[grep('llen',variable)], weights=w_elastlt,
-              control = lmerctrl, REML=F)
+                 data=elast[grep('llen',variable)], weights=w_elastlt,
+                 control = lmerctrl, REML=F)
       m3 <- lmer(update.formula(elastlt~1, models[[i]]),
-               data=elast[grep('dst',variable)], weights=w_elastlt,
-               control = lmerctrl, REML=F)
-      } else {
-    m1 <- lm(update.formula(elastlt~1, models[[i]]),
+                 data=elast[grep('dst',variable)], weights=w_elastlt,
+                 control = lmerctrl, REML=F)
+    } else {
+      m1 <- lm(update.formula(elastlt~1, models[[i]]),
                data=elast[grep('pr',variable)], weights=w_elastlt)
-    m2 <- lm(update.formula(elastlt~1, models[[i]]),
+      m2 <- lm(update.formula(elastlt~1, models[[i]]),
                data=elast[grep('llen',variable)], weights=w_elastlt)
-    m3 <- lm(update.formula(elastlt~1, models[[i]]),
+      m3 <- lm(update.formula(elastlt~1, models[[i]]),
                data=elast[grep('dst',variable)], weights=w_elastlt)
-      }
+    }
     return(list(m1,m2,m3))
   })}
 
@@ -174,6 +108,13 @@ rsq <- function(m) {
   return(rsq)
 }
 
+rsq <- function(m) {
+  resid=resid(m)
+  pred=predict(m)
+  y=pred+resid
+  return(cor(y,pred)^2)
+}
+
 newmod <- function(model, fn) {
   mods = estim_models(model)
   rsqs=unlist(lapply(mods, function(x) lapply(x, rsq)))
@@ -182,16 +123,63 @@ newmod <- function(model, fn) {
   r2s = c('R-squared', sub('^(-)?0[.]', '\\1.', formatC(rsqs, digits=3, format='f', flag='#')))
   obs = c('Observations',obss)
   
-  stargazer(do.call('c', mods),type='html', 
+  if (!is.null(fn)) stargazer(do.call('c', mods),type='html', 
             column.labels = rep(c('price','line length','distribution'), length(model)), 
             out = fn, add.lines = list(r2s,obs))
   return(mods)
-  }
+}
 
 
-#################################
-# MAIN MODEL FROM MEETING W/ JB #
-#################################
+
+get_formulas <- function(sel) {
+  forms= lapply(c('pr','llen','dst'), function(x) {
+    effects=sel[variable==x]
+    if (nrow(effects)>0) return(update.formula(maineffects, formula(paste0('.~.+', paste0(effects$varname,collapse='+')))))
+    return(maineffects)
+    
+  })
+  names(forms) <- c('pr','llen','dst')
+  forms
+}
+
+
+all_mods <- function(models) {
+  lapply(models, function(forms) {
+    list(m1 = lmer(update.formula(elastlt~1, forms$pr),
+                   data=elast[grep('pr',variable)], weights=w_elastlt,
+                   control = lmerctrl, REML=F),
+         m2 = lmer(update.formula(elastlt~1, forms$llen),
+                   data=elast[grep('llen',variable)], weights=w_elastlt,
+                   control = lmerctrl, REML=F),
+         m3 = lmer(update.formula(elastlt~1, forms$dst),
+                   data=elast[grep('dst',variable)], weights=w_elastlt,
+                   control = lmerctrl, REML=F))
+  })
+}
+# estimate models
+newmodV2 <- function(model, fn, ...) {
+  
+  mods = all_mods(model)
+  rsqs=unlist(lapply(mods, function(x) lapply(x, rsq)))
+  obss = unlist(lapply(mods, function(x) lapply(x, function(i) length(which(!is.na(residuals(i)))))))
+  
+  r2s = c('R-squared', sub('^(-)?0[.]', '\\1.', formatC(rsqs, digits=3, format='f', flag='#')))
+  obs = c('Observations',obss)
+  
+  stargazer(do.call('c', mods),type='html', 
+            column.labels = rep(c('price','line length','distribution'), length(model)), 
+            out = fn, add.lines = list(r2s,obs), ...)
+  return(mods)
+}
+
+lmerctrl = lmerControl(optimizer ="Nelder_Mead", check.conv.singular="ignore")
+
+
+
+
+################################
+# MAIN MODELS W/O INTERACTIONS #
+################################
 
 main_mod = list(m1 = . ~ 1 + (1|country) + (1|category) + (1|brand) + 
                   ln_gdppercapita2010_mc + ln_ginicoef_mc + sbbe_round1_mc + local_to_market_mc + ln_brandnovelty_mc +
@@ -213,6 +201,8 @@ main_mod = list(m1 = . ~ 1 + (1|country) + (1|category) + (1|brand) +
 
 mods=newmod(main_mod, fn = '../temp/explore-main.html')
 
+#### VIFs and correlations
+
 library(car)
 vif(mods[[2]][[1]])
 vif(mods[[3]][[1]])
@@ -221,7 +211,7 @@ covars=c('sbbe_round1_mc', 'local_to_market_mc', 'ln_brandnovelty_mc',
            'ln_gdppercapita2010_mc', 'ln_ginicoef_mc',
            'tradrat_mc', 'survself_mc',
            'ln_gci_p01_institutions_s_mc', 'ruleoflaw_mc',
-           'ln_market_herf_mc', 'ln_market_growth_mc', 'ln_catnovelty_mc')
+           'ln_market_herf_mc', 'ln_market_growth_mc', 'ln_catnovelty_mc', 'idv_mc', 'ltowvs_mc')
 df =unique(elast,by=c('country','category','brand'))[, covars,with=F]
 cor(df, use='pairwise')
 
@@ -229,12 +219,14 @@ cor(df$ln_gdppercapita2010_mc, df$ruleoflaw_mc, use='pairwise')
 cor(df$ln_gdppercapita2010_mc, df$ln_gci_p01_institutions_s_mc, use='pairwise')
 cor(df$ln_brandnovelty_mc, df$ln_catnovelty_mc, use='pairwise')
 
+#cor(df$ , df$ln_catnovelty_mc, use='pairwise')
 
 
 
-#########################################
-# EXPLORE INTERACTIONS W/ BRAND FACTORS #
-#########################################
+
+##############################################
+# EXPLORE FULL INTERACTIONS W/ BRAND FACTORS #
+##############################################
 
 country_factors_int1 = list(country_cult1 = . ~ tradrat_mc + survself_mc,
                        country_cult1a = . ~ tradrat_mc*brand_prindex_mean_mc + survself_mc*brand_prindex_mean_mc,
@@ -298,7 +290,7 @@ int4 <- list(category = . ~ ln_market_herf_mc + ln_market_growth_mc + catvolatil
                ln_catnovelty_mc*ln_brandnovelty_mc,
              categoryd = . ~ ln_market_herf_mc*local_to_market_mc + ln_market_growth_mc*local_to_market_mc + catvolatility_sd_mean_mc*local_to_market_mc + ln_catnovelty_mc*local_to_market_mc)
 
-
+if(0){
 newmod(lapply(country_factors_int1, update.formula, .~  (1|country) + (1|category) + (1|brand) + .),
        fn = '../temp/explore-interactions_country_culture.html')
 newmod(lapply(country_factors_int2, update.formula, .~  (1|country) + (1|category) + (1|brand) + .),
@@ -309,12 +301,14 @@ newmod(lapply(country_factors_int3, update.formula, .~  (1|country) + (1|categor
            
 newmod(lapply(int4, update.formula, .~  (1|country) + (1|category) + (1|brand) + .),
        fn = '../temp/explore-interactions_categories.html')
-
+}
 
 
 #########################################################
 # Narrowing down after meeting with Marnik, 12 Oct 2020 #
 #########################################################
+
+# Goal: pick significant interactions
 
 secondstage <- list(m1 = . ~ 1 + (1|country) + (1|category) + (1|brand) + 
                       sbbe_round1_mc + local_to_market_mc + ln_brandnovelty_mc+
@@ -354,6 +348,7 @@ secondstage <- list(m1 = . ~ 1 + (1|country) + (1|category) + (1|brand) +
                       survself_mc*sbbe_round1_mc + survself_mc*local_to_market_mc + survself_mc*ln_brandnovelty_mc
 )
 
+if(0) {
 models<-newmod(secondstage, fn = '../temp/explore-blockinteractions-updated.html')
 
 names(models) <- names(secondstage)
@@ -374,47 +369,6 @@ maineffects = . ~ 1 + (1|country) + (1|category) + (1|brand) +
   ln_market_herf_mc + ln_market_growth_mc + ln_catnovelty_mc
 
 
-get_formulas <- function(sel) {
- forms= lapply(c('pr','llen','dst'), function(x) {
-    effects=sel[variable==x]
-    if (nrow(effects)>0) return(update.formula(maineffects, formula(paste0('.~.+', paste0(effects$varname,collapse='+')))))
-    return(maineffects)
-  
- })
- names(forms) <- c('pr','llen','dst')
- forms
- }
-
-
-all_mods <- function(models) {
-  lapply(models, function(forms) {
-    list(m1 = lmer(update.formula(elastlt~1, forms$pr),
-                      data=elast[grep('pr',variable)], weights=w_elastlt,
-                      control = lmerctrl, REML=F),
-            m2 = lmer(update.formula(elastlt~1, forms$llen),
-                      data=elast[grep('llen',variable)], weights=w_elastlt,
-                      control = lmerctrl, REML=F),
-            m3 = lmer(update.formula(elastlt~1, forms$dst),
-                      data=elast[grep('dst',variable)], weights=w_elastlt,
-                      control = lmerctrl, REML=F))
-  })
-}
-# estimate models
-newmodV2 <- function(model, fn) {
-  
-  mods = all_mods(model)
-  rsqs=unlist(lapply(mods, function(x) lapply(x, rsq)))
-  obss = unlist(lapply(mods, function(x) lapply(x, function(i) length(which(!is.na(residuals(i)))))))
-  
-  r2s = c('R-squared', sub('^(-)?0[.]', '\\1.', formatC(rsqs, digits=3, format='f', flag='#')))
-  obs = c('Observations',obss)
-  
-  stargazer(do.call('c', mods),type='html', 
-            column.labels = rep(c('price','line length','distribution'), length(model)), 
-            out = fn, add.lines = list(r2s,obs))
-  return(mods)
-}
-
 forms = get_formulas(interacts[modeltype%in%c('m2', 'm3','m4','m5')&abs(`t value`>=1)])
 forms2 = get_formulas(interacts[modeltype%in%c('m2', 'm6')&abs(`t value`>=1)])
 
@@ -423,37 +377,82 @@ forms4 = get_formulas(interacts[modeltype%in%c('m2', 'm6')&abs(`t value`>=1.6448
 
 mods=newmodV2(list(forms,forms2, forms3, forms4), '../temp/explore-keep-significant-effects.html')
 
-
+}
 #stargazer(mods, type = 'text', column.labels=rep(c('price','line length','distribution'), length(mods)),
  #         object.names=T, out = '../temp/test.html')
 
-##### NEW
 
+#########################################################
+##### NEW: 18 interactions: brand x category or country #
+#########################################################
 
+# Ingelhardt
 mainef= . ~ 1 + (1|country) + (1|category) + (1|brand) + 
   sbbe_round1_mc + local_to_market_mc + ln_brandnovelty_mc+
   ln_gdppercapita2010_mc + ln_ginicoef_mc + 
   tradrat_mc + survself_mc +
   ln_market_herf_mc + ln_market_growth_mc
 
-brand <- c('sbbe_round1_mc','local_to_market_mc','ln_brandnovelty_mc')
-others <- c('ln_gdppercapita2010_mc', 'ln_ginicoef_mc','tradrat_mc','survself_mc','ln_market_herf_mc','ln_market_growth_mc')
 
-brandinteracts <- unlist(lapply(others, function(i) {
+brand = c('sbbe_round1_mc','local_to_market_mc','ln_brandnovelty_mc')
+category = c("ln_market_herf_mc","ln_market_growth_mc")
+country = c("ln_gdppercapita2010_mc","ln_ginicoef_mc","tradrat_mc","survself_mc")
+
+
+# Hofstede - Dekimpe/Bombaji
+#if(0) {
+  tval = qnorm(.95)
+  #tval = qnorm(.975)
+  
+  mainef= . ~ 1 + (1|brand) + (1|category) + (1|country) + 
+    sbbe_round1_mc + local_to_market_mc + ln_brandnovelty_mc+
+    ln_market_herf_mc + ln_market_growth_mc+ 
+    ln_gdppercapita2010_mc + ln_ginicoef_mc + 
+    ln_ltowvs_mc + ln_idv_mc
+    
+  country = c("ln_gdppercapita2010_mc","ln_ginicoef_mc","ln_ltowvs_mc","ln_idv_mc")
+ 
+  tval = qnorm(.95)
+  #tval = qnorm(.975)
+  
+  # new
+  mainef= . ~ 1 + (1|brand) + (1|category) + (1|country) + 
+    sbbe_round1_mc + local_to_market_mc + ln_brandnovelty_mc+
+   # ln_market_herf_mc + ln_market_growth_mc+ 
+    ln_gdppercapita2010_mc + ln_ginicoef_mc + 
+   + ln_uai_mc # ln_pdi_mc #
+  
+  brand = c('sbbe_round1_mc','local_to_market_mc','ln_brandnovelty_mc')
+  category = c("ln_market_herf_mc","ln_market_growth_mc")
+  country = c("ln_gdppercapita2010_mc","ln_ginicoef_mc","ln_uai_mc") #"ln_pdi_mc")#,"ln_uai_mc")
+  
+#}
+
+# Hofstede - Pauwels
+if(0) {
+  
+  mainef= . ~ 1 + (1|brand) + (1|category) + (1|country) + 
+    sbbe_round1_mc + local_to_market_mc + ln_brandnovelty_mc+
+    ln_gdppercapita2010_mc + ln_ginicoef_mc + 
+    pdi_mc + idv_mc + mas_mc + uai_mc + 
+    ln_market_herf_mc + ln_market_growth_mc
+  
+  category = c("pdi_mc","idv_mc", "mas_mc", "uai_mc", "ln_market_herf_mc","ln_market_growth_mc")
+}
+
+brandinteracts <- unlist(lapply(c(category,country), function(i) {
   unlist(lapply(brand, function(b) update.formula(mainef,formula(paste0('. ~ . + ', paste0(b,':',i))))))
 }                    ))
 
-models<-newmod(brandinteracts, fn = '../temp/explore-full-brandinteractions.html')
+models<-newmod(brandinteracts, fn = NULL)
 
 names(models) <- 1:length(models)
 
 # collect interaction terms
-
 interacts=rbindlist(lapply(1:length(models), function(x) rbindlist(lapply(1:3, function(i) data.table(modeltype=x, var_index=i, varname=rownames(summary(models[[x]][[i]])$coefficients), summary(models[[x]][[i]])$coefficients)))))
 interacts[, variable:=c('pr','llen','dst')[var_index]]
 
 interacts <- interacts[grepl('[:]',varname)]
-
 
 maineffects = mainef
 
@@ -468,27 +467,31 @@ get_formulas <- function(sel) {
   forms
 }
 
-forms = get_formulas(interacts[modeltype%in%1:18&abs(`t value`>=1)])
-forms2 = get_formulas(interacts[modeltype%in%1:18&abs(`t value`>=1.644854)])
+#qnorm(.95)
 
-mods=newmodV2(list(forms,forms2), '../temp/explore-harald-interact.html')
+forms = get_formulas(interacts[abs(`t value`)>=tval])
+#forms2 = get_formulas(interacts[modeltype%in%1:18&abs(`t value`>=1.644854)])
 
-### NEW 2
+#mods=newmodV2(list(forms), '../temp/explore-interactions18.html')
 
 
-##### NEW
-comb <-c(brand, others)
+###################################################################################
+##### NEW: 26 interactions: brand x category, brand x country, country x category #
+###################################################################################
 
-combinations=data.table(expand.grid(c(1:length(comb)), c(1:length(comb))))
+
+combinations=data.table(rbind(expand.grid(brand, category),
+                              expand.grid(brand, country),
+                              expand.grid(category,country)))
+
 setnames(combinations, c('index1','index2'))
-combinations <- data.frame(combinations[index1<index2])
+combinations = data.frame(combinations)
 
- 
 brandinteracts <- unlist(lapply(1:nrow(combinations), function(ind) {
-  update.formula(mainef,formula(paste0('. ~ . + ', paste0(comb[combinations[ind,1]], ':', comb[combinations[ind,2]]))))
+  update.formula(mainef,formula(paste0('. ~ . + ', paste0(combinations[ind,1], ':', combinations[ind,2]))))
 }))
 
-models<-newmod(brandinteracts, fn = '../temp/explore-full-brandinteractions.html')
+models<-newmod(brandinteracts, fn = NULL)
 
 names(models) <- 1:length(models)
 
@@ -499,7 +502,62 @@ interacts <- interacts[grepl('[:]',varname)]
 
 maineffects = mainef
 
-forms = get_formulas(interacts[modeltype%in%1:36&abs(`t value`>=1)])
-forms2 = get_formulas(interacts[modeltype%in%1:36&abs(`t value`>=1.644854)])
+forms26 = get_formulas(interacts[abs(`t value`)>=tval])
 
-mods=newmodV2(list(forms,forms2), '../temp/explore-harald-interact-full.html')
+##### 36
+
+comb <-c(brand, category,country)
+
+combinations=data.table(expand.grid(c(1:length(comb)), c(1:length(comb))))
+setnames(combinations, c('index1','index2'))
+combinations <- data.frame(combinations[index1<index2])
+
+ 
+brandinteracts <- unlist(lapply(1:nrow(combinations), function(ind) {
+  update.formula(mainef,formula(paste0('. ~ . + ', paste0(comb[combinations[ind,1]], ':', comb[combinations[ind,2]]))))
+}))
+
+models<-newmod(brandinteracts, fn = NULL)#'../temp/explore-full-brandinteractions.html')
+
+names(models) <- 1:length(models)
+
+# collect interaction terms
+interacts=rbindlist(lapply(1:length(models), function(x) rbindlist(lapply(1:3, function(i) data.table(modeltype=x, var_index=i, varname=rownames(summary(models[[x]][[i]])$coefficients), summary(models[[x]][[i]])$coefficients)))))
+interacts[, variable:=c('pr','llen','dst')[var_index]]
+interacts <- interacts[grepl('[:]',varname)]
+
+maineffects = mainef
+
+
+forms36 = get_formulas(interacts[abs(`t value`)>=tval])
+
+
+combinations=data.frame(rbind(expand.grid(brand, category),
+                              expand.grid(brand, country),
+                              expand.grid(category,country)))
+
+
+ord <- c(brand,category,country,unlist(lapply(1:nrow(combinations), function(ind) {
+  paste0(as.character(combinations[ind,1]), ':', as.character(combinations[ind,2]))
+})))
+
+ord = paste0('^',ord,'$')
+
+mods=newmodV2(list(list(pr=mainef, llen=mainef, dst=mainef), forms,forms26, forms36), '../temp/explore-interactions-18-26-36-hofstede-bombaji-dekimpe.html', order=ord)
+
+
+
+
+#mods=newmodV2(list(forms,forms26, forms36), '../temp/explore-interactions-18-26-36-ingelhardt.html')
+
+#mods=newmodV2(list(forms,forms26, forms36), '../temp/explore-interactions-18-26-36-hofstede-pauwels.html')
+
+
+
+# EXPERIMENTING WITH FINAL MODELS
+
+#m <- brm(update.formula(update.formula(elastlt | weights(w_elastlt) ~. , forms$pr),.~.-(1|brand)), data=elast[grepl('pr',variable)])
+
+
+#summary(m)
+#yi 
