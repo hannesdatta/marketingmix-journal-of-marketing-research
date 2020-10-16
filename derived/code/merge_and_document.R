@@ -146,24 +146,27 @@ for (fn in fns) {
   ####################
   
   # brand novelty
-  novelvar = 'nov6sh'
-  brandnovel = brand_panel[, list(novelty=mean(get(novelvar))),by=c('category','country', 'brand')]
-  
-  # category novelty
-  catnovel = brand_panel[, list(novelty=mean(get(novelvar)),
-                             Nbrand=length(unique(brand)),
-                             sumnovelty=sum(get(novelvar))
-  ),by=c('category','country')]
-  
-  setkey(brandnovel, category,country,brand)
-  setkey(brand_panel, category,country,brand)
-  brand_panel[brandnovel, brandnovelty:=i.novelty]
-  
-  setkey(catnovel, category,country)
-  setkey(brand_panel, category,country)
-  brand_panel[catnovel, catnoveltybrand:=(i.sumnovelty-brandnovelty)/(i.Nbrand-1)]
-  brand_panel[catnovel, catnovelty:=(i.novelty)]
-  
+  for (novelvar in c('nov3sh','nov6sh','nov12sh')) {
+      
+    indexn = gsub('[^0-9]','', novelvar)
+    
+    brandnovel = brand_panel[, list(novelty=mean(get(novelvar))),by=c('category','country', 'brand')]
+    
+    # category novelty
+    catnovel = brand_panel[, list(novelty=mean(get(novelvar)),
+                               Nbrand=length(unique(brand)),
+                               sumnovelty=sum(get(novelvar))
+    ),by=c('category','country')]
+    
+    setkey(brandnovel, category,country,brand)
+    setkey(brand_panel, category,country,brand)
+    brand_panel[brandnovel, paste0('brandnovelty', indexn):=i.novelty]
+    
+    setkey(catnovel, category,country)
+    setkey(brand_panel, category,country)
+    brand_panel[catnovel, paste0('catnoveltybrand', indexn):=(i.sumnovelty-get(paste0('brandnovelty',indexn)))/(i.Nbrand-1)]
+    brand_panel[catnovel, paste0('catnovelty', indexn):=(i.novelty)]
+  }
   ##### FINALIZE
   
   brand_panel[, brand_capitalized:=my_capitalize(brand)]
