@@ -182,17 +182,17 @@ lmerctrl = lmerControl(optimizer ="Nelder_Mead", check.conv.singular="ignore")
 ################################
 
 main_mod = list(m1 = . ~ 1 + (1|country) + (1|category) + (1|brand) + 
-                  ln_gdppercapita2010_mc + ln_ginicoef_mc + sbbe_round1_mc + local_to_market_mc + ln_brandnovelty_mc +
+                  ln_gdppercapita2010_mc + ln_ginicoef_mc + sbbe_round1_mc + local_to_market_mc + ln_brandnovelty3_mc +
   ln_market_herf_mc + ln_market_growth_mc,
                 m2 = . ~ 1 + (1|country) + (1|category) + (1|brand) + 
-  sbbe_round1_mc + local_to_market_mc + ln_brandnovelty_mc+
+  sbbe_round1_mc + local_to_market_mc + ln_brandnovelty3_mc+
   ln_gdppercapita2010_mc + ln_ginicoef_mc + 
   tradrat_mc + survself_mc +
   ln_gci_p01_institutions_s_mc + ruleoflaw_mc +
   
-  ln_market_herf_mc + ln_market_growth_mc + ln_catnovelty_mc,
+  ln_market_herf_mc + ln_market_growth_mc + ln_catnovelty3_mc,
   m3 = . ~ 1 + (1|country) + (1|category) + (1|brand) + 
-    sbbe_round1_mc + local_to_market_mc + ln_brandnovelty_mc+
+    sbbe_round1_mc + local_to_market_mc + ln_brandnovelty3_mc+
     ln_gdppercapita2010_mc + ln_ginicoef_mc + 
     tradrat_mc + survself_mc+
     
@@ -207,19 +207,19 @@ library(car)
 vif(mods[[2]][[1]])
 vif(mods[[3]][[1]])
 
-covars=c('sbbe_round1_mc', 'local_to_market_mc', 'ln_brandnovelty_mc', 
+covars=c('sbbe_round1_mc', 'local_to_market_mc', 'ln_brandnovelty3_mc', 
            'ln_gdppercapita2010_mc', 'ln_ginicoef_mc',
            'tradrat_mc', 'survself_mc',
            'ln_gci_p01_institutions_s_mc', 'ruleoflaw_mc',
-           'ln_market_herf_mc', 'ln_market_growth_mc', 'ln_catnovelty_mc', 'idv_mc', 'ltowvs_mc')
+           'ln_market_herf_mc', 'ln_market_growth_mc', 'ln_catnovelty3_mc', 'idv_mc', 'ltowvs_mc')
 df =unique(elast,by=c('country','category','brand'))[, covars,with=F]
 cor(df, use='pairwise')
 
 cor(df$ln_gdppercapita2010_mc, df$ruleoflaw_mc, use='pairwise')
 cor(df$ln_gdppercapita2010_mc, df$ln_gci_p01_institutions_s_mc, use='pairwise')
-cor(df$ln_brandnovelty_mc, df$ln_catnovelty_mc, use='pairwise')
+cor(df$ln_brandnovelty3_mc, df$ln_catnovelty3_mc, use='pairwise')
 
-#cor(df$ , df$ln_catnovelty_mc, use='pairwise')
+#cor(df$ , df$ln_catnovelty3_mc, use='pairwise')
 
 
 
@@ -231,7 +231,7 @@ cor(df$ln_brandnovelty_mc, df$ln_catnovelty_mc, use='pairwise')
 country_factors_int1 = list(country_cult1 = . ~ tradrat_mc + survself_mc,
                        country_cult1a = . ~ tradrat_mc*brand_prindex_mean_mc + survself_mc*brand_prindex_mean_mc,
                        country_cult1b = . ~ tradrat_mc*sbbe_round1_mc + survself_mc*sbbe_round1_mc,
-                       country_cult1c = . ~ tradrat_mc*ln_brandnovelty_mc + survself_mc*ln_brandnovelty_mc,
+                       country_cult1c = . ~ tradrat_mc*ln_brandnovelty3_mc + survself_mc*ln_brandnovelty3_mc,
                        country_cult1d = . ~ tradrat_mc*local_to_market_mc + survself_mc*local_to_market_mc,
                        
                        country_cult2 = . ~ ln_pdi_mc + ln_idv_mc + ln_mas_mc + ln_uai_mc + ln_ltowvs_mc + ln_ivr_mc,
@@ -239,7 +239,7 @@ country_factors_int1 = list(country_cult1 = . ~ tradrat_mc + survself_mc,
                          ln_uai_mc*brand_prindex_mean_mc + ln_ltowvs_mc*brand_prindex_mean_mc + ln_ivr_mc*brand_prindex_mean_mc,
                        country_cult2b = . ~ ln_pdi_mc*sbbe_round1_mc + ln_idv_mc*sbbe_round1_mc + ln_mas_mc*sbbe_round1_mc +
                          ln_uai_mc*sbbe_round1_mc + ln_ltowvs_mc*sbbe_round1_mc + ln_ivr_mc*sbbe_round1_mc,
-                       country_cult2c = . ~ ln_pdi_mc*ln_brandnovelty_mc + ln_idv_mc*ln_brandnovelty_mc + ln_mas_mc*ln_brandnovelty_mc + ln_uai_mc*ln_brandnovelty_mc + ln_ltowvs_mc*ln_brandnovelty_mc + ln_ivr_mc*ln_brandnovelty_mc,
+                       country_cult2c = . ~ ln_pdi_mc*ln_brandnovelty3_mc + ln_idv_mc*ln_brandnovelty3_mc + ln_mas_mc*ln_brandnovelty3_mc + ln_uai_mc*ln_brandnovelty3_mc + ln_ltowvs_mc*ln_brandnovelty3_mc + ln_ivr_mc*ln_brandnovelty3_mc,
                        country_cult2d = . ~ ln_pdi_mc*local_to_market_mc + ln_idv_mc*local_to_market_mc + ln_mas_mc*local_to_market_mc + ln_uai_mc*local_to_market_mc + ln_ltowvs_mc*local_to_market_mc + ln_ivr_mc*local_to_market_mc)
                        
 country_factors_int2 = list(country_economic =  . ~ ln_gdppercapita2010_mc + 
@@ -257,11 +257,11 @@ country_factors_int2 = list(country_economic =  . ~ ln_gdppercapita2010_mc +
                               ln_population2010_mc*sbbe_round1_mc+ 
                               ln_gci_p06_goods_s_mc*sbbe_round1_mc+
                               ln_gci_p02_infrastructure_s_mc*sbbe_round1_mc,
-                            country_economicc =  . ~ ln_gdppercapita2010_mc*ln_brandnovelty_mc + 
-                              ln_ginicoef_mc*ln_brandnovelty_mc + 
-                              ln_population2010_mc*ln_brandnovelty_mc+ 
-                              ln_gci_p06_goods_s_mc*ln_brandnovelty_mc+
-                              ln_gci_p02_infrastructure_s_mc*ln_brandnovelty_mc,
+                            country_economicc =  . ~ ln_gdppercapita2010_mc*ln_brandnovelty3_mc + 
+                              ln_ginicoef_mc*ln_brandnovelty3_mc + 
+                              ln_population2010_mc*ln_brandnovelty3_mc+ 
+                              ln_gci_p06_goods_s_mc*ln_brandnovelty3_mc+
+                              ln_gci_p02_infrastructure_s_mc*ln_brandnovelty3_mc,
                             country_economicd =  . ~ ln_gdppercapita2010_mc*local_to_market_mc + 
                               ln_ginicoef_mc*local_to_market_mc + 
                               ln_population2010_mc*local_to_market_mc+ 
@@ -274,21 +274,21 @@ country_factors_int3 <- list(country_regulative = . ~ln_gci_p01_institutions_s_m
                                ruleoflaw_mc*brand_prindex_mean_mc,
                              country_regulativeb = . ~ln_gci_p01_institutions_s_mc*sbbe_round1_mc + 
                                ruleoflaw_mc*sbbe_round1_mc,
-                             country_regulativec = . ~ln_gci_p01_institutions_s_mc*ln_brandnovelty_mc + 
-                               ruleoflaw_mc*ln_brandnovelty_mc,
+                             country_regulativec = . ~ln_gci_p01_institutions_s_mc*ln_brandnovelty3_mc + 
+                               ruleoflaw_mc*ln_brandnovelty3_mc,
                              country_regulatived = . ~ln_gci_p01_institutions_s_mc*local_to_market_mc + 
                                ruleoflaw_mc*local_to_market_mc)
 
 # Interactions
-int4 <- list(category = . ~ ln_market_herf_mc + ln_market_growth_mc + catvolatility_sd_mean_mc + ln_catnovelty_mc,
+int4 <- list(category = . ~ ln_market_herf_mc + ln_market_growth_mc + catvolatility_sd_mean_mc + ln_catnovelty3_mc,
              categorya = . ~ ln_market_herf_mc*brand_prindex_mean_mc + ln_market_growth_mc*brand_prindex_mean_mc + catvolatility_sd_mean_mc*brand_prindex_mean_mc + 
-               ln_catnovelty_mc*brand_prindex_mean_mc,
+               ln_catnovelty3_mc*brand_prindex_mean_mc,
              
              categoryb = . ~ ln_market_herf_mc*sbbe_round1_mc + ln_market_growth_mc*sbbe_round1_mc + catvolatility_sd_mean_mc*sbbe_round1_mc + 
-               ln_catnovelty_mc*sbbe_round1_mc,
-             categoryc = . ~ ln_market_herf_mc*ln_brandnovelty_mc + ln_market_growth_mc*ln_brandnovelty_mc + catvolatility_sd_mean_mc*ln_brandnovelty_mc + 
-               ln_catnovelty_mc*ln_brandnovelty_mc,
-             categoryd = . ~ ln_market_herf_mc*local_to_market_mc + ln_market_growth_mc*local_to_market_mc + catvolatility_sd_mean_mc*local_to_market_mc + ln_catnovelty_mc*local_to_market_mc)
+               ln_catnovelty3_mc*sbbe_round1_mc,
+             categoryc = . ~ ln_market_herf_mc*ln_brandnovelty3_mc + ln_market_growth_mc*ln_brandnovelty3_mc + catvolatility_sd_mean_mc*ln_brandnovelty3_mc + 
+               ln_catnovelty3_mc*ln_brandnovelty3_mc,
+             categoryd = . ~ ln_market_herf_mc*local_to_market_mc + ln_market_growth_mc*local_to_market_mc + catvolatility_sd_mean_mc*local_to_market_mc + ln_catnovelty3_mc*local_to_market_mc)
 
 if(0){
 newmod(lapply(country_factors_int1, update.formula, .~  (1|country) + (1|category) + (1|brand) + .),
@@ -311,41 +311,41 @@ newmod(lapply(int4, update.formula, .~  (1|country) + (1|category) + (1|brand) +
 # Goal: pick significant interactions
 
 secondstage <- list(m1 = . ~ 1 + (1|country) + (1|category) + (1|brand) + 
-                      sbbe_round1_mc + local_to_market_mc + ln_brandnovelty_mc+
+                      sbbe_round1_mc + local_to_market_mc + ln_brandnovelty3_mc+
                       ln_gdppercapita2010_mc + ln_ginicoef_mc + 
                       tradrat_mc + survself_mc +
                       ln_market_herf_mc + ln_market_growth_mc,
                     m2 = . ~ 1 + (1|country) + (1|category) + (1|brand) + 
-                      sbbe_round1_mc + local_to_market_mc + ln_brandnovelty_mc+
+                      sbbe_round1_mc + local_to_market_mc + ln_brandnovelty3_mc+
                       ln_gdppercapita2010_mc + ln_ginicoef_mc + 
                       tradrat_mc + survself_mc +
-                      ln_market_herf_mc*sbbe_round1_mc + ln_market_herf_mc*local_to_market_mc + ln_market_herf_mc*ln_brandnovelty_mc+
-                      ln_market_growth_mc*sbbe_round1_mc + ln_market_growth_mc*local_to_market_mc + ln_market_growth_mc*ln_brandnovelty_mc,
+                      ln_market_herf_mc*sbbe_round1_mc + ln_market_herf_mc*local_to_market_mc + ln_market_herf_mc*ln_brandnovelty3_mc+
+                      ln_market_growth_mc*sbbe_round1_mc + ln_market_growth_mc*local_to_market_mc + ln_market_growth_mc*ln_brandnovelty3_mc,
                     m3 = . ~ 1 + (1|country) + (1|category) + (1|brand) + 
-                      sbbe_round1_mc + local_to_market_mc + ln_brandnovelty_mc+
+                      sbbe_round1_mc + local_to_market_mc + ln_brandnovelty3_mc+
                       ln_gdppercapita2010_mc + ln_ginicoef_mc + 
                       tradrat_mc + survself_mc +
                       ln_market_herf_mc + ln_market_growth_mc +
-                      ln_gdppercapita2010_mc*sbbe_round1_mc + ln_gdppercapita2010_mc*local_to_market_mc + ln_gdppercapita2010_mc*ln_brandnovelty_mc+
-                      ln_ginicoef_mc*sbbe_round1_mc + ln_ginicoef_mc*local_to_market_mc + ln_ginicoef_mc*ln_brandnovelty_mc,
+                      ln_gdppercapita2010_mc*sbbe_round1_mc + ln_gdppercapita2010_mc*local_to_market_mc + ln_gdppercapita2010_mc*ln_brandnovelty3_mc+
+                      ln_ginicoef_mc*sbbe_round1_mc + ln_ginicoef_mc*local_to_market_mc + ln_ginicoef_mc*ln_brandnovelty3_mc,
                     m4 = . ~ 1 + (1|country) + (1|category) + (1|brand) + 
-                      sbbe_round1_mc + local_to_market_mc + ln_brandnovelty_mc+
+                      sbbe_round1_mc + local_to_market_mc + ln_brandnovelty3_mc+
                       ln_gdppercapita2010_mc + ln_ginicoef_mc + 
                       tradrat_mc + survself_mc +
                       ln_market_herf_mc + ln_market_growth_mc +
                       
-                      tradrat_mc*sbbe_round1_mc + tradrat_mc*local_to_market_mc + tradrat_mc*ln_brandnovelty_mc+
-                      survself_mc*sbbe_round1_mc + survself_mc*local_to_market_mc + survself_mc*ln_brandnovelty_mc,
+                      tradrat_mc*sbbe_round1_mc + tradrat_mc*local_to_market_mc + tradrat_mc*ln_brandnovelty3_mc+
+                      survself_mc*sbbe_round1_mc + survself_mc*local_to_market_mc + survself_mc*ln_brandnovelty3_mc,
                     m6 = . ~ 1 + (1|country) + (1|category) + (1|brand) + 
-                      sbbe_round1_mc + local_to_market_mc + ln_brandnovelty_mc+
+                      sbbe_round1_mc + local_to_market_mc + ln_brandnovelty3_mc+
                       ln_gdppercapita2010_mc + ln_ginicoef_mc + 
                       tradrat_mc + survself_mc +
                       ln_market_herf_mc + ln_market_growth_mc +
                       
-                      ln_gdppercapita2010_mc*sbbe_round1_mc + ln_gdppercapita2010_mc*local_to_market_mc + ln_gdppercapita2010_mc*ln_brandnovelty_mc+
-                      ln_ginicoef_mc*sbbe_round1_mc + ln_ginicoef_mc*local_to_market_mc + ln_ginicoef_mc*ln_brandnovelty_mc+
-                      tradrat_mc*sbbe_round1_mc + tradrat_mc*local_to_market_mc + tradrat_mc*ln_brandnovelty_mc+
-                      survself_mc*sbbe_round1_mc + survself_mc*local_to_market_mc + survself_mc*ln_brandnovelty_mc
+                      ln_gdppercapita2010_mc*sbbe_round1_mc + ln_gdppercapita2010_mc*local_to_market_mc + ln_gdppercapita2010_mc*ln_brandnovelty3_mc+
+                      ln_ginicoef_mc*sbbe_round1_mc + ln_ginicoef_mc*local_to_market_mc + ln_ginicoef_mc*ln_brandnovelty3_mc+
+                      tradrat_mc*sbbe_round1_mc + tradrat_mc*local_to_market_mc + tradrat_mc*ln_brandnovelty3_mc+
+                      survself_mc*sbbe_round1_mc + survself_mc*local_to_market_mc + survself_mc*ln_brandnovelty3_mc
 )
 
 if(0) {
@@ -362,11 +362,11 @@ interacts <- interacts[grepl('[:]',varname)]
 
 
 maineffects = . ~ 1 + (1|country) + (1|category) + (1|brand) + 
-  sbbe_round1_mc + local_to_market_mc + ln_brandnovelty_mc+
+  sbbe_round1_mc + local_to_market_mc + ln_brandnovelty3_mc+
   ln_gdppercapita2010_mc + ln_ginicoef_mc + 
   tradrat_mc + survself_mc +
   ln_gci_p01_institutions_s_mc + ruleoflaw_mc +
-  ln_market_herf_mc + ln_market_growth_mc + ln_catnovelty_mc
+  ln_market_herf_mc + ln_market_growth_mc + ln_catnovelty3_mc
 
 
 forms = get_formulas(interacts[modeltype%in%c('m2', 'm3','m4','m5')&abs(`t value`>=1)])
@@ -388,13 +388,13 @@ mods=newmodV2(list(forms,forms2, forms3, forms4), '../temp/explore-keep-signific
 
 # Ingelhardt
 mainef= . ~ 1 + (1|country) + (1|category) + (1|brand) + 
-  sbbe_round1_mc + local_to_market_mc + ln_brandnovelty_mc+
+  sbbe_round1_mc + local_to_market_mc + ln_brandnovelty3_mc+
   ln_gdppercapita2010_mc + ln_ginicoef_mc + 
   tradrat_mc + survself_mc +
   ln_market_herf_mc + ln_market_growth_mc
 
 
-brand = c('sbbe_round1_mc','local_to_market_mc','ln_brandnovelty_mc')
+brand = c('sbbe_round1_mc','local_to_market_mc','ln_brandnovelty3_mc')
 category = c("ln_market_herf_mc","ln_market_growth_mc")
 country = c("ln_gdppercapita2010_mc","ln_ginicoef_mc","tradrat_mc","survself_mc")
 
@@ -405,7 +405,7 @@ country = c("ln_gdppercapita2010_mc","ln_ginicoef_mc","tradrat_mc","survself_mc"
   #tval = qnorm(.975)
   
   mainef= . ~ 1 + (1|brand) + (1|category) + (1|country) + 
-    sbbe_round1_mc + local_to_market_mc + ln_brandnovelty_mc+
+    sbbe_round1_mc + local_to_market_mc + ln_brandnovelty3_mc+
     ln_market_herf_mc + ln_market_growth_mc+ 
     ln_gdppercapita2010_mc + ln_ginicoef_mc + 
     ln_ltowvs_mc + ln_idv_mc
@@ -417,147 +417,103 @@ country = c("ln_gdppercapita2010_mc","ln_ginicoef_mc","tradrat_mc","survself_mc"
   
   # new
   mainef= . ~ 1 + (1|brand) + (1|category) + (1|country) + 
-    sbbe_round1_mc + local_to_market_mc + ln_brandnovelty_mc+
-   # ln_market_herf_mc + ln_market_growth_mc+ 
-    ln_gdppercapita2010_mc + ln_ginicoef_mc + 
-   + ln_uai_mc # ln_pdi_mc #
+    sbbe_round1_mc + local_to_market_mc + ln_brandnovelty3_mc+
+    ln_gdppercapita2010_mc + 
+    ln_uai_mc 
   
-  brand = c('sbbe_round1_mc','local_to_market_mc','ln_brandnovelty_mc')
-  category = c("ln_market_herf_mc","ln_market_growth_mc")
-  country = c("ln_gdppercapita2010_mc","ln_ginicoef_mc","ln_uai_mc") #"ln_pdi_mc")#,"ln_uai_mc")
+  mainef2= . ~ 1 + (1|brand) + (1|category) + (1|country) + 
+    sbbe_round1_mc + local_to_market_mc + ln_brandnovelty3_mc+
+    sbbe_round1_mc*ln_gdppercapita2010_mc + local_to_market_mc*ln_gdppercapita2010_mc + ln_brandnovelty3_mc*ln_gdppercapita2010_mc+
+    sbbe_round1_mc*ln_uai_mc + local_to_market_mc*ln_uai_mc + ln_brandnovelty3_mc*ln_uai_mc
   
-#}
-
-# Hofstede - Pauwels
-if(0) {
+  mainef3= . ~ 1 + (1|brand) + (1|category) + (1|country) + 
+    sbbe_round1_mc + local_to_market_mc + ln_brandnovelty3_mc+
+    ln_gdppercapita2010_mc + 
+    ln_pdi_mc 
   
-  mainef= . ~ 1 + (1|brand) + (1|category) + (1|country) + 
-    sbbe_round1_mc + local_to_market_mc + ln_brandnovelty_mc+
-    ln_gdppercapita2010_mc + ln_ginicoef_mc + 
-    pdi_mc + idv_mc + mas_mc + uai_mc + 
-    ln_market_herf_mc + ln_market_growth_mc
-  
-  category = c("pdi_mc","idv_mc", "mas_mc", "uai_mc", "ln_market_herf_mc","ln_market_growth_mc")
-}
-
-brandinteracts <- unlist(lapply(c(category,country), function(i) {
-  unlist(lapply(brand, function(b) update.formula(mainef,formula(paste0('. ~ . + ', paste0(b,':',i))))))
-}                    ))
-
-models<-newmod(brandinteracts, fn = NULL)
-
-names(models) <- 1:length(models)
-
-# collect interaction terms
-interacts=rbindlist(lapply(1:length(models), function(x) rbindlist(lapply(1:3, function(i) data.table(modeltype=x, var_index=i, varname=rownames(summary(models[[x]][[i]])$coefficients), summary(models[[x]][[i]])$coefficients)))))
-interacts[, variable:=c('pr','llen','dst')[var_index]]
-
-interacts <- interacts[grepl('[:]',varname)]
-
-maineffects = mainef
-
-get_formulas <- function(sel) {
-  forms= lapply(c('pr','llen','dst'), function(x) {
-    effects=sel[variable==x]
-    if (nrow(effects)>0) return(update.formula(maineffects, formula(paste0('.~.+', paste0(effects$varname,collapse='+')))))
-    return(maineffects)
-    
-  })
-  names(forms) <- c('pr','llen','dst')
-  forms
-}
-
-#qnorm(.95)
-
-forms = get_formulas(interacts[abs(`t value`)>=tval])
-#forms2 = get_formulas(interacts[modeltype%in%1:18&abs(`t value`>=1.644854)])
-
-#mods=newmodV2(list(forms), '../temp/explore-interactions18.html')
-
-
-###################################################################################
-##### NEW: 26 interactions: brand x category, brand x country, country x category #
-###################################################################################
-
-
-combinations=data.table(rbind(expand.grid(brand, category),
-                              expand.grid(brand, country),
-                              expand.grid(category,country)))
-
-setnames(combinations, c('index1','index2'))
-combinations = data.frame(combinations)
-
-brandinteracts <- unlist(lapply(1:nrow(combinations), function(ind) {
-  update.formula(mainef,formula(paste0('. ~ . + ', paste0(combinations[ind,1], ':', combinations[ind,2]))))
-}))
-
-models<-newmod(brandinteracts, fn = NULL)
-
-names(models) <- 1:length(models)
-
-# collect interaction terms
-interacts=rbindlist(lapply(1:length(models), function(x) rbindlist(lapply(1:3, function(i) data.table(modeltype=x, var_index=i, varname=rownames(summary(models[[x]][[i]])$coefficients), summary(models[[x]][[i]])$coefficients)))))
-interacts[, variable:=c('pr','llen','dst')[var_index]]
-interacts <- interacts[grepl('[:]',varname)]
-
-maineffects = mainef
-
-forms26 = get_formulas(interacts[abs(`t value`)>=tval])
-
-##### 36
-
-comb <-c(brand, category,country)
-
-combinations=data.table(expand.grid(c(1:length(comb)), c(1:length(comb))))
-setnames(combinations, c('index1','index2'))
-combinations <- data.frame(combinations[index1<index2])
+  mainef4= . ~ 1 + (1|brand) + (1|category) + (1|country) + 
+    sbbe_round1_mc + local_to_market_mc + ln_brandnovelty3_mc+
+    sbbe_round1_mc*ln_gdppercapita2010_mc + local_to_market_mc*ln_gdppercapita2010_mc + ln_brandnovelty3_mc*ln_gdppercapita2010_mc+
+    sbbe_round1_mc*ln_pdi_mc + local_to_market_mc*ln_pdi_mc + ln_brandnovelty3_mc*ln_pdi_mc
 
  
-brandinteracts <- unlist(lapply(1:nrow(combinations), function(ind) {
-  update.formula(mainef,formula(paste0('. ~ . + ', paste0(comb[combinations[ind,1]], ':', comb[combinations[ind,2]]))))
-}))
+  
+   mainef5= . ~ 1 + (1|brand) + (1|category) + (1|country) + 
+    sbbe_round1_mc + local_to_market_mc + ln_brandnovelty3_mc+
+     ln_hdi2010_mc + 
+    ln_uai_mc 
+  
+  mainef6= . ~ 1 + (1|brand) + (1|category) + (1|country) + 
+    sbbe_round1_mc + local_to_market_mc + ln_brandnovelty3_mc+
+    sbbe_round1_mc*ln_hdi2010_mc + local_to_market_mc*ln_hdi2010_mc + ln_brandnovelty3_mc*ln_hdi2010_mc+
+    sbbe_round1_mc*ln_uai_mc + local_to_market_mc*ln_uai_mc + ln_brandnovelty3_mc*ln_uai_mc
+  
+  
+  
+ 
+ mainef7= . ~ 1 + (1|brand) + (1|category) + (1|country) + 
+    sbbe_round1_mc + local_to_market_mc + ln_brandnovelty3_mc+
+    ln_hdi2010_mc + 
+    ln_pdi_mc 
+  
+  mainef8= . ~ 1 + (1|brand) + (1|category) + (1|country) + 
+    sbbe_round1_mc + local_to_market_mc + ln_brandnovelty3_mc+
+    sbbe_round1_mc*ln_hdi2010_mc + local_to_market_mc*ln_hdi2010_mc + ln_brandnovelty3_mc*ln_hdi2010_mc+
+    sbbe_round1_mc*ln_pdi_mc + local_to_market_mc*ln_pdi_mc + ln_brandnovelty3_mc*ln_pdi_mc
+  
+  
+  
+ 
+   mainef9= . ~ 1 + (1|brand) + as.factor(category) + (1|country) + 
+    sbbe_round1_mc + local_to_market_mc + ln_brandnovelty3_mc+
+    ln_hdi2010_mc + 
+    ln_uai_mc + ln_pdi_mc 
+  
+  mainef10= . ~ 1 + (1|brand) + as.factor(category) + (1|country) + 
+    sbbe_round1_mc + local_to_market_mc + ln_brandnovelty3_mc+
+    sbbe_round1_mc*ln_hdi2010_mc + local_to_market_mc*ln_hdi2010_mc + ln_brandnovelty3_mc*ln_hdi2010_mc+
+    sbbe_round1_mc*ln_pdi_mc + local_to_market_mc*ln_pdi_mc + ln_brandnovelty3_mc*ln_pdi_mc+
+  sbbe_round1_mc*ln_uai_mc + local_to_market_mc*ln_uai_mc + ln_brandnovelty3_mc*ln_uai_mc
+  
+  
+  
+  
+  mainef11= . ~ 1 + (1|brand) + (1|category) + (1|country) + 
+    sbbe_round1_mc + local_to_market_mc + ln_brandnovelty3_mc+
+    ln_hdi2010_mc + 
+    ln_uai_mc + ln_pdi_mc 
+  
+  mainef12= . ~ 1 + (1|brand) + (1|category) + (1|country) + 
+    sbbe_round1_mc + local_to_market_mc + ln_brandnovelty3_mc+
+    sbbe_round1_mc*ln_hdi2010_mc + local_to_market_mc*ln_hdi2010_mc + ln_brandnovelty3_mc*ln_hdi2010_mc+
+    sbbe_round1_mc*ln_pdi_mc + local_to_market_mc*ln_pdi_mc + ln_brandnovelty3_mc*ln_pdi_mc+
+    sbbe_round1_mc*ln_uai_mc + local_to_market_mc*ln_uai_mc + ln_brandnovelty3_mc*ln_uai_mc
+  
+# nov6
+  mainef13= . ~ 1 + (1|brand) + (1|category) + (1|country) + 
+    sbbe_round1_mc + local_to_market_mc + ln_brandnovelty6_mc+
+    ln_hdi2010_mc + 
+    ln_uai_mc + ln_pdi_mc 
+  
+  mainef14= . ~ 1 + (1|brand) + (1|category) + (1|country) + 
+    sbbe_round1_mc + local_to_market_mc + ln_brandnovelty3_mc+
+    sbbe_round1_mc*ln_hdi2010_mc + local_to_market_mc*ln_hdi2010_mc + ln_brandnovelty6_mc*ln_hdi2010_mc+
+    sbbe_round1_mc*ln_pdi_mc + local_to_market_mc*ln_pdi_mc + ln_brandnovelty6_mc*ln_pdi_mc+
+    sbbe_round1_mc*ln_uai_mc + local_to_market_mc*ln_uai_mc + ln_brandnovelty6_mc*ln_uai_mc
+  
+  # nov12
+  mainef15= . ~ 1 + (1|brand) + (1|category) + (1|country) + 
+    sbbe_round1_mc + local_to_market_mc + ln_brandnovelty12_mc+
+    ln_hdi2010_mc + 
+    ln_uai_mc + ln_pdi_mc 
+  
+  mainef16= . ~ 1 + (1|brand) + (1|category) + (1|country) + 
+    sbbe_round1_mc + local_to_market_mc + ln_brandnovelty3_mc+
+    sbbe_round1_mc*ln_hdi2010_mc + local_to_market_mc*ln_hdi2010_mc + ln_brandnovelty12_mc*ln_hdi2010_mc+
+    sbbe_round1_mc*ln_pdi_mc + local_to_market_mc*ln_pdi_mc + ln_brandnovelty12_mc*ln_pdi_mc+
+    sbbe_round1_mc*ln_uai_mc + local_to_market_mc*ln_uai_mc + ln_brandnovelty12_mc*ln_uai_mc
+  
+  
 
-models<-newmod(brandinteracts, fn = NULL)#'../temp/explore-full-brandinteractions.html')
-
-names(models) <- 1:length(models)
-
-# collect interaction terms
-interacts=rbindlist(lapply(1:length(models), function(x) rbindlist(lapply(1:3, function(i) data.table(modeltype=x, var_index=i, varname=rownames(summary(models[[x]][[i]])$coefficients), summary(models[[x]][[i]])$coefficients)))))
-interacts[, variable:=c('pr','llen','dst')[var_index]]
-interacts <- interacts[grepl('[:]',varname)]
-
-maineffects = mainef
-
-
-forms36 = get_formulas(interacts[abs(`t value`)>=tval])
-
-
-combinations=data.frame(rbind(expand.grid(brand, category),
-                              expand.grid(brand, country),
-                              expand.grid(category,country)))
-
-
-ord <- c(brand,category,country,unlist(lapply(1:nrow(combinations), function(ind) {
-  paste0(as.character(combinations[ind,1]), ':', as.character(combinations[ind,2]))
-})))
-
-ord = paste0('^',ord,'$')
-
-mods=newmodV2(list(list(pr=mainef, llen=mainef, dst=mainef), forms,forms26, forms36), '../temp/explore-interactions-18-26-36-hofstede-bombaji-dekimpe.html', order=ord)
-
-
-
-
-#mods=newmodV2(list(forms,forms26, forms36), '../temp/explore-interactions-18-26-36-ingelhardt.html')
-
-#mods=newmodV2(list(forms,forms26, forms36), '../temp/explore-interactions-18-26-36-hofstede-pauwels.html')
-
-
-
-# EXPERIMENTING WITH FINAL MODELS
-
-#m <- brm(update.formula(update.formula(elastlt | weights(w_elastlt) ~. , forms$pr),.~.-(1|brand)), data=elast[grepl('pr',variable)])
-
-
-#summary(m)
-#yi 
+  mods=newmod(list(mainef11, mainef12, mainef13, mainef14,mainef15,mainef16), '../temp/explore-jb5.html')
+  
