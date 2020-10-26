@@ -1,4 +1,8 @@
 # Load data
+library(lme4)
+library(bit64)
+library(data.table)
+library(stargazer)
 
 brand_panel=fread('../../analysis/temp/preclean_main.csv')
 brand_panel[, ':=' (date = as.Date(date))]
@@ -7,141 +11,334 @@ brand_panel[, ':=' (date = as.Date(date))]
 source('proc_auxilary.R')
 source('proc_rename.R')
 
+#_maxiter
 
-elast <- fread('../externals/elast_results_salesresponse_max3_p10_cop.csv') 
+# 1
+elast <- fread('../externals/elast_results_salesresponse_max3_p10_cop_sur.csv') 
+#source('preclean.R')
+elast = elast[!elast6_sd==0]
 elast[, elastlt:=elast6]
 elast[, elastlt_se:=elast6_sd]
-elast[, w_elastlt := (1/elast6_sd)/sum(1/elast6_sd)]
+elast[, w_elastlt := (1/elast6_sd)/sum(1/elast6_sd), by = c('varname')]
 
-#,
-#catnoveltysum = i.sumnov6sh,
-#catnoveltyN = i.Nbrand)
-
-
-#elast[, sbbe_round1_mc:=sbbe_round1-mean(sbbe_round1,na.rm=T),by=c('varname')]
-
+grepfilter = 'market[_]id|^brand$|varname|^elast|^w[_]elast|^category$|^country$'
+elast <- elast[, grep(grepfilter,colnames(elast),value=T),with=F]
 setnames(elast, 'varname', 'variable')
 
-source('preclean.R')
+elast_sales <- copy(elast)
+
+# 2
+if(0){
+  elast <- fread('../externals/elast_results_main.csv') 
+  for (.var in c('elast', 'elastlt')) {
+    eval(parse(text=paste0("elast[!is.na(get(.var)), paste0('w_', .var) := 1/get(paste0(.var, '_se'))]")))
+    # rescale
+    eval(parse(text=paste0("elast[!is.na(get(.var)), paste0('w_', .var) := get(paste0('w_', .var))/max(get(paste0('w_', .var)))]")))
+    eval(parse(text=paste0("elast[!is.na(get(.var)), paste0('z_', .var) := get(.var)/get(paste0(.var, '_se'))]")))
+  }
+  
+  grepfilter = 'market[_]id|^brand$|varname|variable|^elast|^w[_]elast|^category$|^country$'
+  elast <- elast[, grep(grepfilter,colnames(elast),value=T),with=F]
+  
+  elast_combin = merge(elast_sales, elast, by = c('category','country','brand', 'variable'),all.x=T)
+  
+  with(elast_combin, cor(elast6, elastlt.y,use='pairwise'))
+  with(elast_combin, cor(elast6*(1/elast6_sd), `elastlt.y`/(1/`elastlt_se.y`),use='pairwise'))
+  
+}
 
 
 # load SBBE
-sbbe <- fread('../externals/elast_results_main.csv')
+sbbe <- fread('../externals/elast_results_marketshare.csv')
 setkey(sbbe, category,country,brand)
 elast[, lower_brand:=tolower(brand)]
 setkey(elast, category,country,lower_brand)
 elast[sbbe, sbbe_round1:=i.sbbe_std]
+elast[!is.na(elastlt), sbbe_round1_mc := sbbe_round1-mean(sbbe_round1,na.rm=T),by=c('variable')]
 
-# load BAV
-bav <- fread('../../derived/output/bav.csv')
-setkey(bav, country,brand)
+# Load covariates
+fns <- list.files('../output/',pattern='covariates.*csv', full.names = T)
 
-setkey(elast, country,lower_brand)
-bav[, brandstrength_mean:=mean(Brand_Strength_R), by =c('country','brand')]
-elast[bav, brandstrength:=brandstrength_mean]
+for (fn in fns) {
+  tmp <- fread(fn)
+  aggkey = unlist(strsplit(gsub('[.]csv', '', rev(strsplit(fn,'_')[[1]])[1]), '[-]'))
+  
+  setkeyv(tmp, aggkey)
+  setkeyv(elast, aggkey)
+  elast <- merge(elast, tmp, all.x=T, all.y=F)
+  
+  added_vars <- setdiff(colnames(tmp), aggkey)
+  for (.v in added_vars) {
+    if (!class(unlist(elast[,.v,with=F]))=='character') elast[!is.na(elastlt), paste0(.v,'_mc'):=(get(.v)-mean(get(.v),na.rm=T)),by=c('variable')]
+  }
+}
 
+### Auxilary functions
 
-# brand novelty
-novel = brand_panel[, list(novelty=mean(nov6sh)),by=c('category','country', 'brand')]
-setkey(novel, category,country,brand)
-
-setkey(elast, category, country,lower_brand)
-
-elast[novel, ':=' (ln_brnovelty=log(i.novelty+1), brnovelty=i.novelty)]
-
-# category novelty
-novel = brand_panel[, list(novelty=mean(nov6sh),
-                           Nbrand=length(unique(brand)),
-                           sumnovelty=sum(nov6sh)
-),by=c('category','country')]
-
-setkey(novel, category,country)
-
-setkey(elast, category, country)
-
-elast[novel, ':=' (ln_catnovelty=log((i.sumnovelty-brnovelty)/(i.Nbrand-1)))]
-
-elast[, sbbe_round1_mc:=sbbe_round1-mean(sbbe_round1,na.rm=T),by=c('variable')]
-lmerctrl = lmerControl(optimizer ="Nelder_Mead", check.conv.singular="ignore")
-
-library(lme4)
-
-
-# descriptives of elastitcities
-# main model like this
-# tested other models + suggestions marnik/jb
-
-
-#brand_prindex_mean_mc ++ + ln_catnovelty
-#sbbe_round1 branz
-#+ (1|brand) +  sbbe_round1 ln_brand_prindex_mean_mcgci_p06_goods_s
-#formula_basic = list(m4 = . ~ 1 + ln_gdppercap2010_mc + ln_gini_mc + sbbe_round1_mc + ln_brnovelty + local_to_market + ln_market_herf_mc + ln_market_growth_mc ) #log(catvolatility_range))
-
-formula = list(m1 = . ~ 1 + (1|country) + (1|category) + (1|brand) + 
-                 ln_gdppercap2010_mc + ln_gini_mc + sbbe_round1_mc + ln_brnovelty + local_to_market+
-                 ln_market_herf_mc + ln_market_growth_mc)
-
-formula$m1b <- update(formula$m1, .~.+log(brandstrength)-sbbe_round1_mc)
-formula$m1c <- update(formula$m1, .~.+brandz-sbbe_round1_mc)
-
-formula$m2 <- update(formula$m1, .~.+ln_brand_prindex_mean_mc)
-formula$m2b <- update(formula$m1, .~.+`brand_from_jp-us-ch-ge-sw`)
-
-formula$m3 <- update(formula$m1, .~.+log(catvolatility_sd))
-formula$m3b <- update(formula$m1, .~.+ln_catnovelty)
-formula$m3c <- update(formula$m1, .~.+appliance)
-
-formula$m4 <- update(formula$m1, .~.+log(gci_p06_goods_s))
-##formula$m2 <- update(formula$m1, .~.+log(catvolatility_range))
-#formula$m2 <- update(formula$m1, .~.+log(catvolatility_range))
-
-formula2 <- list(m1=formula$m1)
-formula2$m1b <- update(formula$m1, .~.+ln_hdi2010_mc-ln_gdppercap2010_mc)
-formula2$m1c <- update(formula$m1, .~.+log(gci_overall_s)-ln_gdppercap2010_mc)
-formula2$m1d <- update(formula$m1, .~.+emerging-ln_gdppercap2010_mc)
-
-
-#formula = list(m4 = . ~ 1 + emerging + sbbe_round1 + ln_market_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market)
-vars= unique(c('rwpspr','wpswdst','llen'))
-
-process_regs <- function(formula) {
-  regs <- lapply(vars, function(varname) {
-    fit=NULL
-    lt = lapply(formula, function(form) lmer(update(form, elastlt ~ .),  control = lmerctrl, 
-                                             REML = F, data = data.table(elast[variable==varname&!is.na(elastlt)]), weights=w_elastlt))
-    return(lt)
+estim_models <- function(models) {
+  lapply(seq(along=models), function(i) {
+    print(i)
+    if (grepl('[|]', as.character(models[[i]])[3])) {
+      m1 <- lmer(update.formula(elastlt~1, models[[i]]),
+                 data=elast[grep('pr',variable)], weights=w_elastlt,
+                 control = lmerctrl, REML=F)
+      m2 <- lmer(update.formula(elastlt~1, models[[i]]),
+                 data=elast[grep('llen',variable)], weights=w_elastlt,
+                 control = lmerctrl, REML=F)
+      m3 <- lmer(update.formula(elastlt~1, models[[i]]),
+                 data=elast[grep('dst',variable)], weights=w_elastlt,
+                 control = lmerctrl, REML=F)
+    } else {
+      m1 <- lm(update.formula(elastlt~1, models[[i]]),
+               data=elast[grep('pr',variable)], weights=w_elastlt)
+      m2 <- lm(update.formula(elastlt~1, models[[i]]),
+               data=elast[grep('llen',variable)], weights=w_elastlt)
+      m3 <- lm(update.formula(elastlt~1, models[[i]]),
+               data=elast[grep('dst',variable)], weights=w_elastlt)
+    }
+    return(list(m1,m2,m3))
   })}
 
-#m<-lm(update(formula_basic[[1]], elastlt ~ .), data = elast[variable==vars[1]&!is.na(elastlt)], weights=w_elastlt)
-#vif(m)
+rsq <- function(m) {
+  resid=resid(m)
+  pred=predict(m)
+  y=pred+resid
+  tss=sum((y-mean(y))^2)
+  rss=sum(resid^2)
+  rsq=1-(rss/tss)
+  return(rsq)
+}
 
-#out1=regmodel(formula=formula, dat=elast, model='lmer')
+rsq <- function(m) {
+  resid=resid(m)
+  pred=predict(m)
+  y=pred+resid
+  return(cor(y,pred)^2)
+}
 
-
-#cat("<P style='page-break-before: always'>")
-
-#printout(out1, 'lt', title = tab(paste0('Regression with long-term elasticities'), prefix=''), vars=ordered_vars,  notes=notes_base, covariate_choices = covars)
-
-
-
-library(stargazer)
-
-# by variable: all
-regs_unlisted = do.call('c', process_regs(formula))
-lbls=rep(vars, each=length(regs_unlisted)/length(vars))
-
-stargazer(regs_unlisted,type='html', column.labels=lbls, out = 'output-covariates.html')
-
-
-regs_unlisted = do.call('c', process_regs(formula2))
-lbls=rep(vars, each=length(regs_unlisted)/length(vars))
-
-stargazer(regs_unlisted,type='html', column.labels=lbls, out = 'output-devindicators.html')
-
+newmod <- function(model, fn) {
+  mods = estim_models(model)
+  rsqs=unlist(lapply(mods, function(x) lapply(x, rsq)))
+  obss = unlist(lapply(mods, function(x) lapply(x, function(i) length(which(!is.na(residuals(i)))))))
+  
+  r2s = c('R-squared', sub('^(-)?0[.]', '\\1.', formatC(rsqs, digits=3, format='f', flag='#')))
+  obs = c('Observations',obss)
+  
+  if (!is.null(fn)) stargazer(do.call('c', mods),type='html', 
+                              column.labels = rep(c('price','line length','distribution'), length(model)), 
+                              out = fn, add.lines = list(r2s,obs))
+  return(mods)
+}
 
 
 
+get_formulas <- function(sel) {
+  forms= lapply(c('pr','llen','dst'), function(x) {
+    effects=sel[variable==x]
+    if (nrow(effects)>0) return(update.formula(maineffects, formula(paste0('.~.+', paste0(effects$varname,collapse='+')))))
+    return(maineffects)
+    
+  })
+  names(forms) <- c('pr','llen','dst')
+  forms
+}
 
-# Calculate new models
-# Calculate VIF
+
+all_mods <- function(models) {
+  lapply(models, function(forms) {
+    list(m1 = lmer(update.formula(elastlt~1, forms$pr),
+                   data=elast[grep('pr',variable)], weights=w_elastlt,
+                   control = lmerctrl, REML=F),
+         m2 = lmer(update.formula(elastlt~1, forms$llen),
+                   data=elast[grep('llen',variable)], weights=w_elastlt,
+                   control = lmerctrl, REML=F),
+         m3 = lmer(update.formula(elastlt~1, forms$dst),
+                   data=elast[grep('dst',variable)], weights=w_elastlt,
+                   control = lmerctrl, REML=F))
+  })
+}
+# estimate models
+newmodV2 <- function(model, fn, ...) {
+  
+  mods = all_mods(model)
+  rsqs=unlist(lapply(mods, function(x) lapply(x, rsq)))
+  obss = unlist(lapply(mods, function(x) lapply(x, function(i) length(which(!is.na(residuals(i)))))))
+  
+  r2s = c('R-squared', sub('^(-)?0[.]', '\\1.', formatC(rsqs, digits=3, format='f', flag='#')))
+  obs = c('Observations',obss)
+  
+  stargazer(do.call('c', mods),type='html', 
+            column.labels = rep(c('price','line length','distribution'), length(model)), 
+            out = fn, add.lines = list(r2s,obs), ...)
+  return(mods)
+}
+
+lmerctrl = lmerControl(optimizer ="Nelder_Mead", check.conv.singular="ignore")
+
+
+
+#########################################################
+##### NEW: 18 interactions: brand x category or country #
+#########################################################
+
+# Ingelhardt
+mainef= . ~ 1 + (1|country) + (1|category) + (1|brand) + 
+  sbbe_round1_mc + local_to_market_mc + ln_brandnovelty3_mc+
+  ln_gdppercapita2010_mc + ln_ginicoef_mc + 
+  tradrat_mc + survself_mc +
+  ln_market_herf_mc + ln_market_growth_mc
+
+
+brand = c('sbbe_round1_mc','local_to_market_mc','ln_brandnovelty3_mc')
+category = c("ln_market_herf_mc","ln_market_growth_mc")
+country = c("ln_gdppercapita2010_mc","ln_ginicoef_mc","tradrat_mc","survself_mc")
+
+
+# Hofstede - Dekimpe/Bombaji
+#if(0) {
+tval = qnorm(.95)
+#tval = qnorm(.975)
+
+mainef= . ~ 1 + (1|brand) + (1|category) + (1|country) + 
+  sbbe_round1_mc + local_to_market_mc + ln_brandnovelty3_mc+
+  ln_market_herf_mc + ln_market_growth_mc+ 
+  ln_gdppercapita2010_mc + ln_ginicoef_mc + 
+  ln_ltowvs_mc + ln_idv_mc
+
+country = c("ln_gdppercapita2010_mc","ln_ginicoef_mc","ln_ltowvs_mc","ln_idv_mc")
+
+tval = qnorm(.95)
+#tval = qnorm(.975)
+
+if(0){
+# new
+mainef= . ~ 1 + (1|brand) + (1|category) + (1|country) + 
+  sbbe_round1_mc + local_to_market_mc + ln_brandnovelty3_mc+
+  # ln_market_herf_mc + ln_market_growth_mc+ 
+  ln_gdppercapita2010_mc + ln_ginicoef_mc + 
+  + ln_uai_mc # ln_pdi_mc #
+
+brand = c('sbbe_round1_mc','local_to_market_mc','ln_brandnovelty3_mc')
+category = c("ln_market_herf_mc","ln_market_growth_mc")
+country = c("ln_gdppercapita2010_mc","ln_ginicoef_mc","ln_uai_mc") #"ln_pdi_mc")#,"ln_uai_mc")
+
+}
+
+# Hofstede - Pauwels
+if(0) {
+  
+  mainef= . ~ 1 + (1|brand) + (1|category) + (1|country) + 
+    sbbe_round1_mc + local_to_market_mc + ln_brandnovelty3_mc+
+    ln_gdppercapita2010_mc + ln_ginicoef_mc + 
+    pdi_mc + idv_mc + mas_mc + uai_mc + 
+    ln_market_herf_mc + ln_market_growth_mc
+  
+  category = c("pdi_mc","idv_mc", "mas_mc", "uai_mc", "ln_market_herf_mc","ln_market_growth_mc")
+}
+
+brandinteracts <- unlist(lapply(c(category,country), function(i) {
+  unlist(lapply(brand, function(b) update.formula(mainef,formula(paste0('. ~ . + ', paste0(b,':',i))))))
+}                    ))
+
+models<-newmod(brandinteracts, fn = NULL)
+
+names(models) <- 1:length(models)
+
+# collect interaction terms
+interacts=rbindlist(lapply(1:length(models), function(x) rbindlist(lapply(1:3, function(i) data.table(modeltype=x, var_index=i, varname=rownames(summary(models[[x]][[i]])$coefficients), summary(models[[x]][[i]])$coefficients)))))
+interacts[, variable:=c('pr','llen','dst')[var_index]]
+
+interacts <- interacts[grepl('[:]',varname)]
+
+maineffects = mainef
+
+get_formulas <- function(sel) {
+  forms= lapply(c('pr','llen','dst'), function(x) {
+    effects=sel[variable==x]
+    if (nrow(effects)>0) return(update.formula(maineffects, formula(paste0('.~.+', paste0(effects$varname,collapse='+')))))
+    return(maineffects)
+    
+  })
+  names(forms) <- c('pr','llen','dst')
+  forms
+}
+
+#qnorm(.95)
+
+forms = get_formulas(interacts[abs(`t value`)>=tval])
+#forms2 = get_formulas(interacts[modeltype%in%1:18&abs(`t value`>=1.644854)])
+
+#mods=newmodV2(list(forms), '../temp/explore-new-interactions18.html')
+
+
+###################################################################################
+##### NEW: 26 interactions: brand x category, brand x country, country x category #
+###################################################################################
+
+
+combinations=data.table(rbind(expand.grid(brand, category),
+                              expand.grid(brand, country),
+                              expand.grid(category,country)))
+
+setnames(combinations, c('index1','index2'))
+combinations = data.frame(combinations)
+
+brandinteracts <- unlist(lapply(1:nrow(combinations), function(ind) {
+  update.formula(mainef,formula(paste0('. ~ . + ', paste0(combinations[ind,1], ':', combinations[ind,2]))))
+}))
+
+models<-newmod(brandinteracts, fn = NULL)
+
+names(models) <- 1:length(models)
+
+# collect interaction terms
+interacts=rbindlist(lapply(1:length(models), function(x) rbindlist(lapply(1:3, function(i) data.table(modeltype=x, var_index=i, varname=rownames(summary(models[[x]][[i]])$coefficients), summary(models[[x]][[i]])$coefficients)))))
+interacts[, variable:=c('pr','llen','dst')[var_index]]
+interacts <- interacts[grepl('[:]',varname)]
+
+maineffects = mainef
+
+forms26 = get_formulas(interacts[abs(`t value`)>=tval])
+
+##### 36
+
+comb <-c(brand, category,country)
+
+combinations=data.table(expand.grid(c(1:length(comb)), c(1:length(comb))))
+setnames(combinations, c('index1','index2'))
+combinations <- data.frame(combinations[index1<index2])
+
+
+brandinteracts <- unlist(lapply(1:nrow(combinations), function(ind) {
+  update.formula(mainef,formula(paste0('. ~ . + ', paste0(comb[combinations[ind,1]], ':', comb[combinations[ind,2]]))))
+}))
+
+models<-newmod(brandinteracts, fn = NULL)#'../temp/explore-new-full-brandinteractions.html')
+
+names(models) <- 1:length(models)
+
+# collect interaction terms
+interacts=rbindlist(lapply(1:length(models), function(x) rbindlist(lapply(1:3, function(i) data.table(modeltype=x, var_index=i, varname=rownames(summary(models[[x]][[i]])$coefficients), summary(models[[x]][[i]])$coefficients)))))
+interacts[, variable:=c('pr','llen','dst')[var_index]]
+interacts <- interacts[grepl('[:]',varname)]
+
+maineffects = mainef
+
+
+forms36 = get_formulas(interacts[abs(`t value`)>=tval])
+
+
+combinations=data.frame(rbind(expand.grid(brand, category),
+                              expand.grid(brand, country),
+                              expand.grid(category,country)))
+
+
+ord <- c(brand,category,country,unlist(lapply(1:nrow(combinations), function(ind) {
+  paste0(as.character(combinations[ind,1]), ':', as.character(combinations[ind,2]))
+})))
+
+ord = paste0('^',ord,'$')
+
+mods=newmodV2(list(list(pr=mainef, llen=mainef, dst=mainef), forms,forms26, forms36), '../temp/explore-new-interactions-18-26-36-hofstede-bombaji-dekimpe.html', order=ord)
+
 
