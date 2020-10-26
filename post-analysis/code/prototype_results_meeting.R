@@ -28,7 +28,7 @@ source('proc_rename.R')
   
 # 2
   if(0){
-  elast <- fread('../externals/elast_results_main.csv') 
+  elast <- fread('../externals/elast_results_marketshare.csv') 
   for (.var in c('elast', 'elastlt')) {
       eval(parse(text=paste0("elast[!is.na(get(.var)), paste0('w_', .var) := 1/get(paste0(.var, '_se'))]")))
       # rescale
@@ -113,6 +113,22 @@ rsq <- function(m) {
   pred=predict(m)
   y=pred+resid
   return(cor(y,pred)^2)
+}
+
+# rsq WLS
+rsq <- function(m) {
+  if (class(te)=='lm') w=m$weights
+  if (class(te)=='lmer') w=m@frame$`(weights)`
+  
+  resid=resid(m)
+  pred=predict(m)
+  y=pred+resid
+  
+  rss=sum((w*resid)^2)
+  
+  tss=sum((w*y-mean(w*y))^2)
+  rsq=1-(rss/tss)
+  return(rsq)
 }
 
 newmod <- function(model, fn) {
