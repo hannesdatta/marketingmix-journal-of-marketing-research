@@ -7,12 +7,14 @@ OUTPUT_DIR = ../output
 
 
 ###### BUILD COMMANDS ######
-all: marketshare  sales
+all: simplified
+#marketshare  sales
 
 pre: $(TEMP_DIR)/preclean.txt
 
 marketshare: $(OUTPUT_DIR)/elasticities_marketshare.txt $(OUTPUT_DIR)/audit_marketshare.html
 sales: $(OUTPUT_DIR)/elasticities_sales.txt $(OUTPUT_DIR)/audit_sales.html
+simplified: $(OUTPUT_DIR)/elasticities_simplified.txt
 
 ###### Build parts ######
 
@@ -52,6 +54,20 @@ $(OUTPUT_DIR)/results_sales.RData: analysis_sales.R $(TEMP_DIR)/preclean.txt pro
 $(OUTPUT_DIR)/elasticities_sales.txt: extract_elast_sales.R $(OUTPUT_DIR)/results_sales.RData
 	R --vanilla --args "" < "extract_elast_sales.R"
 
+
 #### Model diagnostics
 $(OUTPUT_DIR)/audit_sales.html: $(OUTPUT_DIR)/results_sales.RData audit_sales.Rmd
 	R -e "rmarkdown::render('audit_sales.Rmd', output_file = '../output/audit_sales.html')"
+
+
+#########################
+### Simplified models ###
+#########################
+
+#### Model estimation
+$(OUTPUT_DIR)/results_simplified.RData: analysis_simplified.R $(TEMP_DIR)/preclean.txt proc_simplified.R
+	R --vanilla --args "" < "analysis_simplified.R"
+
+#### 
+$(OUTPUT_DIR)/elasticities_simplified.txt: extract_elast_simplified.R $(OUTPUT_DIR)/results_simplified.RData
+	R --vanilla --args "" < "extract_elast_simplified.R"
