@@ -64,7 +64,7 @@ dir.create('../output')
     brand_panel[quarter==q, paste0('quarter', q):=1]
   }  
     
-  vars=c('rwpspr', 'llen', 'wpswdst', 'usales', 'lagusales')
+  vars=c('rwpspr', 'llen', 'wpswdst', 'usales', 'lagusales')#, grep('comp[_]', colnames(brand_panel),value=T))
   for (var in vars) {
     brand_panel[, anyzero:=as.numeric(any(get(var)==0),na.rm=T),by=c('market_id', 'brand')]
     brand_panel[is.na(anyzero), anyzero:=0]
@@ -79,7 +79,7 @@ dir.create('../output')
     brand_panel[, paste0('comp_', v):=(get(paste0('sum_', v))-get(v))/(get(paste0('N_', v))-1)]
     brand_panel[, paste0('sum_', v):=NULL]
     brand_panel[, paste0('N_', v):=NULL]
-    
+    brand_panel[, paste0('dcomp_',v):=get(paste0('comp_', v))-c(NA, get(paste0('comp_', v))[-.N]), by = c('market_id', 'brand')]
     }
   
   # Define copula terms
@@ -148,7 +148,7 @@ void<-clusterEvalQ(cl, init())
 init()
 
 
-bids <- unique(brand_panel$brand_id) #[1:50]
+bids <- unique(brand_panel$brand_id)#[1:50]
 length(bids)
 
  
@@ -160,5 +160,22 @@ results_model = parLapplyLB(cl, bids, function(bid)
   )
 
 
-results_loglog = results_model
-save(results_loglog, file = '../output/results_simplified.RData')
+errs =unlist(lapply(results_model,class))
+table(errs)
+
+errbids=bids[which(errs=='try-error')]
+
+if(0) {
+sapply(errbids, function(id) {print(id); simple_loglog(id)})
+
+rm(tmp)
+tmp=simple_loglog(333)$elast_ec
+print(tmp)
+
+}
+
+results_loglog = lapply(results_model, function(x) list(elast=x$elast_loglog))
+
+results_ec = lapply(results_model, function(x) list(elast=x$elast_ec))
+
+save(results_loglog, results_ec, file = '../output/results_simplified.RData')
