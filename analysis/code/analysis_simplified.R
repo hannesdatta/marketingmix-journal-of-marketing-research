@@ -181,11 +181,11 @@ print(tmp)
 }
 
 
-results_loglog = lapply(results_model, function(x) list(elast=x$elast_loglog, vif = x$vif_loglog))
+results_loglog = lapply(results_model, function(x) list(elast=x$elast_loglog, vif = x$vif_loglog, model=x$model_loglog))
 
-results_ec = lapply(results_model, function(x) list(elast=x$elast_ec, vif = x$vif_ec))
+results_ec = lapply(results_model, function(x) list(elast=x$elast_ec, vif = x$vif_ec, model=x$model_ec))
 
 save(results_loglog, results_ec, file = '../output/results_simplified.RData')
 
-save(results_model, file = '../output/results_simplified_all.RData')
+#save(results_model, file = '../output/results_simplified_all.RData')
 
