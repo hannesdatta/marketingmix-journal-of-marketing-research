@@ -80,7 +80,7 @@ simple_loglog <- function(id, withcontrols=T, withattributes=T,
   
   # EC
     
-    ctrls = c('lntrend')
+    ctrls = NULL #c('lntrend')
     if ('lngdp' %in% control_vars) ctrls=c(ctrls, 'lngdp')
     if ('lnholiday' %in% control_vars) ctrls=c(ctrls, 'lnholiday')
     vars_delta = paste0('d', setdiff(c(vars, control_vars), ctrls))
@@ -128,6 +128,13 @@ simple_loglog <- function(id, withcontrols=T, withattributes=T,
  elast1=cbind(identifiers[1],elast1)[,date:=NULL]
  elast2=cbind(identifiers2[1],elast2)[,date:=NULL]
  
-return(list(elast_loglog=elast1, elast_ec = elast2, model_loglog=m1, model_ec=m2))
+ .v=vif(m1)
+ vif1=cbind(identifiers[1], data.table(variable=names(.v), vif=.v))[, date:=NULL]
+ 
+ .v=vif(m2)
+ vif2=cbind(identifiers2[1], data.table(variable=names(.v), vif=.v))[, date:=NULL]
+ 
+ 
+return(list(elast_loglog=elast1, elast_ec = elast2, model_loglog=m1, model_ec=m2, vif_loglog=vif1, vif_ec=vif2))
 }
 

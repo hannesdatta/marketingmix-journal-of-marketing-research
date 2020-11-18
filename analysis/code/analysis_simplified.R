@@ -112,6 +112,7 @@ dir.create('../output')
     library(data.table)
     library(timeSeries)
     library(marketingtools)
+    library(car)
     source('proc_analysis_marketshare.R')
     source('proc_analysis_ardl.R')
     source('proc_analysis_ardlbounds.R')
@@ -159,6 +160,11 @@ results_model = parLapplyLB(cl, bids, function(bid)
     silent = T)
   )
 
+#m<-simple_loglog(bids[1])
+
+#m$model_ec
+#m$vif_ec
+
 
 errs =unlist(lapply(results_model,class))
 table(errs)
@@ -174,8 +180,12 @@ print(tmp)
 
 }
 
-results_loglog = lapply(results_model, function(x) list(elast=x$elast_loglog))
 
-results_ec = lapply(results_model, function(x) list(elast=x$elast_ec))
+results_loglog = lapply(results_model, function(x) list(elast=x$elast_loglog, vif = x$vif_loglog))
+
+results_ec = lapply(results_model, function(x) list(elast=x$elast_ec, vif = x$vif_ec))
 
 save(results_loglog, results_ec, file = '../output/results_simplified.RData')
+
+save(results_model, file = '../output/results_simplified_all.RData')
+
