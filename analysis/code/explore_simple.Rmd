@@ -1,0 +1,95 @@
+---
+title: "Exploration simple log-log / EC models"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(data.table)
+library(stargazer)
+library(knitr)
+library(DT)
+
+load('../output/results_simplified.RData')
+
+# VIFs
+vifs_loglog = rbindlist(lapply(results_loglog, function(x) x$vif))
+vifs_ec = rbindlist(lapply(results_ec, function(x) x$elast))
+
+# elasticities
+elast_loglog = rbindlist(lapply(results_loglog, function(x) x$elast))
+elast_ec = rbindlist(lapply(results_ec, function(x) x$elast))
+
+```
+
+# Log-log model
+
+## Example model specification for one brand
+
+Generated to illustrate the model configuration (i.e., covariates) and dependent variable.
+
+```{r, results = 'asis', echo = FALSE}
+stargazer(results_loglog[[1]]$model, type='html')
+cat(paste0('Dependent variable: ', colnames(results_loglog[[1]]$model$model)[1]), fill =T)
+
+```
+
+## Summary of elasticities
+
+### by variable type
+
+```{r, echo = FALSE}
+
+tmp = elast_loglog[!is.na(elastlt), list(N=.N,mean=mean(elastlt), min=min(elastlt), max = max(elastlt), sd=sd(elastlt)),by=c('variable')]
+kable(tmp)
+```
+
+### by category and variable type
+
+```{r, echo = FALSE}
+
+tmp = elast_loglog[!is.na(elastlt), list(N=.N,mean=mean(elastlt), min=min(elastlt), max = max(elastlt), sd=sd(elastlt)),by=c('variable', 'category')]
+setorder(tmp,variable, category)
+
+kable(tmp)
+
+```
+
+## Summary of VIFs
+
+### by covariate
+
+```{r, echo = FALSE}
+
+tmp = vifs_loglog[, list(N=.N,mean=mean(vif), min=min(vif), max = max(vif)),by=c('variable')]
+setorderv(tmp,'mean', order=-1L)
+
+kable(tmp, caption = 'VIFs, ordered in descending order of mean VIFs')
+
+```
+
+### by category
+
+```{r, echo = FALSE}
+
+tmp = vifs_loglog[, list(N=.N,mean=mean(vif), min=min(vif), max = max(vif)),by=c('category')]
+setorderv(tmp,'mean', order=-1L)
+
+kable(tmp, caption = 'VIFs, ordered in descending order of mean VIFs')
+
+```
+
+### for a few example models
+
+```{r, echo  = FALSE, results = 'asis'}
+for (bid in c(10,100,1000)) print(kable(vifs_loglog[brand_id==bid], caption = paste0('VIFs for brand_id ', bid)))
+```
+
+### Scrollable table for max. 1000 entries
+
+```{r, echo = FALSE}
+
+tmp=vifs_loglog
+setorderv(tmp, 'vif',order=-1L)
+DT::datatable(head(tmp,1000))
+```
