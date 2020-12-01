@@ -28,11 +28,6 @@ library(parallel)
 library(marketingtools)
 library(car)
 library(devtools)
-
-#install_github('https://github.com/hannesdatta/dynamac', ref = 'firstdiff_nolags')
-
-# try out new dynamac distribution
-#devtools::install_github("andyphilips/dynamac")
 library(dynamac)
 
 
@@ -53,10 +48,11 @@ dir.create('../output')
   length(analysis_markets)
  
 # Define additional variables
+  
   setorder(brand_panel, market_id, brand, date)
-  brand_panel[selected==T, trend:=.GRP,by=c('market_id', 'brand','date')]
-  brand_panel[selected==T, trend:=trend-min(trend,na.rm=T)+1,by=c('market_id', 'brand')]
-  brand_panel[selected==T, trend:=log(trend),by=c('market_id', 'brand')]
+  brand_panel[selected==T&timewindow==T, trend:=as.double(.GRP),by=c('market_id', 'brand','date')]
+  brand_panel[selected==T&timewindow==T, trend:=trend-min(trend,na.rm=T)+1,by=c('market_id', 'brand')]
+  brand_panel[selected==T&timewindow==T, lntrend:=log(trend),by=c('market_id', 'brand')]
   
   
   for (q in 1:3) {  
@@ -82,6 +78,16 @@ dir.create('../output')
     brand_panel[, paste0('dcomp_',v):=get(paste0('comp_', v))-c(NA, get(paste0('comp_', v))[-.N]), by = c('market_id', 'brand')]
     }
   
+  
+  length(unique(brand_panel[selected==T]$brand_id))
+  length(unique(brand_panel[selected==T & timewindow==T &obs48==T]$brand_id))
+  nrow(brand_panel[selected==T])
+  nrow(brand_panel[selected==T & timewindow==T &obs48==T])
+  
+  brand_panel <- brand_panel[selected==T & timewindow==T &obs48==T] # at least 48 obs for estimation
+  
+  length(unique(brand_panel[selected==T]$brand_id))
+  
   # Define copula terms
   for (var in c('lnrwpspr', 'lnllen', 'lnwpswdst')) {
     brand_panel[, paste0('cop_', var):=make_copula(get(paste0(var))), by = c('market_id','brand')]
@@ -103,6 +109,9 @@ dir.create('../output')
   }
   
   brand_panel <- brand_panel[!grepl('allothers|unbranded|^local|^super|^amazon',brand,ignore.case=T)]
+  
+  brand_panel[, lngdp := log(gdppercapita)]
+  brand_panel[, lnholiday := log(npublicholidays+1)]
   
 ##########################
 # DYNAMAC ARDL PROCEDURE #
@@ -130,6 +139,37 @@ init()
 #})
 
 #summary(rbindlist(res))
+# try
+if(0){
+  
+  #controls='quarter[1-3]|^attr[_]|lngdp|lnholiday|^comp[_]|^trend')
+  id=1046 #1372
+  buildup1=c('', 'quarter[1-3]', 'quarter[1-3]|^trend', 'quarter[1-3]|^lntrend') 
+  buildup2=c('quarter[1-3]|^lntrend|^comp[_]', 'quarter[1-3]|^lntrend|^comp[_]|lnholiday',
+             'quarter[1-3]|^lntrend|^comp[_]|lnholiday|lngdp') 
+  buildup3= paste0(rev(buildup2)[1], c('|^attr[_]'))
+
+  buildup=c(buildup1,buildup2, buildup3)
+  
+  buildup = c('quarter[1-3]|^comp[_]|lnholiday|lngdp')
+  m<-lapply(buildup, function(x) {
+    cat('==========================\n')
+    cat(x, fill=T)
+    cat(paste0('id: ', id),fill=T)
+    cat('==========================\n')
+    out=simple_loglog(id, controls=x)
+    cat('Model\n============\n')
+    print(summary(out$model))
+    cat('Elasticities\n============\n')
+    print(out$elast)
+    cat('VIF\n============\n')
+    print(out$vif)
+    return(out)
+  })
+  
+  
+  
+}
 
 
 
@@ -149,21 +189,17 @@ void<-clusterEvalQ(cl, init())
 init()
 
 
-bids <- unique(brand_panel$brand_id)#[1:50]
+bids <- unique(brand_panel$brand_id) #[1:50]
 length(bids)
 
  
 # estimate
 
 results_model = parLapplyLB(cl, bids, function(bid)
-    try(simple_loglog(bid, withcontrols=T, withattributes=T),
-    silent = T)
+    #try(simple_loglog(bid, controls='quarter[1-3]|^lntrend|^comp[_]|lnholiday|lngdp|^attr[_]'),
+  try(simple_loglog(bid, controls='quarter[1-3]|^comp[_]|lnholiday'),#|^lntrend'),#lngdp'),
+      silent = T)
   )
-
-#m<-simple_loglog(bids[1])
-
-#m$model_ec
-#m$vif_ec
 
 
 errs =unlist(lapply(results_model,class))
@@ -181,11 +217,15 @@ print(tmp)
 }
 
 
-results_loglog = lapply(results_model, function(x) list(elast=x$elast_loglog, vif = x$vif_loglog, model=x$model_loglog))
+results_loglog = results_model #lapply(results_model, function(x) list(elast=x$elast, vif = x$vif, model=x$model))
 
-results_ec = lapply(results_model, function(x) list(elast=x$elast_ec, vif = x$vif_ec, model=x$model_ec))
+#results_ec = lapply(results_model, function(x) list(elast=x$elast_ec, vif = x$vif_ec, model=x$model_ec))
 
-save(results_loglog, results_ec, file = '../output/results_simplified.RData')
+#results_ec_nocomp = lapply(results_model_nocomp, function(x) list(elast=x$elast_ec, vif = x$vif_ec, model=x$model_ec))
+
+
+save(results_loglog,# results_ec, #results_ec_nocomp,
+     file = '../output/results_simplified.RData')
 
 #save(results_model, file = '../output/results_simplified_all.RData')
 

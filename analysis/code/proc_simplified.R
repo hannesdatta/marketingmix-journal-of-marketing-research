@@ -2,52 +2,49 @@ library(MASS)
 library(car)
 
 # Configure model type and calibrate lag structure
-simple_loglog <- function(id, withcontrols=T, withattributes=T, 
-                   autocorrel_lags= c(3,6,9,12,15,18,1),
-                   control_ur = F,
-                   return_models = F, return_simulations = F, shockperiods=NA,
-                   ndraws=5,
-                   kickout_ns_controls = F, pval = .1,
-                   with_copulas= F) {
+simple_loglog <- function(id, controls='quarter[1-3]|^attr[_]|lngdp|lnholiday|^comp[_]|^trend') {
   
   # 1.0 Conduct bounds test
   dv='lnusales'
   dt=data.table(brand_panel[brand_id==id])
   
-  brands_in_market <- unique(brand_panel[market_id%in%unique(brand_panel[brand_id==id]$market_id)]$brand)
-  
   vars = c('lnrwpspr','lnllen','lnwpswdst') 
   
   vars = vars[unlist(lapply(dt[, vars, with=F], use_ts))]
   
-  dt[, lngdp := log(gdppercapita)]
-  dt[, lnholiday := log(npublicholidays+1)]
+  #brands_in_market <- unique(brand_panel[market_id%in%unique(brand_panel[brand_id==id]$market_id)]$brand)
   
   #if (length(brands_in_market)>2) 
   #if (length(brands_in_market)<=2) control_vars = c('lngdp', 'lnholiday')
   
-  control_vars = c('lngdp', 'lnholiday', grep('^comp[_]', colnames(dt),value=T))
   
-  if(withcontrols==F) control_vars = NULL
+  control_vars = grep(controls, colnames(dt),value=T)
+  
+  if(length(control_vars)==0|controls=='') control_vars = NULL
+  
   control_vars = control_vars[unlist(lapply(dt[, control_vars, with=F], use_ts))]
   
-  quarter_vars = c('quarter1','quarter2','quarter3')
-  
-  dt[, lntrend:=log(1:.N)]
+  #dt[, lntrend:=log(1:.N)]
   dt[, lntrend:=lntrend-mean(lntrend,na.rm=T)]
-  dt[, laglnusales:=c(NA, lnusales[-.N])]
+  dt[, trend:=trend-mean(trend,na.rm=T)]
   
   # LOG-LOG
     
     # lm model
-    my_form =update.formula(lnusales~1, as.formula(paste0('.~.+1+', paste0(c(vars,quarter_vars, control_vars, 'lntrend', 'laglnusales'), collapse='+'))))
+    my_form =update.formula(lnusales~1, as.formula(paste0('.~.+1+', paste0(c(vars, control_vars, 'lnlagusales'), collapse='+'))))
     
     m1 = lm(my_form, data= dt)
     
-    identifiers = dt[-m1$na.action,c('market_id', 'category','country', 'brand', 'brand_id' , 'date'),with=F]
-    setkey(identifiers, market_id, date, brand)
+    identifiers = unique(dt[,c('market_id', 'category','country', 'brand', 'brand_id' ),with=F], by=c('brand_id'))
+    setkey(identifiers, market_id, brand)
     
-    if (withattributes==T) {
+    if (any(is.na(m1$coefficients))) {
+      kickoutcoef = names(m1$coefficients[is.na(m1$coefficients)])
+      my_form =update.formula(my_form, as.formula(paste0('.~.-', paste0(kickoutcoef, collapse='-'))))
+      m1 = lm(my_form, data= dt)
+    }
+      
+    if (0) {#(any(grepl('^attr[_]', control_vars))) {
       # Add brand attributes
       retain_attr=unlist(lapply(dt[-m1$na.action, grep('^attr',colnames(dt),value=T),with=F], function(x) !all(is.na(x))))
       attr_vars = names(retain_attr[which(retain_attr==T)])
@@ -69,27 +66,74 @@ simple_loglog <- function(id, withcontrols=T, withattributes=T,
     
     elast1 = rbindlist(lapply(vars, function(v) {
       st=deltaMethod(m1, paste0('(', v, ')'))
-      lt=deltaMethod(m1, paste0('(', v, ')/(1-laglnusales)'))
+      lt=deltaMethod(m1, paste0('(', v, ')/(1-lnlagusales)'))
       
       data.frame(variable=v, elast = st$Estimate, elast_se=st$SE,
-                 elastlt = lt$Estimate, elastlt_se = lt$SE, beta = m1$coefficients[v], carryover = m1$coefficients['laglnusales'])
+                 elastlt = lt$Estimate, elastlt_se = lt$SE, beta = m1$coefficients[v], carryover = m1$coefficients['lnlagusales'])
       
     }))
    
+ elast1=cbind(identifiers[1],elast1)
+ 
+ .v=vif(m1)
+ vif1=cbind(identifiers[1], data.table(variable=names(.v), vif=.v))
+ 
+
+ 
+return(list(elast=elast1, model=m1, vif=vif1))
+}
+
+
+
+# Configure model type and calibrate lag structure
+simple_ec <- function(id, withcontrols=T, withattributes=T, 
+                          autocorrel_lags= c(3,6,9,12,15,18,1),
+                          control_ur = F,
+                          return_models = F, return_simulations = F, shockperiods=NA,
+                          ndraws=5,
+                          kickout_ns_controls = F, pval = .1,
+                          with_copulas= F,
+                          competition_not_in_lags = F) {
+  
+  # 1.0 Conduct bounds test
+  dv='lnusales'
+  dt=data.table(brand_panel[brand_id==id])
+  
+  brands_in_market <- unique(brand_panel[market_id%in%unique(brand_panel[brand_id==id]$market_id)]$brand)
+  
+  vars = c('lnrwpspr','lnllen','lnwpswdst') 
+  
+  vars = vars[unlist(lapply(dt[, vars, with=F], use_ts))]
+  
+  dt[, lngdp := log(gdppercapita)]
+  dt[, lnholiday := log(npublicholidays+1)]
+  
+  #if (length(brands_in_market)>2) 
+  #if (length(brands_in_market)<=2) control_vars = c('lngdp', 'lnholiday')
   
   
+  control_vars = c('lngdp', 'lnholiday', grep('^comp[_]', colnames(dt),value=T))
+  
+  if(withcontrols==F) control_vars = NULL
+  control_vars = control_vars[unlist(lapply(dt[, control_vars, with=F], use_ts))]
+  
+  quarter_vars = c('quarter1','quarter2','quarter3')
+  
+  dt[, lntrend:=log(1:.N)]
+  dt[, lntrend:=lntrend-mean(lntrend,na.rm=T)]
+  dt[, laglnusales:=c(NA, lnusales[-.N])]
   # EC
-    
-    ctrls = NULL #c('lntrend')
-    if ('lngdp' %in% control_vars) ctrls=c(ctrls, 'lngdp')
-    if ('lnholiday' %in% control_vars) ctrls=c(ctrls, 'lnholiday')
-    vars_delta = paste0('d', setdiff(c(vars, control_vars), ctrls))
-    vars_lags = c(paste0('lag', setdiff(c(vars, control_vars), ctrls)))
-    
-    
-    for (v in vars_lags) dt[, (v):=c(NA, get(gsub('^lag','',v))[-.N])]
-    
-    my_form = update.formula(dlnusales~1, as.formula(paste0('.~.+1+', paste0(c(vars_delta, 'laglnusales', paste0('I(-', vars_lags,')'), ctrls), collapse='+'))))
+  
+  ctrls = NULL #c('lntrend')
+  if ('lngdp' %in% control_vars) ctrls=c(ctrls, 'lngdp')
+  if ('lnholiday' %in% control_vars) ctrls=c(ctrls, 'lnholiday')
+  vars_delta = paste0('d', setdiff(c(vars, control_vars), ctrls))
+  vars_lags = c(paste0('lag', setdiff(c(vars, control_vars), ctrls)))
+  if (competition_not_in_lags) vars_lags <- grep('comp[_]', vars_lags, invert=T, value=T)
+  
+  for (v in vars_lags) dt[, (v):=c(NA, get(gsub('^lag','',v))[-.N])]
+  
+  my_form = update.formula(dlnusales~1, as.formula(paste0('.~.+1+', paste0(c(vars_delta, 'laglnusales', paste0('I(-', vars_lags,')'), ctrls), collapse='+'))))
   
   m2 = lm(my_form, data= dt)
   
@@ -125,16 +169,17 @@ simple_loglog <- function(id, withcontrols=T, withattributes=T,
   
   
   
- elast1=cbind(identifiers[1],elast1)[,date:=NULL]
- elast2=cbind(identifiers2[1],elast2)[,date:=NULL]
- 
- .v=vif(m1)
- vif1=cbind(identifiers[1], data.table(variable=names(.v), vif=.v))[, date:=NULL]
- 
- .v=vif(m2)
- vif2=cbind(identifiers2[1], data.table(variable=names(.v), vif=.v))[, date:=NULL]
- 
- 
-return(list(elast_loglog=elast1, elast_ec = elast2, model_loglog=m1, model_ec=m2, vif_loglog=vif1, vif_ec=vif2))
+  elast1=cbind(identifiers[1],elast1)[,date:=NULL]
+  elast2=cbind(identifiers2[1],elast2)[,date:=NULL]
+  
+  .v=vif(m1)
+  vif1=cbind(identifiers[1], data.table(variable=names(.v), vif=.v))[, date:=NULL]
+  
+  .v=vif(m2)
+  vif2=cbind(identifiers2[1], data.table(variable=names(.v), vif=.v))[, date:=NULL]
+  
+  
+  return(list(elast_loglog=elast1, elast_ec = elast2, model_loglog=m1, model_ec=m2, vif_loglog=vif1, vif_ec=vif2))
 }
+
 

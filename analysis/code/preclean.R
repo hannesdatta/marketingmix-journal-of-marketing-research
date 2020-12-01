@@ -58,9 +58,25 @@ for (fn in ds) {
 	setkey(tmp, market_id, date)
 	setkey(brand_panel, market_id, date)
 	brand_panel[tmp, percentile_obs:=i.percentile_obs]
+	
+	
+	# Beginning and end
+	
+	# per brand, aggregate to quartlery level
+	
+	thres=.05 # threshold of max sales
+	tmp = brand_panel[, list(usales=sum(usales,na.rm=T)),by=c('brand_id','date')]
+	tmp[, max_sales:=max(usales, na.rm=T),by=c('brand_id')]
+	tmp = tmp[, list(first_crossing=date[which(usales>=thres*max_sales)[1]],
+	                 last_crossing=date[rev(which(usales>thres*max_sales))[1]]),by=c('brand_id')]
+	
+	setkey(tmp, 'brand_id')
+	setkey(brand_panel, 'brand_id')
+	brand_panel[tmp, timewindow:=date>=i.first_crossing & date<=i.last_crossing]
+  brand_panel[, obs48 := sum(timewindow)>=48, by = c('brand_id')]
+  
 	setorder(brand_panel, market_id, brand, date)
 	
-		
 	# Save file
 	dir.create('../temp')
 	fwrite(brand_panel, paste0('../temp/', gsub('datasets', 'preclean', fn)))

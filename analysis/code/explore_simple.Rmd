@@ -12,14 +12,26 @@ library(DT)
 
 load('../output/results_simplified.RData')
 
+
 # VIFs
 vifs_loglog = rbindlist(lapply(results_loglog, function(x) x$vif))
-vifs_ec = rbindlist(lapply(results_ec, function(x) x$vif))
+#vifs_ec = rbindlist(lapply(results_ec, function(x) x$vif))
+#vifs_ec_nocomp = rbindlist(lapply(results_ec_nocomp, function(x) x$vif))
 
 # elasticities
 elast_loglog = rbindlist(lapply(results_loglog, function(x) x$elast))
-elast_ec = rbindlist(lapply(results_ec, function(x) x$elast))
+#elast_ec = rbindlist(lapply(results_ec, function(x) x$elast))
+#elast_ec_nocomp = rbindlist(lapply(results_ec_nocomp, function(x) x$elast))
 
+```
+
+# Exploration w/ Marnik
+
+```{r, include=TRUE}
+tmp=elast_loglog[grepl('pr$',variable)]
+#tmp=elast_loglog[grepl('tablets', category)& grepl('pr$',variable)]
+setorderv(tmp, 'elastlt', order=-1L)
+tmp
 ```
 
 The purpose of this document is to explore how well simple models perform in estimating elasticities.
@@ -33,8 +45,12 @@ Here, I am showing the results of two models: a simple log-log model in levels w
 Let us first look at the model results for *one* example brand. I've generated this to illustrate the model configuration (i.e., covariates) and dependent variable.
 
 ```{r, results = 'asis', echo = FALSE}
-stargazer(results_loglog[[1]]$model, type='html')
-cat(paste0('Dependent variable: ', colnames(results_loglog[[1]]$model$model)[1]), fill =T)
+ids = unlist(lapply(results_loglog, function(x) x$elast$brand_id[1]))
+bid=1372
+id=which(ids==bid)
+
+stargazer(results_loglog[[id]]$model, type='html')
+cat(paste0('Dependent variable: ', colnames(results_loglog[[id]]$model$model)[id]), fill =T)
 
 ```
 
@@ -45,6 +61,25 @@ cat(paste0('Dependent variable: ', colnames(results_loglog[[1]]$model$model)[1])
 ```{r, echo = FALSE}
 
 tmp = elast_loglog[!is.na(elastlt), list(N=.N,mean=mean(elastlt), min=min(elastlt), max = max(elastlt), sd=sd(elastlt)),by=c('variable')]
+kable(tmp)
+```
+
+### by variable type
+
+```{r, echo = FALSE}
+
+tmp = elast_loglog[!is.na(elastlt), list(N=.N,mean=mean(elastlt), q01 = quantile(elastlt,.01),
+                                   q01 = quantile(elastlt,.01),
+                                   q025 = quantile(elastlt,.025),
+                                   q05 = quantile(elastlt,.05),
+                                   q10 = quantile(elastlt,.10),
+                                   q50 = quantile(elastlt,.5),
+                                   q80 = quantile(elastlt,.8),
+                                   q90 = quantile(elastlt,.90),
+                                   q95 = quantile(elastlt,.95),
+                                   q975 = quantile(elastlt,.975),
+                                   q99 = quantile(elastlt,.99)),by=c('variable')]
+
 kable(tmp)
 ```
 
@@ -108,85 +143,3 @@ setorderv(tmp, 'vif',order=-1L)
 DT::datatable(head(tmp,1000))
 ```
 
-
-# EC model
-
-## Example model specification for one brand
-
-Let us first look at the model results for *one* example brand. I've generated this to illustrate the model configuration (i.e., covariates) and dependent variable.
-
-```{r, results = 'asis', echo = FALSE}
-stargazer(results_ec[[1]]$model, type='html')
-cat(paste0('Dependent variable: ', colnames(results_ec[[1]]$model$model)[1]), fill =T)
-
-```
-
-## Summary of elasticities
-
-### by variable type
-
-```{r, echo = FALSE}
-
-tmp = elast_ec[!is.na(elastlt), list(N=.N,mean=mean(elastlt), min=min(elastlt), max = max(elastlt), sd=sd(elastlt)),by=c('variable')]
-kable(tmp)
-```
-
-### by category and variable type
-
-```{r, echo = FALSE}
-
-tmp = elast_ec[!is.na(elastlt), list(N=.N,mean=mean(elastlt), min=min(elastlt), max = max(elastlt), sd=sd(elastlt)),by=c('variable', 'category')]
-setorder(tmp,variable, category)
-
-kable(tmp)
-
-```
-
-## Summary of VIFs
-
-### by covariate
-
-```{r, echo = FALSE}
-
-tmp = vifs_ec[, list(N=.N,mean=mean(vif), min=min(vif), max = max(vif)),by=c('variable')]
-setorderv(tmp,'mean', order=-1L)
-
-kable(tmp, caption = 'VIFs, ordered in descending order of mean VIFs')
-
-```
-
-### by category
-
-```{r, echo = FALSE}
-
-tmp = vifs_ec[, list(N=.N,mean=mean(vif), min=min(vif), max = max(vif)),by=c('category')]
-setorderv(tmp,'mean', order=-1L)
-
-kable(tmp, caption = 'VIFs, ordered in descending order of mean VIFs')
-
-```
-
-### for a few example models
-
-```{r, echo  = FALSE, results = 'asis'}
-for (bid in c(10,100,1000)) print(kable(vifs_ec[brand_id==bid], caption = paste0('VIFs for brand_id ', bid)))
-```
-
-### VIFs (scrollable table in descending order of VIFs, capped at 1000 entries)
-
-```{r, echo = FALSE}
-
-tmp=vifs_ec
-setorderv(tmp, 'vif',order=-1L)
-DT::datatable(head(tmp,1000))
-```
-
-
-### VIFs (scrollable table without product attributes in descending order of VIFs, capped at 1000 entries)
-
-```{r, echo = FALSE}
-
-tmp=vifs_ec[!grepl('attr[_]', variable)]
-setorderv(tmp, 'vif',order=-1L)
-DT::datatable(head(tmp,1000))
-```
