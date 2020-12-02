@@ -1,9 +1,10 @@
 library(MASS)
 
 # Configure model type and calibrate lag structure
-model_configure <- function(id, withcontrols=T, controls_in_bounds = T, withattributes=T, 
+model_configure <- function(id, controls_in_bounds = T, withattributes=T, 
                    autocorrel_lags= c(3,6,9,12,15,18,1),
                    control_ur = F,
+                   control_regex = '^lngdp$|^lnholiday$|^comp[_]',
                    return_models = F, return_simulations = F, shockperiods=NA,
                    ndraws=5,
                    kickout_ns_controls = F, pval = .1,
@@ -25,9 +26,12 @@ model_configure <- function(id, withcontrols=T, controls_in_bounds = T, withattr
   #if (length(brands_in_market)>2) 
   #if (length(brands_in_market)<=2) control_vars = c('lngdp', 'lnholiday')
   
-  control_vars = c('lngdp', 'lnholiday', grep('comp[_]', colnames(dt),value=T))
+  control_vars = grep(control_regex, colnames(dt), value=T)
+  cat(paste0('Control variables: ', paste0(control_vars,collapse=', '),'\n'))
+  #c('lngdp', 'lnholiday', grep('comp[_]', colnames(dt),value=T))
+  if (length(control_vars)>0) withcontrols=T else withcontrols = F
   
-  if(withcontrols==F) control_vars = NULL
+  #if(withcontrols==F) control_vars = NULL
   control_vars = control_vars[unlist(lapply(dt[, control_vars, with=F], use_ts))]
   
   quarter_vars = c('quarter1','quarter2','quarter3')

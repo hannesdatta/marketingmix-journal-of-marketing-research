@@ -41,7 +41,6 @@ dir.create('../output')
 ## Load panel data
 	brand_panel=fread('../temp/preclean_main.csv')
 	brand_panel[, ':=' (date = as.Date(date))]
-  brand_panel <- brand_panel[!brand=='mobistar']
   
 # define markets to run analysis on 
 	markets <- brand_panel[, list(n_brands = length(unique(brand)),
@@ -54,11 +53,7 @@ dir.create('../output')
  
 # Define additional variables
   setorder(brand_panel, market_id, brand, date)
-  brand_panel[selected==T, trend:=.GRP,by=c('market_id', 'brand','date')]
-  brand_panel[selected==T, trend:=trend-min(trend,na.rm=T)+1,by=c('market_id', 'brand')]
-  brand_panel[selected==T, trend:=log(trend),by=c('market_id', 'brand')]
-  
-  
+
   for (q in 1:3) {  
     brand_panel[, paste0('quarter', q):=0]
     brand_panel[quarter==q, paste0('quarter', q):=1]
@@ -104,6 +99,19 @@ dir.create('../output')
   
   brand_panel <- brand_panel[!grepl('allothers|unbranded|^local|^super|^amazon',brand,ignore.case=T)]
   
+  length(unique(brand_panel[selected==T]$brand_id))
+  
+  
+  brand_panel <- brand_panel[selected==T & timewindow==T &obs48==T] # at least 48 obs for estimation
+  
+  setorder(brand_panel, market_id, brand, date)
+  brand_panel[, trend:=as.double(.GRP),by=c('market_id', 'brand','date')]
+  brand_panel[, trend:=trend-min(trend,na.rm=T)+1,by=c('market_id', 'brand')]
+  brand_panel[, lntrend:=log(trend),by=c('market_id', 'brand')]
+  
+  length(unique(brand_panel[selected==T]$brand_id))
+  
+  
 ##########################
 # DYNAMAC ARDL PROCEDURE #
 ##########################
@@ -121,8 +129,6 @@ dir.create('../output')
   
 init()
 
-  
-  
 
 ##########################
 ### CLUSTER ESTIMATION ###
@@ -149,19 +155,20 @@ length(bids)
 results_model = parLapplyLB(cl, bids, function(bid)
     try(model_configure(
       bid,
-      withcontrols = T,
-      withattributes = T,
+      control_regex = '^lnholiday|^comp[_]',
+      withattributes = F,
       autocorrel_lags = c(3,2,1), 
       kickout_ns_controls=T,
       control_ur=T,
       pval=.1,
-      with_copulas=T,
-      return_models=F
-      
+      with_copulas=F,
+      return_models=F,
+      controls_in_bounds = F
     ),
     silent = T)
   )
 
+# we're currently treating controls different: always UR tests on them (and not like other variables in the equation)
 
 estimated_markets <- rbindlist(lapply(results_model, function(x) x$paneldimension[,-c('date'),with=F][1]))
 estimated_markets[, ordered:=1:.N,by=c('market_id')]
@@ -183,6 +190,7 @@ sur_res = parLapplyLB(cl, split_by_market, function(focal_models) {
   
   list(market_id=mid, results=res)
 })
+
 # verify errors in SUR estimation
 cat('Reporting on errors in SUR estimation...\n')
 sur_errs <- which(unlist(lapply(sur_res, function(x) class(x$results)))=='try-error')
@@ -221,11 +229,10 @@ for (i in seq(along=sims)) {
 #elast_sum = rbindlist(lapply(results_brands,function(x) x$elasticities))
 #summary(elast_sum)
 
-results_salesresponse_max3_p10_cop_sur <- lapply(results_model, function(x) {x$dt=NULL;x$model_matrix=NULL;return(x)})
+results_salesresponse <- lapply(results_model, function(x) {x$dt=NULL;x$model_matrix=NULL;return(x)})
   
-results_salesresponse_max3_p10_cop_sur_full <- results_model
+results_salesresponse_full <- results_model
 
+save(results_salesresponse, file = '../output/results_sales.RData')
 
-save(results_salesresponse_max3_p10_cop_sur, file = '../output/results_sales.RData')
-
-save(results_salesresponse_max3_p10_cop_sur_full, file = '../output/results_sales_full.RData')
+save(results_salesresponse_full, file = '../output/results_sales_full.RData')

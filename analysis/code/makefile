@@ -7,7 +7,7 @@ OUTPUT_DIR = ../output
 
 
 ###### BUILD COMMANDS ######
-all: simplified
+all: simplified sales
 #marketshare  sales
 
 pre: $(TEMP_DIR)/preclean.txt
