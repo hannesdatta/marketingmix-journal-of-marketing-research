@@ -1,5 +1,5 @@
 ---
-title: "Exploration simple log-log / EC models"
+title: "`r commandArgs(trailingOnly=T)[1]`"
 output: html_document
 ---
 
@@ -12,36 +12,26 @@ library(DT)
 
 load('../output/results_simplified.RData')
 
-
-# VIFs
-vifs_loglog = rbindlist(lapply(results_ec, function(x) x$vif))
-#vifs_ec = rbindlist(lapply(results_ec, function(x) x$vif))
-#vifs_ec_nocomp = rbindlist(lapply(results_ec_nocomp, function(x) x$vif))
-
+mname= commandArgs(trailingOnly=T)[2]
+vifs_model = eval(parse(text=paste0('rbindlist(lapply(', mname, ', function(x) x$vif))')))
 # elasticities
-elast_loglog = rbindlist(lapply(results_ec, function(x) x$elast))
-#elast_ec = rbindlist(lapply(results_ec, function(x) x$elast))
-#elast_ec_nocomp = rbindlist(lapply(results_ec_nocomp, function(x) x$elast))
+elast_model = eval(parse(text=paste0('rbindlist(lapply(', mname, ', function(x) x$elast))')))
+results_model = eval(parse(text=paste0(mname)))
 
 ```
 
-The purpose of this document is to explore how well simple models perform in estimating elasticities.
-Here, I am showing the results of two models: a simple log-log model in levels with a lagged DV to model dynamics, and an error-correction specification.
-
-
-# Log-log model
 
 ## Example model specification for one brand
 
 Let us first look at the model results for *one* example brand. I've generated this to illustrate the model configuration (i.e., covariates) and dependent variable.
 
 ```{r, results = 'asis', echo = FALSE}
-ids = unlist(lapply(results_ec, function(x) x$elast$brand_id[1]))
+ids = unlist(lapply(results_model, function(x) x$elast$brand_id[1]))
 bid=1372
 id=which(ids==bid)
 
-stargazer(results_ec[[id]]$model, type='html')
-cat(paste0('Dependent variable: ', colnames(results_ec[[id]]$model$model)[id]), fill =T)
+stargazer(results_model[[id]]$model, type='html')
+cat(paste0('Dependent variable: ', colnames(results_model[[id]]$model$model)[id]), fill =T)
 
 ```
 
@@ -51,7 +41,7 @@ cat(paste0('Dependent variable: ', colnames(results_ec[[id]]$model$model)[id]), 
 
 ```{r, echo = FALSE}
 
-tmp = elast_loglog[!is.na(elastlt), list(N=.N,mean=mean(elastlt), min=min(elastlt), max = max(elastlt), sd=sd(elastlt)),by=c('variable')]
+tmp = elast_model[!is.na(elastlt), list(N=.N,mean=mean(elastlt), min=min(elastlt), max = max(elastlt), sd=sd(elastlt)),by=c('variable')]
 kable(tmp)
 ```
 
@@ -59,7 +49,7 @@ kable(tmp)
 
 ```{r, echo = FALSE}
 
-tmp = elast_loglog[!is.na(elastlt), list(N=.N,mean=mean(elastlt), q01 = quantile(elastlt,.01),
+tmp = elast_model[!is.na(elastlt), list(N=.N,mean=mean(elastlt), q01 = quantile(elastlt,.01),
                                    q01 = quantile(elastlt,.01),
                                    q025 = quantile(elastlt,.025),
                                    q05 = quantile(elastlt,.05),
@@ -78,7 +68,7 @@ kable(tmp)
 
 ```{r, echo = FALSE}
 
-tmp = elast_loglog[!is.na(elastlt), list(N=.N,mean=mean(elastlt), min=min(elastlt), max = max(elastlt), sd=sd(elastlt)),by=c('variable', 'category')]
+tmp = elast_model[!is.na(elastlt), list(N=.N,mean=mean(elastlt), min=min(elastlt), max = max(elastlt), sd=sd(elastlt)),by=c('variable', 'category')]
 setorder(tmp,variable, category)
 
 kable(tmp)
@@ -91,7 +81,7 @@ kable(tmp)
 
 ```{r, echo = FALSE}
 
-tmp = vifs_loglog[, list(N=.N,mean=mean(vif), min=min(vif), max = max(vif)),by=c('variable')]
+tmp = vifs_model[, list(N=.N,mean=mean(vif), min=min(vif), max = max(vif)),by=c('variable')]
 setorderv(tmp,'mean', order=-1L)
 
 kable(tmp, caption = 'VIFs, ordered in descending order of mean VIFs')
@@ -102,7 +92,7 @@ kable(tmp, caption = 'VIFs, ordered in descending order of mean VIFs')
 
 ```{r, echo = FALSE}
 
-tmp = vifs_loglog[, list(N=.N,mean=mean(vif), min=min(vif), max = max(vif)),by=c('category')]
+tmp = vifs_model[, list(N=.N,mean=mean(vif), min=min(vif), max = max(vif)),by=c('category')]
 setorderv(tmp,'mean', order=-1L)
 
 kable(tmp, caption = 'VIFs, ordered in descending order of mean VIFs')
@@ -112,25 +102,21 @@ kable(tmp, caption = 'VIFs, ordered in descending order of mean VIFs')
 ### for a few example models
 
 ```{r, echo  = FALSE, results = 'asis'}
-for (bid in c(10,100,1000)) print(kable(vifs_loglog[brand_id==bid], caption = paste0('VIFs for brand_id ', bid)))
+for (bid in c(10,100,1000)) print(kable(vifs_model[brand_id==bid], caption = paste0('VIFs for brand_id ', bid)))
 ```
 
+
+
+```{r, echo = FALSE, include = FALSE}
 ### VIFs (scrollable table in descending order of VIFs, capped at 1000 entries)
-
-```{r, echo = FALSE}
-
-tmp=vifs_loglog
+if(0){
+tmp=vifs_model
 setorderv(tmp, 'vif',order=-1L)
 DT::datatable(head(tmp,1000))
-```
-
-
 ### VIFs (scrollable table without product attributes in descending order of VIFs, capped at 1000 entries)
 
-```{r, echo = FALSE}
-
-tmp=vifs_loglog[!grepl('attr[_]', variable)]
+tmp=vifs_model[!grepl('attr[_]', variable)]
 setorderv(tmp, 'vif',order=-1L)
 DT::datatable(head(tmp,1000))
+}
 ```
-

@@ -71,3 +71,12 @@ $(OUTPUT_DIR)/results_simplified.RData: analysis_simplified.R $(TEMP_DIR)/precle
 #### 
 $(OUTPUT_DIR)/elasticities_simplified.txt: extract_elast_simplified.R $(OUTPUT_DIR)/results_simplified.RData
 	R --vanilla --args "" < "extract_elast_simplified.R"
+
+
+report_simple: $(OUTPUT_DIR)/elasticities_simplified.txt
+	R -e "rmarkdown::render('explore_simple.rmd', output_file='errorcorrection_full.html')" --args "Error correction (with long-term effect of competition)" "results_ec"
+	R -e "rmarkdown::render('explore_simple.rmd', output_file='errorcorrection_restricted.html')" --args "Error correction (restricted; no long-term effect of competition)" "results_ec_restricted"
+
+
+
+
