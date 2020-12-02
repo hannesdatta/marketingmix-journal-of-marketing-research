@@ -166,7 +166,52 @@ if(0){
     print(out$vif)
     return(out)
   })
+
+}
+
+if(0) {#Piloting EC
+  bid=1046
   
+  
+  m<-simple_ec(bid, controls_diffs='', 
+              controls_laglevels = '',
+              controls_curr = '')
+  m$elast
+  m$vif
+  summary(m$model)
+  
+  
+  
+  m<-simple_ec(bid, controls_diffs='', 
+               controls_laglevels = '',
+               controls_curr = 'quarter[1-3]')
+  m$elast
+  m$vif
+  summary(m$model)
+  
+  
+  m<-simple_ec(bid, controls_diffs='^comp[_]', 
+               controls_laglevels = '',
+               controls_curr = 'quarter[1-3]|lnholiday|^trend')
+  m$elast
+  m$vif
+  summary(m$model)
+  
+  
+  m<-simple_ec(bid, controls_diffs='^comp[_]', 
+               controls_laglevels = '',
+               controls_curr = 'quarter[1-3]|lnholiday')
+  m$elast
+  m$vif
+  summary(m$model)
+  
+  
+  m<-simple_ec(bid, controls_diffs='^comp[_]', 
+               controls_laglevels = '',
+               controls_curr = 'quarter[1-3]|lnholiday')
+  m$elast
+  m$vif
+  summary(m$model)
   
   
 }
@@ -194,14 +239,23 @@ length(bids)
 
  
 # estimate
-
-results_model = parLapplyLB(cl, bids, function(bid)
+#if(0){
+results_loglog = parLapplyLB(cl, bids, function(bid)
     #try(simple_loglog(bid, controls='quarter[1-3]|^lntrend|^comp[_]|lnholiday|lngdp|^attr[_]'),
   try(simple_loglog(bid, controls='quarter[1-3]|^comp[_]|lnholiday'),#|^lntrend'),#lngdp'),
       silent = T)
   )
+#}
 
+results_ec = parLapplyLB(cl, bids, function(bid)
+  try(simple_ec(bid, controls_diffs='^comp[_]', 
+                controls_laglevels = '',
+                controls_curr = 'quarter[1-3]|lnholiday|^trend'),
+      silent = T)
+)
 
+if(0){
+  
 errs =unlist(lapply(results_model,class))
 table(errs)
 
@@ -217,14 +271,17 @@ print(tmp)
 }
 
 
-results_loglog = results_model #lapply(results_model, function(x) list(elast=x$elast, vif = x$vif, model=x$model))
+}
+#results_loglog = results_model #lapply(results_model, function(x) list(elast=x$elast, vif = x$vif, model=x$model))
+
+#results_ec = results_model #lapply(results_model, function(x) list(elast=x$elast, vif = x$vif, model=x$model))
 
 #results_ec = lapply(results_model, function(x) list(elast=x$elast_ec, vif = x$vif_ec, model=x$model_ec))
 
 #results_ec_nocomp = lapply(results_model_nocomp, function(x) list(elast=x$elast_ec, vif = x$vif_ec, model=x$model_ec))
 
 
-save(results_loglog,# results_ec, #results_ec_nocomp,
+save(results_ec, #loglog,# results_ec, #results_ec_nocomp,
      file = '../output/results_simplified.RData')
 
 #save(results_model, file = '../output/results_simplified_all.RData')

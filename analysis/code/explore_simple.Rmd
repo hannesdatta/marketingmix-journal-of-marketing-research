@@ -14,24 +14,15 @@ load('../output/results_simplified.RData')
 
 
 # VIFs
-vifs_loglog = rbindlist(lapply(results_loglog, function(x) x$vif))
+vifs_loglog = rbindlist(lapply(results_ec, function(x) x$vif))
 #vifs_ec = rbindlist(lapply(results_ec, function(x) x$vif))
 #vifs_ec_nocomp = rbindlist(lapply(results_ec_nocomp, function(x) x$vif))
 
 # elasticities
-elast_loglog = rbindlist(lapply(results_loglog, function(x) x$elast))
+elast_loglog = rbindlist(lapply(results_ec, function(x) x$elast))
 #elast_ec = rbindlist(lapply(results_ec, function(x) x$elast))
 #elast_ec_nocomp = rbindlist(lapply(results_ec_nocomp, function(x) x$elast))
 
-```
-
-# Exploration w/ Marnik
-
-```{r, include=TRUE}
-tmp=elast_loglog[grepl('pr$',variable)]
-#tmp=elast_loglog[grepl('tablets', category)& grepl('pr$',variable)]
-setorderv(tmp, 'elastlt', order=-1L)
-tmp
 ```
 
 The purpose of this document is to explore how well simple models perform in estimating elasticities.
@@ -45,12 +36,12 @@ Here, I am showing the results of two models: a simple log-log model in levels w
 Let us first look at the model results for *one* example brand. I've generated this to illustrate the model configuration (i.e., covariates) and dependent variable.
 
 ```{r, results = 'asis', echo = FALSE}
-ids = unlist(lapply(results_loglog, function(x) x$elast$brand_id[1]))
+ids = unlist(lapply(results_ec, function(x) x$elast$brand_id[1]))
 bid=1372
 id=which(ids==bid)
 
-stargazer(results_loglog[[id]]$model, type='html')
-cat(paste0('Dependent variable: ', colnames(results_loglog[[id]]$model$model)[id]), fill =T)
+stargazer(results_ec[[id]]$model, type='html')
+cat(paste0('Dependent variable: ', colnames(results_ec[[id]]$model$model)[id]), fill =T)
 
 ```
 
