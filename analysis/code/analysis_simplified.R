@@ -36,7 +36,6 @@ dir.create('../output')
 ## Load panel data
 	brand_panel=fread('../temp/preclean_main.csv')
 	brand_panel[, ':=' (date = as.Date(date))]
-  brand_panel <- brand_panel[!brand=='mobistar']
   
 # define markets to run analysis on 
 	markets <- brand_panel[, list(n_brands = length(unique(brand)),
@@ -132,90 +131,6 @@ dir.create('../output')
   
 init()
 
-  
-  
-#res=lapply(unique(brand_panel$brand_id)[1:100], function(bid) {
-#  simple_loglog(bid, withcontrols=T, withattributes=T)
-#})
-
-#summary(rbindlist(res))
-# try
-if(0){
-  
-  #controls='quarter[1-3]|^attr[_]|lngdp|lnholiday|^comp[_]|^trend')
-  id=1046 #1372
-  buildup1=c('', 'quarter[1-3]', 'quarter[1-3]|^trend', 'quarter[1-3]|^lntrend') 
-  buildup2=c('quarter[1-3]|^lntrend|^comp[_]', 'quarter[1-3]|^lntrend|^comp[_]|lnholiday',
-             'quarter[1-3]|^lntrend|^comp[_]|lnholiday|lngdp') 
-  buildup3= paste0(rev(buildup2)[1], c('|^attr[_]'))
-
-  buildup=c(buildup1,buildup2, buildup3)
-  
-  buildup = c('quarter[1-3]|^comp[_]|lnholiday|lngdp')
-  m<-lapply(buildup, function(x) {
-    cat('==========================\n')
-    cat(x, fill=T)
-    cat(paste0('id: ', id),fill=T)
-    cat('==========================\n')
-    out=simple_loglog(id, controls=x)
-    cat('Model\n============\n')
-    print(summary(out$model))
-    cat('Elasticities\n============\n')
-    print(out$elast)
-    cat('VIF\n============\n')
-    print(out$vif)
-    return(out)
-  })
-
-}
-
-if(0) {#Piloting EC
-  bid=1046
-  
-  
-  m<-simple_ec(bid, controls_diffs='', 
-              controls_laglevels = '',
-              controls_curr = '')
-  m$elast
-  m$vif
-  summary(m$model)
-  
-  
-  
-  m<-simple_ec(bid, controls_diffs='', 
-               controls_laglevels = '',
-               controls_curr = 'quarter[1-3]')
-  m$elast
-  m$vif
-  summary(m$model)
-  
-  
-  m<-simple_ec(bid, controls_diffs='^comp[_]', 
-               controls_laglevels = '',
-               controls_curr = 'quarter[1-3]|lnholiday|^trend')
-  m$elast
-  m$vif
-  summary(m$model)
-  
-  
-  m<-simple_ec(bid, controls_diffs='^comp[_]', 
-               controls_laglevels = '',
-               controls_curr = 'quarter[1-3]|lnholiday')
-  m$elast
-  m$vif
-  summary(m$model)
-  
-  
-  m<-simple_ec(bid, controls_diffs='^comp[_]', 
-               controls_laglevels = '',
-               controls_curr = 'quarter[1-3]|lnholiday')
-  m$elast
-  m$vif
-  summary(m$model)
-  
-  
-}
-
 
 
 ##########################
@@ -239,50 +154,45 @@ length(bids)
 
  
 # estimate
-#if(0){
 results_loglog = parLapplyLB(cl, bids, function(bid)
     #try(simple_loglog(bid, controls='quarter[1-3]|^lntrend|^comp[_]|lnholiday|lngdp|^attr[_]'),
   try(simple_loglog(bid, controls='quarter[1-3]|^comp[_]|lnholiday'),#|^lntrend'),#lngdp'),
       silent = T)
   )
-#}
+
+results_loglog_trend = parLapplyLB(cl, bids, function(bid)
+  #try(simple_loglog(bid, controls='quarter[1-3]|^lntrend|^comp[_]|lnholiday|lngdp|^attr[_]'),
+  try(simple_loglog(bid, controls='quarter[1-3]|^comp[_]|lnholiday|^trend'),#|^lntrend'),#lngdp'),
+      silent = T)
+)
+
 
 results_ec = parLapplyLB(cl, bids, function(bid)
+  try(simple_ec(bid, controls_diffs='^comp[_]', 
+                controls_laglevels = '^comp[_]',
+                controls_curr = 'quarter[1-3]|lnholiday|^trend'),
+      silent = T)
+)
+
+results_ec_restricted = parLapplyLB(cl, bids, function(bid)
   try(simple_ec(bid, controls_diffs='^comp[_]', 
                 controls_laglevels = '',
                 controls_curr = 'quarter[1-3]|lnholiday|^trend'),
       silent = T)
 )
 
-if(0){
-  
-errs =unlist(lapply(results_model,class))
-table(errs)
-
-errbids=bids[which(errs=='try-error')]
-
-if(0) {
-sapply(errbids, function(id) {print(id); simple_loglog(id)})
-
-rm(tmp)
-tmp=simple_loglog(333)$elast_ec
-print(tmp)
-
+# Function scans global environment for occurence of regular expression (`regex`), 
+# and saves all objects in `filename`.
+save_by_regex <- function(regex, filename) {
+  lscall = ls(envir=.GlobalEnv)
+  stuff_to_save = grep(regex, lscall, value=T)
+  if (length(stuff_to_save)>0) {
+    cat('saving...\n')
+    cat(paste0('(', paste0(stuff_to_save, collapse=', '), ')\n'))
+    save(list=stuff_to_save , file = filename)
+    cat('...done.\n') } else {
+      cat('No objects to save. Verify regular expression.\n')
+    }
 }
 
-
-}
-#results_loglog = results_model #lapply(results_model, function(x) list(elast=x$elast, vif = x$vif, model=x$model))
-
-#results_ec = results_model #lapply(results_model, function(x) list(elast=x$elast, vif = x$vif, model=x$model))
-
-#results_ec = lapply(results_model, function(x) list(elast=x$elast_ec, vif = x$vif_ec, model=x$model_ec))
-
-#results_ec_nocomp = lapply(results_model_nocomp, function(x) list(elast=x$elast_ec, vif = x$vif_ec, model=x$model_ec))
-
-
-save(results_ec, #loglog,# results_ec, #results_ec_nocomp,
-     file = '../output/results_simplified.RData')
-
-#save(results_model, file = '../output/results_simplified_all.RData')
-
+save_by_regex('^results[_]', filename = '../output/results_simplified.RData')

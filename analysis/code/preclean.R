@@ -79,6 +79,9 @@ for (fn in ds) {
 	
 	# Save file
 	dir.create('../temp')
+	
+	brand_panel <- brand_panel[!brand=='mobistar']
+	
 	fwrite(brand_panel, paste0('../temp/', gsub('datasets', 'preclean', fn)))
 }
 
