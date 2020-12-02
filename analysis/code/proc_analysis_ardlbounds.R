@@ -12,9 +12,6 @@ analyze_ardlbounds <- function(bid, quarters=T, xs=c('lnrwpspr','lnllen','lnwpsw
   cat(unique(dat$country),fill = T)
   cat(paste0(unique(dat$brand), ' (brand ID: ', unique(dat$brand_id), ')'), fill=T)
   
-  # plotting
-  
-  par(mfrow=c(2,2))
   dv='lnusales'
   
   vars = c(xs, controls) #c('lnrwpspr','lnllen','lnwpswdst')
@@ -28,10 +25,16 @@ analyze_ardlbounds <- function(bid, quarters=T, xs=c('lnrwpspr','lnllen','lnwpsw
   if (quarters==T) quarter_vars = c('quarter1','quarter2','quarter3')
   if (quarters==F) quarter_vars = NULL
   
+  # plotting
+  if(0){
+    
+  par(mfrow=c(2,2))
+  
   for (.var in c(dv,vars)[1:4]) ts.plot(dat[, .var,with=F], main = .var)
   
   par(mfrow=c(1,1))
   
+  }
   ##############
   # UNIT ROOTS #
   ##############
