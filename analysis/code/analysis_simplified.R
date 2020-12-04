@@ -77,6 +77,32 @@ dir.create('../output')
     brand_panel[, paste0('dcomp_',v):=get(paste0('comp_', v))-c(NA, get(paste0('comp_', v))[-.N]), by = c('market_id', 'brand')]
     }
   
+  # run shapiro-wilk tests to assess non-normality of untransformed inputs to the copula function
+  if(0){
+    vars=c('lnrwpspr', 'lnllen', 'lnwpswdst')
+    source('proc_auxilary.R')
+    
+    norm_test = function(x) {
+     use_ts_eval = use_ts(x)
+     if (use_ts_eval==T) return(shapiro.test(x)$p)
+     return(as.double(NA))
+    }
+    cop=lapply(vars, function(var) {
+      out=brand_panel[selected== T, list(shap_pval_levels = norm_test(get(var)),
+                             shap_pval_diffs = norm_test(dshift(get(var)))), by = c('category', 'country', 'market_id', 'brand_id','brand')]
+      out[, variable:=var]
+      return(out)
+    })
+    
+    cop=rbindlist(cop)
+    
+    cop[!is.na(shap_pval_diffs), list(N=.N, nonnormal_share_lev=length(which(shap_pval_levels<.1))/.N,
+               nonnormal_share_diff=length(which(shap_pval_diffs<.1))/.N), by = c('variable')]
+    cop[!is.na(shap_pval_diffs), list(N=.N,nonnormal_share_lev=length(which(shap_pval_levels<.1))/.N,
+               nonnormal_share_diff=length(which(shap_pval_diffs<.1))/.N)]
+    
+  }
+  
   
   length(unique(brand_panel[selected==T]$brand_id))
   length(unique(brand_panel[selected==T & timewindow==T &obs48==T]$brand_id))
@@ -93,19 +119,7 @@ dir.create('../output')
     brand_panel[, paste0('cop_d.1.', var):=make_copula(dshift(get(paste0(var)))), by = c('market_id','brand')]
   }
   
-  # run shapiro-wilk tests to assess non-normality of untransformed inputs to the copula function
-  if(0){
-  vars=c('lnrwpspr', 'lnwpsllen', 'lnwpswdst')
-  cop=lapply(vars, function(var) {
-    out=panel[, list(shap_pval = shapiro.test(get(var))$p), by = c('category', 'country', 'market_id')]
-    out[, variable:=var]
-    return(out)
-  })
-    
-  cop=rbindlist(cop)
-  
-  cop[, list(nonnormal_share=length(which(shap_pval<.1))/.N), by = c('variable')]
-  }
+
   
   brand_panel <- brand_panel[!grepl('allothers|unbranded|^local|^super|^amazon',brand,ignore.case=T)]
   
@@ -125,6 +139,7 @@ dir.create('../output')
     source('proc_analysis_ardl.R')
     source('proc_analysis_ardlbounds.R')
     source('proc_analysis_sales.R')
+    source('proc_auxilary.R')
     source('c1c5b3af32343d042fcbc8e249ae9ff6/proc_unitroots.R')
     source('proc_simplified.R')
   }
