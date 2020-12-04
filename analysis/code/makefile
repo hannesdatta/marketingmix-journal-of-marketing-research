@@ -7,7 +7,8 @@ OUTPUT_DIR = ../output
 
 
 ###### BUILD COMMANDS ######
-all: simplified sales
+all: simplified 
+#sales
 #marketshare  sales
 
 pre: $(TEMP_DIR)/preclean.txt
@@ -76,6 +77,7 @@ $(OUTPUT_DIR)/elasticities_simplified.txt: extract_elast_simplified.R $(OUTPUT_D
 report_simple: $(OUTPUT_DIR)/elasticities_simplified.txt
 	R -e "rmarkdown::render('explore_simple.rmd', output_file='errorcorrection_full.html')" --args "Error correction (with long-term effect of competition)" "results_ec"
 	R -e "rmarkdown::render('explore_simple.rmd', output_file='errorcorrection_restricted.html')" --args "Error correction (restricted; no long-term effect of competition)" "results_ec_restricted"
+	R -e "rmarkdown::render('explore_simple.rmd', output_file='errorcorrection_notrend.html')" --args "Error correction (restricted; no trend)" "results_ec_without_trend"
 
 
 

@@ -149,50 +149,58 @@ void<-clusterEvalQ(cl, init())
 init()
 
 
-bids <- unique(brand_panel$brand_id) #[1:50]
+bids <- unique(brand_panel$brand_id)[1:50]
 length(bids)
 
- 
-# estimate
-results_loglog = parLapplyLB(cl, bids, function(bid)
-    #try(simple_loglog(bid, controls='quarter[1-3]|^lntrend|^comp[_]|lnholiday|lngdp|^attr[_]'),
-  try(simple_loglog(bid, controls='quarter[1-3]|^comp[_]|lnholiday'),#|^lntrend'),#lngdp'),
-      silent = T)
-  )
-
-results_loglog_trend = parLapplyLB(cl, bids, function(bid)
-  #try(simple_loglog(bid, controls='quarter[1-3]|^lntrend|^comp[_]|lnholiday|lngdp|^attr[_]'),
-  try(simple_loglog(bid, controls='quarter[1-3]|^comp[_]|lnholiday|^trend'),#|^lntrend'),#lngdp'),
-      silent = T)
-)
+init()
 
 
-results_ec = parLapplyLB(cl, bids, function(bid)
-  try(simple_ec(bid, controls_diffs='^comp[_]', 
-                controls_laglevels = '^comp[_]',
-                controls_curr = 'quarter[1-3]|lnholiday|^trend'),
-      silent = T)
-)
-
-results_ec_restricted = parLapplyLB(cl, bids, function(bid)
+results_ec_restricted_nocop = parLapplyLB(cl, bids, function(bid)
   try(simple_ec(bid, controls_diffs='^comp[_]', 
                 controls_laglevels = '',
-                controls_curr = 'quarter[1-3]|lnholiday|^trend'),
+                controls_curr = 'quarter[1-3]|lnholiday|^trend',
+                controls_cop = '',
+                pval = .1, kickout_ns_copula = T),
       silent = T)
 )
 
-# Function scans global environment for occurence of regular expression (`regex`), 
-# and saves all objects in `filename`.
-save_by_regex <- function(regex, filename) {
-  lscall = ls(envir=.GlobalEnv)
-  stuff_to_save = grep(regex, lscall, value=T)
-  if (length(stuff_to_save)>0) {
-    cat('saving...\n')
-    cat(paste0('(', paste0(stuff_to_save, collapse=', '), ')\n'))
-    save(list=stuff_to_save , file = filename)
-    cat('...done.\n') } else {
-      cat('No objects to save. Verify regular expression.\n')
-    }
-}
+results_ec_restricted_alwayscop = parLapplyLB(cl, bids, function(bid)
+  try(simple_ec(bid, controls_diffs='^comp[_]', 
+                controls_laglevels = '',
+                controls_curr = 'quarter[1-3]|lnholiday|^trend',
+                controls_cop = '^cop[_]d[.]1[.]',
+                pval = .1, kickout_ns_copula = F),
+      silent = T)
+)
+
+results_ec_restricted_sigcop = parLapplyLB(cl, bids, function(bid)
+  try(simple_ec(bid, controls_diffs='^comp[_]', 
+                controls_laglevels = '',
+                controls_curr = 'quarter[1-3]|lnholiday|^trend',
+                controls_cop = '^cop[_]d[.]1[.]',
+                pval = .1, kickout_ns_copula = T),
+      silent = T)
+)
+
+
+results_ec_restricted_trend = parLapplyLB(cl, bids, function(bid)
+  try(simple_ec(bid, controls_diffs='^comp[_]', 
+                controls_laglevels = '',
+                controls_curr = 'quarter[1-3]|lnholiday|^trend',
+                controls_cop = '^cop[_]d[.]1[.]',
+                pval = .1, kickout_ns_copula = T),
+      silent = T)
+)
+
+results_ec_restricted_lntrend = parLapplyLB(cl, bids, function(bid)
+  try(simple_ec(bid, controls_diffs='^comp[_]', 
+                controls_laglevels = '',
+                controls_curr = 'quarter[1-3]|lnholiday|^lntrend',
+                controls_cop = '^cop[_]d[.]1[.]',
+                pval = .1, kickout_ns_copula = T),
+      silent = T)
+)
+
+
 
 save_by_regex('^results[_]', filename = '../output/results_simplified.RData')

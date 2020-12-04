@@ -89,7 +89,8 @@ return(list(elast=elast1, model=m1, vif=vif1))
 simple_ec <- function(id, controls_diffs='^comp[_]', #
                           controls_laglevels = '',
                           controls_curr = 'quarter[1-3]|lnholiday',
-                          controls_cop = '^cop[_]d[.]1[.]', pval = .1) {
+                          controls_cop = '^cop[_]d[.]1[.]', pval = .1,
+                      kickout_ns_copula = T) {
   
   # 1.0 Conduct bounds test
   dv='lnusales'
@@ -112,11 +113,11 @@ simple_ec <- function(id, controls_diffs='^comp[_]', #
   vars_lags = paste0('lag', c(vars, control_vars$lags))
   vars_curr = control_vars$curr
 
-  if (!is.null(controls_cop)) {
+  if (nchar(controls_cop)==0|is.null(controls_cop)) {
+    vars_cop = NULL 
+    } else {
     vars_cop = grep(controls_cop, colnames(dt), value=T)
     vars_cop = vars_cop[unlist(lapply(dt[, vars_cop, with=F], use_ts))]
-  } else {
-    vars_cop = NULL
   }
   
   for (v in vars_lags) dt[, (v):=c(NA, get(gsub('^lag','',v))[-.N])]
@@ -133,11 +134,13 @@ simple_ec <- function(id, controls_diffs='^comp[_]', #
   if (any(is.na(m$coefficients))) kickoutcoef = c(kickoutcoef, names(m$coefficients[is.na(m$coefficients)]))
   
   # kickout ns. copulas
-  tmpres = data.table(variable=names(m$coefficients), summary(m)$coefficients)[grepl(controls_cop, variable)]
-  setnames(tmpres, c('variable','est','se','t','p'))
-  tmpres = tmpres[p>pval]
+  if (!is.null(vars_cop) & kickout_ns_copula == T) {
+    tmpres = data.table(variable=names(m$coefficients), summary(m)$coefficients)[grepl(controls_cop, variable)]
+    setnames(tmpres, c('variable','est','se','t','p'))
+    tmpres = tmpres[p>pval]
   
-  if (nrow(tmpres)>0) kickoutcoef = c(kickoutcoef, tmpres$variable)
+    if (nrow(tmpres)>0) kickoutcoef = c(kickoutcoef, tmpres$variable)
+  }
   
   if (length(kickoutcoef>0)) {
     my_form =update.formula(my_form, as.formula(paste0('.~.-', paste0(kickoutcoef, collapse='-'))))
@@ -150,8 +153,7 @@ simple_ec <- function(id, controls_diffs='^comp[_]', #
     
     data.frame(variable=v, elast = st$Estimate, elast_se=st$SE,
                elastlt = lt$Estimate, elastlt_se = lt$SE, beta = m2$coefficients[paste0('d',v)], 
-               carryover = m2$coefficients['lnlagusales'],
-               orig_results = m$coefficients, kicked_out_coefs = kickoutcoef)
+               carryover = m2$coefficients['lnlagusales'])
     
   }))
   
@@ -160,7 +162,8 @@ simple_ec <- function(id, controls_diffs='^comp[_]', #
   vif2=cbind(identifiers[1], data.table(variable=names(.v), vif=.v))
   
   
-  return(list(elast=elast2, model=m2, vif=vif2))
+  return(list(elast=elast2, model=m2, vif=vif2,
+              orig_results = m$coefficients, kicked_out_coefs = kickoutcoef))
   
 }
 
