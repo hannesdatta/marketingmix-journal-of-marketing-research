@@ -168,6 +168,14 @@ results_model = parLapplyLB(cl, bids, function(bid)
     silent = T)
   )
 
+#err <- unlist(lapply(results_model, class))
+#table(err)
+#which(err=='try-error')
+#results_model[713]
+#bids[713]
+
+
+
 # we're currently treating controls different: always UR tests on them (and not like other variables in the equation)
 
 estimated_markets <- rbindlist(lapply(results_model, function(x) x$paneldimension[,-c('date'),with=F][1]))
