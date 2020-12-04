@@ -149,7 +149,7 @@ void<-clusterEvalQ(cl, init())
 init()
 
 
-bids <- unique(brand_panel$brand_id)[1:50]
+bids <- unique(brand_panel$brand_id) #[1:50]
 length(bids)
 
 init()

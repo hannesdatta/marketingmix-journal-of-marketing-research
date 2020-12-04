@@ -15,7 +15,7 @@ pre: $(TEMP_DIR)/preclean.txt
 
 marketshare: $(OUTPUT_DIR)/elasticities_marketshare.txt $(OUTPUT_DIR)/audit_marketshare.html
 sales: $(OUTPUT_DIR)/elasticities_sales.txt $(OUTPUT_DIR)/audit_sales.html
-simplified: $(OUTPUT_DIR)/elasticities_simplified.txt
+simplified: $(OUTPUT_DIR)/elasticities_simplified.txt $(TEMP_DIR)/explore_simplified.txt
 
 ###### Build parts ######
 
@@ -73,12 +73,7 @@ $(OUTPUT_DIR)/results_simplified.RData: analysis_simplified.R $(TEMP_DIR)/precle
 $(OUTPUT_DIR)/elasticities_simplified.txt: extract_elast_simplified.R $(OUTPUT_DIR)/results_simplified.RData
 	R --vanilla --args "" < "extract_elast_simplified.R"
 
-
-report_simple: $(OUTPUT_DIR)/elasticities_simplified.txt
-	R -e "rmarkdown::render('explore_simple.rmd', output_file='errorcorrection_full.html')" --args "Error correction (with long-term effect of competition)" "results_ec"
-	R -e "rmarkdown::render('explore_simple.rmd', output_file='errorcorrection_restricted.html')" --args "Error correction (restricted; no long-term effect of competition)" "results_ec_restricted"
-	R -e "rmarkdown::render('explore_simple.rmd', output_file='errorcorrection_notrend.html')" --args "Error correction (restricted; no trend)" "results_ec_without_trend"
-
-
+$(TEMP_DIR)/explore_simplified.txt: $(OUTPUT_DIR)/elasticities_simplified.txt run_explore_simplified.R explore_simple.Rmd
+	R --vanilla --args "" < "run_explore_simplified.R"
 
 
