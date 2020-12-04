@@ -202,5 +202,18 @@ results_ec_restricted_lntrend = parLapplyLB(cl, bids, function(bid)
 )
 
 
+# Function scans global environment for occurence of regular expression (`regex`), 
+# and saves all objects in `filename`.
+save_by_regex <- function(regex, filename) {
+  lscall = ls(envir=.GlobalEnv)
+  stuff_to_save = grep(regex, lscall, value=T)
+  if (length(stuff_to_save)>0) {
+    cat('saving...\n')
+    cat(paste0('(', paste0(stuff_to_save, collapse=', '), ')\n'))
+    save(list=stuff_to_save , file = filename)
+    cat('...done.\n') } else {
+      cat('No objects to save. Verify regular expression.\n')
+    }
+}
 
 save_by_regex('^results[_]', filename = '../output/results_simplified.RData')
