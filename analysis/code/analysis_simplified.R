@@ -29,6 +29,7 @@ library(marketingtools)
 library(car)
 library(devtools)
 library(dynamac)
+library(tseries)
 
 
 dir.create('../output')
@@ -82,24 +83,39 @@ dir.create('../output')
     vars=c('lnrwpspr', 'lnllen', 'lnwpswdst')
     source('proc_auxilary.R')
     
-    norm_test = function(x) {
+    norm_test = function(x, type = 'shapiro') {
      use_ts_eval = use_ts(x)
-     if (use_ts_eval==T) return(shapiro.test(x)$p)
+     if (use_ts_eval==T) {
+       x=x[!is.na(x)]
+       if (type=='shapiro')        return(shapiro.test(x)$p)
+       if (type=='jarquebera')  return(jarque.bera.test(x)$p.value)
+     }
+       
      return(as.double(NA))
     }
+    
     cop=lapply(vars, function(var) {
-      out=brand_panel[selected== T, list(shap_pval_levels = norm_test(get(var)),
-                             shap_pval_diffs = norm_test(dshift(get(var)))), by = c('category', 'country', 'market_id', 'brand_id','brand')]
+      out=brand_panel[selected== T, list(shap_pval_levels = norm_test(get(var), type = 'shapiro'),
+                             shap_pval_diffs = norm_test(dshift(get(var)), type='shapiro'),
+                             jb_pval_levels = norm_test(get(var), type = 'jarquebera'),
+                             jb_pval_diffs = norm_test(dshift(get(var)), type='jarquebera')), by = c('category', 'country', 'market_id', 'brand_id','brand')]
       out[, variable:=var]
       return(out)
     })
     
     cop=rbindlist(cop)
     
-    cop[!is.na(shap_pval_diffs), list(N=.N, nonnormal_share_lev=length(which(shap_pval_levels<.1))/.N,
-               nonnormal_share_diff=length(which(shap_pval_diffs<.1))/.N), by = c('variable')]
-    cop[!is.na(shap_pval_diffs), list(N=.N,nonnormal_share_lev=length(which(shap_pval_levels<.1))/.N,
-               nonnormal_share_diff=length(which(shap_pval_diffs<.1))/.N)]
+    cop[!is.na(shap_pval_diffs), list(N=.N, 
+               shap_nonnormal_share_lev=length(which(shap_pval_levels<.1))/.N,
+               shap_nonnormal_share_diff=length(which(shap_pval_diffs<.1))/.N,
+               jb_nonnormal_share_lev=length(which(jb_pval_levels<.1))/.N,
+               jb_nonnormal_share_diff=length(which(jb_pval_diffs<.1))/.N), by = c('variable')]
+    
+    cop[!is.na(shap_pval_diffs), list(N=.N, 
+                                      shap_nonnormal_share_lev=length(which(shap_pval_levels<.1))/.N,
+                                      shap_nonnormal_share_diff=length(which(shap_pval_diffs<.1))/.N,
+                                      jb_nonnormal_share_lev=length(which(jb_pval_levels<.1))/.N,
+                                      jb_nonnormal_share_diff=length(which(jb_pval_diffs<.1))/.N)]
     
   }
   
