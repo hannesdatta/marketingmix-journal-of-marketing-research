@@ -13,6 +13,18 @@ setnames(tmp2, c('category','country','catvolatility_range_mean', 'catvolatility
 
 brand_panel <- merge(brand_panel, tmp2, by=c('category','country'))
 
+# average mmix
+cols = c('rwpspr', 'rwpsprd', 'llen', 'wpswdst')
+mix =brand_panel[, lapply(.SD, mean, na.rm=T), by = c('category','country','brand'), .SDcols=cols]
+for (.col in cols) mix[, paste0(.col, '_index'):=get(.col)/mean(get(.col)), by = c('category','country')]
+for (.col in cols) mix[, paste0(.col, '_std'):=(get(.col)-mean(get(.col)))/sd(get(.col)), by = c('category','country')]
+
+setkey(mix, category, country, brand)
+setkey(brand_panel, category, country, brand)
+for (.col in cols) eval(parse(text=paste0('brand_panel[mix, ', .col, '_index:=i.', .col, '_index]')))
+for (.col in cols) eval(parse(text=paste0('brand_panel[mix, ', .col, '_std:=i.', .col, '_std]')))
+
+# aggregation
 agg_units = list(c('country'), c('country', 'category'),
                  c('country','category','brand'))
 
