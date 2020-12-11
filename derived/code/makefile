@@ -115,7 +115,7 @@ $(OUTPUT_DIR)/gini.csv: covar_gini.R
 	R --vanilla --args "" < "covar_gini.R"
 
 # Prepare remaining Development Indicators
-$(OUTPUT_DIR)/dev_indicators.csv: covar_devindicators.R
+$(OUTPUT_DIR)/dev_indicators.csv: covar_devindicators.R ../../../../data/dev_indicators/development_data.xlsx
 	R --vanilla --args "" < "covar_devindicators.R"
 
 # Prepare BAV data

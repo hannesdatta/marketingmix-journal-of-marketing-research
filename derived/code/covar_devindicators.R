@@ -37,10 +37,14 @@ setnames(tmp, c('year','measure','country','value'))
 tmp[, measure:=tolower(gsub("[^[:alnum:]]", '', measure))]
 tmp[, country:=tolower(gsub('[.]', ' ', country))]
 
+tmp <- tmp[!is.na(measure)]
+
 # recast
 dev = dcast(tmp, year+country~measure)
 
 dev[grepl('philippines', country), country:='philippines']
+
+cat(paste(unique(tmp$measure),collapse = ', '), fill=T)
 
 table(dev$country)
 
