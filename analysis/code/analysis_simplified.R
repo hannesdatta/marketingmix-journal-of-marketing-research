@@ -135,10 +135,6 @@ dir.create('../output')
     brand_panel[, paste0('cop_d.1.', var):=make_copula(dshift(get(paste0(var)))), by = c('market_id','brand')]
   }
   
-
-  
-  brand_panel <- brand_panel[!grepl('allothers|unbranded|^local|^super|^amazon',brand,ignore.case=T)]
-  
   brand_panel[, lngdp := log(gdppercapita)]
   brand_panel[, lnholiday := log(npublicholidays+1)]
   
@@ -195,7 +191,9 @@ results_ec_restricted_nocop = parLapplyLB(cl, bids, function(bid)
       silent = T)
 )
 
-results_ec_restricted_alwayscop = parLapplyLB(cl, bids, function(bid)
+
+
+results_ec_restricted_alwaysdcop = parLapplyLB(cl, bids, function(bid)
   try(simple_ec(bid, controls_diffs='^comp[_]', 
                 controls_laglevels = '',
                 controls_curr = 'quarter[1-3]|lnholiday|^trend',
@@ -204,24 +202,34 @@ results_ec_restricted_alwayscop = parLapplyLB(cl, bids, function(bid)
       silent = T)
 )
 
+results_ec_restricted_sigdcop = parLapplyLB(cl, bids, function(bid)
+  try(simple_ec(bid, controls_diffs='^comp[_]', 
+                controls_laglevels = '',
+                controls_curr = 'quarter[1-3]|lnholiday|^trend',
+                controls_cop = '^cop[_]d[.]1[.]',
+                pval = .1, kickout_ns_copula = T),
+      silent = T)
+)
+
+
+results_ec_restricted_alwayscop = parLapplyLB(cl, bids, function(bid)
+  try(simple_ec(bid, controls_diffs='^comp[_]', 
+                controls_laglevels = '',
+                controls_curr = 'quarter[1-3]|lnholiday|^trend',
+                controls_cop = '^cop[_]ln',
+                pval = .1, kickout_ns_copula = F),
+      silent = T)
+)
+
 results_ec_restricted_sigcop = parLapplyLB(cl, bids, function(bid)
   try(simple_ec(bid, controls_diffs='^comp[_]', 
                 controls_laglevels = '',
                 controls_curr = 'quarter[1-3]|lnholiday|^trend',
-                controls_cop = '^cop[_]d[.]1[.]',
+                controls_cop = '^cop[_]ln',
                 pval = .1, kickout_ns_copula = T),
       silent = T)
 )
 
-
-results_ec_restricted_trend = parLapplyLB(cl, bids, function(bid)
-  try(simple_ec(bid, controls_diffs='^comp[_]', 
-                controls_laglevels = '',
-                controls_curr = 'quarter[1-3]|lnholiday|^trend',
-                controls_cop = '^cop[_]d[.]1[.]',
-                pval = .1, kickout_ns_copula = T),
-      silent = T)
-)
 
 results_ec_restricted_lntrend = parLapplyLB(cl, bids, function(bid)
   try(simple_ec(bid, controls_diffs='^comp[_]', 
