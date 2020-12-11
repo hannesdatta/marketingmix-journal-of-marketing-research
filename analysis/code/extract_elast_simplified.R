@@ -37,6 +37,10 @@ out = lapply(models, function(model_name) {
   # extract elasticities
   elast <- rbindlist(lapply(results_brands[!checks=='try-error'], function(x) x$elast))
   
+  setkey(brand_panel, category, country, brand)
+  setkey(elast, category, country, brand)
+  elast[brand_panel, ':=' (selection_timewindow=i.timewindow, selection_obs48=i.obs48, selection_brands=!grepl('allothers|unbranded|^local|^super|^amazon',brand,ignore.case=T))]
+  
   return(list(checks=checks, elast=elast, model = model_name))
   })
 

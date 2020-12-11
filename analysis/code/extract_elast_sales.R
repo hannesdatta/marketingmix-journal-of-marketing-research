@@ -81,7 +81,7 @@ out = lapply(models, function(model_name) {
   #elast[country_of_origin%in%c('finland','france', 'germany','italy','netherlands','sweden'), region_of_origin := 'europe']
   #elast[globalbrand==T & country_of_origin%in%c('canada','usa'), region_of_origin := 'northamerica']
   elast[, varname:=gsub('^ln', '', varname)]
-    
+  
   return(list(checks=checks, elast=elast, model = model_name))
   })
 

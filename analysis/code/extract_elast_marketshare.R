@@ -56,6 +56,10 @@ out = lapply(models, function(model_name) {
   
   elast[, ':=' (sbbelt = sbbe/(1-lagged_ms_coef))]
   
+  setkey(brand_panel, category, country, brand)
+  setkey(elast, category, country, brand)
+  elast[brand_panel, ':=' (selection_timewindow=i.timewindow, selection_obs48=i.obs48, selection_brands=!grepl('allothers|unbranded|^local|^super|^amazon',brand,ignore.case=T))]
+  
   return(list(checks=checks, elast=elast, model = model_name))
   })
 
