@@ -66,6 +66,7 @@ dir.create('../output')
 	init <- function() {
 		source('proc_analysis_marketshare.R')
 		library(marketingtools)
+	  source('proc_auxilary.R')
 		}
 	
 	# load model code
