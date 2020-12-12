@@ -2,7 +2,7 @@
 library(data.table)
 
 # Load data
-brand_panel=fread('../../analysis/temp/preclean_main.csv')
+brand_panel=fread('../externals/preclean_main.csv')
 brand_panel[, ':=' (date = as.Date(date))]
 
 # find attributes
@@ -52,7 +52,7 @@ vars <- vars[!grepl(exclude, variable)]
 
 tmp = split(vars, vars$agg_factor)
 
-sink('../output/covariates.txt')
+sink('../output/panel_covariates.txt')
 
 dt <- lapply(tmp, function(x) {
  aggkey = strsplit(unique(x$agg_factor), '[-]')[[1]]
@@ -81,3 +81,4 @@ dt <- lapply(tmp, function(x) {
 })
 
 sink()
+

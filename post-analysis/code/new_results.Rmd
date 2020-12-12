@@ -23,14 +23,14 @@ options(knitr.kable.NA = '')
   source('proc_auxilary.R')
   source('proc_rename.R')
 
-  #elast <- fread('../externals/elast_results_salesresponse_max3_p10_cop_sur.csv') 
-  elast = fread('../temp/elast_updated.csv')
+  elast <- fread('../externals/elast_results_salesresponse_max3_p10_cop_sur.csv') 
+  #elast = fread('../temp/elast_updated.csv')
   elast[, elastlt:=elast6]
   elast[, elastlt_se:=elast6_sd]
   elast[, elast:=elast6]
   elast[, elast_se:=elast6_sd]
   elast <- elast[!elast6_sd==0]
-  #setnames(elast, 'varname', 'variable')
+  setnames(elast, 'varname', 'variable')
   #source('preclean.R')
   
   elast <- copy(elast)
