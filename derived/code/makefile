@@ -12,7 +12,7 @@ AUDIT_DIR = ../audit
 all: build 
 #audit
 
-build: $(OUTPUT_DIR)/datasets.txt auxilary
+build: $(OUTPUT_DIR)/datasets.txt $(OUTPUT_DIR)/covariates.txt
 
 # audit
 audit: $(TEMP_DIR)/audit_rawplot.txt $(TEMP_DIR)/audit_markets.txt $(TEMP_DIR)/audit_brands.txt $(TEMP_DIR)/audit_attributes.txt $(TEMP_DIR)/audit_advertising.txt $(AUDIT_DIR)/bav.xlsx
@@ -25,7 +25,6 @@ uniq: $(TEMP_DIR)/uniqueness_and_lagsales.RData
 exatt: $(TEMP_DIR)/extract_attributes.RData 
 setatt: $(TEMP_DIR)/attributes.RData
 metr: $(TEMP_DIR)/brand_metrics.RData
-auxilary: $(OUTPUT_DIR)/hdi.csv $(OUTPUT_DIR)/gini.csv $(OUTPUT_DIR)/dev_indicators.csv $(OUTPUT_DIR)/ruleoflaw.csv $(OUTPUT_DIR)/worldvalue.csv $(OUTPUT_DIR)/bav.csv $(OUTPUT_DIR)/gci.csv
 
 clean:
 	RM -f -r "$(TEMP_DIR)"
@@ -105,6 +104,9 @@ $(TEMP_DIR)/audit_advertising.txt: audit_advertising.R #(TEMP_DIR)/advertising.c
 	R --vanilla --args "" < "audit_advertising.R"
 
 ###### COVARIATES ######
+
+$(OUTPUT_DIR)/covariates.txt: $(OUTPUT_DIR)/hdi.csv $(OUTPUT_DIR)/gini.csv $(OUTPUT_DIR)/dev_indicators.csv $(OUTPUT_DIR)/ruleoflaw.csv $(OUTPUT_DIR)/worldvalue.csv $(OUTPUT_DIR)/bav.csv $(OUTPUT_DIR)/gci.csv covars.R
+	R --vanilla --args "" < "covars.R"
 
 # Prepare HDI data
 $(OUTPUT_DIR)/hdi.csv: covar_hdi.R
