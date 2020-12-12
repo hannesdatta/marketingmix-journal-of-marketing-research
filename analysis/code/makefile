@@ -7,7 +7,7 @@ OUTPUT_DIR = ../output
 
 
 ###### BUILD COMMANDS ######
-all: simplified 
+all: simplified marketshare
 #sales
 #marketshare  sales
 
