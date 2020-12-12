@@ -78,7 +78,7 @@ $(TEMP_DIR)/datasets.txt: time_select.R $(TEMP_DIR)/brand_metrics.RData
 	R --vanilla --args "" < "time_select.R"
 
 # do final time selection
-$(OUTPUT_DIR)/datasets.txt: merge_and_document.R $(TEMP_DIR)/datasets.txt
+$(OUTPUT_DIR)/datasets.txt: merge_and_document.R $(TEMP_DIR)/datasets.txt $(OUTPUT_DIR)/covariates.txt
 	R --vanilla --args "" < "merge_and_document.R"
 
 ###### AUDIT ######

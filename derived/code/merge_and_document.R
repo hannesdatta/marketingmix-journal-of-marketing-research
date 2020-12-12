@@ -60,10 +60,14 @@ for (fn in fns) {
   brand_panel <- merge(brand_panel, dev_indicators, by = c('year', 'country'), all.x=T)
   
   # set 2010 values
-  tmp=copy(dev_indicators[year==2010])
+  tmp=copy(dev_indicators[year==2010])[, year:=NULL]
   setnames(tmp, paste0(colnames(tmp), '2010'))
   brand_panel <- merge(brand_panel, tmp, by.x = c('country'), by.y=c('country2010'), all.x=T)
-  brand_panel[, year2010:=NULL]
+  
+  # set mean values
+  tmp=copy(dev_indicators)[, lapply(.SD, mean, na.rm=T), by = c('country'), .SDcols=setdiff(colnames(dev_indicators), c('year','country'))]
+  setnames(tmp, paste0(colnames(tmp), 'avg'))
+  brand_panel <- merge(brand_panel, tmp, by.x = c('country'), by.y=c('countryavg'), all.x=T)
   
   
   ######################
