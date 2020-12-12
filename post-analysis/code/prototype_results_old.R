@@ -28,8 +28,8 @@ setnames(elast, 'varname', 'variable')
 elast_sales <- copy(elast)
 
 # 2
-if(0){
-  elast <- fread('../externals/elast_results_main.csv') 
+#if(0){
+  elast <- fread('../externals/elast_results_loglog.csv') 
   for (.var in c('elast', 'elastlt')) {
     eval(parse(text=paste0("elast[!is.na(get(.var)), paste0('w_', .var) := 1/get(paste0(.var, '_se'))]")))
     # rescale
@@ -37,7 +37,35 @@ if(0){
     eval(parse(text=paste0("elast[!is.na(get(.var)), paste0('z_', .var) := get(.var)/get(paste0(.var, '_se'))]")))
   }
   
+  elast_loglog = copy(elast)
+  
+  elast <- fread('../externals/elast_results_ec.csv') 
+  for (.var in c('elast', 'elastlt')) {
+    eval(parse(text=paste0("elast[!is.na(get(.var)), paste0('w_', .var) := 1/get(paste0(.var, '_se'))]")))
+    # rescale
+    eval(parse(text=paste0("elast[!is.na(get(.var)), paste0('w_', .var) := get(paste0('w_', .var))/max(get(paste0('w_', .var)))]")))
+    eval(parse(text=paste0("elast[!is.na(get(.var)), paste0('z_', .var) := get(.var)/get(paste0(.var, '_se'))]")))
+  }
+  
+  elast_ec = copy(elast)
+  
+
+  
+# Summary
+  elast_sales[!is.na(elastlt), list(N=.N, mean=mean(elastlt), min=min(elastlt), max=max(elastlt)),by=c('variable')]
+  elast_loglog[!is.na(elastlt), list(N=.N, mean=mean(elastlt), min=min(elastlt), max=max(elastlt)),by=c('variable')]
+  elast_ec[!is.na(elastlt), list(N=.N, mean=mean(elastlt), min=min(elastlt), max=max(elastlt)),by=c('variable')]
+  
+  #elast_sales[!is.na(elastlt), list(N=.N, mean=mean(elast), min=min(elast), max=max(elast)),by=c('variable')]
+  elast_loglog[!is.na(elastlt), list(N=.N, mean=mean(elast), min=min(elast), max=max(elast)),by=c('variable')]
+  elast_ec[!is.na(elastlt), list(N=.N, mean=mean(elast), min=min(elast), max=max(elast)),by=c('variable')]
+  
+  
+  
   grepfilter = 'market[_]id|^brand$|varname|variable|^elast|^w[_]elast|^category$|^country$'
+  
+  
+  
   elast <- elast[, grep(grepfilter,colnames(elast),value=T),with=F]
   
   elast_combin = merge(elast_sales, elast, by = c('category','country','brand', 'variable'),all.x=T)
