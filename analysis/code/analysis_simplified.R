@@ -135,7 +135,7 @@ dir.create('../output')
     brand_panel[, paste0('cop_d.1.', var):=make_copula(dshift(get(paste0(var)))), by = c('market_id','brand')]
   }
   
-  brand_panel[, lngdp := log(gdppercapita)]
+  #brand_panel[, lngdp := log(gdppercapita)]
   brand_panel[, lnholiday := log(npublicholidays+1)]
   
 ##########################

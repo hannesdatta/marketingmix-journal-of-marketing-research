@@ -163,7 +163,9 @@ potential_vars = list(brandequity=list('SBBE' = 'sbbe_round1_mc',
                                           'HDI (in 2010)' = 'ln_hdi2010_mc',
                                           "Emerging market indicator" = "emerging",
                                           "Goods Market Efficiency (GCI 2010)" = "ln_gci_p06_goods_s_mc",
-                                          "Infrastructure (GCI 2010)" = 'ln_gci_p02_infrastructure_s_mc'),
+                                          "Infrastructure (GCI 2010)" = 'ln_gci_p02_infrastructure_s_mc',
+                                          "Trade openess (in 2010)" = 'ln_tradeopeness2010_mc',
+                                          "Trade openess (avg. 2004-2014)" = 'ln_tradeopenessavg_mc'),
                       
                       country_culture = list("WVS: Traditional vs. rational" = "tradrat_mc",
                                              "WVS: Survival vs. Self-expression" = "survself_mc",
@@ -173,14 +175,27 @@ potential_vars = list(brandequity=list('SBBE' = 'sbbe_round1_mc',
                                              "Hofstede: Power distance" = "ln_pdi_mc",
                                              "Hofstede: Masculinity" = "ln_mas_mc"),
                       country_institutions = list("Rule of law" = "ln_wjp_rule_of_law_mc",
-                                                  "Institutions (GCI)" = 'ln_gci_p01_institutions_s_mc')
+                                                  "Institutions (GCI)" = 'ln_gci_p01_institutions_s_mc',
+                                                  "WGI Voice and Accountability (2010)" = 'wgi_accountability2010',
+                                                  "WGI Voice and Accountability (avg)" = 'wgi_accountabilityavg',
+                                                  "WGI Control of Corruption (2010)" = 'wgi_corruptionctrl2010',
+                                                  "WGI Control of Corruption (avg)" = 'wgi_corruptionctrlavg',
+                                                  "WGI Government Effectiveness (2010)" = 'wgi_governmenteffectiveness2010',
+                                                  "WGI Government Effectiveness (avg)" = 'wgi_governmenteffectivenessavg',
+                                                  "WGI Regulatory Quality (2010)" = 'wgi_regulatoryqual2010',
+                                                  "WGI Regulatory Quality (avg)" = 'wgi_regulatoryqualavg',
+                                                  "WGI Rule of Law (2010)" = 'wgi_ruleoflaw2010',
+                                                  "WGI Rule of Law (avg)" = 'wgi_ruleoflawavg',
+                                                  "WGI Political Stability (2010)" = 'wgi_stability2010',
+                                                  "WGI Political Stability (avg)" = 'wgi_stabilityavg'
+                                                  )
 )
 
 # variable check
 all_cols = unique(unlist(lapply(elasticities, colnames)))
 unlist(lapply(potential_vars, function(x) x[!x%in%all_cols]))
 
-#grep('gdpper', all_cols,value=T)
+#grep('from', all_cols,value=T)
 
 
 ui <- fluidPage(

@@ -14,8 +14,6 @@ library(marketingtools)
 # Load results
 load(file = c('../output/results_marketshare.RData'))
 
-unlink('../output/*.csv')
-
 # load panel data
 brand_panel=fread('../temp/preclean_main.csv')
 brand_panel[, ':=' (date = as.Date(date))]

@@ -200,7 +200,6 @@ mainef= . ~ 1 + (1|country) + (1|category) + (1|brand) +
 mods=newmodV2(list(list(pr=mainef, dst=mainef, llen=mainef)), '../temp/round1-results-sales_culture.html')
 }
 
-#### TRY OUT SHINY
+#### SAVE FOR SHINY DEPLOYMENT
 
-#potential_vars
-save.image(file= '../temp/app_workspace.RData')
+save.image(file= 'app/app_workspace.RData')
