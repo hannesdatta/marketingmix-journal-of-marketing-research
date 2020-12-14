@@ -105,7 +105,7 @@ $(TEMP_DIR)/audit_advertising.txt: audit_advertising.R #(TEMP_DIR)/advertising.c
 
 ###### COVARIATES ######
 
-$(OUTPUT_DIR)/covariates.txt: $(OUTPUT_DIR)/hdi.csv $(OUTPUT_DIR)/gini.csv $(OUTPUT_DIR)/dev_indicators.csv $(OUTPUT_DIR)/ruleoflaw.csv $(OUTPUT_DIR)/worldvalue.csv $(OUTPUT_DIR)/bav.csv $(OUTPUT_DIR)/gci.csv covars.R
+$(OUTPUT_DIR)/covariates.txt: $(OUTPUT_DIR)/hdi.csv $(OUTPUT_DIR)/wgi.csv $(OUTPUT_DIR)/gini.csv $(OUTPUT_DIR)/dev_indicators.csv $(OUTPUT_DIR)/ruleoflaw.csv $(OUTPUT_DIR)/worldvalue.csv $(OUTPUT_DIR)/bav.csv $(OUTPUT_DIR)/gci.csv covars.R
 	R --vanilla --args "" < "covars.R"
 
 # Prepare HDI data
@@ -131,6 +131,10 @@ $(OUTPUT_DIR)/ruleoflaw.csv: covar_ruleoflaw.R
 # Prepare World Value Survey
 $(OUTPUT_DIR)/worldvalue.csv: covar_worldvalue.R
 	R --vanilla --args "" < "covar_worldvalue.R"
+
+# Prepare WGI
+$(OUTPUT_DIR)/wgi.csv: covar_wgi.R
+	R --vanilla --args "" < "covar_wgi.R"
 
 # Prepare World Value Survey
 $(OUTPUT_DIR)/gci.csv: covar_gci.R

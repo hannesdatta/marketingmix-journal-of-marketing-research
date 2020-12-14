@@ -69,6 +69,24 @@ for (fn in fns) {
   setnames(tmp, paste0(colnames(tmp), 'avg'))
   brand_panel <- merge(brand_panel, tmp, by.x = c('country'), by.y=c('countryavg'), all.x=T)
   
+  #######
+  # WGI #
+  #######
+  
+  wgi <- fread('../output/wgi.csv')
+  
+  brand_panel <- merge(brand_panel, wgi, by = c('year', 'country'), all.x=T)
+  
+  # set 2010 values
+  tmp=copy(wgi[year==2010])[, year:=NULL]
+  setnames(tmp, paste0(colnames(tmp), '2010'))
+  brand_panel <- merge(brand_panel, tmp, by.x = c('country'), by.y=c('country2010'), all.x=T)
+  
+  # set mean values
+  tmp=copy(wgi)[, lapply(.SD, mean, na.rm=T), by = c('country'), .SDcols=setdiff(colnames(wgi), c('year','country', 'country_code'))]
+  setnames(tmp, paste0(colnames(tmp), 'avg'))
+  brand_panel <- merge(brand_panel, tmp, by.x = c('country'), by.y=c('countryavg'), all.x=T)
+  
   
   ######################
   # WORLD VALUE SURVEY #
