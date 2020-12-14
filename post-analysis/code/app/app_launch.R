@@ -6,6 +6,10 @@ library(data.table)
 library(stargazer)
 library(shiny)
 
+
+library(car)
+library(knitr)
+
 fns <- c('../temp/app_workspace.RData', 'app_workspace.RData')
 
 for (fn in fns) if (file.exists(fn)) {cat(paste0('loading...', fn, '...\n')); load(fn)}
@@ -238,7 +242,8 @@ ui <- fluidPage(
       tabsetPanel(type = "tabs",
                   
                  # tabPanel("Model Summary", verbatimTextOutput("summary")),
-                 tabPanel("Model results", htmlOutput("stargazer"))#, # Regression output
+                 tabPanel("Model results", htmlOutput("stargazer")),#, # Regression output
+                 tabPanel("VIFs", htmlOutput("vif"))#, # Regression output
                  # tabPanel("Data", DT::dataTableOutput('tbl')) # Data as datatable
                   
       )
@@ -249,6 +254,7 @@ ui <- fluidPage(
 
 # SERVER
 server <- function(input, output) {
+  
   
   output$stargazer = renderText({
   # assemble form 
@@ -304,6 +310,41 @@ server <- function(input, output) {
            '<br><br>', myform)
   })
 
+  output$vif = renderText({
+    # assemble form 
+    
+    
+    vars=paste0(c(unlist(input$brandequity),
+                  unlist(input$brandlocation),
+                  unlist(input$brandmmix),
+                  unlist(input$brandother),
+                  
+                  unlist(input$categoryfactors), 
+                  unlist(input$econ),
+                  unlist(input$culture),
+                  unlist(input$institutions)), collapse='+')
+    myform = as.character('. ~ 1 ')
+    
+    if (nchar(vars)>0) myform = paste0(myform, ' + ', vars)
+    if (nchar(unlist(input$interact))>0) myform = paste0(myform, ' + ', unlist(input$interact))
+    
+    mainef = as.formula(myform)
+    
+    tmp <- unique(copy(elasticities[[input$model]][selection_obs48==T&selection_brands==T]), by = c('market_id','brand'))
+    tmp[, randomnr:=runif(.N)]
+    
+    vifm <- lm(update.formula(randomnr~., mainef), data=tmp)
+    vifs = data.table(variable = names(vifm$coefficients)[-1], VIF=vif(vifm))
+    
+    
+    #if (input$model=='ec') elast <<- copy(elast_sales)
+    #if (input$model=='attraction') elast <<- copy(elast_marketshare)
+    #input
+    kable(vifs, caption = 'VIF', format = 'html')
+    
+  })
+  
+  
   
   # Scatterplot output
   output$scatterplot <- renderPlot({
