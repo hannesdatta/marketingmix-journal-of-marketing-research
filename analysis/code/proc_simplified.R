@@ -126,8 +126,9 @@ simple_ec <- function(id, controls_diffs='^comp[_]', #
   
   m = lm(my_form, data= dt)
   
-  identifiers = unique(dt[,c('market_id', 'category','country', 'brand', 'brand_id' ),with=F], by=c('brand_id'))
-  setkey(identifiers, market_id, brand)
+  
+  #identifiers = unique(dt[,c('market_id', 'category','country', 'brand', 'brand_id' ),with=F], by=c('brand_id'))
+  #setkey(identifiers, market_id, brand)
   
   # kickout coefs with NA values (e.g., attributes that are not identified)
   kickoutcoef = NULL
@@ -147,6 +148,10 @@ simple_ec <- function(id, controls_diffs='^comp[_]', #
     m2 = lm(my_form, data= dt)
   } else {m2=m}
   
+  identifiers = dt[-m2$na.action,c('market_id', 'category','country', 'brand', 'brand_id' , 'date'),with=F]
+  setkey(identifiers, market_id, date, brand)
+  
+  
   elast2 = rbindlist(lapply(vars, function(v) {
     st=deltaMethod(m2, paste0('(d', v, ')'))
     lt=deltaMethod(m2, paste0('(`I(-lag', v, ')`)/(lnlagusales)'))
@@ -157,14 +162,51 @@ simple_ec <- function(id, controls_diffs='^comp[_]', #
     
   }))
   
-  elast2=cbind(identifiers[1],elast2)
+  uniq_identifiers = copy(identifiers)[1][, date:=NULL]
+  elast2=cbind(uniq_identifiers,elast2)
   .v=vif(m2)
-  vif2=cbind(identifiers[1], data.table(variable=names(.v), vif=.v))
+  vif2=cbind(uniq_identifiers, data.table(variable=names(.v), vif=.v))
   
   
   return(list(elast=elast2, model=m2, vif=vif2,
+              paneldimension = identifiers,
+              model_matrix = m2$model,
+              dt=dt,
               orig_results = m$coefficients, kicked_out_coefs = kickoutcoef))
   
 }
 
+
+#####
+
+
+process_sur <- function(mod) {
+  vars=mod$elast$variable
+  
+  vcov = mod$sur$varcovar
+  
+  coefs=mod$sur$coefs$coef
+  names(coefs)<-mod$sur$coefs$variable
+  names(coefs) <- gsub('[.]', '', names(coefs))
+  colnames(vcov) <- names(coefs)
+  rownames(vcov) <- names(coefs)
+  
+  elast_sur = rbindlist(lapply(vars, function(v) {
+    dvar= grep(paste0('d',v), names(coefs),value=T)
+    lvar= grep(paste0('lag',v), names(coefs),value=T)
+    lagu= grep(paste0('lnlagusales'), names(coefs),value=T)
+    
+    st=deltaMethod(coefs, paste0('(', dvar, ')'),  vcov.=vcov)
+    lt=deltaMethod(coefs, paste0('(`', lvar, '`)/(', lagu, ')'),  vcov.=vcov)
+    
+    
+    data.frame(variable=v, elast = st$Estimate, elast_se=st$SE,
+               elastlt = lt$Estimate, elastlt_se = lt$SE, beta = coefs[dvar], 
+               carryover = coefs[lagu])
+    
+  }))
+  
+  mod$elast_sur = elast_sur
+  return(mod)
+}
 

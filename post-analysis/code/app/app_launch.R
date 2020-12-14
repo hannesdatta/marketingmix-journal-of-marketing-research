@@ -10,7 +10,7 @@ library(shiny)
 library(car)
 library(knitr)
 
-fns <- c('../temp/app_workspace.RData', 'app_workspace.RData')
+fns <- c('app_workspace.RData')
 
 for (fn in fns) if (file.exists(fn)) {cat(paste0('loading...', fn, '...\n')); load(fn)}
 
@@ -127,11 +127,10 @@ lmerctrl = lmerControl(optimizer ="Nelder_Mead", check.conv.singular="ignore")
 names(elasticities)
 
 model_names = list('M1) Error correction (sales)' = 'ec_restricted_sigcop',
+                   'M1b) Error correction (sales, with SUR)' = 'with_sur',
                    'M2) Error correction (sales; but with copula of d_mmix)' = 'ec_restricted_sigdcop',
                    'M3) Attraction model (market share)' = 'marketshare')
-                   
-
-
+            
 potential_vars = list(brandequity=list('SBBE' = 'sbbe_round1_mc',
                                        'BrandZ indicator' = 'brandz',
                                        'Brand strength (BAV)' = 'ln_bav_brandstrength_mc',

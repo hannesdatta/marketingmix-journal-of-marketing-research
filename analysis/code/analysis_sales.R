@@ -218,6 +218,8 @@ for (i in seq(along=sur_res)) {
   }
 }
 
+
+
 # calculate elasticities
 cat('Start the simulations...\n')
 sims = parLapplyLB(cl, results_model, function(focal_model) {
