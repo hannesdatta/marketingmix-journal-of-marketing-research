@@ -197,6 +197,12 @@ unlist(lapply(potential_vars, function(x) x[!x%in%all_cols]))
 
 #grep('from', all_cols,value=T)
 
+trimming <- list('None' = '',
+                'Trimmed 1% two-sided' = 'trim_1',
+                 'Trimmed 2.5% two-sided' = 'trim_2.5',
+                'Winsorized 1% two-sided' = 'wins_1',
+                'Winsorized 2.5% two-sided' = 'wins_2.5')
+
 
 ui <- fluidPage(
   titlePanel("Model exploration: GfK Singapore"),
@@ -222,7 +228,9 @@ ui <- fluidPage(
       textInput("interact", label = h5("Interactions"), value = ""),
       selectInput("model", label = h5("Model"),
                   choices = model_names,
-                  selected=1)
+                  selected=1),
+      selectInput("trimming", label = h5("Trimming/Winsorization"),
+                  choices = (trimming), selected = 1, multiple=FALSE)
     ),
     
     mainPanel(
@@ -266,7 +274,28 @@ server <- function(input, output) {
     #  emerging + sbbe_round1_mc*emerging + 
     #  ln_market_herf_mc + ln_market_growth_mc + 
     #  appliance + ln_ginicoef_mc + local_to_market_mc + tradrat_mc + survself_mc
-    elast <<- elasticities[[input$model]][selection_obs48==T&selection_brands==T]
+    tmp <- copy(elasticities[[input$model]][selection_obs48==T&selection_brands==T])
+    
+    tmp <- tmp[!is.na(elastlt), percentile:=ecdf(elastlt)(elastlt), by = c('variable')]
+    
+    # input=list(trimming='trim_1')
+    
+    perc_extract = as.numeric(gsub('.*[_]','', input$trimming))/100
+    
+    if (grepl('^trim', input$trimming, ignore.case=T)) {
+      tmp <- tmp[percentile>=perc_extract & percentile<=(1-perc_extract)]
+      }
+    
+    if (grepl('win', input$trimming, ignore.case=T)) {
+      tmp[, perc_low := quantile(elastlt, probs = perc_extract), by = c('variable')]
+      tmp[, perc_high := quantile(elastlt, probs = 1-perc_extract), by = c('variable')]
+      
+      tmp[percentile<perc_extract, elastlt:=perc_low]
+      tmp[percentile>(1-perc_extract), elastlt:=perc_high]
+      
+    }
+    
+    elast <<- tmp
     
     #if (input$model=='ec') elast <<- copy(elast_sales)
     #if (input$model=='attraction') elast <<- copy(elast_marketshare)
