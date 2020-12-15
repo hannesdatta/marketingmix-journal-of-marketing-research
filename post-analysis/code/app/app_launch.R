@@ -149,22 +149,23 @@ potential_vars = list(brandequity=list('SBBE' = 'sbbe_round1_mc',
                                            'JP, US, Swiss, GER, Sweden indicator' = "`brand_from_jp-us-ch-ge-sw_mc`",
                                            'Western brand indicator' = 'western_brand_mc'),
                       brandmmix = list('Price (log index)' = 'ln_rwpspr_index_mc',
-                                       'Price (index)' = 'rwpspr_index_mc',
-                                       'Price (std.)' = 'rwpspr_std_mc',
                                        'Distr. (log index)' = 'ln_wpswdst_index_mc',
-                                       'Distr. (index)' = 'wpswdst_index_mc',
-                                       'Distr. (std.)' = 'wpswdst_std_mc',
                                        'Line length (log index)' = 'ln_llen_index_mc',
+                                       'Price (index)' = 'rwpspr_index_mc',
+                                       'Distr. (index)' = 'wpswdst_index_mc',
                                        'Line length (index)' = 'llen_index_mc',
+                                       'Price (std.)' = 'rwpspr_std_mc',
+                                       'Distr. (std.)' = 'wpswdst_std_mc',
                                        'Line length (std.)' = 'llen_std_mc'),
                       
-                      brandother = list('Brand novelty' = 'ln_brandnovelty3_mc',
-                                        'Price positioning' = 'brand_prindex_mean_mc'),
+                      brandother = list('Brand novelty' = 'ln_brandnovelty3_mc'),#,
+                                        #'Price positioning' = 'brand_prindex_mean_mc'),
                       
                       category = list('Market concentration' = "ln_market_herf_mc",
                                       'Market growth' = "ln_market_growth_mc",
-                                      'Category innovativeness' = 'ln_catnovelty3_mc',
-                                      'Appliances (vs. electronics)' = 'appliance'),
+                                      'Appliances (vs. electronics)' = 'appliance',
+                                      'Category innovativeness' = 'ln_catnovelty3_mc'
+                                      ),
                       
                       country_econ = list('GDP per capita (in 2010)' = "ln_gdppercapitacurrent2010_mc",
                                           'GDP per capita (avg. 2004-2014)' = "ln_gdppercapitacurrentavg_mc",
@@ -185,8 +186,7 @@ potential_vars = list(brandequity=list('SBBE' = 'sbbe_round1_mc',
                                              "Hofstede: Uncertainty Avoidance" = "ln_uai_mc",
                                              "Hofstede: Power distance" = "ln_pdi_mc",
                                              "Hofstede: Masculinity" = "ln_mas_mc"),
-                      country_institutions = list("Rule of law" = "ln_wjp_rule_of_law_mc",
-                                                  "Institutions (GCI)" = 'ln_gci_p01_institutions_s_mc',
+                      country_institutions = list(#"Rule of law" = "ln_wjp_rule_of_law_mc",
                                                   "WGI Voice and Accountability (2010)" = 'wgi_accountability2010',
                                                   "WGI Voice and Accountability (avg)" = 'wgi_accountabilityavg',
                                                   "WGI Control of Corruption (2010)" = 'wgi_corruptionctrl2010',
@@ -198,7 +198,8 @@ potential_vars = list(brandequity=list('SBBE' = 'sbbe_round1_mc',
                                                   "WGI Rule of Law (2010)" = 'wgi_ruleoflaw2010',
                                                   "WGI Rule of Law (avg)" = 'wgi_ruleoflawavg',
                                                   "WGI Political Stability (2010)" = 'wgi_stability2010',
-                                                  "WGI Political Stability (avg)" = 'wgi_stabilityavg'
+                                                  "WGI Political Stability (avg)" = 'wgi_stabilityavg',
+                                                  "Institutions (GCI)" = 'ln_gci_p01_institutions_s_mc'
                                                   )
 )
 
@@ -239,9 +240,9 @@ ui <- fluidPage(
       textInput("interact", label = h5("Interactions"), value = ""),
       selectInput("model", label = h5("Model"),
                   choices = model_names,
-                  selected=1),
+                  selected=model_names[2]),
       selectInput("trimming", label = h5("Trimming/Winsorization"),
-                  choices = (trimming), selected = 1, multiple=FALSE)
+                  choices = (trimming), selected = trimming[4], multiple=FALSE)
     ),
     
     mainPanel(
