@@ -94,9 +94,21 @@ get_formulas <- function(sel) {
 }
 
 
-all_mods <- function(models) {
+all_mods <- function(models, mtype = 'lmer') {
   lapply(models, function(forms) {
-    list(m1 = lmer(update.formula(elastlt~1, forms$pr),
+    if (mtype=='lm')  {
+      
+      return(list(m1 = lm(update.formula(elastlt~1, forms$pr),
+                            data=elast[grep('pr',variable)], weights=w_elastlt),
+                  m2 = lm(update.formula(elastlt~1, forms$dst),
+                            data=elast[grep('dst',variable)], weights=w_elastlt),
+                  m3 = lm(update.formula(elastlt~1, forms$llen),
+                            data=elast[grep('llen',variable)], weights=w_elastlt)))
+    }
+    
+    if (mtype=='lmer') {
+      
+    return(list(m1 = lmer(update.formula(elastlt~1, forms$pr),
                    data=elast[grep('pr',variable)], weights=w_elastlt,
                    control = lmerctrl, REML=F),
          m2 = lmer(update.formula(elastlt~1, forms$dst),
@@ -104,23 +116,27 @@ all_mods <- function(models) {
                    control = lmerctrl, REML=F),
          m3 = lmer(update.formula(elastlt~1, forms$llen),
                    data=elast[grep('llen',variable)], weights=w_elastlt,
-                   control = lmerctrl, REML=F))
+                   control = lmerctrl, REML=F)))
+    }
     
   })
 }
 # estimate models
-newmodV2 <- function(model, fn, ..., return_models = T) {
+newmodV2 <- function(model, fn, ..., return_models = T, mtype='lmer') {
   
-  mods = all_mods(model)
+  mods = all_mods(model, mtype=mtype)
   rsqs=unlist(lapply(mods, function(x) lapply(x, rsq)))
   obss = unlist(lapply(mods, function(x) lapply(x, function(i) length(which(!is.na(residuals(i)))))))
   
-  r2s = c('R-squared', sub('^(-)?0[.]', '\\1.', formatC(rsqs, digits=3, format='f', flag='#')))
+  r2s = NULL
+  if (mtype=='lmer') r2s = c('R-squared', sub('^(-)?0[.]', '\\1.', formatC(rsqs, digits=3, format='f', flag='#')))
   obs = c('Observations',obss)
-  
+  lbllist = list(r2s,obs)
+  if (mtype=='lm') lbllist = NULL
+      
   stargazer(do.call('c', mods),type='html', 
             column.labels = rep(c('price','distribution','line length'), length(model)), 
-            out = fn, add.lines = list(r2s,obs), ...)
+            out = fn, add.lines = lbllist, ...)
   return(mods)
 }
 
@@ -252,12 +268,20 @@ ui <- fluidPage(
       selectInput("institutions", label = h5("Country factors: Institutions"),
                   choices = (potential_vars$country_institutions), selected = 1, multiple=TRUE),
       textInput("interact", label = h5("Interactions"), value = ""),
-      selectInput("model", label = h5("Model"),
+      selectInput("model", label = h5("Model specification"),
                   choices = model_names,
                   selected=model_names[2]),
-      selectInput("trimming", label = h5("Trimming/Winsorization"),
+      selectInput("estim", label = h5("Model estimation"),
+                  choices = list('Mixed-Effects Model (REs)'= 'lmer',
+                                 'OLS' = 'lm'), selected= 'lmer', multiple=F),
+      selectInput("randomeffects", label = h5("Random effects (only for RE model)"),
+                  choices = list('Brand'= 'brand', 'Category'='category',
+                                 'Country' = 'country'), selected = c('category','country','brand'), multiple=TRUE),
+      
+      selectInput("trimming", label = h5("Trimming/Winsorizations"),
                   choices = (trimming), selected = trimming[4], multiple=FALSE)
-    ),
+      
+      ),
     
     mainPanel(
       
@@ -291,7 +315,14 @@ server <- function(input, output) {
                   unlist(input$econ),
                   unlist(input$culture),
                   unlist(input$institutions)), collapse='+')
-    myform = as.character('. ~ 1 + (1|country) + (1|category) + (1|brand)')
+    
+    modeltype=input$estim
+    if (!is.null(input$estim)) modeltype=input$estim
+    
+    randomef = sapply(input$randomeffects, function(x) paste0('(1|', x, ')'))
+    if (length(randomef)>0 & modeltype=='lmer') myform = as.character(paste0('. ~ 1 + ', paste(randomef, collapse='+')))
+    if (length(randomef)==0|modeltype=='lm') myform = as.character(paste0('. ~ 1'))
+    
     
     if (nchar(vars)>0) myform = paste0(myform, ' + ', vars)
     if (nchar(unlist(input$interact))>0) myform = paste0(myform, ' + ', unlist(input$interact))
@@ -328,7 +359,8 @@ server <- function(input, output) {
     #if (input$model=='ec') elast <<- copy(elast_sales)
     #if (input$model=='attraction') elast <<- copy(elast_marketshare)
     #input
-    paste0(paste0(capture.output({me<-newmodV2(list(list(pr=mainef, dst=mainef, llen=mainef)), NULL, return_models=F)}), collapse=''),
+    
+    paste0(paste0(capture.output({me<-newmodV2(list(list(pr=mainef, dst=mainef, llen=mainef)),fn= NULL, return_models=F, mtype=modeltype)}), collapse=''),
            '<br><br>', myform)
   })
 
