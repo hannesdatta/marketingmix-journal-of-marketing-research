@@ -16,6 +16,14 @@ for (fn in fns) if (file.exists(fn)) {cat(paste0('loading...', fn, '...\n')); lo
 
 # copy of functions
 
+if(0) {
+#
+vifuniq=unique(elasticities$with_sur, by = c('category','country', 'brand'))
+vifuniq[, random:=runif(.N)]
+
+vifeq <- lm(random~1+sbbe_round1_mc+local_to_market_mc+ln_rwpspr_index_mc+ln_wpswdst_index_mc+ln_llen_index_mc+ln_market_growth_mc+appliance+ln_market_herf_mc+ln_gdpgrowthavg_mc+ln_ginicoef_mc+ln_idv_mc+ln_ltowvs_mc+wgi_regulatoryqualavg, data=vifuniq)
+vif(vifeq)
+}
 
 estim_models <- function(models) {
   lapply(seq(along=models), function(i) {
@@ -329,7 +337,7 @@ server <- function(input, output) {
     
     mainef = as.formula(myform)
     
-    tmp <- unique(copy(elasticities[[input$model]][selection_obs48==T&selection_brands==T]), by = c('market_id','brand'))
+    tmp <- unique(copy(elasticities[[input$model]][selection_obs48==T&selection_brands==T]), by = c('category','country','brand'))
     tmp[, randomnr:=runif(.N)]
     
     vifm <- lm(update.formula(randomnr~., mainef), data=tmp)

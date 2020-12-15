@@ -201,5 +201,6 @@ mods=newmodV2(list(list(pr=mainef, dst=mainef, llen=mainef)), '../temp/round1-re
 }
 
 #### SAVE FOR SHINY DEPLOYMENT
+#rm(elast_list, sbbe, brand_panel)
 
 save.image(file= 'app/app_workspace.RData')
