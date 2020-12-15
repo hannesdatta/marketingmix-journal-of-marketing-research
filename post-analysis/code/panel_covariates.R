@@ -6,6 +6,7 @@ brand_panel=fread('../externals/preclean_main.csv')
 brand_panel[, ':=' (date = as.Date(date))]
 
 # find attributes
+unlink(list.files('../output/', pattern='^covariates.*', full.names = T))
 
 tmp1=brand_panel[, lapply(.SD, mean,na.rm=T),by=c('category','country','year'),.SDcol=grep('catvolat',colnames(brand_panel),value=T)]
 tmp2=tmp1[, lapply(.SD, mean,na.rm=T),by=c('category','country'),.SDcol=grep('catvolat',colnames(brand_panel),value=T)]
@@ -25,7 +26,7 @@ for (.col in cols) eval(parse(text=paste0('brand_panel[mix, ', .col, '_index:=i.
 for (.col in cols) eval(parse(text=paste0('brand_panel[mix, ', .col, '_std:=i.', .col, '_std]')))
 
 # define metrics to vary only at the yearly level for brands
-vars <- grep('2010$|avg$', grep('wgi_|gdp|gini', colnames(brand_panel),value=T), value=T, invert=T)
+vars <- grep('2010$|avg$', grep('wgi_|gdp|gini|trade', colnames(brand_panel),value=T), value=T, invert=T)
 
 tmp = unique(brand_panel, by = c('category','country','year'))[, lapply(.SD, mean,na.rm=T), by = c('category','country'), .SDcol=vars]
 tmp <- tmp[,unlist(lapply(tmp,function(x) all(is.na(x))))==F,with=F]
@@ -49,7 +50,7 @@ fwrite(year_averages, paste0('../output/covariates-yearaverages_category-country
 
 # aggregation
 agg_units = list(c('country'), c('country', 'category'),
-                 c('country', 'category', 'year'),
+                 #c('country', 'category', 'year'),
                  c('country','category','brand'))
 
 out=rbindlist(lapply(agg_units, function(agg) {
