@@ -5,6 +5,8 @@ library(bit64)
 library(data.table)
 library(stargazer)
 library(shiny)
+library(sandwich)
+library(lmtest)
 
 
 library(car)
@@ -14,7 +16,7 @@ fns <- c('app_workspace.RData')
 
 for (fn in fns) if (file.exists(fn)) {cat(paste0('loading...', fn, '...\n')); load(fn)}
 
-# copy of functions
+
 
 if(0) {
 #
@@ -94,16 +96,27 @@ get_formulas <- function(sel) {
 }
 
 
-all_mods <- function(models, mtype = 'lmer') {
+all_mods <- function(models, mtype = 'lmer', clust = NULL) {
   lapply(models, function(forms) {
     if (mtype=='lm')  {
       
-      return(list(m1 = lm(update.formula(elastlt~1, forms$pr),
-                            data=elast[grep('pr',variable)], weights=w_elastlt),
-                  m2 = lm(update.formula(elastlt~1, forms$dst),
-                            data=elast[grep('dst',variable)], weights=w_elastlt),
-                  m3 = lm(update.formula(elastlt~1, forms$llen),
-                            data=elast[grep('llen',variable)], weights=w_elastlt)))
+      m1 = lm(update.formula(elastlt~1, forms$pr),
+              data=elast[grep('pr',variable)], weights=w_elastlt)
+      m2 = lm(update.formula(elastlt~1, forms$dst),
+              data=elast[grep('dst',variable)], weights=w_elastlt)
+      m3 = lm(update.formula(elastlt~1, forms$llen),
+              data=elast[grep('llen',variable)], weights=w_elastlt)
+      
+      if (!is.null(clust)) {
+        m1 <- coeftest(m1, vcov = vcovCL, cluster = clust)
+        m2 <- coeftest(m2, vcov = vcovCL, cluster = clust)
+        m3 <- coeftest(m3, vcov = vcovCL, cluster = clust)
+        return(list(m1,m2,m3)) 
+        
+      }
+      
+      return(list(m1,m2,m3))
+      
     }
     
     if (mtype=='lmer') {
@@ -121,10 +134,15 @@ all_mods <- function(models, mtype = 'lmer') {
     
   })
 }
+
+
 # estimate models
-newmodV2 <- function(model, fn, ..., return_models = T, mtype='lmer') {
+
+newmodV2 <- function(model, fn, ..., return_models = T, mtype='lmer', clust = NULL) {
   
-  mods = all_mods(model, mtype=mtype)
+  mods = all_mods(model, mtype=mtype, clust=clust)
+  
+  if(0){
   rsqs=unlist(lapply(mods, function(x) lapply(x, rsq)))
   obss = unlist(lapply(mods, function(x) lapply(x, function(i) length(which(!is.na(residuals(i)))))))
   
@@ -132,7 +150,11 @@ newmodV2 <- function(model, fn, ..., return_models = T, mtype='lmer') {
   if (mtype=='lmer') r2s = c('R-squared', sub('^(-)?0[.]', '\\1.', formatC(rsqs, digits=3, format='f', flag='#')))
   obs = c('Observations',obss)
   lbllist = list(r2s,obs)
-  if (mtype=='lm') lbllist = NULL
+  #if (mtype=='lm') 
+    
+  }
+  
+  lbllist = NULL
       
   stargazer(do.call('c', mods),type='html', 
             column.labels = rep(c('price','distribution','line length'), length(model)), 
@@ -274,7 +296,7 @@ ui <- fluidPage(
       selectInput("estim", label = h5("Model estimation"),
                   choices = list('Mixed-Effects Model (REs)'= 'lmer',
                                  'OLS' = 'lm'), selected= 'lmer', multiple=F),
-      selectInput("randomeffects", label = h5("Random effects (only for RE model)"),
+      selectInput("randomeffects", label = h5("Random effects or clustering"),
                   choices = list('Brand'= 'brand', 'Category'='category',
                                  'Country' = 'country'), selected = c('category','country','brand'), multiple=TRUE),
       
@@ -319,10 +341,15 @@ server <- function(input, output) {
     modeltype=input$estim
     if (!is.null(input$estim)) modeltype=input$estim
     
+    
     randomef = sapply(input$randomeffects, function(x) paste0('(1|', x, ')'))
     if (length(randomef)>0 & modeltype=='lmer') myform = as.character(paste0('. ~ 1 + ', paste(randomef, collapse='+')))
-    if (length(randomef)==0|modeltype=='lm') myform = as.character(paste0('. ~ 1'))
+    if (length(randomef)==0|modeltype%in%c('lm')) myform = as.character(paste0('. ~ 1'))
     
+    clust = sapply(input$randomeffects, function(x) paste0(x))
+    if (length(clust)>0 & modeltype=='lm') clust = formula(paste0('~', paste(input$randomeffects,collapse='+')))
+    if (length(clust)==0| !modeltype=='lm') clust = NULL
+    cat(file=stderr(), as.character(clust), " clusters", "\n")
     
     if (nchar(vars)>0) myform = paste0(myform, ' + ', vars)
     if (nchar(unlist(input$interact))>0) myform = paste0(myform, ' + ', unlist(input$interact))
@@ -360,8 +387,17 @@ server <- function(input, output) {
     #if (input$model=='attraction') elast <<- copy(elast_marketshare)
     #input
     
-    paste0(paste0(capture.output({me<-newmodV2(list(list(pr=mainef, dst=mainef, llen=mainef)),fn= NULL, return_models=F, mtype=modeltype)}), collapse=''),
-           '<br><br>', myform)
+    #ii <- lm(elastlt ~ 1+sbbe_round1_mc,
+    #         data = elasticities$ec_restricted_alwayscop)
+    
+    
+    
+    outp=paste0(paste0(capture.output({me<-newmodV2(list(list(pr=mainef, dst=mainef, llen=mainef)),
+                                                    fn= NULL, return_models=F, mtype=modeltype,
+                                                    clust=clust)}), collapse=''),
+           '<br><br>', myform, "<br><br>", paste0(as.character(clust), collapse=''), '<br><br>', modeltype)
+    rm(me)
+    return(outp)
   })
 
   output$vif = renderText({
