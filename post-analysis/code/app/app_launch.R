@@ -111,11 +111,11 @@ all_mods <- function(models, mtype = 'lmer', clust = NULL) {
         m1 <- coeftest(m1, vcov = vcovCL, cluster = clust)
         m2 <- coeftest(m2, vcov = vcovCL, cluster = clust)
         m3 <- coeftest(m3, vcov = vcovCL, cluster = clust)
-        return(list(m1,m2,m3)) 
+        return(list(m1=m1,m2=m2,m3=m3)) 
         
       }
       
-      return(list(m1,m2,m3))
+      return(list(m1=m1,m2=m2,m3=m3))
       
     }
     
@@ -222,7 +222,9 @@ potential_vars = list(brandequity=list('SBBE' = 'sbbe_round1_mc',
                                           
                                           "Emerging market indicator" = "emerging",
                                           "Goods Market Efficiency (GCI 2010)" = "ln_gci_p06_goods_s_mc",
-                                          "Infrastructure (GCI 2010)" = 'ln_gci_p02_infrastructure_s_mc'
+                                          "Infrastructure (GCI 2010)" = 'ln_gci_p02_infrastructure_s_mc',
+                                          "Market size (GCI 2010)" = 'ln_gci_p10_marketsize_s_mc'
+                                          
                                           ),
                       
                       country_culture = list("WVS: Traditional vs. rational" = "tradrat_mc",
@@ -251,7 +253,8 @@ potential_vars = list(brandequity=list('SBBE' = 'sbbe_round1_mc',
                                                   "WGI Regulatory Quality (2010)" = 'wgi_regulatoryqual2010',
                                                   "WGI Rule of Law (2010)" = 'wgi_ruleoflaw2010',
                                                   "WGI Political Stability (2010)" = 'wgi_stability2010',
-                                                  "Institutions (GCI)" = 'ln_gci_p01_institutions_s_mc'
+                                                  "Institutions (GCI)" = 'ln_gci_p01_institutions_s_mc',
+                                                 "Infrastructure (GCI)" = 'ln_gci_p02_infrastructure_s_mc'
                                                   )
 )
 
@@ -267,8 +270,68 @@ trimming <- list('None' = '',
                 'Winsorized 1% two-sided' = 'wins_1',
                 'Winsorized 2.5% two-sided' = 'wins_2.5')
 
-
 ui <- fluidPage(
+  
+  titlePanel("GfK Singapore"),
+  
+  fluidRow(
+    
+    column(4,
+           wellPanel(
+             selectInput("brandequity", label = h5("Brand factors: Equity"),
+                         choices = (potential_vars$brandequity), selected = 1, multiple=TRUE),
+             selectInput("brandlocation", label = h5("Brand factors: Location"),
+                         choices = (potential_vars$brandlocation), selected = 1, multiple=TRUE),
+             selectInput("brandmmix", label = h5("Brand factors: Marketing mix"),
+                         choices = (potential_vars$brandmmix), selected = 1, multiple=TRUE),
+             selectInput("brandother", label = h5("Brand factors: Others"),
+                         choices = (potential_vars$brandother), selected = 1, multiple=TRUE),
+             
+             selectInput("categoryfactors", label = h5("Category factors"),
+                         choices = (potential_vars$category), selected = 1, multiple=TRUE),
+             selectInput("econ", label = h5("Country factors: Economic development"),
+                         choices = (potential_vars$country_econ), selected = 1, multiple=TRUE),
+             selectInput("culture", label = h5("Country factors: Culture"),
+                         choices = (potential_vars$country_culture), selected = 1, multiple=TRUE),
+             selectInput("institutions", label = h5("Country factors: Institutions"),
+                         choices = (potential_vars$country_institutions), selected = 1, multiple=TRUE),
+             textInput("interact", label = h5("Interactions"), value = "")
+           )
+    ),
+    column(5,
+           tabsetPanel(type = "tabs",
+                       
+                       # tabPanel("Model Summary", verbatimTextOutput("summary")),
+                       tabPanel("Model results", htmlOutput("stargazer")),#, # Regression output
+                       tabPanel("VIFs", htmlOutput("vif"))#, # Regression output
+                       # tabPanel("Data", DT::dataTableOutput('tbl')) # Data as datatable
+        #  htmlOutput("stargazer")
+    )),
+    
+    column(3,
+           wellPanel(
+           selectInput("model", label = h5("Model specification"),
+                       choices = model_names,
+                       selected=model_names[2]),
+           selectInput("estim", label = h5("Model estimation"),
+                       choices = list('Mixed-Effects Model (REs)'= 'lmer',
+                                      'OLS' = 'lm'), selected= 'lmer', multiple=F),
+           selectInput("randomeffects", label = h5("Random effects or clustering"),
+                       choices = list('Brand'= 'brand', 'Category'='category',
+                                      'Country' = 'country'), selected = c('category','country','brand'), multiple=TRUE),
+           
+           selectInput("trimming", label = h5("Trimming/Winsorizations"),
+                       choices = (trimming), selected = trimming[4], multiple=FALSE)
+           ))
+  
+)
+  
+  )
+
+
+
+
+ui_old <- fluidPage(
   titlePanel("Model exploration: GfK Singapore"),
   sidebarLayout(
     sidebarPanel(
@@ -318,6 +381,26 @@ ui <- fluidPage(
     )
   ))
 
+
+
+
+# test
+if(0){
+mainef = . ~ 1 + sbbe_round1_mc+local_to_market_mc+ln_rwpspr_index_mc+ln_wpswdst_index_mc+ln_llen_index_mc+ln_market_herf_mc+ln_market_growth_mc+appliance+ln_gdpgrowthyravg_mc+ln_ginicoef_mc+tradrat_mc+survself_mc+wgi_regulatoryqualyravg_mc
+clust = ~ brand+category+country
+modeltype='lm'
+me<-newmodV2(list(list(pr=mainef, dst=mainef, llen=mainef)),
+                                                fn= 'NULL.html', return_models=T, mtype=modeltype,
+                                                clust=NULL)
+
+test=coeftest(me[[1]]$m1, vcov = vcovCL, cluster = clust)
+
+
+#summary(me[[1]]$m1)
+
+#me[[1]]
+
+}
 
 
 # SERVER
