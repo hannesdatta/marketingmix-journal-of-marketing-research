@@ -211,7 +211,7 @@ potential_vars_raw = list(brandequity=list('!SBBE' = 'sbbe_round1_mc',
                                           'GDP growth (2010)' = 'ln_gdpgrowth2010_mc',
                                           "!Income Inequality (nearest to 2010)" = "ln_ginicoef_mc",
                                           
-                                          'GDP per capita (obs. avg)' = "ln_gdppercapitacurrentyravg_mc",
+                                          '!GDP per capita (obs. avg)' = "ln_gdppercapitacurrentyravg_mc",
                                           'GDP per capita (avg)' = "ln_gdppercapitacurrentavg_mc",
                                           'GDP per capita (2010)' = "ln_gdppercapitacurrent2010_mc",
                                           
@@ -319,8 +319,8 @@ ui <- fluidPage(
                        
                        # tabPanel("Model Summary", verbatimTextOutput("summary")),
                        tabPanel("Model results", htmlOutput("stargazer")),#, # Regression output
-                       tabPanel("VIFs", htmlOutput("vif")),
-                       tabPanel("Correlations", htmlOutput("correl"))#, # Regression output
+                       tabPanel("VIFs", htmlOutput("vif"))#,
+                     #  tabPanel("Correlations", htmlOutput("correl"))#, # Regression output
                        #, # Regression output
                        # tabPanel("Data", DT::dataTableOutput('tbl')) # Data as datatable
         #  htmlOutput("stargazer")
@@ -336,7 +336,7 @@ ui <- fluidPage(
                                       'OLS' = 'lm'), selected= 'lmer', multiple=F),
            selectInput("randomeffects", label = h5("List of random effects (for RE model), or clustering (in case of OLS)"),
                        choices = list('Brand'= 'brand', 'Category'='category',
-                                      'Country' = 'country'), selected = c('category','country','brand'), multiple=TRUE),
+                                      'Country' = 'country'), selected = c('brand'), multiple=TRUE),
            
            selectInput("trimming", label = h5("Trimming/Winsorizations"),
                        choices = (trimming), selected = trimming[4], multiple=FALSE)
