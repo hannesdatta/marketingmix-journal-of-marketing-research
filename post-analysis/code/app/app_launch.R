@@ -319,7 +319,9 @@ ui <- fluidPage(
                        
                        # tabPanel("Model Summary", verbatimTextOutput("summary")),
                        tabPanel("Model results", htmlOutput("stargazer")),#, # Regression output
-                       tabPanel("VIFs", htmlOutput("vif"))#, # Regression output
+                       tabPanel("VIFs", htmlOutput("vif")),
+                       tabPanel("Correlations", htmlOutput("correl"))#, # Regression output
+                       #, # Regression output
                        # tabPanel("Data", DT::dataTableOutput('tbl')) # Data as datatable
         #  htmlOutput("stargazer")
     )),
@@ -390,7 +392,8 @@ ui_old <- fluidPage(
                   
                  # tabPanel("Model Summary", verbatimTextOutput("summary")),
                  tabPanel("Model results", htmlOutput("stargazer")),#, # Regression output
-                 tabPanel("VIFs", htmlOutput("vif"))#, # Regression output
+                 tabPanel("VIFs", htmlOutput("vif")),#, # Regression output
+                 tabPanel("VIFs", htmlOutput("correl"))#, # Regression output
                  # tabPanel("Data", DT::dataTableOutput('tbl')) # Data as datatable
                   
       )
@@ -534,8 +537,27 @@ server <- function(input, output) {
     kable(vifs, caption = 'VIF', format = 'html')
     
   })
-  
-  
+  output$correl = renderText({
+    # assemble form 
+    
+    
+    vars=c(unlist(input$brandequity),
+                  unlist(input$brandlocation),
+                  unlist(input$brandmmix),
+                  unlist(input$brandother),
+                  
+                  unlist(input$categoryfactors), 
+                  unlist(input$econ),
+                  unlist(input$culture),
+                  unlist(input$institutions))
+    
+    
+    tmp = unique(copy(elasticities[[input$model]][selection_obs48==T&selection_brands==T]), by = c('brand_id'))
+                 
+    correl <- cor(tmp[, vars, with=F], use = 'pairwise')
+    kable(correl, caption = 'Correlations', format = 'html')
+    
+  })
   
   # Scatterplot output
   output$scatterplot <- renderPlot({
