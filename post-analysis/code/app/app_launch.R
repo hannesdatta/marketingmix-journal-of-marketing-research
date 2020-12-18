@@ -142,19 +142,20 @@ newmodV2 <- function(model, fn, ..., return_models = T, mtype='lmer', clust = NU
   
   mods = all_mods(model, mtype=mtype, clust=clust)
   
-  if(0){
+  #if(0){
+  if (mtype=='lmer'){
   rsqs=unlist(lapply(mods, function(x) lapply(x, rsq)))
   obss = unlist(lapply(mods, function(x) lapply(x, function(i) length(which(!is.na(residuals(i)))))))
   
   r2s = NULL
+  
   if (mtype=='lmer') r2s = c('R-squared', sub('^(-)?0[.]', '\\1.', formatC(rsqs, digits=3, format='f', flag='#')))
   obs = c('Observations',obss)
   lbllist = list(r2s,obs)
-  #if (mtype=='lm') 
+ } #if (mtype=='lm') 
     
-  }
-  
-  lbllist = NULL
+  if (mtype=='lm') lbllist = NULL
+  #lbllist = NULL
       
   stargazer(do.call('c', mods),type='html', 
             column.labels = rep(c('price','distribution','line length'), length(model)), 
@@ -172,23 +173,23 @@ lmerctrl = lmerControl(optimizer ="Nelder_Mead", check.conv.singular="ignore")
 
 names(elasticities)
 
-model_names = list('M1) Error correction (sales)' = 'ec_restricted_sigcop',
-                   'M1b) Error correction (sales, with SUR)' = 'with_sur',
-                   'M2) Error correction (sales; but with copula of d_mmix)' = 'ec_restricted_sigdcop',
+model_names = list('M1) Error correction (sales, with SUR)' = 'with_sur',
+                   'M2) Error correction (sales, without SUR)' = 'ec_restricted_sigcop',
+                   #'M3) Error correction (sales; but with copula of d_mmix)' = 'ec_restricted_sigdcop',
                    'M3) Attraction model (market share)' = 'marketshare')
             
-potential_vars = list(brandequity=list('SBBE' = 'sbbe_round1_mc',
+potential_vars_raw = list(brandequity=list('!SBBE' = 'sbbe_round1_mc',
                                        'BrandZ indicator' = 'brandz',
                                        'Brand strength (BAV)' = 'ln_bav_brandstrength_mc',
                                        'Brand stature (BAV)' = 'ln_bav_brandstature_mc',
                                        'Brand energized diff. (BAV)' = 'ln_bav_energizeddifferentiation_mc',
                                        'Marketshare' = 'ln_brand_ms_mc'),
-                      brandlocation = list('Domestic market indicator' = 'local_to_market_mc',
+                      brandlocation = list('!Domestic market indicator' = 'local_to_market_mc',
                                            'JP, US, Swiss, GER, Sweden indicator' = "`brand_from_jp-us-ch-ge-sw_mc`",
                                            'Western brand indicator' = 'western_brand_mc'),
-                      brandmmix = list('Price (log index)' = 'ln_rwpspr_index_mc',
-                                       'Distr. (log index)' = 'ln_wpswdst_index_mc',
-                                       'Line length (log index)' = 'ln_llen_index_mc',
+                      brandmmix = list('!Price (log index)' = 'ln_rwpspr_index_mc',
+                                       '!Distr. (log index)' = 'ln_wpswdst_index_mc',
+                                       '!Line length (log index)' = 'ln_llen_index_mc',
                                        'Price (index)' = 'rwpspr_index_mc',
                                        'Distr. (index)' = 'wpswdst_index_mc',
                                        'Line length (index)' = 'llen_index_mc',
@@ -199,15 +200,16 @@ potential_vars = list(brandequity=list('SBBE' = 'sbbe_round1_mc',
                       brandother = list('Brand novelty' = 'ln_brandnovelty3_mc'),#,
                                         #'Price positioning' = 'brand_prindex_mean_mc'),
                       
-                      category = list('Market concentration' = "ln_market_herf_mc",
-                                      'Market growth' = "ln_market_growth_mc",
-                                      'Appliances (vs. electronics)' = 'appliance',
+                      category = list('!Market concentration' = "ln_market_herf_mc",
+                                      '!Market growth' = "ln_market_growth_mc",
+                                      '!Appliances (vs. electronics)' = 'appliance',
                                       'Category innovativeness' = 'ln_catnovelty3_mc'
                                       ),
                       
-                      country_econ = list('GDP growth (obs. avg)' = 'ln_gdpgrowthyravg_mc',
+                      country_econ = list('!GDP growth (obs. avg)' = 'ln_gdpgrowthyravg_mc',
                                           'GDP growth (avg)' = 'ln_gdpgrowthavg_mc',
                                           'GDP growth (2010)' = 'ln_gdpgrowth2010_mc',
+                                          "!Income Inequality (nearest to 2010)" = "ln_ginicoef_mc",
                                           
                                           'GDP per capita (obs. avg)' = "ln_gdppercapitacurrentyravg_mc",
                                           'GDP per capita (avg)' = "ln_gdppercapitacurrentavg_mc",
@@ -217,7 +219,6 @@ potential_vars = list(brandequity=list('SBBE' = 'sbbe_round1_mc',
                                           "Trade openess (avg)" = 'ln_tradeopenessavg_mc',
                                           "Trade openess (in 2010)" = 'ln_tradeopeness2010_mc',
                                           
-                                          "Income Inequality (nearest to 2010)" = "ln_ginicoef_mc",
                                           'HDI (2010)' = 'ln_hdi2010_mc',
                                           
                                           "Emerging market indicator" = "emerging",
@@ -227,8 +228,8 @@ potential_vars = list(brandequity=list('SBBE' = 'sbbe_round1_mc',
                                           
                                           ),
                       
-                      country_culture = list("WVS: Traditional vs. rational" = "tradrat_mc",
-                                             "WVS: Survival vs. Self-expression" = "survself_mc",
+                      country_culture = list("!WVS: Traditional vs. rational" = "tradrat_mc",
+                                             "!WVS: Survival vs. Self-expression" = "survself_mc",
                                              "Hofstede: Longterm orientation" = "ln_ltowvs_mc",
                                              "Hofstede: Individualism" = "ln_idv_mc",
                                              "Hofstede: Uncertainty Avoidance" = "ln_uai_mc",
@@ -236,27 +237,42 @@ potential_vars = list(brandequity=list('SBBE' = 'sbbe_round1_mc',
                                              "Hofstede: Masculinity" = "ln_mas_mc"),
                       country_institutions = list(#"Rule of law" = "ln_wjp_rule_of_law_mc",
                         "WGI Voice and Accountability (obs. avg)" = 'wgi_accountabilityyravg_mc',
-                        "WGI Voice and Accountability (avg)" = 'wgi_accountabilityavg',
+                        #"WGI Voice and Accountability (avg)" = 'wgi_accountabilityavg',
                         "WGI Control of Corruption (obs. avg)" = 'wgi_corruptionctrlyravg_mc',
-                        "WGI Control of Corruption (avg)" = 'wgi_corruptionctrlavg',
+                        #"WGI Control of Corruption (avg)" = 'wgi_corruptionctrlavg',
                         "WGI Government Effectiveness (obs. avg)" = 'wgi_governmenteffectivenessyravg_mc',
-                        "WGI Government Effectiveness (avg)" = 'wgi_governmenteffectivenessavg',
+                        #"WGI Government Effectiveness (avg)" = 'wgi_governmenteffectivenessavg',
                         "WGI Regulatory Quality (obs. avg)" = 'wgi_regulatoryqualyravg_mc',
-                        "WGI Regulatory Quality (avg)" = 'wgi_regulatoryqualavg',
+                        #"WGI Regulatory Quality (avg)" = 'wgi_regulatoryqualavg',
                         "WGI Rule of Law (obs. avg)" = 'wgi_ruleoflawyravg_mc',
-                        "WGI Rule of Law (avg)" = 'wgi_ruleoflawavg',
+                        #"WGI Rule of Law (avg)" = 'wgi_ruleoflawavg',
                         "WGI Political Stability (obs. avg)" = 'wgi_stabilityyravg_mc',
-                        "WGI Political Stability (avg)" = 'wgi_stabilityavg',
-                        "WGI Voice and Accountability (2010)" = 'wgi_accountability2010',
-                                                  "WGI Control of Corruption (2010)" = 'wgi_corruptionctrl2010',
-                                                  "WGI Government Effectiveness (2010)" = 'wgi_governmenteffectiveness2010',
-                                                  "WGI Regulatory Quality (2010)" = 'wgi_regulatoryqual2010',
-                                                  "WGI Rule of Law (2010)" = 'wgi_ruleoflaw2010',
-                                                  "WGI Political Stability (2010)" = 'wgi_stability2010',
-                                                  "Institutions (GCI)" = 'ln_gci_p01_institutions_s_mc',
-                                                 "Infrastructure (GCI)" = 'ln_gci_p02_infrastructure_s_mc'
+                        #"WGI Political Stability (avg)" = 'wgi_stabilityavg',
+                        #"WGI Voice and Accountability (2010)" = 'wgi_accountability2010',
+                         #                         "WGI Control of Corruption (2010)" = 'wgi_corruptionctrl2010',
+                          #                        "WGI Government Effectiveness (2010)" = 'wgi_governmenteffectiveness2010',
+                           #                       "WGI Regulatory Quality (2010)" = 'wgi_regulatoryqual2010',
+                            #                      "WGI Rule of Law (2010)" = 'wgi_ruleoflaw2010',
+                             #                     "WGI Political Stability (2010)" = 'wgi_stability2010',
+                                                  "Institutions (GCI)" = 'ln_gci_p01_institutions_s_mc'
+                            #                     "Infrastructure (GCI)" = 'ln_gci_p02_infrastructure_s_mc'
                                                   )
 )
+
+potential_choices <- lapply(potential_vars_raw, function(x) {
+  ret = (unlist(x)[grepl('^[!]',names(x))])
+  names(ret) <- gsub('^[!]','', names(ret))
+  return(ret)
+})
+
+potential_vars <- lapply(potential_vars_raw, function(x) {
+    names(x) <- gsub('^[!]','', names(x))
+    x
+})
+  
+  
+  
+
 
 # variable check
 all_cols = unique(unlist(lapply(elasticities, colnames)))
@@ -279,22 +295,22 @@ ui <- fluidPage(
     column(4,
            wellPanel(
              selectInput("brandequity", label = h5("Brand factors: Equity"),
-                         choices = (potential_vars$brandequity), selected = 1, multiple=TRUE),
+                         choices = (potential_vars$brandequity), selected = potential_choices$brandequity, multiple=TRUE),
              selectInput("brandlocation", label = h5("Brand factors: Location"),
-                         choices = (potential_vars$brandlocation), selected = 1, multiple=TRUE),
+                         choices = (potential_vars$brandlocation), selected = potential_choices$brandlocation, multiple=TRUE),
              selectInput("brandmmix", label = h5("Brand factors: Marketing mix"),
-                         choices = (potential_vars$brandmmix), selected = 1, multiple=TRUE),
+                         choices = (potential_vars$brandmmix), selected = potential_choices$brandmmix, multiple=TRUE),
              selectInput("brandother", label = h5("Brand factors: Others"),
-                         choices = (potential_vars$brandother), selected = 1, multiple=TRUE),
+                         choices = (potential_vars$brandother), selected = potential_choices$brandother, multiple=TRUE),
              
              selectInput("categoryfactors", label = h5("Category factors"),
-                         choices = (potential_vars$category), selected = 1, multiple=TRUE),
+                         choices = (potential_vars$category), selected = potential_choices$category, multiple=TRUE),
              selectInput("econ", label = h5("Country factors: Economic development"),
-                         choices = (potential_vars$country_econ), selected = 1, multiple=TRUE),
+                         choices = (potential_vars$country_econ), selected = potential_choices$country_econ, multiple=TRUE),
              selectInput("culture", label = h5("Country factors: Culture"),
-                         choices = (potential_vars$country_culture), selected = 1, multiple=TRUE),
+                         choices = (potential_vars$country_culture), selected = potential_choices$country_culture, multiple=TRUE),
              selectInput("institutions", label = h5("Country factors: Institutions"),
-                         choices = (potential_vars$country_institutions), selected = 1, multiple=TRUE),
+                         choices = (potential_vars$country_institutions), selected = potential_choices$country_institutions, multiple=TRUE),
              textInput("interact", label = h5("Interactions"), value = "")
            )
     ),
@@ -312,11 +328,11 @@ ui <- fluidPage(
            wellPanel(
            selectInput("model", label = h5("Model specification"),
                        choices = model_names,
-                       selected=model_names[2]),
+                       selected=model_names[1]),
            selectInput("estim", label = h5("Model estimation"),
                        choices = list('Mixed-Effects Model (REs)'= 'lmer',
                                       'OLS' = 'lm'), selected= 'lmer', multiple=F),
-           selectInput("randomeffects", label = h5("Random effects or clustering"),
+           selectInput("randomeffects", label = h5("List of random effects (for RE model), or clustering (in case of OLS)"),
                        choices = list('Brand'= 'brand', 'Category'='category',
                                       'Country' = 'country'), selected = c('category','country','brand'), multiple=TRUE),
            
@@ -479,6 +495,8 @@ server <- function(input, output) {
                                                     fn= NULL, return_models=F, mtype=modeltype,
                                                     clust=clust)}), collapse=''),
            '<br><br>', myform, "<br><br>", paste0(as.character(clust), collapse=''), '<br><br>', modeltype)
+    
+    
     rm(me)
     return(outp)
   })
