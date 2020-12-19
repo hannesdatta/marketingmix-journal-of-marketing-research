@@ -349,60 +349,6 @@ ui <- fluidPage(
 
 
 
-ui_old <- fluidPage(
-  titlePanel("Model exploration: GfK Singapore"),
-  sidebarLayout(
-    sidebarPanel(
-      selectInput("brandequity", label = h5("Brand factors: Equity"),
-                  choices = (potential_vars$brandequity), selected = 1, multiple=TRUE),
-      selectInput("brandlocation", label = h5("Brand factors: Location"),
-                  choices = (potential_vars$brandlocation), selected = 1, multiple=TRUE),
-      selectInput("brandmmix", label = h5("Brand factors: Marketing mix"),
-                choices = (potential_vars$brandmmix), selected = 1, multiple=TRUE),
-      selectInput("brandother", label = h5("Brand factors: Others"),
-              choices = (potential_vars$brandother), selected = 1, multiple=TRUE),
-
-      selectInput("categoryfactors", label = h5("Category factors"),
-                  choices = (potential_vars$category), selected = 1, multiple=TRUE),
-      selectInput("econ", label = h5("Country factors: Economic development"),
-                  choices = (potential_vars$country_econ), selected = 1, multiple=TRUE),
-      selectInput("culture", label = h5("Country factors: Culture"),
-                  choices = (potential_vars$country_culture), selected = 1, multiple=TRUE),
-      selectInput("institutions", label = h5("Country factors: Institutions"),
-                  choices = (potential_vars$country_institutions), selected = 1, multiple=TRUE),
-      textInput("interact", label = h5("Interactions"), value = ""),
-      selectInput("model", label = h5("Model specification"),
-                  choices = model_names,
-                  selected=model_names[2]),
-      selectInput("estim", label = h5("Model estimation"),
-                  choices = list('Mixed-Effects Model (REs)'= 'lmer',
-                                 'OLS' = 'lm'), selected= 'lmer', multiple=F),
-      selectInput("randomeffects", label = h5("Random effects or clustering"),
-                  choices = list('Brand'= 'brand', 'Category'='category',
-                                 'Country' = 'country'), selected = c('category','country','brand'), multiple=TRUE),
-      
-      selectInput("trimming", label = h5("Trimming/Winsorizations"),
-                  choices = (trimming), selected = trimming[4], multiple=FALSE)
-      
-      ),
-    
-    mainPanel(
-      
-      tabsetPanel(type = "tabs",
-                  
-                 # tabPanel("Model Summary", verbatimTextOutput("summary")),
-                 tabPanel("Model results", htmlOutput("stargazer")),#, # Regression output
-                 tabPanel("VIFs", htmlOutput("vif")),#, # Regression output
-                 tabPanel("VIFs", htmlOutput("correl"))#, # Regression output
-                 # tabPanel("Data", DT::dataTableOutput('tbl')) # Data as datatable
-                  
-      )
-    )
-  ))
-
-
-
-
 # test
 if(0){
 mainef = . ~ 1 + sbbe_round1_mc+local_to_market_mc+ln_rwpspr_index_mc+ln_wpswdst_index_mc+ln_llen_index_mc+ln_market_herf_mc+ln_market_growth_mc+appliance+ln_gdpgrowthyravg_mc+ln_ginicoef_mc+tradrat_mc+survself_mc+wgi_regulatoryqualyravg_mc
@@ -421,6 +367,66 @@ test=coeftest(me[[1]]$m1, vcov = vcovCL, cluster = clust)
 
 }
 
+#
+get_model <- function(input) {
+  vars=paste0(c(unlist(input$brandequity),
+                unlist(input$brandlocation),
+                unlist(input$brandmmix),
+                unlist(input$brandother),
+                
+                unlist(input$categoryfactors), 
+                unlist(input$econ),
+                unlist(input$culture),
+                unlist(input$institutions)), collapse='+')
+  
+  modeltype=input$estim
+  if (!is.null(input$estim)) modeltype=input$estim
+  
+  
+  randomef = sapply(input$randomeffects, function(x) paste0('(1|', x, ')'))
+  if (length(randomef)>0 & modeltype=='lmer') myform = as.character(paste0('. ~ 1 + ', paste(randomef, collapse='+')))
+  if (length(randomef)==0|modeltype%in%c('lm')) myform = as.character(paste0('. ~ 1'))
+  
+  clust = sapply(input$randomeffects, function(x) paste0(x))
+  if (length(clust)>0 & modeltype=='lm') clust = formula(paste0('~', paste(input$randomeffects,collapse='+')))
+  if (length(clust)==0| !modeltype=='lm') clust = NULL
+  #cat(file=stderr(), as.character(clust), " clusters", "\n")
+  
+  if (nchar(vars)>0) myform = paste0(myform, ' + ', vars)
+  if (nchar(unlist(input$interact))>0) myform = paste0(myform, ' + ', unlist(input$interact))
+  
+  list(formula = myform, modeltype=modeltype, randomeffects = randomef, cluster = clust)
+}
+
+get_sample <- function(input) {
+  tmp <- copy(elasticities[[input$model]][selection_obs48==T&selection_brands==T])
+  
+  tmp <- tmp[!is.na(elastlt), percentile:=ecdf(elastlt)(elastlt), by = c('variable')]
+  
+  # input=list(trimming='trim_1')
+  
+  perc_extract = as.numeric(gsub('.*[_]','', input$trimming))/100
+  
+  if (grepl('^trim', input$trimming, ignore.case=T)) {
+    tmp <- tmp[percentile>=perc_extract & percentile<=(1-perc_extract)]
+  }
+  
+  if (grepl('win', input$trimming, ignore.case=T)) {
+    tmp[, perc_low := quantile(elastlt, probs = perc_extract), by = c('variable')]
+    tmp[, perc_high := quantile(elastlt, probs = 1-perc_extract), by = c('variable')]
+    
+    tmp[percentile<perc_extract, elastlt:=perc_low]
+    tmp[percentile>(1-perc_extract), elastlt:=perc_high]
+    
+  }
+  return(tmp)
+}
+
+# look up
+#hash(input)
+
+
+storage <<- NULL
 
 # SERVER
 server <- function(input, output) {
@@ -428,79 +434,29 @@ server <- function(input, output) {
   
   output$stargazer = renderText({
   # assemble form 
-    
+    saved_input = reactiveValuesToList(input)
 
-    vars=paste0(c(unlist(input$brandequity),
-                  unlist(input$brandlocation),
-                  unlist(input$brandmmix),
-                  unlist(input$brandother),
-                  
-                  unlist(input$categoryfactors), 
-                  unlist(input$econ),
-                  unlist(input$culture),
-                  unlist(input$institutions)), collapse='+')
-    
-    modeltype=input$estim
-    if (!is.null(input$estim)) modeltype=input$estim
+    #save(saved_input, file='inputs.RData')
+    my_hash <- function(input, ...) digest(paste0(paste0(names(input), collapse='_'), '|', paste0(sapply(unlist(input), function(x) if(x=='') return('[ ]') else return(x)), collapse='_')),...)
     
     
-    randomef = sapply(input$randomeffects, function(x) paste0('(1|', x, ')'))
-    if (length(randomef)>0 & modeltype=='lmer') myform = as.character(paste0('. ~ 1 + ', paste(randomef, collapse='+')))
-    if (length(randomef)==0|modeltype%in%c('lm')) myform = as.character(paste0('. ~ 1'))
-    
-    clust = sapply(input$randomeffects, function(x) paste0(x))
-    if (length(clust)>0 & modeltype=='lm') clust = formula(paste0('~', paste(input$randomeffects,collapse='+')))
-    if (length(clust)==0| !modeltype=='lm') clust = NULL
-    cat(file=stderr(), as.character(clust), " clusters", "\n")
-    
-    if (nchar(vars)>0) myform = paste0(myform, ' + ', vars)
-    if (nchar(unlist(input$interact))>0) myform = paste0(myform, ' + ', unlist(input$interact))
-    
-    mainef = as.formula(myform)
-                      
-    
-    #  emerging + sbbe_round1_mc*emerging + 
-    #  ln_market_herf_mc + ln_market_growth_mc + 
-    #  appliance + ln_ginicoef_mc + local_to_market_mc + tradrat_mc + survself_mc
-    tmp <- copy(elasticities[[input$model]][selection_obs48==T&selection_brands==T])
-    
-    tmp <- tmp[!is.na(elastlt), percentile:=ecdf(elastlt)(elastlt), by = c('variable')]
-    
-    # input=list(trimming='trim_1')
-    
-    perc_extract = as.numeric(gsub('.*[_]','', input$trimming))/100
-    
-    if (grepl('^trim', input$trimming, ignore.case=T)) {
-      tmp <- tmp[percentile>=perc_extract & percentile<=(1-perc_extract)]
-      }
-    
-    if (grepl('win', input$trimming, ignore.case=T)) {
-      tmp[, perc_low := quantile(elastlt, probs = perc_extract), by = c('variable')]
-      tmp[, perc_high := quantile(elastlt, probs = 1-perc_extract), by = c('variable')]
+    hash=my_hash(reactiveValuesToList(input), algo=c("md5"))
+    outp = storage[[hash]]$results
+    if (is.null(outp)) {
       
-      tmp[percentile<perc_extract, elastlt:=perc_low]
-      tmp[percentile>(1-perc_extract), elastlt:=perc_high]
+      mspec = get_model(input)
+     
+      elast <<- get_sample(input)
       
+      outp=paste0(paste0(capture.output({me<-newmodV2(list(list(pr=mspec$formula, dst=mspec$formula, llen=mspec$formula)),
+                                                      fn= NULL, return_models=F, mtype=mspec$modeltype,
+                                                      clust=mspec$cluster)}), collapse=''),
+             '<br><br>', mspec$formula, "<br><br>", paste0(as.character(mspec$cluster), collapse=''), '<br><br>', mspec$modeltype)
+      
+      storage[[hash]]$results <<- paste0(outp, '<br>from memory<br>')
+      rm(me)
     }
-    
-    elast <<- tmp
-    
-    #if (input$model=='ec') elast <<- copy(elast_sales)
-    #if (input$model=='attraction') elast <<- copy(elast_marketshare)
-    #input
-    
-    #ii <- lm(elastlt ~ 1+sbbe_round1_mc,
-    #         data = elasticities$ec_restricted_alwayscop)
-    
-    
-    
-    outp=paste0(paste0(capture.output({me<-newmodV2(list(list(pr=mainef, dst=mainef, llen=mainef)),
-                                                    fn= NULL, return_models=F, mtype=modeltype,
-                                                    clust=clust)}), collapse=''),
-           '<br><br>', myform, "<br><br>", paste0(as.character(clust), collapse=''), '<br><br>', modeltype)
-    
-    
-    rm(me)
+    print(str(storage))
     return(outp)
   })
 
