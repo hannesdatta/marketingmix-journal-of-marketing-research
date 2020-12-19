@@ -72,11 +72,14 @@ all_mods <- function(models, mtype = 'lmer', clust = NULL) {
       m3 = lm(update.formula(elastlt~1, forms$llen),
               data=elast[grep('llen',variable)], weights=w_elastlt)
       
+      rsqs=unlist(lapply(list(m1,m2,m3),rsq))
+      obs=unlist(lapply(list(m1,m2,m3),function(x) length(residuals(x))))
+      
       if (!is.null(clust)) {
         m1 <- coeftest(m1, vcov = vcovCL, cluster = clust)
         m2 <- coeftest(m2, vcov = vcovCL, cluster = clust)
         m3 <- coeftest(m3, vcov = vcovCL, cluster = clust)
-        return(list(m1=m1,m2=m2,m3=m3)) 
+        return(list(m1=m1,m2=m2,m3=m3, rsqs=rsqs, obs = obs)) 
         
       }
       
@@ -410,7 +413,7 @@ ui <- fluidPage(
                     radioButtons("orth_used", label = h5("Use orthogonalization (e.g., Batra 2000; ter Braak et al. 2013)"),
                                  c("Yes" = T,
                                    "No" = F),
-                                 selected = F),
+                                 selected = T),
                     selectInput("orth_dvs", label = h5("Orthogonalization of..."),
                                 choices = potential_vars_unlisted, selected =grep('survself|tradrat|wgi[_]rugulator|wgi[_]ruleof', potential_vars_unlisted,ignore.case=T,value=T), multiple=TRUE),
                     selectInput("orth_ivs", label = h5("...using ind. variables"),
@@ -648,7 +651,7 @@ server <- function(input, output) {
                       mtype=mspec$modeltype,
                       clust=mspec$cluster)
       
-      mods2 = lapply(seq(along=mods[[1]]), function(i) {
+      mods2 = lapply(seq(along=mods[[1]][1:3]), function(i) {
         
         outt = try(summary(mods[[1]][[i]])$coefficients, silent=T)
         if (class(outt)=='try-error') outt = mods[[1]][[i]]
@@ -663,12 +666,27 @@ server <- function(input, output) {
         #print(outt)
         outt})
       
+      lbllist = NULL
+      if (mspec$modeltype=='lmer') {
+        rsqs=unlist(lapply(mods, function(x) lapply(x, rsq)))
+        obss = unlist(lapply(mods, function(x) lapply(x, function(i) length(which(!is.na(residuals(i)))))))
+        
+        r2s = c('R-squared', sub('^(-)?0[.]', '\\1.', formatC(rsqs, digits=3, format='f', flag='#')))
+        obs = c('Observations',obss)
+        lbllist = list(r2s,obs)
+      } 
       
+      if (mspec$modeltype=='lm') {
+        rsqs=mods[[1]]$rsqs
+        
+        obss = mods[[1]]$obs
+        
+        r2s = c('R-squared', sub('^(-)?0[.]', '\\1.', formatC(rsqs, digits=3, format='f', flag='#')))
+        obs = c('Observations',obss)
+        lbllist = list(r2s,obs)
+      } 
       
-      
-      # update SEs
-      
-      outp=paste0(paste0(capture.output({stargazer(mods2, type='html')}), collapse=''),
+      outp=paste0(paste0(capture.output({stargazer(mods2, type='html', add.lines=lbllist)}), collapse=''),
                   '<br><br>', mspec$formula, "<br><br>", paste0(as.character(mspec$cluster), collapse=''), '<br><br>', mspec$modeltype)
       
       
