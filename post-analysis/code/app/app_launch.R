@@ -17,15 +17,7 @@ fns <- c('app_workspace.RData')
 for (fn in fns) if (file.exists(fn)) {cat(paste0('loading...', fn, '...\n')); load(fn)}
 
 
-
-if(0) {
-#
-vifuniq=unique(elasticities$with_sur, by = c('category','country', 'brand'))
-vifuniq[, random:=runif(.N)]
-
-vifeq <- lm(random~1+sbbe_round1_mc+local_to_market_mc+ln_rwpspr_index_mc+ln_wpswdst_index_mc+ln_llen_index_mc+ln_market_growth_mc+appliance+ln_market_herf_mc+ln_gdpgrowthavg_mc+ln_ginicoef_mc+ln_idv_mc+ln_ltowvs_mc+wgi_regulatoryqualavg, data=vifuniq)
-vif(vifeq)
-}
+######## FUNCTIONS #######
 
 estim_models <- function(models) {
   lapply(seq(along=models), function(i) {
@@ -66,33 +58,6 @@ rsq <- function(m) {
   pred=predict(m)
   y=pred+resid
   return(cor(y,pred)^2)
-}
-
-newmod <- function(model, fn) {
-  mods = estim_models(model)
-  rsqs=unlist(lapply(mods, function(x) lapply(x, rsq)))
-  obss = unlist(lapply(mods, function(x) lapply(x, function(i) length(which(!is.na(residuals(i)))))))
-  
-  r2s = c('R-squared', sub('^(-)?0[.]', '\\1.', formatC(rsqs, digits=3, format='f', flag='#')))
-  obs = c('Observations',obss)
-  
-  if (!is.null(fn)) stargazer(do.call('c', mods),type='html', 
-                              column.labels = rep(c('price','line length','distribution'), length(model)), 
-                              out = fn, add.lines = list(r2s,obs))
-  return(mods)
-}
-
-
-
-get_formulas <- function(sel) {
-  forms= lapply(c('pr','dst', 'llen'), function(x) {
-    effects=sel[variable==x]
-    if (nrow(effects)>0) return(update.formula(maineffects, formula(paste0('.~.+', paste0(effects$varname,collapse='+')))))
-    return(maineffects)
-    
-  })
-  names(forms) <- c('pr','dst', 'llen')
-  forms
 }
 
 
@@ -164,6 +129,67 @@ newmodV2 <- function(model, fn, ..., return_models = T, mtype='lmer', clust = NU
 }
 
 lmerctrl = lmerControl(optimizer ="Nelder_Mead", check.conv.singular="ignore")
+
+
+
+bstrap <- function(elast, input) {
+  
+  var_select = input$bootstrap_ivs 
+  focal_vars = input$bootstrap_dvs 
+  rep = as.numeric(input$bootstrap_reps)
+  
+  dat <- unique(elast, by = c('brand_id'))[, c('brand_id', focal_vars, var_select),with=F]
+  #rep=100
+  
+  bstrap_X <- rep(double(length(var_select)*nrow(dat)*c(rep)))
+  dim(bstrap_X) <- c(nrow(dat), length(var_select), rep)
+  
+  bstrap_y <- rep(double(length(focal_vars)*nrow(dat)*c(rep)))
+  dim(bstrap_y) <- c(nrow(dat), length(focal_vars), rep)
+  
+  set.seed(3515)
+  base_X = as.matrix(dat[, var_select,with=F])
+  base_y = as.matrix(dat[, focal_vars,with=F])
+  
+  for (i in seq(length.out=rep)) {
+    smpl=sample(1:nrow(base_X), size=nrow(base_X), replace=T)
+    bstrap_X[,,i]<-base_X[smpl,]
+    bstrap_y[,,i]<-base_y[smpl,]
+  }
+  
+  colnames(bstrap_X) <- colnames(base_X)
+  colnames(bstrap_y) <- colnames(base_y)
+  
+  
+  bstrap_values = lapply(focal_vars, function(colY) {
+    
+    out<-  lapply(seq(length.out=dim(bstrap_X)[3]), function(i) {
+      X=cbind(1, bstrap_X[,,i])
+      y=bstrap_y[,colY,i]
+      beta = (solve(t(X)%*%X))%*%(t(X)%*%cbind(y))
+      pred <- cbind(1,base_X) %*% beta
+      resid <- pred-base_y[, colY]
+      return(resid)
+    })
+    
+    tmp=as.matrix(do.call('cbind', out))
+    #tmp[, brand_id:=dat$brand_id]
+    #setnames(tmp, c(paste0(colY,'_', 1:rep), 'brand_id'))
+    #setcolorder(tmp, 'brand_id')
+    return(tmp)
+  })
+  
+  # reorder
+  bstrap_return <- list()
+  for (i in 1:rep) {
+    ret <- do.call('cbind', lapply(bstrap_values, function(val) val[,i]))
+    colnames(ret) <- c(paste0(focal_vars, '_bootstrap'))
+    bstrap_return[[i]] <- data.table(brand_id=dat$brand_id, ret, key = 'brand_id')
+  }
+  
+  return(bstrap_return)
+}
+
 
 
 
@@ -271,7 +297,10 @@ potential_vars <- lapply(potential_vars_raw, function(x) {
 })
   
   
-  
+
+potential_vars_unlisted <- unlist(potential_vars)
+names(potential_vars_unlisted) <-unlist(lapply(potential_vars,names))
+
 
 
 # variable check
@@ -373,9 +402,21 @@ ui <- fluidPage(
              selectInput("trimming", label = h5("Trimming/Winsorizations"),
                        choices = (trimming), selected = trimming[4], multiple=FALSE)),
            
-           tabPanel("Variables2", 
-                    selectInput("brandequity2", label = h5("Brand factors: Equity"),
-                                choices = (potential_vars$brandequity), selected = potential_choices$brandequity, multiple=TRUE))
+           tabPanel("Bootstrap", 
+                    radioButtons("bootstrap_used", label = h5("Use bootstrapping/orthogonalization"),
+                                 c("Yes" = T,
+                                   "No" = F),
+                                 selected = F),
+                    br(),
+                    selectInput("bootstrap_reps", label = h5("Bootstrap samples"),
+                                choices = c(10,20,50,100,500,1000), selected = 10, multiple=FALSE),
+                    selectInput("bootstrap_ivs", label = h5("Aux. reg. ind. variables"),
+                                choices = potential_vars_unlisted, selected = c('ln_gdpgrowthyravg_mc', 'ln_gdppercapitacurrentyravg_mc', 'ln_ginicoef_mc'), multiple=TRUE),
+                    selectInput("bootstrap_dvs", label = h5("Aux.reg. dep. variables"),
+                                choices = potential_vars_unlisted, selected =c('survself_mc', 'tradrat_mc'), multiple=TRUE)
+                    
+           )
+           
            
            )
     ),
@@ -418,7 +459,7 @@ test=coeftest(me[[1]]$m1, vcov = vcovCL, cluster = clust)
 
 #
 get_model <- function(input) {
-  vars=paste0(c(unlist(input$brandequity),
+  vars_orig = c(unlist(input$brandequity),
                 unlist(input$brandlocation),
                 unlist(input$brandmmix),
                 unlist(input$brandother),
@@ -426,7 +467,16 @@ get_model <- function(input) {
                 unlist(input$categoryfactors), 
                 unlist(input$econ),
                 unlist(input$culture),
-                unlist(input$institutions)), collapse='+')
+                unlist(input$institutions))
+  
+  
+  # Bstrap LM
+  #load('inputs.RData')
+  vars <- vars_orig
+  if (input$bootstrap_used) vars[vars%in%input$bootstrap_dvs] <-paste0(vars[vars%in%input$bootstrap_dvs], '_bootstrap')
+    
+  vars=paste0(vars, collapse='+')
+  vars_orig=paste0(vars_orig, collapse='+')
   
   modeltype=input$estim
   if (!is.null(input$estim)) modeltype=input$estim
@@ -441,10 +491,19 @@ get_model <- function(input) {
   if (length(clust)==0| !modeltype=='lm') clust = NULL
   #cat(file=stderr(), as.character(clust), " clusters", "\n")
   
-  if (nchar(vars)>0) myform = paste0(myform, ' + ', vars)
-  if (nchar(unlist(input$interact))>0) myform = paste0(myform, ' + ', unlist(input$interact))
+  myform_boot = myform
   
-  list(formula = myform, modeltype=modeltype, randomeffects = randomef, cluster = clust)
+  if (nchar(vars)>0) {
+    myform = paste0(myform, ' + ', vars)
+    myform_wo_bootstrap = paste0(myform_boot, ' + ', vars_orig)
+  }
+  
+  if (nchar(unlist(input$interact))>0) {
+    myform = paste0(myform, ' + ', unlist(input$interact))
+    myform_wo_bootstrap = paste0(myform_wo_bootstrap, ' + ', unlist(input$interact))
+  }
+  
+  list(formula = myform, formula_without_bootstrap = myform_wo_bootstrap, modeltype=modeltype, randomeffects = randomef, cluster = clust)
 }
 
 get_sample <- function(input) {
@@ -475,7 +534,49 @@ get_sample <- function(input) {
 #hash(input)
 
 
-storage <<- NULL
+
+calculate_ses <- function(input, elast, bstrap_select) {
+  
+  rep = length(bstrap_select)
+  index <- elast$brand_id
+  
+  elastfocal <- list()
+  
+  mspec = get_model(input)
+  
+  
+  covars = gsub('[_]bootstrap$', '', all.vars(update.formula(elastlt~ ., mspec$formula)))
+  
+  bootstrap <- grep('[_]bootstrap$', all.vars(update.formula(elastlt~ ., mspec$formula)), value=T)
+  
+  vars <- c('brand_id', 'variable', 'elastlt', 'w_elastlt', covars)
+  
+  
+  for (i in 1:rep){
+    elastfocal[[i]] <- cbind(elast[, vars,with=F], bstrap_select[[i]][index,])
+  }
+  #add_covars[covars%in%bootstrap] <- paste0(bootstrap,'_bootstrap')
+  
+  ses=lapply(c('pr','llen','dst'), function(.v) {
+    bs_coefs = do.call('cbind', lapply(elastfocal, function(df) {
+      if (mspec$modeltype=='lm') lm(update.formula(elastlt~.,mspec$formula), data=df[grepl(.v,variable)], weights=w_elastlt)$coefficients
+      if (mspec$modeltype=='lmer') attr(lmer(update.formula(elastlt~.,mspec$formula), data=df[grepl(.v,variable)], weights=w_elastlt,
+                                             control = lmerctrl, REML=F), 'beta')
+      
+    }))
+    
+    standarderrors = apply(bs_coefs, 1, sd)
+    
+    return(standarderrors)
+  })
+  names(ses) <- c('pr','llen','dst')
+  return(ses)
+}
+
+
+
+result_storage <<- NULL
+bootstrap_storage <<- NULL
 
 # SERVER
 server <- function(input, output) {
@@ -485,27 +586,85 @@ server <- function(input, output) {
   # assemble form 
     saved_input = reactiveValuesToList(input)
 
-    #save(saved_input, file='inputs.RData')
+    save(saved_input, file='inputs.RData')
+    
+    
     my_hash <- function(input, ...) digest(paste0(paste0(names(input), collapse='_'), '|', paste0(sapply(unlist(input), function(x) if(x=='') return('[ ]') else return(x)), collapse='_')),...)
     
     
     hash=my_hash(reactiveValuesToList(input), algo=c("md5"))
-    outp = storage[[hash]]$results
+    outp = result_storage[[hash]]$results
     if (is.null(outp)) {
       
       mspec = get_model(input)
      
       elast <<- get_sample(input)
       
-      outp=paste0(paste0(capture.output({me<-newmodV2(list(list(pr=mspec$formula, dst=mspec$formula, llen=mspec$formula)),
-                                                      fn= NULL, return_models=F, mtype=mspec$modeltype,
-                                                      clust=mspec$cluster)}), collapse=''),
-             '<br><br>', mspec$formula, "<br><br>", paste0(as.character(mspec$cluster), collapse=''), '<br><br>', mspec$modeltype)
       
-      storage[[hash]]$results <<- paste0(outp, '<br>from memory<br>')
+      bstrap_input = reactiveValuesToList(input)
+      bstrap_input = bstrap_input[grepl('bootstrap|trimming|^model$',names(bstrap_input))]
+      bstrap_hash=my_hash(bstrap_input, algo=c("md5"))
+      
+      if (input$bootstrap_used) {
+          
+        bstrap_from_storage = bootstrap_storage[[bstrap_hash]]
+        
+        if (is.null(bstrap_from_storage)) {
+          print('calculating bootstrapping values')
+          bstrap_from_storage = bstrap(elast, input)
+          bootstrap_storage[[bstrap_hash]] <<- bstrap_from_storage
+        }
+      }
+      
+      
+      
+      if (input$bootstrap_used) {
+        ses <- calculate_ses(input, elast, bstrap_from_storage)
+      }
+      
+      #formula_wo_bootstrap = all.vars(mspec$formula)
+      
+      
+      mods = all_mods(list(list(pr=mspec$formula_without_bootstrap, dst=mspec$formula_without_bootstrap, llen=mspec$formula_without_bootstrap)),
+                      mtype=mspec$modeltype,
+                      clust=mspec$cluster)
+      
+      mods2 = lapply(seq(along=mods[[1]]), function(i) {
+        
+        outt=summary(mods[[1]][[i]])$coefficients
+        print(outt)
+        if (input$bootstrap_used==T) outt[,2] <- outt[,2] + ses[[i]]
+        outt[,3]= outt[,1]/outt[,2]
+        
+        outt= cbind(outt, 2*(1-pnorm(abs(outt[,3]))))
+        colnames(outt) <-c("Estimate","Std. Error","t value","Pr(>|t|)")
+        class(outt) <- 'coeftest'
+        print(outt)
+        outt})
+      
+      
+      
+      
+      # update SEs
+      
+      outp=paste0(paste0(capture.output({stargazer(mods2, type='html')}), collapse=''),
+                  '<br><br>', mspec$formula, "<br><br>", paste0(as.character(mspec$cluster), collapse=''), '<br><br>', mspec$modeltype)
+      
+      
+      
+      
+      
+      #outp=paste0(paste0(capture.output({me<-newmodV2(list(list(pr=mspec$formula, dst=mspec$formula, llen=mspec$formula)),
+      #                                                fn= NULL, return_models=F, mtype=mspec$modeltype,
+      #                                                clust=mspec$cluster)}), collapse=''),
+      #       '<br><br>', mspec$formula, "<br><br>", paste0(as.character(mspec$cluster), collapse=''), '<br><br>', mspec$modeltype)
+      
+      result_storage[[hash]]$results <<- paste0(outp, '<br>from memory<br>')
       rm(me)
     }
-    print(str(storage))
+    print(str(result_storage))
+    print(str(bootstrap_storage))
+    
     return(outp)
   })
 
