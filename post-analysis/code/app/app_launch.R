@@ -186,7 +186,7 @@ orthogonalization <- function(elast, input, bootstrap = T) {
   
   for (i in 1:c(rep+1)) {
     ret <- do.call('cbind', lapply(bstrap_values, function(val) val[,i]))
-    colnames(ret) <- c(paste0(focal_vars, '_bootstrap'))
+    colnames(ret) <- c(paste0(focal_vars, '_orth'))
     bstrap_return[[i]] <- data.table(brand_id=dat$brand_id, ret, key = 'brand_id')
   }
   
@@ -407,22 +407,20 @@ ui <- fluidPage(
                        choices = (trimming), selected = trimming[4], multiple=FALSE)),
            
            tabPanel("Orthogonalization and bootstrapping", 
-                    radioButtons("orth_used", label = h5("Use orthogonalization"),
+                    radioButtons("orth_used", label = h5("Use orthogonalization (e.g., Batra 2000; ter Braak et al. 2013)"),
                                  c("Yes" = T,
                                    "No" = F),
                                  selected = F),
                     selectInput("orth_dvs", label = h5("Orthogonalization of..."),
-                                choices = potential_vars_unlisted, selected =c('survself_mc', 'tradrat_mc'), multiple=TRUE),
+                                choices = potential_vars_unlisted, selected =grep('survself|tradrat|wgi[_]rugulator|wgi[_]ruleof', potential_vars_unlisted,ignore.case=T,value=T), multiple=TRUE),
                     selectInput("orth_ivs", label = h5("...using ind. variables"),
                                 choices = potential_vars_unlisted, selected = c('ln_gdpgrowthyravg_mc', 'ln_gdppercapitacurrentyravg_mc', 'ln_ginicoef_mc'), multiple=TRUE),
-                    
-                    br(),
-                    radioButtons("bootstrap_used", label = h5("Use bootstrapping"),
+                    radioButtons("bootstrap_used", label = h5("Use bootstrapping (only when orthogonalization used)"),
                                  c("Yes" = T,
                                    "No" = F),
                                  selected = F),
                     selectInput("bootstrap_reps", label = h5("Bootstrap samples"),
-                                choices = c(10,20,50,100,500,1000), selected = 10, multiple=FALSE)
+                                choices = c(10,20,50,100), selected = 10, multiple=FALSE)
                     
                     
                     
@@ -485,7 +483,7 @@ get_model <- function(input) {
   # Bstrap LM
   #load('inputs.RData')
   vars <- vars_orig
-  if (as.logical(input$orth_used)) vars[vars%in%input$orth_dvs] <-paste0(vars[vars%in%input$orth_dvs], '_bootstrap')
+  if (as.logical(input$orth_used)) vars[vars%in%input$orth_dvs] <-paste0(vars[vars%in%input$orth_dvs], '_orth')
   vars_array=vars
   
   vars=paste0(vars, collapse='+')
@@ -551,24 +549,28 @@ calculate_ses <- function(input, elast, bstrap_select) {
   mspec = get_model(input)
   
   
-  covars = gsub('[_]bootstrap$', '', all.vars(update.formula(elastlt~ ., mspec$formula)))
+  covars = gsub('[_]orth$', '', all.vars(update.formula(elastlt~ ., mspec$formula)))
   
-  bootstrap <- grep('[_]bootstrap$', all.vars(update.formula(elastlt~ ., mspec$formula)), value=T)
+  bootstrap <- grep('[_]orth$', all.vars(update.formula(elastlt~ ., mspec$formula)), value=T)
   
   vars <- c('brand_id', 'variable', 'elastlt', 'w_elastlt', covars)
   
   
   for (i in 1:rep){
-    elastfocal[[i]] <- cbind(elast[, vars,with=F], bstrap_select[[i]][index,])
+    elastfocal[[i]] <- cbind(elast[, vars,with=F], bstrap_select[[i]][match(index, brand_id),])
   }
-  #add_covars[covars%in%bootstrap] <- paste0(bootstrap,'_bootstrap')
+  
+  #add_covars[covars%in%bootstrap] <- paste0(bootstrap,'_orth')
   
   ses=lapply(c('pr','llen','dst'), function(.v) {
+    cntr=0
     bs_coefs = do.call('cbind', lapply(elastfocal, function(df) {
-      if (mspec$modeltype=='lm') lm(update.formula(elastlt~.,mspec$formula), data=df[grepl(.v,variable)], weights=w_elastlt)$coefficients
-      if (mspec$modeltype=='lmer') attr(lmer(update.formula(elastlt~.,mspec$formula), data=df[grepl(.v,variable)], weights=w_elastlt,
-                                             control = lmerctrl, REML=F), 'beta')
+      cntr=cntr+1
       
+      if (mspec$modeltype=='lm') o=lm(update.formula(elastlt~.,mspec$formula), data=df[grepl(.v,variable)], weights=w_elastlt)$coefficients
+      if (mspec$modeltype=='lmer') o=attr(lmer(update.formula(elastlt~.,mspec$formula), data=df[grepl(.v,variable)], weights=w_elastlt,
+                                             control = lmerctrl, REML=F), 'beta')
+      return(o)
     }))
     
     standarderrors = apply(bs_coefs, 1, sd)
@@ -578,7 +580,6 @@ calculate_ses <- function(input, elast, bstrap_select) {
   names(ses) <- c('pr','llen','dst')
   return(ses)
 }
-
 
 
 result_storage <<- NULL
@@ -607,8 +608,7 @@ server <- function(input, output) {
      
       elast <<- get_sample(input)
       
-      
-      bstrap_input = reactiveValuesToList(input)
+      if (!class(input)=='list') bstrap_input = reactiveValuesToList(input) else bstrap_input=input
       bstrap_input = bstrap_input[grepl('bootstrap|trimming|^model$|^orth',names(bstrap_input))]
       bstrap_hash=my_hash(bstrap_input, algo=c("md5"))
       
@@ -621,16 +621,26 @@ server <- function(input, output) {
           #bstrap_from_storage = bstrap(elast, input)
           #bootstrap_storage[[bstrap_hash]] <<- bstrap_from_storage
           
-        orthog = orthogonalization(elast, input, bootstrap = input$bootstrap_used)
+        orthog = orthogonalization(elast, input, bootstrap = as.logical(input$bootstrap_used))
         setkey(orthog$means, brand_id)
         setkey(elast, brand_id)
-        for (.v in input$orth_dvs) elast[orthog$means, paste0(.v,'_bootstrap'):=get(paste0('i.', .v, '_bootstrap'))]
+        for (.v in input$orth_dvs) elast[orthog$means, paste0(.v,'_orth'):=get(paste0('i.', .v, '_orth'))]
         elast <<- elast
         }
      
       
       if (as.logical(input$bootstrap_used) & as.logical(input$orth_used)) {
+        #Do the stuff here....
+        #...
+        #...
+        #Finish the function
+        showModal(modalDialog("Computing standard errors by bootstrapping procedure. ", footer=NULL))
+        if (length(orthog$bootstraps)>20) showModal(modalDialog("Computing standard errors by bootstrapping procedure. This can take a couple of minutes.", footer=NULL))
+        #print(paste0('starting to calculate SEs: ', ))
         ses <- calculate_ses(input, elast, orthog$bootstraps)
+        #print('done calculating SEs')
+        removeModal()
+        
       }
       
       
@@ -640,15 +650,17 @@ server <- function(input, output) {
       
       mods2 = lapply(seq(along=mods[[1]]), function(i) {
         
-        outt=summary(mods[[1]][[i]])$coefficients
-        print(outt)
+        outt = try(summary(mods[[1]][[i]])$coefficients, silent=T)
+        if (class(outt)=='try-error') outt = mods[[1]][[i]]
+        
+        #print(outt)
         if (as.logical(input$bootstrap_used) & as.logical(input$orth_used)) outt[,2] <- outt[,2] + ses[[i]]
         outt[,3]= outt[,1]/outt[,2]
         
-        outt= cbind(outt, 2*(1-pnorm(abs(outt[,3]))))
+        outt= cbind(outt[,1:3], 2*(1-pnorm(abs(outt[,3]))))
         colnames(outt) <-c("Estimate","Std. Error","t value","Pr(>|t|)")
         class(outt) <- 'coeftest'
-        print(outt)
+        #print(outt)
         outt})
       
       
@@ -659,14 +671,6 @@ server <- function(input, output) {
       outp=paste0(paste0(capture.output({stargazer(mods2, type='html')}), collapse=''),
                   '<br><br>', mspec$formula, "<br><br>", paste0(as.character(mspec$cluster), collapse=''), '<br><br>', mspec$modeltype)
       
-      
-      
-      
-      
-      #outp=paste0(paste0(capture.output({me<-newmodV2(list(list(pr=mspec$formula, dst=mspec$formula, llen=mspec$formula)),
-      #                                                fn= NULL, return_models=F, mtype=mspec$modeltype,
-      #                                                clust=mspec$cluster)}), collapse=''),
-      #       '<br><br>', mspec$formula, "<br><br>", paste0(as.character(mspec$cluster), collapse=''), '<br><br>', mspec$modeltype)
       
       result_storage[[hash]]$results <<- paste0(outp, '<br>from memory<br>')
       #rm(me)
@@ -688,7 +692,7 @@ server <- function(input, output) {
       orthog = orthogonalization(elast, input, bootstrap = F)
       setkey(orthog$means, brand_id)
       setkey(elast, brand_id)
-      for (.v in input$orth_dvs) elast[orthog$means, paste0(.v,'_bootstrap'):=get(paste0('i.', .v, '_bootstrap'))]
+      for (.v in input$orth_dvs) elast[orthog$means, paste0(.v,'_orth'):=get(paste0('i.', .v, '_orth'))]
     }
     
     vifform = as.formula(paste0('randomnr ~ 1 + ', paste0(mspec$variables, collapse='+')))
