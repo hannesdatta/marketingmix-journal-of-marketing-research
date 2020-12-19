@@ -1,4 +1,4 @@
-rm(list=ls())
+#rm(list=ls())
 # Load data
 library(lme4)
 library(bit64)
@@ -83,37 +83,38 @@ bstrap <- function(elast,
 }
     
 
+# this can be done before (e.g., list of rep 10, 50, 100, 500, 1000)
+
+
 # bootstrapping
-bstrap_values <- lapply(elasticities, bstrap)
+bstrap_values <- lapply(elasticities, bstrap, rep = 10)
 
 
 # Bstrap LM
 load('inputs.RData')
 input<-saved_input
+input$culture <- paste0(input$culture, '_bootstrap')
 
 
 # build formula
 
 
+bstrap_select = bstrap_values[[input$model]]
 
-
+  
 calculate_ses <- function(elast, bstrap_select, modeltype='lm') {
   rep = length(bstrap_select)
   index <- elast$brand_id
   
   elastfocal <- list()
   
-  covars <- c(unlist(input$brandequity),
-                          unlist(input$brandlocation),
-                          unlist(input$brandmmix),
-                          unlist(input$brandother),
-                          
-                          unlist(input$categoryfactors), 
-                          unlist(input$econ),
-                          unlist(input$culture),
-                          unlist(input$institutions))
+  mspec = get_model(input)
   
-  bootstrap <- c('survself_mc')
+  elast = get_sample(input)
+  
+  covars = gsub('[_]bootstrap$', '', all.vars(update.formula(elastlt~ ., mspec$formula)))
+  
+  bootstrap <- grep('[_]bootstrap$', all.vars(update.formula(elastlt~ ., mspec$formula)), value=T)
   
   vars <- c('brand_id', 'variable', 'elastlt', 'w_elastlt', covars)
   
@@ -122,13 +123,14 @@ calculate_ses <- function(elast, bstrap_select, modeltype='lm') {
     elastfocal[[i]] <- cbind(elast[, vars,with=F], bstrap_select[[i]][index,])
   }
   
-  add_covars <- covars
-  add_covars[covars%in%bootstrap] <- paste0(bootstrap,'_bootstrap')
+  #add_covars <- covars
+  #add_covars[covars%in%bootstrap] <- paste0(bootstrap,'_bootstrap')
   
   ses=lapply(c('pr','llen','dst'), function(.v) {
     bs_coefs = do.call('cbind', lapply(elastfocal, function(df) {
-      f <- as.formula(paste0('elastlt~1+', paste0(add_covars,collapse='+')))
-      lm(f, data=df[grepl(.v,variable)], weights=w_elastlt)$coefficients
+      if (mspec$modeltype=='lm') lm(update.formula(elastlt~.,mspec$formula), data=df[grepl(.v,variable)], weights=w_elastlt)$coefficients
+      if (mspec$modeltype=='lmer') attr(lmer(update.formula(elastlt~.,mspec$formula), data=df[grepl(.v,variable)], weights=w_elastlt,
+                                  control = lmerctrl, REML=F), 'beta')
       
     }))
     

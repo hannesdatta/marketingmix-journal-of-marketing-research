@@ -286,6 +286,51 @@ trimming <- list('None' = '',
                 'Winsorized 1% two-sided' = 'wins_1',
                 'Winsorized 2.5% two-sided' = 'wins_2.5')
 
+
+ui_new <- fluidPage(
+  
+  titlePanel("GfK Singapore"),
+  
+  
+  sidebarLayout(
+    
+    # Sidebar panel for inputs ----
+    sidebarPanel(
+      
+      # Input: Select the random distribution type ----
+      radioButtons("dist", "Distribution type:",
+                   c("Normal" = "norm",
+                     "Uniform" = "unif",
+                     "Log-normal" = "lnorm",
+                     "Exponential" = "exp")),
+      
+      # br() element to introduce extra vertical spacing ----
+      br(),
+      
+      # Input: Slider for the number of observations to generate ----
+      sliderInput("n",
+                  "Number of observations:",
+                  value = 500,
+                  min = 1,
+                  max = 1000)
+      
+    ),
+    
+    # Main panel for displaying outputs ----
+    mainPanel(
+      
+      # Output: Tabset w/ plot, summary, and table ----
+      tabsetPanel(type = "tabs",
+                  tabPanel("Plot", plotOutput("plot")),
+                  tabPanel("Summary", verbatimTextOutput("summary")),
+                  tabPanel("Table", tableOutput("table"))
+      )
+      
+    )
+  )
+  
+)
+
 ui <- fluidPage(
   
   titlePanel("GfK Singapore"),
@@ -293,7 +338,8 @@ ui <- fluidPage(
   fluidRow(
     
     column(4,
-           wellPanel(
+           tabsetPanel(type = "tabs",
+                       tabPanel("Variables", 
              selectInput("brandequity", label = h5("Brand factors: Equity"),
                          choices = (potential_vars$brandequity), selected = potential_choices$brandequity, multiple=TRUE),
              selectInput("brandlocation", label = h5("Brand factors: Location"),
@@ -312,9 +358,28 @@ ui <- fluidPage(
              selectInput("institutions", label = h5("Country factors: Institutions"),
                          choices = (potential_vars$country_institutions), selected = potential_choices$country_institutions, multiple=TRUE),
              textInput("interact", label = h5("Interactions"), value = "")
+           ),
+           tabPanel("Model specification", 
+             selectInput("model", label = h5("Model specification"),
+                       choices = model_names,
+                       selected=model_names[1]),
+             selectInput("estim", label = h5("Model estimation"),
+                       choices = list('Mixed-Effects Model (REs)'= 'lmer',
+                                      'OLS' = 'lm'), selected= 'lmer', multiple=F),
+             selectInput("randomeffects", label = h5("List of random effects (for RE model), or clustering (in case of OLS)"),
+                       choices = list('Brand'= 'brand', 'Category'='category',
+                                      'Country' = 'country'), selected = c('brand'), multiple=TRUE),
+           
+             selectInput("trimming", label = h5("Trimming/Winsorizations"),
+                       choices = (trimming), selected = trimming[4], multiple=FALSE)),
+           
+           tabPanel("Variables2", 
+                    selectInput("brandequity2", label = h5("Brand factors: Equity"),
+                                choices = (potential_vars$brandequity), selected = potential_choices$brandequity, multiple=TRUE))
+           
            )
     ),
-    column(5,
+    column(8,
            tabsetPanel(type = "tabs",
                        
                        # tabPanel("Model Summary", verbatimTextOutput("summary")),
@@ -324,23 +389,7 @@ ui <- fluidPage(
                        #, # Regression output
                        # tabPanel("Data", DT::dataTableOutput('tbl')) # Data as datatable
         #  htmlOutput("stargazer")
-    )),
-    
-    column(3,
-           wellPanel(
-           selectInput("model", label = h5("Model specification"),
-                       choices = model_names,
-                       selected=model_names[1]),
-           selectInput("estim", label = h5("Model estimation"),
-                       choices = list('Mixed-Effects Model (REs)'= 'lmer',
-                                      'OLS' = 'lm'), selected= 'lmer', multiple=F),
-           selectInput("randomeffects", label = h5("List of random effects (for RE model), or clustering (in case of OLS)"),
-                       choices = list('Brand'= 'brand', 'Category'='category',
-                                      'Country' = 'country'), selected = c('brand'), multiple=TRUE),
-           
-           selectInput("trimming", label = h5("Trimming/Winsorizations"),
-                       choices = (trimming), selected = trimming[4], multiple=FALSE)
-           ))
+    ))
   
 )
   
