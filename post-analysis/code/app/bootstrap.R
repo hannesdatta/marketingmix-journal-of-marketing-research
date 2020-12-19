@@ -34,6 +34,9 @@ input$bootstrap_reps=10
 elast = get_sample(input)
 mspec = get_model(input)
 
+test=orthogonalization(elast, input, bootstrap = F)
+
+  
 
 if (input$bootstrap_used) {
   bstrap_select = bstrap(elasticities[[input$model]], input)

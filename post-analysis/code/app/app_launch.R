@@ -131,28 +131,30 @@ newmodV2 <- function(model, fn, ..., return_models = T, mtype='lmer', clust = NU
 lmerctrl = lmerControl(optimizer ="Nelder_Mead", check.conv.singular="ignore")
 
 
-
-bstrap <- function(elast, input) {
+orthogonalization <- function(elast, input, bootstrap = T) {
   
-  var_select = input$bootstrap_ivs 
-  focal_vars = input$bootstrap_dvs 
+  var_select = input$orth_ivs 
+  focal_vars = input$orth_dvs 
   rep = as.numeric(input$bootstrap_reps)
   
   dat <- unique(elast, by = c('brand_id'))[, c('brand_id', focal_vars, var_select),with=F]
-  #rep=100
   
-  bstrap_X <- rep(double(length(var_select)*nrow(dat)*c(rep)))
-  dim(bstrap_X) <- c(nrow(dat), length(var_select), rep)
+  if (bootstrap==F) rep = 0
   
-  bstrap_y <- rep(double(length(focal_vars)*nrow(dat)*c(rep)))
-  dim(bstrap_y) <- c(nrow(dat), length(focal_vars), rep)
+  bstrap_X <- rep(double(length(var_select)*nrow(dat)*c(rep+1)))
+  dim(bstrap_X) <- c(nrow(dat), length(var_select), rep+1)
+  
+  bstrap_y <- rep(double(length(focal_vars)*nrow(dat)*c(rep+1)))
+  dim(bstrap_y) <- c(nrow(dat), length(focal_vars), rep+1)
   
   set.seed(3515)
   base_X = as.matrix(dat[, var_select,with=F])
   base_y = as.matrix(dat[, focal_vars,with=F])
   
-  for (i in seq(length.out=rep)) {
-    smpl=sample(1:nrow(base_X), size=nrow(base_X), replace=T)
+  for (i in seq(length.out=rep+1)) {
+    if (i==1) smpl = 1:nrow(base_X)
+    if (i>1) smpl=sample(1:nrow(base_X), size=nrow(base_X), replace=T)
+    
     bstrap_X[,,i]<-base_X[smpl,]
     bstrap_y[,,i]<-base_y[smpl,]
   }
@@ -168,7 +170,7 @@ bstrap <- function(elast, input) {
       y=bstrap_y[,colY,i]
       beta = (solve(t(X)%*%X))%*%(t(X)%*%cbind(y))
       pred <- cbind(1,base_X) %*% beta
-      resid <- pred-base_y[, colY]
+      resid <- base_y[, colY]-pred
       return(resid)
     })
     
@@ -181,15 +183,15 @@ bstrap <- function(elast, input) {
   
   # reorder
   bstrap_return <- list()
-  for (i in 1:rep) {
+  
+  for (i in 1:c(rep+1)) {
     ret <- do.call('cbind', lapply(bstrap_values, function(val) val[,i]))
     colnames(ret) <- c(paste0(focal_vars, '_bootstrap'))
     bstrap_return[[i]] <- data.table(brand_id=dat$brand_id, ret, key = 'brand_id')
   }
   
-  return(bstrap_return)
+  return(list(bootstraps=bstrap_return[-1], means =bstrap_return[[1]] ))
 }
-
 
 
 
@@ -389,10 +391,12 @@ ui <- fluidPage(
              textInput("interact", label = h5("Interactions"), value = "")
            ),
            tabPanel("Model specification", 
-             selectInput("model", label = h5("Model specification"),
+             selectInput("model", label = h5("Model estimation (first stage)"),
                        choices = model_names,
                        selected=model_names[1]),
-             selectInput("estim", label = h5("Model estimation"),
+             
+             br(),
+             selectInput("estim", label = h5("Model estimation (second stage)"),
                        choices = list('Mixed-Effects Model (REs)'= 'lmer',
                                       'OLS' = 'lm'), selected= 'lmer', multiple=F),
              selectInput("randomeffects", label = h5("List of random effects (for RE model), or clustering (in case of OLS)"),
@@ -402,18 +406,26 @@ ui <- fluidPage(
              selectInput("trimming", label = h5("Trimming/Winsorizations"),
                        choices = (trimming), selected = trimming[4], multiple=FALSE)),
            
-           tabPanel("Bootstrap", 
-                    radioButtons("bootstrap_used", label = h5("Use bootstrapping/orthogonalization"),
+           tabPanel("Orthogonalization and bootstrapping", 
+                    radioButtons("orth_used", label = h5("Use orthogonalization"),
                                  c("Yes" = T,
                                    "No" = F),
                                  selected = F),
-                    br(),
-                    selectInput("bootstrap_reps", label = h5("Bootstrap samples"),
-                                choices = c(10,20,50,100,500,1000), selected = 10, multiple=FALSE),
-                    selectInput("bootstrap_ivs", label = h5("Aux. reg. ind. variables"),
+                    selectInput("orth_dvs", label = h5("Orthogonalization of..."),
+                                choices = potential_vars_unlisted, selected =c('survself_mc', 'tradrat_mc'), multiple=TRUE),
+                    selectInput("orth_ivs", label = h5("...using ind. variables"),
                                 choices = potential_vars_unlisted, selected = c('ln_gdpgrowthyravg_mc', 'ln_gdppercapitacurrentyravg_mc', 'ln_ginicoef_mc'), multiple=TRUE),
-                    selectInput("bootstrap_dvs", label = h5("Aux.reg. dep. variables"),
-                                choices = potential_vars_unlisted, selected =c('survself_mc', 'tradrat_mc'), multiple=TRUE)
+                    
+                    br(),
+                    radioButtons("bootstrap_used", label = h5("Use bootstrapping"),
+                                 c("Yes" = T,
+                                   "No" = F),
+                                 selected = F),
+                    selectInput("bootstrap_reps", label = h5("Bootstrap samples"),
+                                choices = c(10,20,50,100,500,1000), selected = 10, multiple=FALSE)
+                    
+                    
+                    
                     
            )
            
@@ -473,8 +485,9 @@ get_model <- function(input) {
   # Bstrap LM
   #load('inputs.RData')
   vars <- vars_orig
-  if (input$bootstrap_used) vars[vars%in%input$bootstrap_dvs] <-paste0(vars[vars%in%input$bootstrap_dvs], '_bootstrap')
-    
+  if (as.logical(input$orth_used)) vars[vars%in%input$orth_dvs] <-paste0(vars[vars%in%input$orth_dvs], '_bootstrap')
+  vars_array=vars
+  
   vars=paste0(vars, collapse='+')
   vars_orig=paste0(vars_orig, collapse='+')
   
@@ -491,19 +504,12 @@ get_model <- function(input) {
   if (length(clust)==0| !modeltype=='lm') clust = NULL
   #cat(file=stderr(), as.character(clust), " clusters", "\n")
   
-  myform_boot = myform
+  if (nchar(vars)>0) myform = paste0(myform, ' + ', vars)
   
-  if (nchar(vars)>0) {
-    myform = paste0(myform, ' + ', vars)
-    myform_wo_bootstrap = paste0(myform_boot, ' + ', vars_orig)
-  }
+  if (nchar(unlist(input$interact))>0) myform = paste0(myform, ' + ', unlist(input$interact))
   
-  if (nchar(unlist(input$interact))>0) {
-    myform = paste0(myform, ' + ', unlist(input$interact))
-    myform_wo_bootstrap = paste0(myform_wo_bootstrap, ' + ', unlist(input$interact))
-  }
   
-  list(formula = myform, formula_without_bootstrap = myform_wo_bootstrap, modeltype=modeltype, randomeffects = randomef, cluster = clust)
+  list(formula = myform, variables = vars_array, modeltype=modeltype, randomeffects = randomef, cluster = clust)
 }
 
 get_sample <- function(input) {
@@ -591,6 +597,7 @@ server <- function(input, output) {
     
     my_hash <- function(input, ...) digest(paste0(paste0(names(input), collapse='_'), '|', paste0(sapply(unlist(input), function(x) if(x=='') return('[ ]') else return(x)), collapse='_')),...)
     
+    #print(class(input$orth_used))
     
     hash=my_hash(reactiveValuesToList(input), algo=c("md5"))
     outp = result_storage[[hash]]$results
@@ -602,30 +609,32 @@ server <- function(input, output) {
       
       
       bstrap_input = reactiveValuesToList(input)
-      bstrap_input = bstrap_input[grepl('bootstrap|trimming|^model$',names(bstrap_input))]
+      bstrap_input = bstrap_input[grepl('bootstrap|trimming|^model$|^orth',names(bstrap_input))]
       bstrap_hash=my_hash(bstrap_input, algo=c("md5"))
       
-      if (input$bootstrap_used) {
-          
-        bstrap_from_storage = bootstrap_storage[[bstrap_hash]]
+      if (as.logical(input$orth_used==T)) {
+        # insert orthogonal values in reg.
+        #orth_from_storage = bootstrap_storage[[bstrap_hash]]
         
-        if (is.null(bstrap_from_storage)) {
-          print('calculating bootstrapping values')
-          bstrap_from_storage = bstrap(elast, input)
-          bootstrap_storage[[bstrap_hash]] <<- bstrap_from_storage
+        #if (is.null(bstrap_from_storage)) {
+          #print('calculating bootstrapping values')
+          #bstrap_from_storage = bstrap(elast, input)
+          #bootstrap_storage[[bstrap_hash]] <<- bstrap_from_storage
+          
+        orthog = orthogonalization(elast, input, bootstrap = input$bootstrap_used)
+        setkey(orthog$means, brand_id)
+        setkey(elast, brand_id)
+        for (.v in input$orth_dvs) elast[orthog$means, paste0(.v,'_bootstrap'):=get(paste0('i.', .v, '_bootstrap'))]
+        elast <<- elast
         }
+     
+      
+      if (as.logical(input$bootstrap_used) & as.logical(input$orth_used)) {
+        ses <- calculate_ses(input, elast, orthog$bootstraps)
       }
       
       
-      
-      if (input$bootstrap_used) {
-        ses <- calculate_ses(input, elast, bstrap_from_storage)
-      }
-      
-      #formula_wo_bootstrap = all.vars(mspec$formula)
-      
-      
-      mods = all_mods(list(list(pr=mspec$formula_without_bootstrap, dst=mspec$formula_without_bootstrap, llen=mspec$formula_without_bootstrap)),
+      mods = all_mods(list(list(pr=mspec$formula, dst=mspec$formula, llen=mspec$formula)),
                       mtype=mspec$modeltype,
                       clust=mspec$cluster)
       
@@ -633,7 +642,7 @@ server <- function(input, output) {
         
         outt=summary(mods[[1]][[i]])$coefficients
         print(outt)
-        if (input$bootstrap_used==T) outt[,2] <- outt[,2] + ses[[i]]
+        if (as.logical(input$bootstrap_used) & as.logical(input$orth_used)) outt[,2] <- outt[,2] + ses[[i]]
         outt[,3]= outt[,1]/outt[,2]
         
         outt= cbind(outt, 2*(1-pnorm(abs(outt[,3]))))
@@ -660,7 +669,7 @@ server <- function(input, output) {
       #       '<br><br>', mspec$formula, "<br><br>", paste0(as.character(mspec$cluster), collapse=''), '<br><br>', mspec$modeltype)
       
       result_storage[[hash]]$results <<- paste0(outp, '<br>from memory<br>')
-      rm(me)
+      #rm(me)
     }
     print(str(result_storage))
     print(str(bootstrap_storage))
@@ -671,27 +680,23 @@ server <- function(input, output) {
   output$vif = renderText({
     # assemble form 
     
+    mspec = get_model(input)
     
-    vars=paste0(c(unlist(input$brandequity),
-                  unlist(input$brandlocation),
-                  unlist(input$brandmmix),
-                  unlist(input$brandother),
-                  
-                  unlist(input$categoryfactors), 
-                  unlist(input$econ),
-                  unlist(input$culture),
-                  unlist(input$institutions)), collapse='+')
-    myform = as.character('. ~ 1 ')
+    elast <<- get_sample(input)
     
-    if (nchar(vars)>0) myform = paste0(myform, ' + ', vars)
-    if (nchar(unlist(input$interact))>0) myform = paste0(myform, ' + ', unlist(input$interact))
+    if (as.logical(input$orth_used)==T) {
+      orthog = orthogonalization(elast, input, bootstrap = F)
+      setkey(orthog$means, brand_id)
+      setkey(elast, brand_id)
+      for (.v in input$orth_dvs) elast[orthog$means, paste0(.v,'_bootstrap'):=get(paste0('i.', .v, '_bootstrap'))]
+    }
     
-    mainef = as.formula(myform)
+    vifform = as.formula(paste0('randomnr ~ 1 + ', paste0(mspec$variables, collapse='+')))
     
-    tmp <- unique(copy(elasticities[[input$model]][selection_obs48==T&selection_brands==T]), by = c('category','country','brand'))
+    tmp <- unique(elast, by = c('category','country','brand'))
     tmp[, randomnr:=runif(.N)]
     
-    vifm <- lm(update.formula(randomnr~., mainef), data=tmp)
+    vifm <- lm(vifform, data=tmp)
     vifs = data.table(variable = names(vifm$coefficients)[-1], VIF=vif(vifm))
     
     
