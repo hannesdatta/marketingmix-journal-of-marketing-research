@@ -7,10 +7,9 @@ library(stargazer)
 library(shiny)
 library(sandwich)
 library(lmtest)
-
-
 library(car)
 library(knitr)
+library(digest)
 
 fns <- c('app_workspace.RData')
 
@@ -391,7 +390,8 @@ ui <- fluidPage(
                          choices = (potential_vars$country_culture), selected = potential_choices$country_culture, multiple=TRUE),
              selectInput("institutions", label = h5("Country factors: Institutions"),
                          choices = (potential_vars$country_institutions), selected = potential_choices$country_institutions, multiple=TRUE),
-             textInput("interact", label = h5("Interactions"), value = "")
+             textInput("interact", label = h5("Interactions"), value = ""),
+             downloadButton("downloadData", "Download model specification")
            ),
            tabPanel("Model specification", 
              selectInput("model", label = h5("Model estimation (first stage)"),
@@ -423,7 +423,7 @@ ui <- fluidPage(
                                    "No" = F),
                                  selected = F),
                     selectInput("bootstrap_reps", label = h5("Bootstrap samples"),
-                                choices = c(10,20,50,100), selected = 10, multiple=FALSE)
+                                choices = c(10,20), selected = 10, multiple=FALSE)
                     
                     
                     
@@ -596,7 +596,7 @@ server <- function(input, output) {
   # assemble form 
     saved_input = reactiveValuesToList(input)
 
-    save(saved_input, file='inputs.RData')
+    #save(saved_input, file='inputs.RData')
     
     
     my_hash <- function(input, ...) digest(paste0(paste0(names(input), collapse='_'), '|', paste0(sapply(unlist(input), function(x) if(x=='') return('[ ]') else return(x)), collapse='_')),...)
@@ -657,7 +657,7 @@ server <- function(input, output) {
         if (class(outt)=='try-error') outt = mods[[1]][[i]]
         
         #print(outt)
-        if (as.logical(input$bootstrap_used) & as.logical(input$orth_used)) outt[,2] <- outt[,2] + ses[[i]]
+        if (as.logical(input$bootstrap_used) & as.logical(input$orth_used)) outt[,2] <- sqrt(outt[,2]^2 + ses[[i]]^2)
         outt[,3]= outt[,1]/outt[,2]
         
         outt= cbind(outt[,1:3], 2*(1-pnorm(abs(outt[,3]))))
@@ -768,6 +768,19 @@ server <- function(input, output) {
   output$distribution2 <- renderPlot({
     hist(swiss[,input$indepvar], main="", xlab=input$indepvar)
   }, height=300, width=300)
+  
+  
+  output$downloadData <- downloadHandler(
+    filename = function() {
+      paste('download.RData')
+    },
+    content = function(file) {
+      saved_input = reactiveValuesToList(input)
+      if (!grepl('[.]RData$',file, ignore.case=T)) file=paste(file, '.RData')
+      save(saved_input, file=file)
+    }
+  )
+  
 }
 
 
