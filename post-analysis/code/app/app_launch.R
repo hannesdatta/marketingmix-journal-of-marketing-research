@@ -18,30 +18,6 @@ for (fn in fns) if (file.exists(fn)) {cat(paste0('loading...', fn, '...\n')); lo
 
 ######## FUNCTIONS #######
 
-estim_models <- function(models) {
-  lapply(seq(along=models), function(i) {
-    print(i)
-    if (grepl('[|]', as.character(models[[i]])[3])) {
-      m1 <- lmer(update.formula(elastlt~1, models[[i]]),
-                 data=elast[grep('pr',variable)], weights=w_elastlt,
-                 control = lmerctrl, REML=F)
-      m2 <- lmer(update.formula(elastlt~1, models[[i]]),
-                 data=elast[grep('llen',variable)], weights=w_elastlt,
-                 control = lmerctrl, REML=F)
-      m3 <- lmer(update.formula(elastlt~1, models[[i]]),
-                 data=elast[grep('dst',variable)], weights=w_elastlt,
-                 control = lmerctrl, REML=F)
-    } else {
-      m1 <- lm(update.formula(elastlt~1, models[[i]]),
-               data=elast[grep('pr',variable)], weights=w_elastlt)
-      m2 <- lm(update.formula(elastlt~1, models[[i]]),
-               data=elast[grep('llen',variable)], weights=w_elastlt)
-      m3 <- lm(update.formula(elastlt~1, models[[i]]),
-               data=elast[grep('dst',variable)], weights=w_elastlt)
-    }
-    return(list(m1,m2,m3))
-  })}
-
 rsq <- function(m) {
   resid=resid(m)
   pred=predict(m)
@@ -64,37 +40,37 @@ all_mods <- function(models, mtype = 'lmer', clust = NULL) {
   lapply(models, function(forms) {
     if (mtype=='lm')  {
       
-      m1 = lm(update.formula(elastlt~1, forms$pr),
+      pr = lm(update.formula(elastlt~1, forms$pr),
               data=elast[grep('pr',variable)], weights=w_elastlt)
-      m2 = lm(update.formula(elastlt~1, forms$dst),
+      dst = lm(update.formula(elastlt~1, forms$dst),
               data=elast[grep('dst',variable)], weights=w_elastlt)
-      m3 = lm(update.formula(elastlt~1, forms$llen),
+      llen = lm(update.formula(elastlt~1, forms$llen),
               data=elast[grep('llen',variable)], weights=w_elastlt)
       
-      rsqs=unlist(lapply(list(m1,m2,m3),rsq))
-      obs=unlist(lapply(list(m1,m2,m3),function(x) length(residuals(x))))
+      rsqs=unlist(lapply(list(pr,dst,llen),rsq))
+      obs=unlist(lapply(list(pr,dst,llen),function(x) length(residuals(x))))
       
       if (!is.null(clust)) {
-        m1 <- coeftest(m1, vcov = vcovCL, cluster = clust)
-        m2 <- coeftest(m2, vcov = vcovCL, cluster = clust)
-        m3 <- coeftest(m3, vcov = vcovCL, cluster = clust)
-        return(list(m1=m1,m2=m2,m3=m3, rsqs=rsqs, obs = obs)) 
+        pr <- coeftest(pr, vcov = vcovCL, cluster = clust)
+        dst <- coeftest(dst, vcov = vcovCL, cluster = clust)
+        llen <- coeftest(llen, vcov = vcovCL, cluster = clust)
+        return(list(pr=pr,dst=dst, llen=llen, rsqs=rsqs, obs = obs)) 
         
       }
       
-      return(list(m1=m1,m2=m2,m3=m3))
+      return(list(pr=pr,dst=dst, llen=llen))
       
     }
     
     if (mtype=='lmer') {
       
-    return(list(m1 = lmer(update.formula(elastlt~1, forms$pr),
+    return(list(pr = lmer(update.formula(elastlt~1, forms$pr),
                    data=elast[grep('pr',variable)], weights=w_elastlt,
                    control = lmerctrl, REML=F),
-         m2 = lmer(update.formula(elastlt~1, forms$dst),
+         dst = lmer(update.formula(elastlt~1, forms$dst),
                    data=elast[grep('dst',variable)], weights=w_elastlt,
                    control = lmerctrl, REML=F),
-         m3 = lmer(update.formula(elastlt~1, forms$llen),
+         llen = lmer(update.formula(elastlt~1, forms$llen),
                    data=elast[grep('llen',variable)], weights=w_elastlt,
                    control = lmerctrl, REML=F)))
     }
@@ -102,33 +78,6 @@ all_mods <- function(models, mtype = 'lmer', clust = NULL) {
   })
 }
 
-
-# estimate models
-
-newmodV2 <- function(model, fn, ..., return_models = T, mtype='lmer', clust = NULL) {
-  
-  mods = all_mods(model, mtype=mtype, clust=clust)
-  
-  #if(0){
-  if (mtype=='lmer'){
-  rsqs=unlist(lapply(mods, function(x) lapply(x, rsq)))
-  obss = unlist(lapply(mods, function(x) lapply(x, function(i) length(which(!is.na(residuals(i)))))))
-  
-  r2s = NULL
-  
-  if (mtype=='lmer') r2s = c('R-squared', sub('^(-)?0[.]', '\\1.', formatC(rsqs, digits=3, format='f', flag='#')))
-  obs = c('Observations',obss)
-  lbllist = list(r2s,obs)
- } #if (mtype=='lm') 
-    
-  if (mtype=='lm') lbllist = NULL
-  #lbllist = NULL
-      
-  stargazer(do.call('c', mods),type='html', 
-            column.labels = rep(c('price','distribution','line length'), length(model)), 
-            out = fn, add.lines = lbllist, ...)
-  return(mods)
-}
 
 lmerctrl = lmerControl(optimizer ="Nelder_Mead", check.conv.singular="ignore")
 
@@ -164,26 +113,25 @@ orthogonalization <- function(elast, input, bootstrap = T) {
   colnames(bstrap_X) <- colnames(base_X)
   colnames(bstrap_y) <- colnames(base_y)
   
-  
   bstrap_values = lapply(focal_vars, function(colY) {
     
     out<-  lapply(seq(length.out=dim(bstrap_X)[3]), function(i) {
+      # estimate parameters on bootstrap sample
       X=cbind(1, bstrap_X[,,i])
       y=bstrap_y[,colY,i]
       beta = (solve(t(X)%*%X))%*%(t(X)%*%cbind(y))
+      
+      # generate residuals for observed data
       pred <- cbind(1,base_X) %*% beta
       resid <- base_y[, colY]-pred
       return(resid)
     })
     
     tmp=as.matrix(do.call('cbind', out))
-    #tmp[, brand_id:=dat$brand_id]
-    #setnames(tmp, c(paste0(colY,'_', 1:rep), 'brand_id'))
-    #setcolorder(tmp, 'brand_id')
     return(tmp)
   })
   
-  # reorder
+  # add brand IDs
   bstrap_return <- list()
   
   for (i in 1:c(rep+1)) {
@@ -447,30 +395,9 @@ ui <- fluidPage(
   
 )
   
-  )
+)
 
 
-
-
-# test
-if(0){
-mainef = . ~ 1 + sbbe_round1_mc+local_to_market_mc+ln_rwpspr_index_mc+ln_wpswdst_index_mc+ln_llen_index_mc+ln_market_herf_mc+ln_market_growth_mc+appliance+ln_gdpgrowthyravg_mc+ln_ginicoef_mc+tradrat_mc+survself_mc+wgi_regulatoryqualyravg_mc
-clust = ~ brand+category+country
-modeltype='lm'
-me<-newmodV2(list(list(pr=mainef, dst=mainef, llen=mainef)),
-                                                fn= 'NULL.html', return_models=T, mtype=modeltype,
-                                                clust=NULL)
-
-test=coeftest(me[[1]]$m1, vcov = vcovCL, cluster = clust)
-
-
-#summary(me[[1]]$m1)
-
-#me[[1]]
-
-}
-
-#
 get_model <- function(input) {
   vars_orig = c(unlist(input$brandequity),
                 unlist(input$brandlocation),
@@ -483,8 +410,6 @@ get_model <- function(input) {
                 unlist(input$institutions))
   
   
-  # Bstrap LM
-  #load('inputs.RData')
   vars <- vars_orig
   if (as.logical(input$orth_used)) vars[vars%in%input$orth_dvs] <-paste0(vars[vars%in%input$orth_dvs], '_orth')
   vars_array=vars
@@ -537,17 +462,11 @@ get_sample <- function(input) {
   return(tmp)
 }
 
-# look up
-#hash(input)
-
-
 
 calculate_ses <- function(input, elast, bstrap_select) {
   
   rep = length(bstrap_select)
   index <- elast$brand_id
-  
-  elastfocal <- list()
   
   mspec = get_model(input)
   
@@ -558,14 +477,13 @@ calculate_ses <- function(input, elast, bstrap_select) {
   
   vars <- c('brand_id', 'variable', 'elastlt', 'w_elastlt', covars)
   
+  elastfocal <- list()
   
   for (i in 1:rep){
-    elastfocal[[i]] <- cbind(elast[, vars,with=F], bstrap_select[[i]][match(index, brand_id),])
+    elastfocal[[i]] <- cbind(copy(elast[, vars,with=F]), bstrap_select[[i]][match(index, brand_id),])
   }
   
-  #add_covars[covars%in%bootstrap] <- paste0(bootstrap,'_orth')
-  
-  ses=lapply(c('pr','llen','dst'), function(.v) {
+  ses=lapply(c('pr','dst','llen'), function(.v) {
     cntr=0
     bs_coefs = do.call('cbind', lapply(elastfocal, function(df) {
       cntr=cntr+1
@@ -580,7 +498,7 @@ calculate_ses <- function(input, elast, bstrap_select) {
     
     return(standarderrors)
   })
-  names(ses) <- c('pr','llen','dst')
+  names(ses) <- c('pr','dst','llen')
   return(ses)
 }
 
@@ -633,10 +551,6 @@ server <- function(input, output) {
      
       
       if (as.logical(input$bootstrap_used) & as.logical(input$orth_used)) {
-        #Do the stuff here....
-        #...
-        #...
-        #Finish the function
         showModal(modalDialog("Computing standard errors by bootstrapping procedure. ", footer=NULL))
         if (length(orthog$bootstraps)>20) showModal(modalDialog("Computing standard errors by bootstrapping procedure. This can take a couple of minutes.", footer=NULL))
         #print(paste0('starting to calculate SEs: ', ))
@@ -651,19 +565,17 @@ server <- function(input, output) {
                       mtype=mspec$modeltype,
                       clust=mspec$cluster)
       
-      mods2 = lapply(seq(along=mods[[1]][1:3]), function(i) {
+      mods2 = lapply(seq(along=names(mods[[1]])), function(i) {
         
         outt = try(summary(mods[[1]][[i]])$coefficients, silent=T)
         if (class(outt)=='try-error') outt = mods[[1]][[i]]
         
-        #print(outt)
         if (as.logical(input$bootstrap_used) & as.logical(input$orth_used)) outt[,2] <- sqrt(outt[,2]^2 + ses[[i]]^2)
         outt[,3]= outt[,1]/outt[,2]
         
         outt= cbind(outt[,1:3], 2*(1-pnorm(abs(outt[,3]))))
         colnames(outt) <-c("Estimate","Std. Error","t value","Pr(>|t|)")
         class(outt) <- 'coeftest'
-        #print(outt)
         outt})
       
       lbllist = NULL
@@ -686,7 +598,8 @@ server <- function(input, output) {
         lbllist = list(r2s,obs)
       } 
       
-      outp=paste0(paste0(capture.output({stargazer(mods2, type='html', add.lines=lbllist)}), collapse=''),
+      outp=paste0(paste0(capture.output({stargazer(mods2, type='html', add.lines=lbllist,
+                                                   column.labels = rep(c('price','distribution','line length'), length(mods2)))}), collapse=''),
                   '<br><br>', mspec$formula, "<br><br>", paste0(as.character(mspec$cluster), collapse=''), '<br><br>', mspec$modeltype)
       
       
