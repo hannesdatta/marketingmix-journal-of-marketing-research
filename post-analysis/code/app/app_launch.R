@@ -119,6 +119,10 @@ orthogonalization <- function(elast, input, bootstrap = T) {
       # estimate parameters on bootstrap sample
       X=cbind(1, bstrap_X[,,i])
       y=bstrap_y[,colY,i]
+      compl = complete.cases(X)
+      X=X[compl,]
+      y=y[compl]
+      
       beta = (solve(t(X)%*%X))%*%(t(X)%*%cbind(y))
       
       # generate residuals for observed data
@@ -338,8 +342,8 @@ ui <- fluidPage(
                          choices = (potential_vars$country_culture), selected = potential_choices$country_culture, multiple=TRUE),
              selectInput("institutions", label = h5("Country factors: Institutions"),
                          choices = (potential_vars$country_institutions), selected = potential_choices$country_institutions, multiple=TRUE),
-             textInput("interact", label = h5("Interactions"), value = ""),
-             downloadButton("downloadData", "Download model specification")
+             textInput("interact", label = h5("Interactions"), value = "")#,
+             #downloadButton("downloadData", "Download model specification")
            ),
            tabPanel("Model specification", 
              selectInput("model", label = h5("Model estimation (first stage)"),
@@ -358,7 +362,7 @@ ui <- fluidPage(
                        choices = (trimming), selected = trimming[4], multiple=FALSE)),
            
            tabPanel("Orthogonalization and bootstrapping", 
-                    radioButtons("orth_used", label = h5("Use orthogonalization (e.g., Batra 2000; ter Braak et al. 2013)"),
+                    radioButtons("orth_used", label = h5("Use orthogonalization (e.g., Batra et al. 2000; ter Braak et al. 2013)"),
                                  c("Yes" = T,
                                    "No" = F),
                                  selected = T),
@@ -371,7 +375,7 @@ ui <- fluidPage(
                                    "No" = F),
                                  selected = F),
                     selectInput("bootstrap_reps", label = h5("Bootstrap samples"),
-                                choices = c(10,20), selected = 10, multiple=FALSE)
+                                choices = c(10,20,50,100), selected = 10, multiple=FALSE)
                     
                     
                     
@@ -386,7 +390,11 @@ ui <- fluidPage(
                        
                        # tabPanel("Model Summary", verbatimTextOutput("summary")),
                        tabPanel("Model results", htmlOutput("stargazer")),#, # Regression output
-                       tabPanel("VIFs", htmlOutput("vif"))#,
+                       tabPanel("VIFs", htmlOutput("vif")),
+                       tabPanel("Downloads", br(),
+                                downloadButton("downloadData", "Download model specification (RData file)"))
+                                #br(),
+                                #downloadButton("downloadregdata", "Download data for second-stage regressions (csv file)"))#,
                      #  tabPanel("Correlations", htmlOutput("correl"))#, # Regression output
                        #, # Regression output
                        # tabPanel("Data", DT::dataTableOutput('tbl')) # Data as datatable
@@ -693,6 +701,23 @@ server <- function(input, output) {
       save(saved_input, file=file)
     }
   )
+ 
+  output$downloadregdata <- downloadHandler(
+    filename = function() {
+      paste('download.csv')
+    },
+    content = function(file) {
+      mspec = get_model(input)
+      elast = get_sample(input)
+      tmp = elast[, c('category','country','brand','brand_id',mspec$variables),with=F]
+      if (!grepl('[.]csv$',file, ignore.case=T)) file=paste(file, '.csv')
+      fwrite(tmp, file=file, row.names=F)
+    }
+  )
+  
+
+  
+  
   
 }
 
