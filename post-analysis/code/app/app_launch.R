@@ -36,7 +36,7 @@ rsq <- function(m) {
 }
 
 
-all_mods <- function(models, mtype = 'lmer', clust = NULL) {
+all_mods <- function(models, mtype = 'lmer', clust = NULL, clust_type = 'HC1') {
   lapply(models, function(forms) {
     if (mtype=='lm')  {
       
@@ -49,16 +49,19 @@ all_mods <- function(models, mtype = 'lmer', clust = NULL) {
       
       rsqs=unlist(lapply(list(pr,dst,llen),rsq))
       obs=unlist(lapply(list(pr,dst,llen),function(x) length(residuals(x))))
+      aics = unlist(lapply(list(pr,dst,llen), function(x) AIC(x)))
+      bics = unlist(lapply(list(pr,dst,llen), function(x) BIC(x)))
+      
       
       if (!is.null(clust)) {
-        pr <- coeftest(pr, vcov = vcovCL, cluster = clust)
-        dst <- coeftest(dst, vcov = vcovCL, cluster = clust)
-        llen <- coeftest(llen, vcov = vcovCL, cluster = clust)
-        return(list(pr=pr,dst=dst, llen=llen, rsqs=rsqs, obs = obs)) 
+        pr <- coeftest(pr, vcov = vcovCL, cluster = clust, fix = T, type = clust_type)
+        dst <- coeftest(dst, vcov = vcovCL, cluster = clust, fix = T, type = clust_type)
+        llen <- coeftest(llen, vcov = vcovCL, cluster = clust, fix = T, type = clust_type)
+        return(list(pr=pr,dst=dst, llen=llen, rsqs=rsqs, obs = obs, aic=aics, bic=bics)) 
         
       }
       
-      return(list(pr=pr,dst=dst, llen=llen))
+      return(list(pr=pr,dst=dst, llen=llen, rsqs=rsqs, obs = obs, aic=aics, bic=bics))
       
     }
     
@@ -167,7 +170,7 @@ potential_vars_raw = list(brandequity=list('!SBBE' = 'sbbe_round1_mc',
                                        'Brand energized diff. (BAV)' = 'ln_bav_energizeddifferentiation_mc',
                                        'Marketshare' = 'ln_brand_ms_mc'),
                       brandlocation = list('!Domestic market indicator' = 'local_to_market_mc',
-                                           'JP, US, Swiss, GER, Sweden indicator' = "`brand_from_jp-us-ch-ge-sw_mc`",
+                                           '!JP, US, Swiss, GER, Sweden indicator' = "`brand_from_jp-us-ch-ge-sw_mc`",
                                            'Western brand indicator' = 'western_brand_mc'),
                       brandmmix = list('!Price (log index)' = 'ln_rwpspr_index_mc',
                                        '!Distr. (log index)' = 'ln_wpswdst_index_mc',
@@ -179,7 +182,7 @@ potential_vars_raw = list(brandequity=list('!SBBE' = 'sbbe_round1_mc',
                                        'Distr. (std.)' = 'wpswdst_std_mc',
                                        'Line length (std.)' = 'llen_std_mc'),
                       
-                      brandother = list('Brand novelty' = 'ln_brandnovelty3_mc'),#,
+                      brandother = list('!Brand novelty' = 'ln_brandnovelty3_mc'),#,
                                         #'Price positioning' = 'brand_prindex_mean_mc'),
                       
                       category = list('!Market concentration' = "ln_market_herf_mc",
@@ -353,11 +356,14 @@ ui <- fluidPage(
              br(),
              selectInput("estim", label = h5("Model estimation (second stage)"),
                        choices = list('Mixed-Effects Model (REs)'= 'lmer',
-                                      'OLS' = 'lm'), selected= 'lmer', multiple=F),
+                                      'OLS' = 'lm'), selected= 'lm', multiple=F),
              selectInput("randomeffects", label = h5("List of random effects (for RE model), or clustering (in case of OLS)"),
                        choices = list('Brand'= 'brand', 'Category'='category',
-                                      'Country' = 'country'), selected = c('brand'), multiple=TRUE),
-           
+                                      'Country' = 'country'), selected = c('brand', 'category','country'), multiple=TRUE),
+             #selectInput("clustering_type", label = h5("Clustering type (for OLS)"),
+             #            choices = list('HC0'= 'HC0', 'HC1'='HC1',
+             #                           'HC2'= 'HC2', 'HC3'='HC3'), selected = c('HC1'), multiple=FALSE),
+             
              selectInput("trimming", label = h5("Trimming/Winsorizations"),
                        choices = (trimming), selected = trimming[4], multiple=FALSE)),
            
@@ -365,7 +371,7 @@ ui <- fluidPage(
                     radioButtons("orth_used", label = h5("Use orthogonalization (e.g., Batra et al. 2000; ter Braak et al. 2013)"),
                                  c("Yes" = T,
                                    "No" = F),
-                                 selected = T),
+                                 selected = F),
                     selectInput("orth_dvs", label = h5("Orthogonalization of..."),
                                 choices = potential_vars_unlisted, selected =grep('survself|tradrat|wgi[_]rugulator|wgi[_]ruleof', potential_vars_unlisted,ignore.case=T,value=T), multiple=TRUE),
                     selectInput("orth_ivs", label = h5("...using ind. variables"),
@@ -443,7 +449,8 @@ get_model <- function(input) {
   if (nchar(unlist(input$interact))>0) myform = paste0(myform, ' + ', unlist(input$interact))
   
   
-  list(formula = myform, variables = vars_array, modeltype=modeltype, randomeffects = randomef, cluster = clust)
+  list(formula = myform, variables = vars_array, modeltype=modeltype, randomeffects = randomef, cluster = clust,
+       clustering_type = 'HC1')#input$clustering_type)
 }
 
 get_sample <- function(input) {
@@ -571,9 +578,9 @@ server <- function(input, output) {
       
       mods = all_mods(list(list(pr=mspec$formula, dst=mspec$formula, llen=mspec$formula)),
                       mtype=mspec$modeltype,
-                      clust=mspec$cluster)
+                      clust=mspec$cluster, clust_type = mspec$clustering_type)
       
-      mods2 = lapply(seq(along=names(mods[[1]])), function(i) {
+      mods2 = lapply(seq(along=c('pr','dst','llen')), function(i) {
         
         outt = try(summary(mods[[1]][[i]])$coefficients, silent=T)
         if (class(outt)=='try-error') outt = mods[[1]][[i]]
@@ -586,14 +593,24 @@ server <- function(input, output) {
         class(outt) <- 'coeftest'
         outt})
       
+      
       lbllist = NULL
+      
       if (mspec$modeltype=='lmer') {
         rsqs=unlist(lapply(mods, function(x) lapply(x, rsq)))
         obss = unlist(lapply(mods, function(x) lapply(x, function(i) length(which(!is.na(residuals(i)))))))
+        fits = lapply(mods[[1]], function(i) summary(i)$AICtab)
+        aics = unlist(lapply(fits, function(x) x['AIC']))
+        bics = unlist(lapply(fits, function(x) x['BIC']))
+        logliks = unlist(lapply(mods[[1]], function(x) as.numeric(logLik(x))))
         
         r2s = c('R-squared', sub('^(-)?0[.]', '\\1.', formatC(rsqs, digits=3, format='f', flag='#')))
+        aic = c('AIC',sub('^(-)?0[.]', '\\1.', formatC(aics, digits=2, format='f', flag='#')))
+        bic = c('BIC',sub('^(-)?0[.]', '\\1.', formatC(bics, digits=2, format='f', flag='#')))
+        loglik = c('LL',sub('^(-)?0[.]', '\\1.', formatC(logliks, digits=2, format='f', flag='#')))
         obs = c('Observations',obss)
-        lbllist = list(r2s,obs)
+        
+        lbllist = list(r2s,aic, bic,loglik, obs)
       } 
       
       if (mspec$modeltype=='lm') {
@@ -601,15 +618,29 @@ server <- function(input, output) {
         
         obss = mods[[1]]$obs
         
+        aics = mods[[1]]$aic
+        bics =mods[[1]]$bic
+        
         r2s = c('R-squared', sub('^(-)?0[.]', '\\1.', formatC(rsqs, digits=3, format='f', flag='#')))
+        aic = c('AIC',sub('^(-)?0[.]', '\\1.', formatC(aics, digits=2, format='f', flag='#')))
+        bic = c('BIC',sub('^(-)?0[.]', '\\1.', formatC(bics, digits=2, format='f', flag='#')))
         obs = c('Observations',obss)
-        lbllist = list(r2s,obs)
+        
+        lbllist = list(r2s,aic, bic,obs)
       } 
       
       outp=paste0(paste0(capture.output({stargazer(mods2, type='html', add.lines=lbllist,
                                                    column.labels = rep(c('price','distribution','line length'), length(mods2)))}), collapse=''),
                   '<br><br>', mspec$formula, "<br><br>", paste0(as.character(mspec$cluster), collapse=''), '<br><br>', mspec$modeltype)
       
+      if (mspec$modeltype=='lmer') outp = paste0(outp, '<br><br>', paste0({lapply(mods[[1]][1:3], function(x) {
+        test= capture.output({summary(x)})
+        # select
+        start=grep('Random effe', test, ignore.case=T)
+        end=grep('Fixed effe', test, ignore.case=T)
+        return(paste0(test[start:c(end-1)], collapse='<br>'))
+        
+        })}, collapse='<br>'))
       
       result_storage[[hash]]$results <<- paste0(outp, '<br>from memory<br>')
       #rm(me)
