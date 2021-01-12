@@ -110,21 +110,27 @@ summary(lm(y~1+x, data = out$data))
 ### Estimation
 ```{r}
 library(stats4)
-source('liv_llik.R')
 
 # Simulate data
 set.seed(999)
-out=sim_data(rho = .3, coef_x=.5, pi_vals=c(-1,2), N = 10000)
+out=sim_data(rho = .3, coef_x=.5, pi_vals=c(-1,2), N = 100)
+source('liv_llik.R')
 
 y=out$data$y
 x=out$data$x
 z=out$data$z
 pi_vals=out$pi_vals
 
-params = c(0, 1, 1, 0, 1, 0, 0, 0)
+params = c(0, 1, 1, 0, 1, 0, 1, 2)
 
 MLE = optimx(params, fn = llik, method = 'Nelder-Mead', hessian = TRUE, itnmax = 10000, 
         control = list(trace = 0, dowarn = FALSE))
+unlist(MLE)
+
+llik(params, sim=T)
+
+MLE = optimx(params, fn = llik, method = 'Nelder-Mead', hessian = TRUE, itnmax = 10000, 
+        control = list(trace = 0, dowarn = FALSE), sim=T)
 unlist(MLE)
 
 

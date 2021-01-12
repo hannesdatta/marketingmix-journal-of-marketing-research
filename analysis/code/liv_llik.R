@@ -15,18 +15,16 @@ map_pars <- function(pars) {
   
   # class memberships
   prob <- exp(pars[6])/(1+exp(pars[6]))
-  
-  # instrument coefficients
-  #lambdas <- double(2)
-  #lambdas[1] <- pars[7]
-  #lambdas[2] <- pars[7] + exp(pars[8])
+
   lambdas = pars[7:8]  
   return(list(beta0=beta0, beta1=beta1, uchol=uchol, sigma=sigma, prob=prob, lambdas=lambdas))
 }
 
+reps=100
+set.seed(1234)
+simvals = matrix(runif(nrow(out$data)*reps),ncol=100)
 
-
-llik <- function (params) {
+llik <- function (params, sim=F) {
   
   pars=map_pars(params)
   
@@ -35,7 +33,26 @@ llik <- function (params) {
   beta1=pars$beta1
   prob=pars$prob
   varcov=pars$sigma
+
   
+  if (sim==T) {
+ 
+    #classes = ifelse(simvals < prob, lambdas[1], lambdas[2])
+    
+    
+    y_y_pred = y - (beta0 + beta1 * ifelse(simvals < prob, lambdas[1], lambdas[2]))
+    x_x_pred = x - (ifelse(simvals < prob, lambdas[1], lambdas[2]))
+    
+    #mapply(function(x,y) {print(dim(x));print(dim(y))}, y_y_pred, x_x_pred)
+    llik = sapply(1:nrow(y_y_pred), function(i) log(mean(dmvnorm(cbind(y_y_pred[i,], x_x_pred[i,]), mean=c(0,0), sigma=varcov, log=F))))
+    
+    
+    
+    return(-sum(llik))
+  }
+  
+  
+  # first: move this to simulated maximum likelihood
   y_pred1 = beta0 + beta1 * lambdas[1]
   y_pred2 = beta0 + beta1 * lambdas[2]
   
@@ -47,5 +64,5 @@ llik <- function (params) {
   llik_lse = sum(max.AB + log(prob * exp(llik1 - max.AB) + (1-prob) * exp(llik2-max.AB)))
   
   return(-llik_lse)
-  
 }
+  
