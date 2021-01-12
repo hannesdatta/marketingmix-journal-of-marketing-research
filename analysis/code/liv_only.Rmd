@@ -20,12 +20,12 @@ Ebbes, P., Wedel, M., Böckenholt, U., & Steerneman, T. (2005). Solving and test
 
 ```{r}
 
-sim_data <- function(rho = .5, N = 1000) {
+sim_data <- function(rho = .5, N = 1000, pi_vals = c(-.3, .7), coef_x = 3) {
   # Number of observations
   #N = 1000
   
   # Coefficients on latent instruments
-  pi = c(5, 7) 
+  #pi_vals = c(-.3, .7) 
   
   # Class probabilities
   p = c(.7, .3)
@@ -34,13 +34,13 @@ sim_data <- function(rho = .5, N = 1000) {
   stopifnot(sum(p)==1)
   
   # Number of latent instruments
-  k = length(pi)
+  k = length(pi_vals)
   
   # Correlation matrix
   R = matrix(c(1, rho,
                   rho, 1), ncol=2)
   # Standard deviations
-  S <- c(2, 1)
+  S <- c(sqrt(.5), sqrt(.5))
   
   cor2cov <- function(R, S) {
    sweep(sweep(R, 1, S, "*"), 2, S, "*")
@@ -61,11 +61,12 @@ sim_data <- function(rho = .5, N = 1000) {
   cbind(class = 1:k, frequency = table(z), prob = table(z)/sum(table(z)))
   
   # Simulate data
-  x = pi[z] + errorterm[,2]
+  x = pi_vals[z] + errorterm[,2]
   
-  y = 1 + 3 * x + errorterm[,1]
+  y = 1 + coef_x * x + errorterm[,1]
   
-  return(list(data = data.frame(y, x)))
+  return(list(data = data.frame(y, x, z), pi_vals=pi_vals, coef_x = coef_x))
+
 
 }
 ```
@@ -76,15 +77,31 @@ Bias when `rho = .5`
 
 ```{r}
 # bias:
-out=sim_data(rho = .5)
+out=sim_data(rho = 0.95, coef_x=.5, pi_vals=c(-1,2))
+hist(out$data$x, breaks=100)
 summary(lm(y~1+x, data = out$data))
 ```
+
+```{r}
+# recovery by package
+out=sim_data(rho = .3, coef_x=.5, pi_vals=c(-1,2), N = 10000)
+#hist(out$data$x, breaks=100)
+#out$data$y = out$data$y
+library(REndo)
+
+l <- latentIV(y~x, data = out$data)
+summary(l)
+
+```
+
+summary(l)
+
 
 No bias when `rho = 0`
 
 ```{r}
 # no bias:
-out=sim_data(rho = 0)
+out=sim_data(rho = 0, coef_x=.5, pi_vals=c(-1,2))
 summary(lm(y~1+x, data = out$data))
 ```
 
@@ -112,10 +129,10 @@ map_pars <- function(pars) {
   prob <- exp(pars[6])/(1+exp(pars[6]))
   
   # instrument coefficients
-  lambdas <- double(2)
-  lambdas[1] <- pars[7]
-  lambdas[2] <- pars[7] + exp(pars[8])
-  
+  #lambdas <- double(2)
+  #lambdas[1] <- pars[7]
+  #lambdas[2] <- pars[7] + exp(pars[8])
+  lambdas = pars[7:8]  
   return(list(beta0=beta0, beta1=beta1, lchol=lchol, sigma=sigma, prob=prob, lambdas=lambdas))
 }
 
@@ -129,25 +146,59 @@ llik <- function(pars) {
   lambdas = mapped_pars$lambdas
   
   # expected values
-  x_pred <- prob * lambdas[1] + (1-prob) * lambdas[2] 
-  y_pred = beta0 + beta1 * x_pred
-
-  llik = dmvnorm(cbind(y-y_pred, x-x_pred),mean=c(0,0), sigma=sigma, log=T)
+  #x_pred <- prob * lambdas[1] + (1-prob) * lambdas[2]
   
-  return(-sum(llik))
+  #x_pred <- pi_vals[z]
+  
+  ## Debuggen: take actual values of X instead of expected values; do that for y, too
+  # 2) Sparren met Peter over terugschatten van parameters
+  
+  y_pred1 = beta0 + beta1 * lambdas[1]
+  y_pred2 = beta0 + beta1 * lambdas[2]
+
+  #sigma = diag(2)
+  
+  llik1 = dmvnorm(cbind(y, x),mean=c(y_pred1,lambdas[1]), sigma=sigma, log=T)
+  llik2 = dmvnorm(cbind(y, x),mean=c(y_pred2, lambdas[2]), sigma=sigma, log=T)
+  
+  #llik = dnorm(y-y_pred, log=T)
+  #llik1 = dnorm(y-y_pred, log=T)
+  #llik2 = dnorm(x-x_pred, log=T)
+  max.AB = pmax(log(prob) + llik1, log(1-prob) + llik2)
+  
+  llik_lse = sum(max.AB + log(prob * exp(llik1 - max.AB) + (1-prob) * exp(llik2-max.AB)))
+  #print(-sum(llik))
+  return(-llik_lse)
 }
 
 ```
 
+
+    mu1 <- matrix(data = c(b00 + a1 * pi1, pi1), nrow = 2, ncol = 1)
+    pi2 <- params["pi2"]
+    mu2 <- matrix(c(b00 + a1 * pi2, pi2), nrow = 2, ncol = 1)
+    log.pdf1 <- dmvnorm(m.data.mvnorm, mean = mu1, sigma = varcov, 
+        log = TRUE)
+    log.pdf2 <- dmvnorm(m.data.mvnorm, mean = mu2, sigma = varcov, 
+        log = TRUE)
+    max.AB <- pmax(log(pt) + log.pdf1, log(1 - pt) + log.pdf2)
+    logLL.lse <- sum(max.AB + log(pt * exp(log.pdf1 - max.AB) + 
+        (1 - pt) * exp(log.pdf2 - max.AB)))
+    return(-1 * logLL.lse)
+    
+    
 ### Estimation
 ```{r}
 library(stats4)
 
 # Simulate data
 set.seed(999)
-out=sim_data(rho = .5, N = 10000)
+out=sim_data(rho = .3, coef_x=.5, pi_vals=c(-1,2), N = 10000)
+#sim_data(rho = .5, N = 1000, coef_x=.5, pi_vals=c(-1,2))
 y=out$data$y
 x=out$data$x
+z=out$data$z
+pi_vals=out$pi_vals
 
 start_val <- c(1,3,1,1,1, .5, 5, log(2))
 
@@ -157,15 +208,89 @@ llik(start_val)
 # Determine starting values (y~x)
 ols1 <- lm(y~1+x)
 
-start_vals = c(drop(ols1$coefficients)[1], drop(ols1$coefficients)[2], 1, 0, 1, 0, 0,0)
+start_vals = c(drop(ols1$coefficients)[1], drop(ols1$coefficients)[2], 1, 0, 1, -5, 1,2)
+#start_vals = rep(-1,8) #c(drop(ols1$coefficients)[1], drop(ols1$coefficients)[2], 1, 0, 1, 0, 0,-10)
+library(optimx)
+#MLE = optim(start_vals, fn = llik,
+ #           method = "Nelder-Mead")
 
-MLE = optim(start_vals, fn = llik,
-            method = 'L-BFGS-B',
-            lower = .000001)
+params = c('int' = 0, 'p'=1, 'pi1'=0, 'pi2'=0, 'theta5'=0, 'theta6'=1, 'theta7'=0, 'theta8'=1)
+#params = c('int' = 1, 'p'=.6, 'pi1'=0, 'pi2'=2, 'theta5'=.5, 'theta6'=1, 'theta7'=0.5, 'theta8'=1)
+REndo:::latentIV_LL(params, m.data.mvnorm = cbind(out$data$y, out$data$x), use.intercept = T, name.intercept='int',name.endo.param='p')
+
+
+MLE = optimx(params, fn = REndo:::latentIV_LL, m.data.mvnorm = cbind(out$data$y, out$data$x), use.intercept = T, name.intercept='int',name.endo.param='p', method = 'Nelder-Mead', hessian = TRUE, itnmax = 10000, 
+        control = list(trace = 0, dowarn = FALSE))
+MLE$p
+
+y=out$data$y
+x=out$data$x
+MLE = optimx(start_vals, fn = llik, method = 'Nelder-Mead', hessian = TRUE, itnmax = 10000, 
+        control = list(trace = 0, dowarn = FALSE))
+
+start_vals, fn = llik,
+ #           method = "Nelder-Mead")
+
+#MLE$par
+
+REndo:::latentIV_LL(MLE$par, m.data.mvnorm = cbind(out$data$y, out$data$x), use.intercept = T, name.intercept='int',name.endo.param='p')
+
 
 # recovery is not quite there yet...
-map_pars(MLE$par)
 
+params = c('int' = 0, 'p'=1, 'pi1'=0, 'pi2'=0, 'theta5'=0, 'theta6'=1, 'theta7'=0, 'theta8'=1)
+
+m.sigma = matrix(c(1,0,0,1), nrow=2,byrow=T)
+s2e <- m.sigma[1, 1]
+s2v <- m.sigma[2, 2]
+sev <- m.sigma[1, 2]
+varcov <- matrix(0, 2, 2)
+varcov[1, 1] <- a1 * a1 * s2v + 2 * a1 * sev + s2e
+varcov[2, 1] <- a1 * s2v + sev
+varcov[1, 2] <- varcov[2, 1]
+varcov[2, 2] <- s2v
+  
+varcov=matrix(c(2,1,1,1),ncol=2,byrow=T)
+
+crossprod(chol(varcov))
+vc=chol(varcov)
+
+
+params = c('int' = 0, 'p'=1, 'pi1'=0, 'pi2'=0, 'theta5'=0, 'theta6'=vc[1,1], 'theta7'=vc[1,2], 'theta8'=vc[2,2])
+
+params = c('int' = 0, 'p'=1, 'pi1'=0, 'pi2'=0, 'theta5'=0, 'theta6'=1, 'theta7'=0, 'theta8'=1)
+
+#map_pars(MLE$par)
+
+source('llik_new.R')
+
+
+MLE = optimx(params, fn = llik, m.data.mvnorm = cbind(out$data$y, out$data$x), use.intercept = T, name.intercept='int',name.endo.param='p', method = 'Nelder-Mead', hessian = TRUE, itnmax = 10000, 
+        control = list(trace = 0, dowarn = FALSE))
+MLE$p
+
+
+
+MLE2 = optimx(params, fn = REndo:::latentIV_LL, m.data.mvnorm = cbind(out$data$y, out$data$x), use.intercept = T, name.intercept='int',name.endo.param='p', method = 'Nelder-Mead', hessian = TRUE, itnmax = 10000, 
+        control = list(trace = 0, dowarn = FALSE))
+MLE2$p
+
+
+#params = c('int' = 1, 'p'=.6, 'pi1'=0, 'pi2'=2, 'theta5'=.5, 'theta6'=1, 'theta7'=0.5, 'theta8'=1)
+#REndo:::latentIV_LL(params, m.data.mvnorm = cbind(out$data$y, out$data$x), use.intercept = T, name.intercept='int',name.endo.param='p')
+
+
+```
+
+
+```{r}
+library(REndo)
+
+latentIV(y~x, data=out$data)
+
+
+
+#map_pars(start_vals)
 ```
 
 Correlation is quite extreme
@@ -174,3 +299,4 @@ Correlation is quite extreme
 # correlation
 cov2cor(map_pars(MLE$par)$sigma)
 ```
+  
