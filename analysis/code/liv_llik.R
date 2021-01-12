@@ -31,24 +31,29 @@ llik <- function (params, sim=F) {
   lambdas = pars$lambdas
   beta0=pars$beta0
   beta1=pars$beta1
+  
   prob=pars$prob
   varcov=pars$sigma
 
   
   if (sim==T) {
  
-    #classes = ifelse(simvals < prob, lambdas[1], lambdas[2])
-    
-    
     y_y_pred = y - (beta0 + beta1 * ifelse(simvals < prob, lambdas[1], lambdas[2]))
     x_x_pred = x - (ifelse(simvals < prob, lambdas[1], lambdas[2]))
     
-    #mapply(function(x,y) {print(dim(x));print(dim(y))}, y_y_pred, x_x_pred)
     llik = sapply(1:nrow(y_y_pred), function(i) log(mean(dmvnorm(cbind(y_y_pred[i,], x_x_pred[i,]), mean=c(0,0), sigma=varcov, log=F))))
-    
-    
-    
     return(-sum(llik))
+    
+    #llik = sapply(1:reps, function(i) dmvnorm(cbind(y_y_pred[,i], x_x_pred[,i]), mean=c(0,0), sigma=varcov, log=T))
+    #return(-sum(apply(llik, 1, function(x) log(mean(exp(x-max(x)))))))
+    
+   # sllik = colSums(llik)
+    #return(-log(mean(exp(sllik-max(sllik)))))
+    
+    
+    #-log(mean(exp(llik_vals-max(llik_vals))))
+    
+    
   }
   
   
@@ -65,4 +70,9 @@ llik <- function (params, sim=F) {
   
   return(-llik_lse)
 }
-  
+
+# Extensions: 
+# - multiple endogenous variables
+# - multiple classes
+# - "exp" trick
+
