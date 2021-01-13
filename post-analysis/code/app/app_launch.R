@@ -46,6 +46,14 @@ all_mods <- function(models, mtype = 'lmer', clust = NULL, clust_type = 'HC1') {
               data=elast[grep('dst',variable)], weights=w_elastlt)
       llen = lm(update.formula(elastlt~1, forms$llen),
               data=elast[grep('llen',variable)], weights=w_elastlt)
+      avail_pr=setdiff(1:nrow(elast[grep('pr',variable)]), pr$na.action)
+      avail_dst=setdiff(1:nrow(elast[grep('dst',variable)]), dst$na.action)
+      avail_llen=setdiff(1:nrow(elast[grep('llen',variable)]), llen$na.action)
+      
+      pred_pr=data.table(elast[grepl('pr',variable), c('brand','brand_id','category','country', 'elastlt')][avail_pr], variable='pr', elast_lt_pred=predict(pr))
+      pred_llen=data.table(elast[grepl('llen',variable), c('brand','brand_id','category','country', 'elastlt')][avail_llen], variable='llen',elast_lt_pred=predict(llen))
+      pred_dst=data.table(elast[grepl('dst',variable), c('brand','brand_id','category','country', 'elastlt')][avail_dst], variable='dst', elast_lt_pred=predict(dst))
+      preds= rbind(pred_pr, pred_llen, pred_dst)
       
       rsqs=unlist(lapply(list(pr,dst,llen),rsq))
       obs=unlist(lapply(list(pr,dst,llen),function(x) length(residuals(x))))
@@ -57,25 +65,38 @@ all_mods <- function(models, mtype = 'lmer', clust = NULL, clust_type = 'HC1') {
         pr <- coeftest(pr, vcov = vcovCL, cluster = clust, fix = T, type = clust_type)
         dst <- coeftest(dst, vcov = vcovCL, cluster = clust, fix = T, type = clust_type)
         llen <- coeftest(llen, vcov = vcovCL, cluster = clust, fix = T, type = clust_type)
-        return(list(pr=pr,dst=dst, llen=llen, rsqs=rsqs, obs = obs, aic=aics, bic=bics)) 
+        return(list(pr=pr,dst=dst, llen=llen, rsqs=rsqs, obs = obs, aic=aics, bic=bics,
+                    predictions=preds))
         
       }
       
-      return(list(pr=pr,dst=dst, llen=llen, rsqs=rsqs, obs = obs, aic=aics, bic=bics))
+      return(list(pr=pr,dst=dst, llen=llen, rsqs=rsqs, obs = obs, aic=aics, bic=bics,
+                  predictions=preds))
       
     }
     
     if (mtype=='lmer') {
-      
-    return(list(pr = lmer(update.formula(elastlt~1, forms$pr),
-                   data=elast[grep('pr',variable)], weights=w_elastlt,
-                   control = lmerctrl, REML=F),
-         dst = lmer(update.formula(elastlt~1, forms$dst),
-                   data=elast[grep('dst',variable)], weights=w_elastlt,
-                   control = lmerctrl, REML=F),
-         llen = lmer(update.formula(elastlt~1, forms$llen),
-                   data=elast[grep('llen',variable)], weights=w_elastlt,
-                   control = lmerctrl, REML=F)))
+     pr = lmer(update.formula(elastlt~1, forms$pr),
+                data=elast[grep('pr',variable)], weights=w_elastlt,
+                control = lmerctrl, REML=F)
+     dst = lmer(update.formula(elastlt~1, forms$dst),
+                data=elast[grep('dst',variable)], weights=w_elastlt,
+                control = lmerctrl, REML=F)
+     llen = lmer(update.formula(elastlt~1, forms$llen),
+                        data=elast[grep('llen',variable)], weights=w_elastlt,
+                        control = lmerctrl, REML=F)
+     
+     avail_pr=rownames(elast[grep('pr',variable)])%in%rownames(pr@frame)
+     avail_dst=rownames(elast[grep('dst',variable)])%in%rownames(dst@frame)
+     avail_llen=rownames(elast[grep('llen',variable)])%in%rownames(llen@frame)
+     
+     
+     pred_pr=data.table(elast[grepl('pr',variable), c('brand','brand_id','category','country', 'elastlt')][avail_pr], variable='pr', elast_lt_pred=predict(pr))
+     pred_llen=data.table(elast[grepl('llen',variable), c('brand','brand_id','category','country', 'elastlt')][avail_llen], variable='llen',elast_lt_pred=predict(llen))
+     pred_dst=data.table(elast[grepl('dst',variable), c('brand','brand_id','category','country', 'elastlt')][avail_dst], variable='dst' ,elast_lt_pred=predict(dst))
+     preds= rbind(pred_pr, pred_llen, pred_dst)
+     
+    return(list(pr=pr, dst=dst, llen=llen,predictions=preds))
     }
     
   })
@@ -458,8 +479,6 @@ get_sample <- function(input) {
   
   tmp <- tmp[!is.na(elastlt), percentile:=ecdf(elastlt)(elastlt), by = c('variable')]
   
-  # input=list(trimming='trim_1')
-  
   perc_extract = as.numeric(gsub('.*[_]','', input$trimming))/100
   
   if (grepl('^trim', input$trimming, ignore.case=T)) {
@@ -476,6 +495,7 @@ get_sample <- function(input) {
   }
   return(tmp)
 }
+
 
 
 calculate_ses <- function(input, elast, bstrap_select) {
@@ -520,6 +540,135 @@ calculate_ses <- function(input, elast, bstrap_select) {
 
 result_storage <<- NULL
 bootstrap_storage <<- NULL
+data_storage <<- NULL
+
+
+produce_model <- function(input) {
+  
+  my_hash <- function(input, ...) digest(paste0(paste0(names(input), collapse='_'), '|', paste0(sapply(unlist(input), function(x) if(x=='') return('[ ]') else return(x)), collapse='_')),...)
+  
+  hash=try(my_hash(reactiveValuesToList(input), algo=c("md5")),silent=T)
+  if(class(hash)=='try-error') hash=try(my_hash(input, algo=c("md5")),silent=T)
+  
+  
+  
+  outp = result_storage[[hash]]$results
+  dstorage = data_storage[[hash]]
+  
+  if (is.null(outp)) {
+    
+    mspec = get_model(input)
+    
+    elast <<- get_sample(input)
+    
+    if (!class(input)=='list') bstrap_input = reactiveValuesToList(input) else bstrap_input=input
+    bstrap_input = bstrap_input[grepl('bootstrap|trimming|^model$|^orth',names(bstrap_input))]
+    bstrap_hash=my_hash(bstrap_input, algo=c("md5"))
+    
+    if (as.logical(input$orth_used==T)) {
+      # insert orthogonal values in reg.
+      #orth_from_storage = bootstrap_storage[[bstrap_hash]]
+      
+      #if (is.null(bstrap_from_storage)) {
+      #print('calculating bootstrapping values')
+      #bstrap_from_storage = bstrap(elast, input)
+      #bootstrap_storage[[bstrap_hash]] <<- bstrap_from_storage
+      
+      orthog = orthogonalization(elast, input, bootstrap = as.logical(input$bootstrap_used))
+      setkey(orthog$means, brand_id)
+      setkey(elast, brand_id)
+      for (.v in input$orth_dvs) elast[orthog$means, paste0(.v,'_orth'):=get(paste0('i.', .v, '_orth'))]
+      elast <<- elast
+    }
+    
+    
+    if (as.logical(input$bootstrap_used) & as.logical(input$orth_used)) {
+      showModal(modalDialog("Computing standard errors by bootstrapping procedure. ", footer=NULL))
+      if (length(orthog$bootstraps)>20) showModal(modalDialog("Computing standard errors by bootstrapping procedure. This can take a couple of minutes.", footer=NULL))
+      #print(paste0('starting to calculate SEs: ', ))
+      ses <- calculate_ses(input, elast, orthog$bootstraps)
+      #print('done calculating SEs')
+      removeModal()
+      
+    }
+    
+    
+    mods = all_mods(list(list(pr=mspec$formula, dst=mspec$formula, llen=mspec$formula)),
+                    mtype=mspec$modeltype,
+                    clust=mspec$cluster, clust_type = mspec$clustering_type)
+    
+    mods2 = lapply(seq(along=c('pr','dst','llen')), function(i) {
+      
+      outt = try(summary(mods[[1]][[i]])$coefficients, silent=T)
+      if (class(outt)=='try-error') outt = mods[[1]][[i]]
+      
+      if (as.logical(input$bootstrap_used) & as.logical(input$orth_used)) outt[,2] <- sqrt(outt[,2]^2 + ses[[i]]^2)
+      outt[,3]= outt[,1]/outt[,2]
+      
+      outt= cbind(outt[,1:3], 2*(1-pnorm(abs(outt[,3]))))
+      colnames(outt) <-c("Estimate","Std. Error","t value","Pr(>|t|)")
+      class(outt) <- 'coeftest'
+      outt})
+    
+    
+    lbllist = NULL
+    
+    if (mspec$modeltype=='lmer') {
+      rsqs=unlist(lapply(mods, function(x) lapply(x[c('pr','dst','llen')], rsq)))
+      obss = unlist(lapply(mods, function(x) lapply(x[c('pr','dst','llen')], function(i) length(which(!is.na(residuals(i)))))))
+      fits = lapply(mods[[1]][c('pr','dst','llen')], function(i) summary(i)$AICtab)
+      aics = unlist(lapply(fits, function(x) x['AIC']))
+      bics = unlist(lapply(fits, function(x) x['BIC']))
+      logliks = unlist(lapply(mods[[1]][c('pr','dst','llen')], function(x) as.numeric(logLik(x))))
+      
+      r2s = c('R-squared', sub('^(-)?0[.]', '\\1.', formatC(rsqs, digits=3, format='f', flag='#')))
+      aic = c('AIC',sub('^(-)?0[.]', '\\1.', formatC(aics, digits=2, format='f', flag='#')))
+      bic = c('BIC',sub('^(-)?0[.]', '\\1.', formatC(bics, digits=2, format='f', flag='#')))
+      loglik = c('LL',sub('^(-)?0[.]', '\\1.', formatC(logliks, digits=2, format='f', flag='#')))
+      obs = c('Observations',obss)
+      
+      lbllist = list(r2s,aic, bic,loglik, obs)
+    } 
+    
+    if (mspec$modeltype=='lm') {
+      rsqs=mods[[1]]$rsqs
+      
+      obss = mods[[1]]$obs
+      
+      aics = mods[[1]]$aic
+      bics =mods[[1]]$bic
+      
+      r2s = c('R-squared', sub('^(-)?0[.]', '\\1.', formatC(rsqs, digits=3, format='f', flag='#')))
+      aic = c('AIC',sub('^(-)?0[.]', '\\1.', formatC(aics, digits=2, format='f', flag='#')))
+      bic = c('BIC',sub('^(-)?0[.]', '\\1.', formatC(bics, digits=2, format='f', flag='#')))
+      obs = c('Observations',obss)
+      
+      lbllist = list(r2s,aic, bic,obs)
+    } 
+    
+    outp=paste0(paste0(capture.output({stargazer(mods2, type='html', add.lines=lbllist,
+                                                 column.labels = rep(c('price','distribution','line length'), length(mods2)))}), collapse=''),
+                '<br><br>', mspec$formula, "<br><br>", paste0(as.character(mspec$cluster), collapse=''), '<br><br>', mspec$modeltype)
+    
+    if (mspec$modeltype=='lmer') outp = paste0(outp, '<br><br>', paste0({lapply(mods[[1]][1:3], function(x) {
+      test= capture.output({summary(x)})
+      # select
+      start=grep('Random effe', test, ignore.case=T)
+      end=grep('Fixed effe', test, ignore.case=T)
+      return(paste0(test[start:c(end-1)], collapse='<br>'))
+      
+    })}, collapse='<br>'))
+    
+    result_storage[[hash]]$results <<- paste0(outp, '<br>from memory<br>')
+    data_storage[[hash]]$predictions <<- mods[[1]]$predictions
+    #rm(me)
+  }
+  print(str(result_storage))
+  print(str(bootstrap_storage))
+  
+  return(outp)
+}
+
 
 # SERVER
 server <- function(input, output) {
@@ -527,128 +676,11 @@ server <- function(input, output) {
   
   output$stargazer = renderText({
   # assemble form 
-    saved_input = reactiveValuesToList(input)
-
-    #save(saved_input, file='inputs.RData')
+   
+    #saved_input = reactiveValuesToList(input)
+    o=produce_model(input)
     
-    
-    my_hash <- function(input, ...) digest(paste0(paste0(names(input), collapse='_'), '|', paste0(sapply(unlist(input), function(x) if(x=='') return('[ ]') else return(x)), collapse='_')),...)
-    
-    #print(class(input$orth_used))
-    
-    hash=my_hash(reactiveValuesToList(input), algo=c("md5"))
-    outp = result_storage[[hash]]$results
-    if (is.null(outp)) {
-      
-      mspec = get_model(input)
-     
-      elast <<- get_sample(input)
-      
-      if (!class(input)=='list') bstrap_input = reactiveValuesToList(input) else bstrap_input=input
-      bstrap_input = bstrap_input[grepl('bootstrap|trimming|^model$|^orth',names(bstrap_input))]
-      bstrap_hash=my_hash(bstrap_input, algo=c("md5"))
-      
-      if (as.logical(input$orth_used==T)) {
-        # insert orthogonal values in reg.
-        #orth_from_storage = bootstrap_storage[[bstrap_hash]]
-        
-        #if (is.null(bstrap_from_storage)) {
-          #print('calculating bootstrapping values')
-          #bstrap_from_storage = bstrap(elast, input)
-          #bootstrap_storage[[bstrap_hash]] <<- bstrap_from_storage
-          
-        orthog = orthogonalization(elast, input, bootstrap = as.logical(input$bootstrap_used))
-        setkey(orthog$means, brand_id)
-        setkey(elast, brand_id)
-        for (.v in input$orth_dvs) elast[orthog$means, paste0(.v,'_orth'):=get(paste0('i.', .v, '_orth'))]
-        elast <<- elast
-        }
-     
-      
-      if (as.logical(input$bootstrap_used) & as.logical(input$orth_used)) {
-        showModal(modalDialog("Computing standard errors by bootstrapping procedure. ", footer=NULL))
-        if (length(orthog$bootstraps)>20) showModal(modalDialog("Computing standard errors by bootstrapping procedure. This can take a couple of minutes.", footer=NULL))
-        #print(paste0('starting to calculate SEs: ', ))
-        ses <- calculate_ses(input, elast, orthog$bootstraps)
-        #print('done calculating SEs')
-        removeModal()
-        
-      }
-      
-      
-      mods = all_mods(list(list(pr=mspec$formula, dst=mspec$formula, llen=mspec$formula)),
-                      mtype=mspec$modeltype,
-                      clust=mspec$cluster, clust_type = mspec$clustering_type)
-      
-      mods2 = lapply(seq(along=c('pr','dst','llen')), function(i) {
-        
-        outt = try(summary(mods[[1]][[i]])$coefficients, silent=T)
-        if (class(outt)=='try-error') outt = mods[[1]][[i]]
-        
-        if (as.logical(input$bootstrap_used) & as.logical(input$orth_used)) outt[,2] <- sqrt(outt[,2]^2 + ses[[i]]^2)
-        outt[,3]= outt[,1]/outt[,2]
-        
-        outt= cbind(outt[,1:3], 2*(1-pnorm(abs(outt[,3]))))
-        colnames(outt) <-c("Estimate","Std. Error","t value","Pr(>|t|)")
-        class(outt) <- 'coeftest'
-        outt})
-      
-      
-      lbllist = NULL
-      
-      if (mspec$modeltype=='lmer') {
-        rsqs=unlist(lapply(mods, function(x) lapply(x, rsq)))
-        obss = unlist(lapply(mods, function(x) lapply(x, function(i) length(which(!is.na(residuals(i)))))))
-        fits = lapply(mods[[1]], function(i) summary(i)$AICtab)
-        aics = unlist(lapply(fits, function(x) x['AIC']))
-        bics = unlist(lapply(fits, function(x) x['BIC']))
-        logliks = unlist(lapply(mods[[1]], function(x) as.numeric(logLik(x))))
-        
-        r2s = c('R-squared', sub('^(-)?0[.]', '\\1.', formatC(rsqs, digits=3, format='f', flag='#')))
-        aic = c('AIC',sub('^(-)?0[.]', '\\1.', formatC(aics, digits=2, format='f', flag='#')))
-        bic = c('BIC',sub('^(-)?0[.]', '\\1.', formatC(bics, digits=2, format='f', flag='#')))
-        loglik = c('LL',sub('^(-)?0[.]', '\\1.', formatC(logliks, digits=2, format='f', flag='#')))
-        obs = c('Observations',obss)
-        
-        lbllist = list(r2s,aic, bic,loglik, obs)
-      } 
-      
-      if (mspec$modeltype=='lm') {
-        rsqs=mods[[1]]$rsqs
-        
-        obss = mods[[1]]$obs
-        
-        aics = mods[[1]]$aic
-        bics =mods[[1]]$bic
-        
-        r2s = c('R-squared', sub('^(-)?0[.]', '\\1.', formatC(rsqs, digits=3, format='f', flag='#')))
-        aic = c('AIC',sub('^(-)?0[.]', '\\1.', formatC(aics, digits=2, format='f', flag='#')))
-        bic = c('BIC',sub('^(-)?0[.]', '\\1.', formatC(bics, digits=2, format='f', flag='#')))
-        obs = c('Observations',obss)
-        
-        lbllist = list(r2s,aic, bic,obs)
-      } 
-      
-      outp=paste0(paste0(capture.output({stargazer(mods2, type='html', add.lines=lbllist,
-                                                   column.labels = rep(c('price','distribution','line length'), length(mods2)))}), collapse=''),
-                  '<br><br>', mspec$formula, "<br><br>", paste0(as.character(mspec$cluster), collapse=''), '<br><br>', mspec$modeltype)
-      
-      if (mspec$modeltype=='lmer') outp = paste0(outp, '<br><br>', paste0({lapply(mods[[1]][1:3], function(x) {
-        test= capture.output({summary(x)})
-        # select
-        start=grep('Random effe', test, ignore.case=T)
-        end=grep('Fixed effe', test, ignore.case=T)
-        return(paste0(test[start:c(end-1)], collapse='<br>'))
-        
-        })}, collapse='<br>'))
-      
-      result_storage[[hash]]$results <<- paste0(outp, '<br>from memory<br>')
-      #rm(me)
-    }
-    print(str(result_storage))
-    print(str(bootstrap_storage))
-    
-    return(outp)
+    return(o)
   })
 
   output$vif = renderText({
