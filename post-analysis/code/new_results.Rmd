@@ -23,17 +23,20 @@ options(knitr.kable.NA = '')
   source('proc_auxilary.R')
   source('proc_rename.R')
 
-  elast <- fread('../externals/elast_results_salesresponse_max3_p10_cop_sur.csv') 
-  #elast = fread('../temp/elast_updated.csv')
-  elast[, elastlt:=elast6]
-  elast[, elastlt_se:=elast6_sd]
-  elast[, elast:=elast6]
-  elast[, elast_se:=elast6_sd]
-  elast <- elast[!elast6_sd==0]
-  setnames(elast, 'varname', 'variable')
+  load('app/app_workspace.RData')
+  
+  elast <- elasticities$with_sur#fread('../externals/elast_results_with_sur.csv') 
+  
+  #elast[, elastlt:=elast6]
+  #elast[, elastlt_se:=elast6_sd]
+  #elast[, elast:=elast6]
+  #elast[, elast_se:=elast6_sd]
+  #elast <- elast[!elast6_sd==0]
+  #setnames(elast, 'varname', 'variable')
+  
   #source('preclean.R')
   
-  elast <- copy(elast)
+ # elast <- copy(elast)
  
   
 # Keep only brands that are common in first/last dataset
@@ -43,7 +46,7 @@ options(knitr.kable.NA = '')
   
  
   # set order of variables to appear in figures and tables
-ordered_vars = c('rwpspr', 'wpswdst','llen')
+ordered_vars = c('lnrwpspr', 'lnwpswdst','lnllen')
 ordered_vars = ordered_vars[which(ordered_vars%in%elast$variable)]
 
 names(ordered_vars) <- paste0(unlist(sanitize_table(data.frame(gsub('^ln', '', ordered_vars)))), ' elasticity')
@@ -55,7 +58,7 @@ winsor_p=.01
 
 notes_sig = 'Significance levels: \\* *p*<.1, \\*\\* *p*<.05, \\*\\*\\* *p*<.01 (two-sided).'
   
-for (dframe in grep('^elast', ls(),value=T)) {
+for (dframe in grep('^elast$', ls(),value=T)) {
   print(dframe)
   for (.var in c('elast', 'elastlt')) {
     eval(parse(text=paste0(dframe,"[!is.na(get(.var)), paste0('w_', .var) := 1/get(paste0(.var, '_se'))]")))
@@ -97,8 +100,8 @@ zval = qnorm(1-sigvalue/2)
 # Data
 
 ```{r table1_countries, echo = FALSE}
-tmp=unique(elast, by='country')[, c('country','gci_00.03_gdppercap_s','gci_overall_s','hdi2010', 'developed'),with=F]
-setorderv(tmp, c('developed', 'gci_00.03_gdppercap_s'), order=-1L)
+tmp=unique(elast, by='country')[, c('country','gdppercapitacurrent2010','gdpgrowth2010', 'gci_overall_s','hdi2010', 'developed'),with=F]
+setorderv(tmp, c('developed', 'gdppercapitacurrent2010'), order=-1L)
 first_emerging=match(0,tmp$developed)
 tmp[, developed:=NULL]
 
@@ -201,42 +204,7 @@ for (iter in iters) {
 
 ```
 
-```{r elasts_by_dekimpe, echo=F,results='asis'}
 
-out = lapply(list(st=c('elast', 'z_elast', 'w_elast'), lt = c('elastlt','z_elastlt','w_elastlt')), function(obj) {
-  tmp = elast[!is.na(get(obj[1]))][, ':=' (val=get(obj[1]), val_z=get(obj[2]), val_w=get(obj[3]))]
-  tmp=tmp[, list(Neffects=.N, 
-   						  ftmelast = sum(val*val_w)/sum(val_w),
-   						  median_elast = median(val), 
-  						  interval90 = paste0('[',paste(sprintf("%.3f",quantile(val, c(.05,.95))),collapse=', '),']')),
-  												#  perc_positive = length(which(val_z>=(zval)))/.N, 
-  												#  perc_null = length(which(abs(val_z)<zval))/.N, 
-  												#  perc_negative = length(which(val_z<=(-zval)))/.N), 
-  												by=c('variable', 'ur_dv','ur_focalmmix')]
- # tmp=tmp[match(ordered_vars, variable)]
-  setnames(tmp, 'variable', 'mmixinstr')
-  tmp[, ur_dv_lbl := ifelse(ur_dv==1, 'ur1_sales_persistent', 'ur0_sales_temporary')]
-  tmp[, ur_focalmmix_lbl := ifelse(ur_focalmmix==1, 'ur1_mmix_sustained', 'ur0_mmix_temporary')]
-  
-  return(tmp)
-  })
-  
-tmp=lapply(ordered_vars, function(x) {
-  dcast(out$lt[mmixinstr==x], ur_dv_lbl~ur_focalmmix_lbl,value.var='ftmelast')
-})
-
-#dcast(out$lt,dekimpe_classification~mmixinstr,value.var='ftmelast')
-
-for (iter in seq(along=tmp)) {
-
-  print(kable(sanitize_table(tmp[[iter]]), digits=3, format='html', format.args = list(big.mark = ","),
-        caption=tab(paste0(gsub('city', 'cities', names(ordered_vars)[iter]), ' by temporary vs. permanent effort/response ^1^'),prefix='')) %>% kable_styling() %>% 
-        footnote(number=c(paste0('Table reports ', tolower(paste0(gsub('city', 'cities', names(ordered_vars)[iter]))), '.'), estimnote)))
-  #cat("<P style='page-break-before: always'>")
-
-  }
-
-```
 
 
 ```{r elast_by_cc, echo=F,results='asis', include=TRUE}
@@ -378,6 +346,7 @@ cat("<P style='page-break-before: always'>")
 
 cols =  c('country_of_origin')
 tmp = elast[, list(.N), by = c('brand',cols)]
+tmp = tmp[!grepl('alloth', brand)]
 tmp = tmp[, list(nbrands=length(unique(brand)), all_brands=paste(brand[order(brand)], collapse=', ')), by = cols]
 tmp[country_of_origin==''|is.na(country_of_origin), country_of_origin := 'Country not available']
 tmp[, country_of_origin:=my_capitalize(country_of_origin)]
@@ -415,7 +384,8 @@ kable(frame1,format='html', caption = tab('Assessing multicollinearity^1^', pref
 
 
 ```{r overview2, echo=FALSE, results='asis'}
-tmp = elast_all[, list(Nbrands = length(unique(brand))), by = c('market_id', 'category','country')]
+#elast_all
+tmp = elast[, list(Nbrands = length(unique(brand))), by = c('category','country')]
 
 tabl = dcast(tmp, category~country, value.var=c('Nbrands'))
 
@@ -506,7 +476,7 @@ print(kable(dtf, format='html', initial.zero = FALSE, digits=3,caption = tab(pas
 
 ```{r correl, echo=FALSE, results = 'asis'}
 
-tmp = dcast(elast,market_id+brand~variable, value.var=c('elast', 'elastlt'))
+tmp = dcast(elast,category+country+brand~variable, value.var=c('elast', 'elastlt'))
 
 #for (var in grep('elast', colnames(tmp),value=T)) {
 #  tmp[, (paste0('mc_', var)):=get(var)-mean(get(var),na.rm=T), by = c('market_id')]
@@ -559,62 +529,3 @@ for (byvar in c('category')) {
 ```	
 
 
-```{r newanalysis_robust, results = 'asis', include = TRUE, echo=FALSE}
-if(0){
-# formulas for models
-
-elast_backup = data.table(elast)
-
-elast_backup[!is.na(elastlt), mean_ms_mc := mean_ms-mean(mean_ms,na.rm=T), by = c('variable')]
-
-elast_backup[, international:=ifelse(ncountries>=2,1,0)]
-
-elast_backup[, gdppercap_rev := -ln_gci_00.03_gdppercap_s_mc]
-elast_backup[, gci_rev := -ln_gci_overall_s_mc]
-elast_backup[, hdi_rev := -ln_hdi2010_mc]
-
-upd_models = list(
-  main = .~1 + emerging + sbbe_std_mc + I(sbbe_std_mc*emerging)+ (1|country) + (1|category) + (1|brand) + ln_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market,
-  
-marketshare = .~1 + emerging + sbbe_std_mc + I(sbbe_std_mc*emerging)+ (1|country) + (1|category) + (1|brand) + ln_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market + mean_ms_mc,
-
-international = .~1 + emerging + sbbe_std_mc + I(sbbe_std_mc*emerging)+ (1|country) + (1|category) + (1|brand) + ln_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market + international,
-
-gdp = .~1 + gdppercap_rev + sbbe_std_mc + I(sbbe_std_mc*gdppercap_rev)+ (1|brand) + (1|category) + (1|country) + ln_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market,
-
-gci = .~1 + gci_rev + sbbe_std_mc + I(sbbe_std_mc*gci_rev)+ (1|country) + (1|category) + (1|brand) + ln_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market,
-
-hdi = .~1 + hdi_rev + sbbe_std_mc + I(sbbe_std_mc*hdi_rev)+ (1|country) + (1|category) + (1|brand) + ln_herf_mc + ln_market_growth_mc + appliance + ln_gini_mc + local_to_market
-)
-
-out=regmodel(formula=c(upd_models), dat=elast_backup, model='lmer')
-
-outlagx = regmodel(formula=list(lagx=upd_models$main), dat=elast_laggedx, model='lmer')
-
-elast_backup[is.na(gamma_lagms), gamma_lagms:=0]
-elast_backup[, elastlt := beta/(1-gamma_lagms)]
-
-out2=regmodel(formula=list(lambda=upd_models$main), dat=elast_backup, model='lmer')
-
-outsim=regmodel(formula=list(simulated=upd_models$main), dat=elast_simulated, model='lmer')
-
-
-outx = NULL
-
-  for (mod in names(out)) {
-    outx[[mod]]$variable=out[[mod]]$variable
-    outx[[mod]]$st=c(out[[mod]]$st$main, out[[mod]]$st$gdp, out[[mod]]$st$gci, out[[mod]]$st$hdi, out[[mod]]$st$marketshare, out[[mod]]$st$international, out2[[mod]]$st$lambda, outlagx[[mod]]$st$lagx, outsim[[mod]]$st$simulated)
-    outx[[mod]]$lt=c(out[[mod]]$lt$main, out[[mod]]$lt$gdp, out[[mod]]$lt$gci, out[[mod]]$lt$hdi, out[[mod]]$lt$marketshare, out[[mod]]$lt$international, out2[[mod]]$lt$lambda, outlagx[[mod]]$lt$lagx, outsim[[mod]]$lt$simulated)
-  }
-
-#sink('test.htm')
-for (i in seq(along=ordered_vars)) {
-  cat("<P style='page-break-before: always'>")
-
-  printout(outx, 'lt', title = tab(paste0('Robustness checks for long-term ', tolower(gsub('ity', 'ities', gsub('Line length', 'Line-length', names(ordered_vars[i])))), ''), prefix='A'), vars=ordered_vars[i],  notes=paste0(gsub('term elasticities', 'term elasticities (all models; except beta/(1-gamma) in model 4)', notes_base), ' Model (1) is the focal model; models (2)-(4) replace the emerging market indicator by alternative (continuous) metrics that measure a country\'s degree of development; because these metrics are increasing with a country\'s degree of development, they have been reverse-coded in model estimation, so that coefficients between model (1) and models (2)-(4) can directly be compared. Model (5) controls for a brand\'s market share, while model (6) controls for international brands (indicator variable, 1 for brands active in more than 1 country, 0 otherwise). Model (7) replaces long-term elasticities by beta/(1-gamma). Elasticities in model (8) are calculated from an alternative market share attraction model, allowing for marketing-mix and brand-specific dynamics by adding lagged marketing mix variable (but removing the common carry-over parameter); elasticities in model (9) are dynamically simulated, see Web Appendix B for the details.'), covariate_choices = covars, table.layout.overwrite=c('-c#m-t-a-n'),
-           colnames_overwrite=c('Main model', 'Log GDP', 'Log GCI','Log HDI', 'Controlling for marketshare', 'Controlling for international brands','DV is beta/(1-gamma)', 'Marketing-mix and brand-specific dynamics', 'Dynamic simulation'), colsep_overwrite = rep(1,9))
-}
-
-#sink()
-}
-```
