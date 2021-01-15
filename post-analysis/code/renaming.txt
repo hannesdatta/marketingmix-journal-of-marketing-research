@@ -20,6 +20,8 @@ netherlands	The Netherlands	gsub
 Usa	USA	gsub
 othercountry	Other country	gsub
 ^country	Country	gsub
+gdppercapitacurrent2010	GDP per capita	gsub
+gdpgrowth2010	GDP growth	gsub
 gdppercap2010	GDP per capita	gsub
 ln_hdi2010_mc	Log Human Development Index	gsub
 hdi2010	Human Development Index	gsub
