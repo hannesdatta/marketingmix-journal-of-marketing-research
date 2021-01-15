@@ -10,6 +10,7 @@ library(lmtest)
 library(car)
 library(knitr)
 library(digest)
+library(xlsx)
 
 fns <- c('app_workspace.RData')
 
@@ -418,9 +419,16 @@ ui <- fluidPage(
                        # tabPanel("Model Summary", verbatimTextOutput("summary")),
                        tabPanel("Model results", htmlOutput("stargazer")),#, # Regression output
                        tabPanel("VIFs", htmlOutput("vif")),
+                       #tabPanel("Elasticities", DT::dataTableOutput("elasticities")),
+                       
+                       #}, options = list(searching = FALSE)
                        tabPanel("Downloads", br(),
-                                downloadButton("downloadData", "Download model specification (RData file)"))
-                                #br(),
+                                downloadButton("downloadData", "Download model specification (RData file)"),
+                                br(),
+                                downloadButton("downloadElast", "Download estimated and predicted elasticities (CSV file)"),
+                                br(),
+                                downloadButton("downloadElastXLS", "Download estimated and predicted elasticities (Excel file)"))
+                              #br(),
                                 #downloadButton("downloadregdata", "Download data for second-stage regressions (csv file)"))#,
                      #  tabPanel("Correlations", htmlOutput("correl"))#, # Regression output
                        #, # Regression output
@@ -659,14 +667,20 @@ produce_model <- function(input) {
       
     })}, collapse='<br>'))
     
+    setcolorder(mods[[1]]$predictions, c('category','country','brand','brand_id','variable','elastlt','elast_lt_pred'))
+    setnames(mods[[1]]$predictions, 'elast_lt_pred','elastlt_pred')
+    
+    dstorage<<- mods[[1]]$predictions
     result_storage[[hash]]$results <<- paste0(outp, '<br>from memory<br>')
+    
     data_storage[[hash]]$predictions <<- mods[[1]]$predictions
+    
     #rm(me)
   }
   print(str(result_storage))
   print(str(bootstrap_storage))
   
-  return(outp)
+  return(list(printed_model = outp, predictions = data_storage[[hash]]$predictions))# = data_)
 }
 
 
@@ -680,9 +694,15 @@ server <- function(input, output) {
     #saved_input = reactiveValuesToList(input)
     o=produce_model(input)
     
-    return(o)
+    return(o$printed_model)
   })
 
+  output$elasticities = DT::renderDataTable({
+    o=produce_model(input)
+    #o$predictions
+    data.frame(1:100,1:100)})
+  
+  
   output$vif = renderText({
     # assemble form 
     
@@ -765,6 +785,28 @@ server <- function(input, output) {
     }
   )
  
+  output$downloadElast <- downloadHandler(
+    filename = function() {
+      paste('elasticities.csv')
+    },
+    content = function(file) {
+      if (!grepl('[.]csv$',file, ignore.case=T)) file=paste(file, '.csv')
+      o=produce_model(input)
+      fwrite(o$predictions, file=file)
+    }
+  )
+ 
+  output$downloadElastXLS <- downloadHandler(
+    filename = function() {
+      paste('elasticities.xlsx')
+    },
+    content = function(file) {
+      if (!grepl('[.]xlsx$',file, ignore.case=T)) file=paste(file, '.xlsx')
+      o=produce_model(input)
+      
+      write.xlsx(o$predictions, file=file, sheetName = 'elasticities', row.names=FALSE, showNA=FALSE)
+    }
+  ) 
   output$downloadregdata <- downloadHandler(
     filename = function() {
       paste('download.csv')
