@@ -422,6 +422,7 @@ ui <- fluidPage(
                        #tabPanel("Elasticities", DT::dataTableOutput("elasticities")),
                        
                        #}, options = list(searching = FALSE)
+                       tabPanel("Tables for the paper", includeHTML("tables.html")),
                        tabPanel("Downloads", br(),
                                 downloadButton("downloadData", "Download model specification (RData file)"),
                                 br(),

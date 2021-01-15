@@ -25,9 +25,12 @@ ln_hdi2010_mc	Log Human Development Index	gsub
 hdi2010	Human Development Index	gsub
 gdppercap[_]rev	GDP per capita (reverse-coded) 	gsub
 hdi[_]rev	Log Human Development Index (reverse-coded)	gsub
+^lnllen$	Line length	gsub
 ^llen$	Line length	gsub
 ^llendash$	Line-length	gsub
-wpswdst	Distribution	gsub
+^lnwpswdst	Distribution	gsub
+^wpswdst	Distribution	gsub
+lnrwpspr	Price	gsub
 rwpsprd	Price^2^	gsub
 rwpspr	Price	gsub
 nov6sh	New-product activity	gsub

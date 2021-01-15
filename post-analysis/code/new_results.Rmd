@@ -26,7 +26,8 @@ options(knitr.kable.NA = '')
   load('app/app_workspace.RData')
   
   elast <- elasticities$with_sur#fread('../externals/elast_results_with_sur.csv') 
-  
+  elast=elast[!grepl('allothers|unbranded', brand,ignore.case=T)]
+
   #elast[, elastlt:=elast6]
   #elast[, elastlt_se:=elast6_sd]
   #elast[, elast:=elast6]

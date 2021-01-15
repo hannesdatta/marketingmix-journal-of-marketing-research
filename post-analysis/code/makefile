@@ -10,7 +10,7 @@ OUTPUT_DIR = ../output
 
 ###### BUILD COMMANDS ######
 
-app: app/app_workspace.RData
+app: app/app_workspace.RData app/tables.html
 
 lala: app
 all: $(OUTPUT_DIR)/final_analysis.Rmd
@@ -23,6 +23,5 @@ app/app_workspace.RData: ../../derived/output/covariates.txt app_prep.R $(OUTPUT
 $(OUTPUT_DIR)/panel_covariates.txt: panel_covariates.R ../externals/preclean_main.csv
 	R --vanilla < panel_covariates.R
 
-
-#$(OUTPUT_DIR)/final_analysis.Rmd: final_analysis.Rmd proc_auxilary.R proc_rename.R preclean.R pre
-#	"$(RBIN64)Rscript.exe" -e "rmarkdown::render('final_analysis.Rmd', output_file = '../output/final_analysis.html')"
+app/tables.html: new_results.Rmd app/app_workspace.RData proc_auxilary.R proc_rename.R
+	R -e "rmarkdown::render('new_results.Rmd', output_file = 'app/tables.html')"
