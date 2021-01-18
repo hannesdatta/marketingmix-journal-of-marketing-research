@@ -7,50 +7,61 @@ output: html_document
 
 ```{r setup, include=FALSE}
 library(data.table)
+set.seed(1234)
+N = 1200
+data = data.table(date=1:N)
+data[, quarter:=floor(((date-1)%%12)/3)+1]
+for (i in 1:3) data[,paste0('quarter',i):=ifelse(quarter==i, 1, 0)]
 
 
-	brand_panel=fread('../temp/preclean_main.csv')
-	brand_panel[, ':=' (date = as.Date(date))]
-  
-# define markets to run analysis on 
-	markets <- brand_panel[, list(n_brands = length(unique(brand)),
-	                              n_obs = .N,
-								  n_dates = length(unique(date))), by=c('market_id','country', 'category')]
+data[, trend:=log(1:.N+1)]
+y_0 = 12
+k = 4
+x = matrix(runif(k*N),ncol=k)
+colnames(x) <- paste0('x', 1:k)
 
-	setorder(markets,market_id)
-	analysis_markets <- unique(markets$market_id)
-  length(analysis_markets)
- 
-# Define additional variables
+data <- cbind(data,x)
+data[, intercept:=1]
+
+beta = c('intercept' = 0, 'quarter1' = 1, 'quarter2' = -1, 'quarter3' = -.5, 'trend' = .1, 'x1' = 1, 'x2' = -2, 'x3' = .5, 'x4'=2, 'ly' = .9)
+
+rho = .5
+
+# Correlation matrix
+R = matrix(c(1, rho,
+                rho, 1), ncol=2)
+# Standard deviations
+S <- c(sqrt(.5), sqrt(.5))
+
+cor2cov <- function(R, S) {
+ sweep(sweep(R, 1, S, "*"), 2, S, "*")
+}
+
+Sigma = cor2cov(R, S)
   
-  setorder(brand_panel, market_id, brand, date)
-  brand_panel[selected==T&timewindow==T, trend:=as.double(.GRP),by=c('market_id', 'brand','date')]
-  brand_panel[selected==T&timewindow==T, trend:=trend-min(trend,na.rm=T)+1,by=c('market_id', 'brand')]
-  brand_panel[selected==T&timewindow==T, lntrend:=log(trend),by=c('market_id', 'brand')]
+# Draws from the Var-Covar Matrix
   
+library(MASS)
+set.seed(1234)
+
+error = mvrnorm(n = N, mu = c(0,0), Sigma =Sigma)
   
-  for (q in 1:3) {  
-    brand_panel[, paste0('quarter', q):=0]
-    brand_panel[quarter==q, paste0('quarter', q):=1]
-  }  
-    
-  vars=c('rwpspr', 'llen', 'wpswdst', 'usales', 'lagusales')#, grep('comp[_]', colnames(brand_panel),value=T))
-  for (var in vars) {
-    brand_panel[, anyzero:=as.numeric(any(get(var)==0),na.rm=T),by=c('market_id', 'brand')]
-    brand_panel[is.na(anyzero), anyzero:=0]
-    brand_panel[, paste0('ln', var):=log(get(var)+anyzero), by = c('market_id', 'brand')]
-    brand_panel[, paste0('dln', var):= get(paste0('ln', var))-c(NA, get(paste0('ln', var))[-.N]), by = c('market_id', 'brand')]
-  }
+F_x=pnorm(error[,2])
+pi_vals=c(-2,2)
+x = F_x*(max(pi_vals)-min(pi_vals))+min(pi_vals)
+data[, x1:=x]
+	  
+data[, ly:=as.numeric(NA)]
+data[1, ly:=0]
+data[, y:=as.numeric(NA)]  
+
+for (i in 1:N) {
+  ysim <- as.matrix(data[i, names(beta),with=F])%*%beta + error[i,1]
   
-  # competitive mmix
-  for (v in c('lnrwpspr', 'lnllen', 'lnwpswdst')) {
-    brand_panel[, paste0('sum_', v):=sum(get(v),na.rm=T), by = c('market_id', 'date')]
-    brand_panel[, paste0('N_', v):=length(which(!is.na(get(v)))), by = c('market_id', 'date')]
-    brand_panel[, paste0('comp_', v):=(get(paste0('sum_', v))-get(v))/(get(paste0('N_', v))-1)]
-    brand_panel[, paste0('sum_', v):=NULL]
-    brand_panel[, paste0('N_', v):=NULL]
-    brand_panel[, paste0('dcomp_',v):=get(paste0('comp_', v))-c(NA, get(paste0('comp_', v))[-.N]), by = c('market_id', 'brand')]
-    }
+  data[i, y:=ysim]
+  if (i<N) data[i+1, ly:=ysim]
+
+}
   
 ```
 
@@ -58,8 +69,18 @@ library(data.table)
 
 ```{r}
 
-# Load data for 1 brand
+# Recovery
+make_copula <- function(x, increment = .001) {
+		if (length(unique(x))==1) return(as.numeric(rep(NA, length(x))))
+		return(ifelse(ecdf(x)(x)==1, qnorm(1-increment), qnorm(ecdf(x)(x))))
+}
+data[, x1_star:=make_copula(x1)]
 
+library(stargazer)
+m1 <- lm(y~1+quarter1+quarter2+quarter3+trend+x1+x2+x3+x4+ly, data = data)
+m2 <- lm(y~1+quarter1+quarter2+quarter3+trend+x1+x2+x3+x4+x1_star+ly, data = data)
+
+stargazer(m1,m2, type='text')
 
 ```
 
