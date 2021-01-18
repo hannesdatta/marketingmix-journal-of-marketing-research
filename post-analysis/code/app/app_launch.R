@@ -655,15 +655,16 @@ produce_model <- function(input) {
       lbllist = list(r2s,aic, bic,obs)
     } 
     
-    outp=paste0(paste0(capture.output({stargazer(mods2, type='html', add.lines=lbllist,
-                                                 column.labels = rep(c('price','distribution','line length'), length(mods2)))}), collapse=''),
+    m_ord = c(3,1,2)
+    outp=paste0(paste0(capture.output({stargazer(mods2[m_ord], type='html', add.lines=lbllist,
+                                                 column.labels = rep(c('price','distribution','line length')[m_ord], length(mods2)))}), collapse=''),
                 '<br><br>', mspec$formula, "<br><br>", paste0(as.character(mspec$cluster), collapse=''), '<br><br>', mspec$modeltype)
     
-    if (mspec$modeltype=='lmer') outp = paste0(outp, '<br><br>', paste0({lapply(mods[[1]][1:3], function(x) {
+    if (mspec$modeltype=='lmer') outp = paste0(outp, '<br><br>', paste0({lapply(mods[[1]][m_ord], function(x) {
       test= capture.output({summary(x)})
       # select
       start=grep('Random effe', test, ignore.case=T)
-      end=grep('Fixed effe', test, ignore.case=T)
+      end=grep('Fixed effect', test, ignore.case=T)
       return(paste0(test[start:c(end-1)], collapse='<br>'))
       
     })}, collapse='<br>'))
