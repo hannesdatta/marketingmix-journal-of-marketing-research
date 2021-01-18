@@ -1,0 +1,74 @@
+---
+title: "Parameter recovery w/ Copulas"
+author: "Hannes Datta"
+date: "1/18/2021"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+library(data.table)
+
+
+	brand_panel=fread('../temp/preclean_main.csv')
+	brand_panel[, ':=' (date = as.Date(date))]
+  
+# define markets to run analysis on 
+	markets <- brand_panel[, list(n_brands = length(unique(brand)),
+	                              n_obs = .N,
+								  n_dates = length(unique(date))), by=c('market_id','country', 'category')]
+
+	setorder(markets,market_id)
+	analysis_markets <- unique(markets$market_id)
+  length(analysis_markets)
+ 
+# Define additional variables
+  
+  setorder(brand_panel, market_id, brand, date)
+  brand_panel[selected==T&timewindow==T, trend:=as.double(.GRP),by=c('market_id', 'brand','date')]
+  brand_panel[selected==T&timewindow==T, trend:=trend-min(trend,na.rm=T)+1,by=c('market_id', 'brand')]
+  brand_panel[selected==T&timewindow==T, lntrend:=log(trend),by=c('market_id', 'brand')]
+  
+  
+  for (q in 1:3) {  
+    brand_panel[, paste0('quarter', q):=0]
+    brand_panel[quarter==q, paste0('quarter', q):=1]
+  }  
+    
+  vars=c('rwpspr', 'llen', 'wpswdst', 'usales', 'lagusales')#, grep('comp[_]', colnames(brand_panel),value=T))
+  for (var in vars) {
+    brand_panel[, anyzero:=as.numeric(any(get(var)==0),na.rm=T),by=c('market_id', 'brand')]
+    brand_panel[is.na(anyzero), anyzero:=0]
+    brand_panel[, paste0('ln', var):=log(get(var)+anyzero), by = c('market_id', 'brand')]
+    brand_panel[, paste0('dln', var):= get(paste0('ln', var))-c(NA, get(paste0('ln', var))[-.N]), by = c('market_id', 'brand')]
+  }
+  
+  # competitive mmix
+  for (v in c('lnrwpspr', 'lnllen', 'lnwpswdst')) {
+    brand_panel[, paste0('sum_', v):=sum(get(v),na.rm=T), by = c('market_id', 'date')]
+    brand_panel[, paste0('N_', v):=length(which(!is.na(get(v)))), by = c('market_id', 'date')]
+    brand_panel[, paste0('comp_', v):=(get(paste0('sum_', v))-get(v))/(get(paste0('N_', v))-1)]
+    brand_panel[, paste0('sum_', v):=NULL]
+    brand_panel[, paste0('N_', v):=NULL]
+    brand_panel[, paste0('dcomp_',v):=get(paste0('comp_', v))-c(NA, get(paste0('comp_', v))[-.N]), by = c('market_id', 'brand')]
+    }
+  
+```
+
+# Simulate data
+
+```{r}
+
+# Load data for 1 brand
+
+
+```
+
+## Including Plots
+
+You can also embed plots, for example:
+
+```{r pressure, echo=FALSE}
+plot(pressure)
+```
+
+Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.

@@ -20,22 +20,13 @@ Ebbes, P., Wedel, M., Böckenholt, U., & Steerneman, T. (2005). Solving and test
 
 ```{r}
 
-sim_data <- function(rho = .5, N = 1000, pi_vals = c(-.3, .7), coef_x = 3) {
+sim_data <- function(rho = .5, N = 1000, pi_vals = c(-.3, .7), coef_x = 3, type='latentIV') {
   # Number of observations
   #N = 1000
   
   # Coefficients on latent instruments
   #pi_vals = c(-.3, .7) 
-  
-  # Class probabilities
-  p = c(.7, .3)
-  
-  # Assert the probs sum to 1
-  stopifnot(sum(p)==1)
-  
-  # Number of latent instruments
-  k = length(pi_vals)
-  
+
   # Correlation matrix
   R = matrix(c(1, rho,
                   rho, 1), ncol=2)
@@ -54,18 +45,49 @@ sim_data <- function(rho = .5, N = 1000, pi_vals = c(-.3, .7), coef_x = 3) {
   set.seed(1234)
   errorterm = mvrnorm(n = N, mu = c(0,0), Sigma =Sigma)
   
+  # Step 3: Compute endogenous regressor (uniformly distributed from min(unif) to max(unif)
+
+	
   cor(errorterm)
   cov(errorterm)
   
-  z <- sample(1:k, N, replace = T, prob = p)
-  cbind(class = 1:k, frequency = table(z), prob = table(z)/sum(table(z)))
+  z=NULL
   
-  # Simulate data
-  x = pi_vals[z] + errorterm[,2]
+  if(type=='latentIV') {
+    # Class probabilities
+    p = c(.7, .3)
+    
+    # Assert the probs sum to 1
+    stopifnot(sum(p)==1)
+    
+    # Number of latent instruments
+    k = length(pi_vals)
+    
+    z <- sample(1:k, N, replace = T, prob = p)
+    cbind(class = 1:k, frequency = table(z), prob = table(z)/sum(table(z)))
+  
+    # Simulate data
+    x <- pi_vals[z] + errorterm[,2]
+   # print('typex')
+    #print(x)
+  }
+  
+  if (type=='copula') {
+  
+    F_x=pnorm(errorterm[,2])
+	  x = F_x*(max(pi_vals)-min(pi_vals))+min(pi_vals)
+	#F_y=pnorm(y)
+	
+	
+  #x <- runif(N, min = min(pi_vals), max = max(pi_vals)) + errorterm[,2]
+  
+  }
+  
+  
   
   y = 1 + coef_x * x + errorterm[,1]
   
-  return(list(data = data.frame(y, x, z), pi_vals=pi_vals, coef_x = coef_x))
+  return(list(data = data.frame(y, x), z=z,pi_vals=pi_vals, coef_x = coef_x))
 
 
 }
@@ -110,6 +132,7 @@ summary(lm(y~1+x, data = out$data))
 ### Estimation
 ```{r}
 library(stats4)
+library(optimx)
 
 # Simulate data
 set.seed(999)
@@ -123,15 +146,79 @@ pi_vals=out$pi_vals
 
 params = c(0, 1, 1, 0, 1, 0, 1, 2)
 
+# without simulated maximum likelihood
 MLE = optimx(params, fn = llik, method = 'Nelder-Mead', hessian = TRUE, itnmax = 10000, 
         control = list(trace = 0, dowarn = FALSE))
 unlist(MLE)
 
 llik(params, sim=T)
 
-MLE = optimx(params, fn = llik, method = 'Nelder-Mead', hessian = TRUE, itnmax = 10000, 
+# with simulated maximum likelihood
+MLE2 = optimx(params, fn = llik, method = 'Nelder-Mead', hessian = TRUE, itnmax = 10000, 
         control = list(trace = 0, dowarn = FALSE), sim=T)
-unlist(MLE)
+unlist(MLE2)
 
 
 ```
+
+
+```{r}
+# try copulas
+
+#Gewone OLS zonder EC: Onze X’s; correlatie opbrengen met error term; Gaussian werkt (?) (yt, xt; endogeniteit aanmaken; xt, delta xt opnemen, kijken of het nog werkt)
+#Wel toewerken naar EC
+out=sim_data(rho = .3, coef_x=.5, pi_vals=c(-1,2), N = 10000)
+out=sim_data(rho = .5, coef_x=.5, pi_vals=c(-2,2), N = 10000, type = 'copula')
+
+make_copula <- function(x, increment = .001) {
+		if (length(unique(x))==1) return(as.numeric(rep(NA, length(x))))
+		return(ifelse(ecdf(x)(x)==1, qnorm(1-increment), qnorm(ecdf(x)(x))))
+}
+data=out$data
+data$copula <- make_copula(data$x)
+
+hist(data$x)
+
+shapiro.test(sample(data$x,5000))
+
+
+summary(lm(y~1+x,data=data))
+summary(lm(y~1+x+copula,data=data))
+
+# fantastic!
+
+```
+
+```{r}
+# recovery via Latent IVs?
+
+y=data$y
+x=data$x
+
+params = c(0, 1, 1, 0, 1, 0, 1, 2)
+
+# without simulated maximum likelihood
+MLE = optimx(params, fn = llik, method = 'Nelder-Mead', hessian = TRUE, itnmax = 10000, 
+        control = list(trace = 0, dowarn = FALSE))
+unlist(MLE)
+
+summary(lm(y~1+x,data=data))
+summary(lm(y~1+x+copula,data=data))
+
+y=data$y
+x=data$x
+
+
+#z=out$data$z
+#pi_vals=out$pi_vals
+
+# use copula in estimation?
+
+params = c(0, 1, 1, 0, 1, 0, 1, 2)
+
+MLE = optimx(params, fn = llik, method = 'Nelder-Mead', hessian = TRUE, itnmax = 10000, 
+        control = list(trace = 0, dowarn = FALSE))
+unlist(MLE)
+
+#llik(params, sim=T)
+
