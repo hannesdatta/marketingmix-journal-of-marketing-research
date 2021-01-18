@@ -76,3 +76,11 @@ llik <- function (params, sim=F) {
 # - multiple classes
 # - "exp" trick
 
+# EC
+# --
+# Gaussian Copulas in EC model
+# Use our data, similar model
+
+# Step 1:
+# -> regression model with lagged DV + copula
+# -> regression model with 
