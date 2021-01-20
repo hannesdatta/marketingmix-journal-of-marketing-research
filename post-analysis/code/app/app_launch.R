@@ -11,10 +11,24 @@ library(car)
 library(knitr)
 library(digest)
 library(xlsx)
+library(stringr)
+library(foreign)
+
+library(ggplot2)
+library(ggthemes)
 
 fns <- c('app_workspace.RData')
 
 for (fn in fns) if (file.exists(fn)) {cat(paste0('loading...', fn, '...\n')); load(fn)}
+
+
+brands <- elasticities$with_sur[, list(Ncountries = length(unique(country)), Ncategory=length(unique(category))),by=c('brand')]
+setorderv(brands, c('Ncountries', 'Ncategory'), order=-1L)
+brands <- brands[!grepl('alloth', brand)]
+
+categories = unique(elasticities$with_sur$category)
+countries = unique(elasticities$with_sur$country)
+
 
 
 ######## FUNCTIONS #######
@@ -408,10 +422,46 @@ ui <- fluidPage(
                     
                     
                     
+           ),
+           tabPanel("Plotting", 
+                    selectInput("plot_vars", label = h5("Variables"),
+                                choices = list('Price' = 'pr',
+                                               'Line length' = 'llen',
+                                               'Distribution' = 'dst'), 
+                                selected = c('pr','llen','dst'), multiple=TRUE),
+                   selectInput("plot_brands", label = h5("Brands"),
+                               choices = sapply(str_to_title(brands$brand), function(x) tolower(x), simplify=F), 
+                               selected = c('samsung', 'apple'), multiple=TRUE),
+                   selectInput("plot_categories", label = h5("Categories"),
+                               choices = sapply(str_to_title(categories), function(x) tolower(x), simplify=F), 
+                               selected =c('phones_smart'), multiple=FALSE),
+                   selectInput("plot_countries", label = h5("Countries"),
+                               choices = sapply(str_to_title(countries), function(x) tolower(x), simplify=F), 
+                               selected = countries, multiple=TRUE),
+                   radioButtons("plot_predicted", label = h5("Use estimated or predicted elasticities?"),
+                                c("Estimated" = 'elastlt',
+                                  "Predicted" = 'elastlt_pred'),
+                                selected = 'elastlt_pred'))
+                   #,
+                  # selectInput("plot_splits", label = h5("Split plots by"),
+                  #             choices = list('Brand'= 'brand', 'Category'='category',
+                  #                            'Country' = 'country'), selected = c('brand', 'category','country'), multiple=TRUE))
+           #selectInput("orth_ivs", label = h5("...using ind. variables"),
+#                                choices = potential_vars_unlisted, selected = c('ln_gdpgrowthyravg_mc', 'ln_gdppercapitacurrentyravg_mc', 'ln_ginicoef_mc'), multiple=TRUE),
+ #                   radioButtons("bootstrap_used", label = h5("Use bootstrapping (only when orthogonalization used)"),
+                                 #c("Yes" = T,
+                                  # "No" = F),
+                                 #selected = F),
+                    #selectInput("bootstrap_reps", label = h5("Bootstrap samples"),
+                                #choices = c(10,20,50,100), selected = 10, multiple=FALSE)
+                    
+                    
+                    
+                    
            )
            
            
-           )
+           
     ),
     column(8,
            tabsetPanel(type = "tabs",
@@ -419,6 +469,10 @@ ui <- fluidPage(
                        # tabPanel("Model Summary", verbatimTextOutput("summary")),
                        tabPanel("Model results", htmlOutput("stargazer")),#, # Regression output
                        tabPanel("VIFs", htmlOutput("vif")),
+                       tabPanel("Plots (brand-specific bar plots)", plotOutput('plot')),
+                       tabPanel("Plots (scatter plots)", plotOutput('surface')),
+                       
+                       #tabPanel("VIFs2", htmlOutput("vif2")),
                        #tabPanel("Elasticities", DT::dataTableOutput("elasticities")),
                        
                        #}, options = list(searching = FALSE)
@@ -663,7 +717,7 @@ produce_model <- function(input) {
     if (mspec$modeltype=='lmer') outp = paste0(outp, '<br><br>', paste0({lapply(mods[[1]][m_ord], function(x) {
       test= capture.output({summary(x)})
       # select
-      start=grep('Random effe', test, ignore.case=T)
+      start=grep('Random effects', test, ignore.case=T)
       end=grep('Fixed effect', test, ignore.case=T)
       return(paste0(test[start:c(end-1)], collapse='<br>'))
       
@@ -699,11 +753,80 @@ server <- function(input, output) {
     return(o$printed_model)
   })
 
-  output$elasticities = DT::renderDataTable({
+  output$plot <- renderPlot({
     o=produce_model(input)
-    #o$predictions
-    data.frame(1:100,1:100)})
+    dt = o$predictions
+    
+    if (!is.null(input$plot_brands)) dt <- dt[brand%in%input$plot_brands]
+    if (!is.null(input$plot_categories)) dt <- dt[category%in%input$plot_categories]
+    if (!is.null(input$plot_countries)) dt <- dt[country%in%input$plot_countries]
+    if (!is.null(input$plot_vars)) dt <- dt[variable%in%input$plot_vars]
+    
+    ggplot(dt, aes(fill=brand, y = eval(parse(text=input$plot_predicted)), x = variable)) + geom_bar(position='dodge2',stat='identity') + 
+      facet_wrap( ~ country) + theme_tufte() + ylab(input$plot_predicted) +
+      labs(#color='price elasticity',
+             caption = 'Plot generated for SELECTED categories, countries, brands, and marketing mix elasticities.')
+    
+    
+    
+  })
   
+  output$surface <- renderPlot({
+    o=produce_model(input)
+    dt = o$predictions
+    
+    #if (!is.null(input$plot_brands)) dt <- dt[brand%in%input$plot_brands]
+    #if (!is.null(input$plot_categories)) dt <- dt[category%in%input$plot_categories]
+    if (!is.null(input$plot_countries)) dt <- dt[country%in%input$plot_countries]
+    #if (!is.null(input$plot_vars)) dt <- dt[variable%in%input$plot_vars]
+    
+    
+    tmp = dcast(dt, category+country+brand~variable, value.var=input$plot_predicted)
+    
+   # library(plotly)
+    
+   # kd <- with(MASS::geyser, MASS::kde2d(duration, waiting, n = 50))
+    
+    
+    #fig <- plot_ly() %>% add_trace(data = tmp[!is.na(llen)],  x=tmp[!is.na(llen)]$llen, y=tmp[!is.na(llen)]$pr, z=tmp[!is.na(llen)]$dst, type="mesh3d" ) 
+    
+   
+    
+    if(0){
+    plot_ly(x=~tmp[!is.na(llen)]$llen,y=~tmp[!is.na(llen)]$dst, color=~tmp[!is.na(llen)]$pr) %>% layout(xaxis=list(title= 'line length elasticity'),
+                                                                                                        yaxis=list(title = 'distribution elasticity'),
+                                                                                                        legend=list(title=list(text='<b> Trend </b>')))
+    }
+    
+    
+    
+   # fig <- fig %>%  add_trace(data = tmp,  x=x, y=data$y, z=data$z, type="mesh3d" ) 
+    
+    
+    #add_surface()
+    
+   # fig
+    
+    
+   # ggplot(tmp, aes(x=llen, y=pr, z=dst)) + geom_point()
+    
+   # fill=brand, y = eval(parse(text=input$plot_predicted)), x = variable)) + geom_bar(position='dodge2',stat='identity') + 
+   #               facet_wrap( ~ country) + theme_tufte() + ylab(input$plot_predicted)
+                
+    ggplot(tmp[!is.na(llen)], aes(x=llen, y=dst)) + geom_point(aes(color=pr)) + scale_colour_gradient2_tableau() +
+      xlab('line length elasticity') + ylab('distribution elasticity') + labs(color='price elasticity',
+                                                                              caption = 'Plot generated for ALL categories and brands, in selected countries.')
+    
+  })
+    
+  
+  output$elasticities = DT::renderDataTable({
+    #o=produce_model(input)
+    #o$predictions
+    return(data.frame(1:100))})
+  
+ # output$vif2 = renderText({
+ #   return('test')})
   
   output$vif = renderText({
     # assemble form 
