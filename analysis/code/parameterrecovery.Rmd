@@ -8,7 +8,7 @@ output: html_document
 ```{r setup, include=FALSE}
 library(data.table)
 set.seed(1234)
-N = 1200
+N = 120
 data = data.table(date=1:N)
 data[, quarter:=floor(((date-1)%%12)/3)+1]
 for (i in 1:3) data[,paste0('quarter',i):=ifelse(quarter==i, 1, 0)]
