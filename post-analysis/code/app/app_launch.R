@@ -781,7 +781,7 @@ server <- function(input, output) {
     #if (!is.null(input$plot_vars)) dt <- dt[variable%in%input$plot_vars]
     
     
-    tmp = dcast(dt, category+country+brand~variable, value.var=input$plot_predicted)
+    tmp = dcast.data.table(dt, category+country+brand~variable, value.var=input$plot_predicted)
     
    # library(plotly)
     
