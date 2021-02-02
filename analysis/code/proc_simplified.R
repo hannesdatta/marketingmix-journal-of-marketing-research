@@ -86,7 +86,8 @@ return(list(elast=elast1, model=m1, vif=vif1))
 
 
 # Configure model type and calibrate lag structure
-simple_ec <- function(id, controls_diffs='^comp[_]', #
+simple_ec <- function(id, vars = c('lnrwpspr','lnllen','lnwpswdst'),
+                          controls_diffs='^comp[_]', #
                           controls_laglevels = '',
                           controls_curr = 'quarter[1-3]|lnholiday',
                           controls_cop = '^cop[_]d[.]1[.]', pval = .1,
@@ -98,9 +99,10 @@ simple_ec <- function(id, controls_diffs='^comp[_]', #
   
   brands_in_market <- unique(brand_panel[market_id%in%unique(brand_panel[brand_id==id]$market_id)]$brand)
   
-  vars = c('lnrwpspr','lnllen','lnwpswdst') 
   
+  print(vars)
   vars = vars[unlist(lapply(dt[, vars, with=F], use_ts))]
+  print(vars)
   
   control_vars = sapply(c(diffs=controls_diffs,lags=controls_laglevels,curr=controls_curr), function(ctrls) if (nchar(ctrls)>0) grep(ctrls, colnames(dt),value=T))
   control_vars = lapply(control_vars, function(control_var) control_var[unlist(lapply(dt[, control_var, with=F], use_ts))])
