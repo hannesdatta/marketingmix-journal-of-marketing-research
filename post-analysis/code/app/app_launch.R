@@ -441,7 +441,19 @@ ui <- fluidPage(
                    radioButtons("plot_predicted", label = h5("Use estimated or predicted elasticities?"),
                                 c("Estimated" = 'elastlt',
                                   "Predicted" = 'elastlt_pred'),
-                                selected = 'elastlt_pred'))
+                                selected = 'elastlt_pred'),
+                   selectInput("plot_stack_by", label = h5("Stacked bar chart by..."),
+                               choices = list('Countries'='country',
+                                              'Categories'='category'),
+                               selected = 'country', multiple=FALSE),
+                   selectInput("plot_stack_val", label = h5("Stacked bar chart with..."),
+                               choices = list('Relative elasticities (in %)'='rel_val',
+                                              'Absolute elasticities'='abs_val'),
+                               selected = 'rel_val', multiple=FALSE)
+                   
+                   
+                   
+                   )
                    #,
                   # selectInput("plot_splits", label = h5("Split plots by"),
                   #             choices = list('Brand'= 'brand', 'Category'='category',
@@ -469,6 +481,7 @@ ui <- fluidPage(
                        # tabPanel("Model Summary", verbatimTextOutput("summary")),
                        tabPanel("Model results", htmlOutput("stargazer")),#, # Regression output
                        tabPanel("VIFs", htmlOutput("vif")),
+                       tabPanel("Plots (stacked bar charts)", plotOutput('stacked')),
                        tabPanel("Plots (brand-specific bar plots)", plotOutput('plot')),
                        tabPanel("Plots (scatter plots)", plotOutput('surface')),
                        
@@ -819,6 +832,50 @@ server <- function(input, output) {
     
   })
     
+  output$stacked <- renderPlot({
+    o=produce_model(input)
+    dt = o$predictions
+    
+    #if (!is.null(input$plot_brands)) dt <- dt[brand%in%input$plot_brands]
+    #if (!is.null(input$plot_categories)) dt <- dt[category%in%input$plot_categories]
+   # if (!is.null(input$plot_countries)) dt <- dt[country%in%input$plot_countries]
+    #if (!is.null(input$plot_vars)) dt <- dt[variable%in%input$plot_vars]
+    
+    dt[, abs_val:=(get(input$plot_predicted))]
+    dt[variable=='pr', abs_val:=-(get(input$plot_predicted))]
+    
+    
+    dt[, rel_val:=abs_val/sum(abs_val), by =c('category','country','brand')]
+    
+    # agglevel
+    
+    tmp = dcast.data.table(dt, category+country+brand~variable, value.var=input$plot_stack_val)#'rel_share')
+    
+    agglevel = input$plot_stack_by #c('country')
+    
+    tmp2 = tmp[, lapply(.SD, mean,na.rm=T),by=c(agglevel), .SDcol=c('llen','pr','dst')]
+    tmp2[, sum:=llen+pr+dst]
+    
+    tmp3 = melt(tmp2, id.vars=c(agglevel))
+    levels(tmp3$variable)
+    tmp3[, variable:=factor(as.character(variable), levels=c('pr','dst','llen', 'sum'))]
+    #levels(tmp3$variable) <- c('price','distribution','line length')
+    levels(tmp3$variable)
+    
+    if (input$plot_stack_val=='rel_val') levs=unlist(tmp3[variable=='llen',1])[order(tmp3[variable=='llen']$value)]
+    if (input$plot_stack_val=='abs_val') levs=unlist(tmp3[variable=='sum',1])[order(tmp3[variable=='sum']$value)]
+    
+    tmp3[, paste0(agglevel):=factor(as.character(get(agglevel)), levels = levs)]
+    
+    ggplot(tmp3[!variable%in%'sum'], aes(fill=variable, y=value, x=eval(parse(text=agglevel)))) + 
+      geom_bar(position="stack", stat="identity") +coord_flip() + xlab(agglevel) +
+      ylab(ifelse(input$plot_stack_by=='rel_val', 'relative elasticity', 'absolute elasticity'))  + labs(fill='elasticities',
+                                                                                                         caption = paste0('Plot generated for all brands, and sorted by ', ifelse(input$plot_stack_val=='rel_val', 'relative share of line length elasticities', 'sum of absolute elasticities'),'.'))
+    
+
+    
+    
+  })
   
   output$elasticities = DT::renderDataTable({
     #o=produce_model(input)
