@@ -36,8 +36,12 @@ for (fn in ds) {
 	  brand_panel[, paste0('lag', .var) := c(NA, get(.var)[-.N]), by = c('market_id', 'brand')]
 	}
 	
+	
 	# keep selected brands and ALLOTHER brands
   brand_panel <- brand_panel[selected==T]
+  
+  brand_panel[selected_brand==T, list(.N),by=c('brand','category','country')][!grepl('allothers',brand)]
+  
   
   brand_panel[, usales_incr:=ifelse(usales==0, usales+.01, usales)]
   
@@ -76,11 +80,9 @@ for (fn in ds) {
   brand_panel[, obs48 := sum(timewindow)>=48, by = c('brand_id')]
   
 	setorder(brand_panel, market_id, brand, date)
-	
+
 	# Save file
 	dir.create('../temp')
-	
-	brand_panel <- brand_panel[!brand=='mobistar']
 	
 	fwrite(brand_panel, paste0('../temp/', gsub('datasets', 'preclean', fn)))
 }

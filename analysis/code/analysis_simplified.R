@@ -47,6 +47,18 @@ dir.create('../output')
 	analysis_markets <- unique(markets$market_id)
   length(analysis_markets)
  
+  brand_panel[selected==T&timewindow==T&obs48, list(.N),by=c('brand','category','country')][!grepl('allothers',brand)]
+  
+  # total u sales
+  alls=sum(brand_panel$usales,na.rm=T)
+  cov=sum(brand_panel[selected==T&timewindow==T&obs48]$usales,na.rm=T)
+  cov/alls # --> report in paper
+  
+  
+  brand_panel[selected==T&timewindow==T&obs48, list(.N),by=c('brand','category','country')][!grepl('allothers',brand)]
+  
+  # brand_panel[, list(.N),by=c('brand','category','country')][!grepl('allothers',brand)]
+  
 # Define additional variables
   
   setorder(brand_panel, market_id, brand, date)
@@ -125,9 +137,30 @@ dir.create('../output')
   nrow(brand_panel[selected==T])
   nrow(brand_panel[selected==T & timewindow==T &obs48==T])
   
+  brand_panel[, list(.N),by=c('category','country','brand')] # [!grepl('alloth',brand)]
+  brand_panel[, list(.N),by=c('category','country','brand')][!grepl('alloth',brand)]
+  brand_panel[selected==T & timewindow == T & obs48 == T, list(.N),by=c('category','country','brand')][!grepl('alloth',brand)]
+  # we lose:
+  brand_panel[selected==T & timewindow == T & obs48 == F, list(.N),by=c('category','country','brand')][!grepl('alloth',brand)]
+  brand_panel[selected==T & timewindow == T & obs48 == F, list(.N),by=c('category','country','brand')][!grepl('alloth',brand)][, list(.N, avgN=mean(N)),by=c('category')]
+  
+  rem_obs=nrow(brand_panel[selected==T & timewindow == F & obs48 == T])
+  keep_obs=nrow(brand_panel[selected==T & timewindow == T & obs48 == T])
+  
+ # (rem_obs)/keep_obs
+  
+  
+  
+#  , list(.N),by=c('category','country','brand')][!grepl('alloth',brand)][, list(.N, avgN=mean(N)),by=c('category')]
+  
+  
   brand_panel <- brand_panel[selected==T & timewindow==T &obs48==T] # at least 48 obs for estimation
   
   length(unique(brand_panel[selected==T]$brand_id))
+  
+  brand_panel[, list(.N),by=c('brand','category','country')][!grepl('allother',brand)]
+  brand_panel[, list(.N),by=c('brand','category','country')][!grepl('allother',brand)][, list(.N),by=c('brand')] # --> uniq brand
+  
   
   # Define copula terms
   for (var in c('lnrwpspr', 'lnllen', 'lnwpswdst')) {
