@@ -428,7 +428,8 @@ for (selrule in names(selection)) {
     	                      rwsprd = wsprd/cpi, 
     	                      rwpsprd = wpsprd/cpi,
     	                      rwsadv = wsadv/cpi,
-    	                      rwpsadv = wpsadv/cpi)]
+    	                      rwpsadv = wpsadv/cpi,
+    	                      radv = adv/cpi)]
     	    
     	    # Investigate which part of the data set is complete and can be used for model estimation
     	    tmp <- split(paneldata, as.character(paneldata$brand))
