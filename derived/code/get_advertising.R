@@ -48,11 +48,11 @@ library(zoo)
   gsub("(^[[:space:]]+|[[:space:]]+$)", "", x)
 	}
 	
-	adv_data[, fileid:=gsub('( - China)','',fileid)]
-	adv_data[, fileid:=gsub('( -China)','',fileid)]
-	adv_data[, fileid:=gsub('(Top 7)','',fileid)]
-	adv_data[, fileid:=gsub('(  )',' ',fileid)]
-	adv_data[, fileid:=gsub('(.xls)','',fileid)]
+	adv_data[, fileid:=gsub('( - China)','',fileid, ignore.case=T)]
+	adv_data[, fileid:=gsub('( -China)','',fileid, ignore.case=T)]
+	adv_data[, fileid:=gsub('(Top 7)','',fileid, ignore.case=T)]
+	adv_data[, fileid:=gsub('(  )',' ',fileid, ignore.case=T)]
+	adv_data[, fileid:=gsub('(.xls)','',fileid, ignore.case=T)]
 	adv_data[, fileid:=tolower(trim(fileid))]
 	
 	make_series <- function(X, year, month) { # Update: Harald's devide-by-three rule; provided on 17 April 2015 via E-Mail
@@ -179,7 +179,7 @@ adv_merged = tmp[, list(adspent=sum(adspent,na.rm=T)),by=c('category','country',
 # sum up adv spending
 
 # fill in zero ad spending
-tmp=dcast(adv_merged,category+country+brand~date, value.var='adspent')
+tmp=dcast.data.table(adv_merged,category+country+brand~date, value.var='adspent')
 tmp2=melt(tmp, id.vars=c('category','country','brand'))
 setnames(tmp2, 'variable','date')
 setnames(tmp2, 'value','adspent')

@@ -191,8 +191,9 @@ for (selrule in names(selection)) {
   	                                         wswdst = weigh_by_w(t_wdist_filled,t_sales_units,na.rm=T, type = w_type),
   	                                         wpswdst = weigh_by_w(t_wdist_filled,t_sales_units_rolled,na.rm=T, type = w_type),
   	                                         
-                                             wsadv = weigh_by_w(adv, t_sales_units, na.rm=T, type = w_type),
-                                             wpsadv = weigh_by_w(adv, t_sales_units_rolled, na.rm=T, type = w_type),
+                                            adv = mean(adv, na.rm=T),
+                                            wsadv = weigh_by_w(adv, t_sales_units, na.rm=T, type = w_type),
+                                            wpsadv = weigh_by_w(adv, t_sales_units_rolled, na.rm=T, type = w_type),
                                       
   	                                         nov1 = length(unique(model[t_sales_units>0&novelty_sum%in%1])),
   	                                         nov3 = length(unique(model[t_sales_units>0&novelty_sum%in%1:3])),
