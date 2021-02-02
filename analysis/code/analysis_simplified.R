@@ -57,7 +57,9 @@ dir.create('../output')
   
   brand_panel[selected==T&timewindow==T&obs48, list(.N),by=c('brand','category','country')][!grepl('allothers',brand)]
   
-  # brand_panel[, list(.N),by=c('brand','category','country')][!grepl('allothers',brand)]
+  brand_panel[selected==T&timewindow==T&obs48, list(.N),by=c('brand','category','country')][!grepl('allothers',brand)]
+  brand_panel[selected==T&timewindow==T&obs48, list(.N),by=c('brand')][!grepl('allothers',brand)] # -> uniq brands
+  
   
 # Define additional variables
   
@@ -170,6 +172,8 @@ dir.create('../output')
   
   #brand_panel[, lngdp := log(gdppercapita)]
   brand_panel[, lnholiday := log(npublicholidays+1)]
+  
+  brand_panel <- brand_panel[!grepl('alloth',brand, ignore.case=T)]
   
 ##########################
 # DYNAMAC ARDL PROCEDURE #
