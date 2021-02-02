@@ -115,7 +115,7 @@ stopifnot(nrow(rbindlist(lapply(skus_by_date_list, function(x) x[, list(N=.N), b
   	# calculate market shares by brand
   	tmp_brands_select[, marketshare := brand_sales / sum(brand_sales), by=c('category','country')]
   	tmp_brands_select[, ms_fulfilled := marketshare >= min_share]
-  	tmp_brands_select[, selected_brand := consec_fulfilled == T & ms_fulfilled==T, by = c('category','country',brand_id)]
+  	tmp_brands_select[, selected_brand := !grepl('unknown|local|unbranded', get(brand_id), ignore.case=T) & consec_fulfilled == T & ms_fulfilled==T, by = c('category','country',brand_id)]
   
   	# mark markets with only 1 brand (excluding the composite allother)
   	tmp_brands_select[, n_brands_selected := length(unique(get(brand_id)[selected_brand==T&!grepl('ALLOTHER', get(brand_id))])), by = c('category','country')]
