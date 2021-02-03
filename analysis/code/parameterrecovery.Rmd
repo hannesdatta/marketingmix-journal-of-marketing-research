@@ -140,17 +140,8 @@ all_res=rbindlist(lapply(data, function(dt) {
 }))
 
 summary(all_res)
-hist(all_res,breaks=100)
+hist(all_res$biased,breaks=20, main = 'Histogram of parameter without Copula correction')
+hist(all_res$corrected,breaks=20, main = 'Histogram of parameter with Copula correction')
+
 ```
 
-
-
-## Including Plots
-
-You can also embed plots, for example:
-
-```{r pressure, echo=FALSE}
-plot(pressure)
-```
-
-Note that the `echo = FALSE` parameter was added to the code chunk to prevent printing of the R code that generated the plot.
