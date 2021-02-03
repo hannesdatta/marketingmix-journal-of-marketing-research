@@ -28,26 +28,8 @@ options(knitr.kable.NA = '')
   elast <- elasticities$with_sur#fread('../externals/elast_results_with_sur.csv') 
   elast=elast[!grepl('allothers|unbranded', brand,ignore.case=T)]
 
-  #elast[, elastlt:=elast6]
-  #elast[, elastlt_se:=elast6_sd]
-  #elast[, elast:=elast6]
-  #elast[, elast_se:=elast6_sd]
-  #elast <- elast[!elast6_sd==0]
-  #setnames(elast, 'varname', 'variable')
-  
-  #source('preclean.R')
-  
- # elast <- copy(elast)
- 
-  
-# Keep only brands that are common in first/last dataset
-  #firstobs = with(elast_firstobs, unique(paste(market_id,brand)))
-  #lastobs = with(elast_lastobs, unique(paste(market_id,brand)))
-  #bothobs = intersect(firstobs, lastobs)
-  
- 
-  # set order of variables to appear in figures and tables
-ordered_vars =  c('lnllen', 'lnrwpspr', 'lnwpswdst') #c('lnrwpspr', 'lnwpswdst','lnllen')
+# set order of variables to appear in figures and tables
+ordered_vars =  c('lnllen', 'lnrwpspr', 'lnwpswdst')
 ordered_vars = ordered_vars[which(ordered_vars%in%elast$variable)]
 
 names(ordered_vars) <- paste0(unlist(sanitize_table(data.frame(gsub('^ln', '', ordered_vars)))), ' elasticity')
@@ -92,16 +74,10 @@ zval = qnorm(1-sigvalue/2)
 
 ```
 
-```{r, echo = FALSE}
-#`r fig('Conceptual framework (see Word document)')`
-
-#`r tab('Expected Effects on Marketing Elasticities (see Word document)')`
-```
-
 # Data
 
 ```{r table1_countries, echo = FALSE}
-tmp=unique(elast, by='country')[, c('country','gdppercapitacurrent2010','gdpgrowth2010', 'gci_overall_s','hdi2010', 'developed'),with=F]
+tmp=unique(elast, by='country')[, c('country','gdppercapitacurrent2010','gdpgrowth2010', 'ginicoef','developed'),with=F] #ci_overall_s','hdi2010', '')
 setorderv(tmp, c('developed', 'gdppercapitacurrent2010'), order=-1L)
 first_emerging=match(0,tmp$developed)
 tmp[, developed:=NULL]
@@ -111,8 +87,8 @@ colnames(tmp)[2]<-paste0(colnames(tmp)[2], '^2^')
 colnames(tmp)[3]<-paste0(colnames(tmp)[3], '^2^')
 colnames(tmp)[4]<-paste0(colnames(tmp)[4], '^3^')
 
-kable(tmp, format='html', digits=2, format.args = list(big.mark = ","), initial.zero = FALSE, caption=tab('Development indicators for countries in sample^1^')) %>%
-        kable_styling() %>% footnote(number=c('Countries ranked by GDP per capita.', "GDP per capita is in current USD, based on IMF World Economic Outlook Database (April 2010). The Global Competitiveness Index captures microeconomic and macroeconomic foundations of national competitiveness. Both measures are extracted from the World Economic Forum's Global Competitiveness Report (2010/2011, available at https://www.weforum.org/reports/global-competitiveness-report-2010-2011).", "Human Development Index (HDI), capturing a country's living standard, healthcare quality and knowledge base. Measure obtained from the UN Development Programme (2010, http://hdr.undp.org/en/content/human-development-index-hdi). Taiwan's HDI has been imputed as the mean HDI of Thailand and China.")) %>%
+kable(tmp, format='html', digits=c(2,0,2,2), format.args = list(big.mark = ","), initial.zero = FALSE, caption=tab('Development indicators for countries in sample^1^')) %>%
+        kable_styling() %>% footnote(number=c('Countries ranked by GDP per capita.', "Sources to be updated.")) %>%
   group_rows("Developed economies", 1, first_emerging-1) %>%
   group_rows("Emerging economies", first_emerging, 14)
 
@@ -348,7 +324,7 @@ cat("<P style='page-break-before: always'>")
 cols =  c('country_of_origin')
 tmp = elast[, list(.N), by = c('brand',cols)]
 tmp = tmp[!grepl('alloth', brand)]
-tmp = tmp[, list(nbrands=length(unique(brand)), all_brands=paste(brand[order(brand)], collapse=', ')), by = cols]
+tmp = tmp[, list(nbrands=length(unique(brand)), all_brands=paste(my_capitalize(brand)[order(brand)], collapse=', ')), by = cols]
 tmp[country_of_origin==''|is.na(country_of_origin), country_of_origin := 'Country not available']
 tmp[, country_of_origin:=my_capitalize(country_of_origin)]
 
