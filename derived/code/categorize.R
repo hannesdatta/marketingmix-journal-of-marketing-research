@@ -81,6 +81,8 @@ datlist_by_cat = lapply(datlist_by_cat, function(x) {
   x[Brand=='EVERCOSS/CROS', Brand:='EVERCOSS']
   x[Brand=='EVERCOSS/CROSS', Brand:='EVERCOSS']
   x[Brand=='MOBISTAR', Brand:='MOBIISTAR']
+  x[Brand=='3D', Brand:='THREED']
+  x[Brand=='3d', Brand:='THREED']
   
   
 })
