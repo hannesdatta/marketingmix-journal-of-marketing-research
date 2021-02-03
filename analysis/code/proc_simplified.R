@@ -90,8 +90,10 @@ simple_ec <- function(id, vars = c('lnrwpspr','lnllen','lnwpswdst'),
                           controls_diffs='^comp[_]', #
                           controls_laglevels = '',
                           controls_curr = 'quarter[1-3]|lnholiday',
-                          controls_cop = '^cop[_]d[.]1[.]', pval = .1,
-                      kickout_ns_copula = T) {
+                          controls_cop = '^cop[_]d[.]1[.]', 
+                      pval = .1,
+                      kickout_ns_copula = T, 
+                      holdout= NULL) {
   
   # 1.0 Conduct bounds test
   dv='lnusales'
@@ -106,6 +108,7 @@ simple_ec <- function(id, vars = c('lnrwpspr','lnllen','lnwpswdst'),
   
   control_vars = sapply(c(diffs=controls_diffs,lags=controls_laglevels,curr=controls_curr), function(ctrls) if (nchar(ctrls)>0) grep(ctrls, colnames(dt),value=T))
   control_vars = lapply(control_vars, function(control_var) control_var[unlist(lapply(dt[, control_var, with=F], use_ts))])
+  print(control_vars)
   
   dt[, lntrend:=lntrend-mean(lntrend,na.rm=T)]
   dt[, trend:=trend-mean(trend,na.rm=T)]
@@ -114,19 +117,37 @@ simple_ec <- function(id, vars = c('lnrwpspr','lnllen','lnwpswdst'),
   vars_delta = paste0('d', c(vars, control_vars$diffs))
   vars_lags = paste0('lag', c(vars, control_vars$lags))
   vars_curr = control_vars$curr
-
-  if (nchar(controls_cop)==0|is.null(controls_cop)) {
+  
+  if (length(control_vars$diff)==0) vars_delta=NULL
+  if (length(control_vars$lags)==0) vars_lags=NULL
+  
+  if (is.null(controls_cop)) {
     vars_cop = NULL 
     } else {
+      if (nchar(controls_cop)==0) {
+        vars_cop=NULL
+      } else {
     vars_cop = grep(controls_cop, colnames(dt), value=T)
     vars_cop = vars_cop[unlist(lapply(dt[, vars_cop, with=F], use_ts))]
-  }
+      }
+    }
+  #if (is.null(controls_cop)) vars_cop=NULL
+  
   
   for (v in vars_lags) dt[, (v):=c(NA, get(gsub('^lag','',v))[-.N])]
   
-  my_form = update.formula(dlnusales~1, as.formula(paste0('.~.+1+', paste0(c(vars_delta, vars_cop, 'lnlagusales', paste0('I(-', vars_lags,')'), vars_curr), collapse='+'))))
+  my_form = update.formula(dlnusales~1, as.formula(paste0('.~.+1+', paste0(c(vars_delta, vars_cop, 'lnlagusales', switch(length(vars_lags)>0, paste0('I(-', vars_lags,')')), vars_curr), collapse='+'))))
   
-  m = lm(my_form, data= dt)
+  dt[, estim_set:=T]
+  
+  dt[, percentile_obs:=(1:.N)/.N]
+  
+  #dt[, percentile_obs:=(percentile_obs-min(percentile_obs))]
+  #dt[, percentile_obs:=percentile_obs/max(percentile_obs)]
+  
+  if (!is.null(holdout)) dt[percentile_obs>(1-holdout), estim_set:=F]
+  
+  m = lm(my_form, data= dt, subset = estim_set==T)
   
   
   #identifiers = unique(dt[,c('market_id', 'category','country', 'brand', 'brand_id' ),with=F], by=c('brand_id'))
@@ -138,7 +159,7 @@ simple_ec <- function(id, vars = c('lnrwpspr','lnllen','lnwpswdst'),
   
   # kickout ns. copulas
   if (!is.null(vars_cop) & kickout_ns_copula == T) {
-    tmpres = data.table(variable=names(m$coefficients), summary(m)$coefficients)[grepl(controls_cop, variable)]
+    tmpres = data.table(variable=rownames(summary(m)$coefficients), summary(m)$coefficients)[grepl(controls_cop, variable)]
     setnames(tmpres, c('variable','est','se','t','p'))
     tmpres = tmpres[p>pval]
   
@@ -147,16 +168,29 @@ simple_ec <- function(id, vars = c('lnrwpspr','lnllen','lnwpswdst'),
   
   if (length(kickoutcoef>0)) {
     my_form =update.formula(my_form, as.formula(paste0('.~.-', paste0(kickoutcoef, collapse='-'))))
-    m2 = lm(my_form, data= dt)
+    m2 = lm(my_form, data= dt, subset = estim_set==T)
   } else {m2=m}
   
-  identifiers = dt[-m2$na.action,c('market_id', 'category','country', 'brand', 'brand_id' , 'date'),with=F]
+  predictions = cbind(dt[, c('category','country','brand','date', 'estim_set', 'dlnusales'),with=F],
+                      dlnusales_hat=predict(m2, newdata=dt))
+  predictions[, r2_estim := cor(dlnusales[estim_set==T], dlnusales_hat[estim_set==T], use='pairwise')^2]
+  predictions[, r2_holdout:=as.numeric(NA)]
+  if (!is.null(holdout)) predictions[, r2_holdout := cor(dlnusales[estim_set==F], dlnusales_hat[estim_set==F], use='pairwise')^2]
+  
+  
+  if (!is.null(m2$na.action)) identifiers = dt[-m2$na.action,c('market_id', 'category','country', 'brand', 'brand_id' , 'date'),with=F]
+  if (is.null(m2$na.action)) identifiers = dt[,c('market_id', 'category','country', 'brand', 'brand_id' , 'date'),with=F]
+
   setkey(identifiers, market_id, date, brand)
   
-  
+  if (length(vars)>0) {
   elast2 = rbindlist(lapply(vars, function(v) {
     st=deltaMethod(m2, paste0('(d', v, ')'))
-    lt=deltaMethod(m2, paste0('(`I(-lag', v, ')`)/(lnlagusales)'))
+    
+    if (paste0('I(-lag', v, ')') %in% names(m2$coefficients)) {
+            lt=deltaMethod(m2, paste0('(`I(-lag', v, ')`)/(lnlagusales)')) } else {
+              lt=deltaMethod(m2, paste0('(0)/(lnlagusales)'))
+            }
     
     data.frame(variable=v, elast = st$Estimate, elast_se=st$SE,
                elastlt = lt$Estimate, elastlt_se = lt$SE, beta = m2$coefficients[paste0('d',v)], 
@@ -168,13 +202,17 @@ simple_ec <- function(id, vars = c('lnrwpspr','lnllen','lnwpswdst'),
   elast2=cbind(uniq_identifiers,elast2)
   .v=vif(m2)
   vif2=cbind(uniq_identifiers, data.table(variable=names(.v), vif=.v))
-  
+  } else {
+    elast2=NULL
+    vif2=NULL
+  }
   
   return(list(elast=elast2, model=m2, vif=vif2,
               paneldimension = identifiers,
               model_matrix = m2$model,
               dt=dt,
-              orig_results = m$coefficients, kicked_out_coefs = kickoutcoef))
+              orig_results = m$coefficients, kicked_out_coefs = kickoutcoef,
+              predictions=predictions, r2= summary(m2)$r.squared))
   
 }
 

@@ -13,7 +13,7 @@ library(data.table)
 # Initialize random number
 set.seed(1234)
 
-N = 240 # sample size
+N =120 # sample size
 
 #
 data = data.table(date=1:N)

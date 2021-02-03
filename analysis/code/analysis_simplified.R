@@ -38,6 +38,10 @@ dir.create('../output')
 	brand_panel=fread('../temp/preclean_main.csv')
 	brand_panel[, ':=' (date = as.Date(date))]
   
+	
+	brand_panel_robust=fread('../temp/preclean_8years.csv')
+	brand_panel_robust[, ':=' (date = as.Date(date))]
+
 # define markets to run analysis on 
 	markets <- brand_panel[, list(n_brands = length(unique(brand)),
 	                              n_obs = .N,
@@ -47,6 +51,7 @@ dir.create('../output')
 	analysis_markets <- unique(markets$market_id)
   length(analysis_markets)
  
+  
   brand_panel[selected==T&timewindow==T&obs48, list(.N),by=c('brand','category','country')][!grepl('allothers',brand)]
   
   # total u sales
@@ -63,18 +68,19 @@ dir.create('../output')
   
 # Define additional variables
   
-  setorder(brand_panel, market_id, brand, date)
-  brand_panel[selected==T&timewindow==T, trend:=as.double(.GRP),by=c('market_id', 'brand','date')]
-  brand_panel[selected==T&timewindow==T, trend:=trend-min(trend,na.rm=T)+1,by=c('market_id', 'brand')]
-  brand_panel[selected==T&timewindow==T, lntrend:=log(trend),by=c('market_id', 'brand')]
   
-  
+  bp <- lapply(list(brand_panel, brand_panel_robust), function(brand_panel) { 
+    setorder(brand_panel, market_id, brand, date)
+    brand_panel[selected==T&timewindow==T, trend:=as.double(.GRP),by=c('market_id', 'brand','date')]
+    brand_panel[selected==T&timewindow==T, trend:=trend-min(trend,na.rm=T)+1,by=c('market_id', 'brand')]
+    brand_panel[selected==T&timewindow==T, lntrend:=log(trend),by=c('market_id', 'brand')]
+    
   for (q in 1:3) {  
     brand_panel[, paste0('quarter', q):=0]
     brand_panel[quarter==q, paste0('quarter', q):=1]
   }  
     
-  vars=c('rwpspr', 'llen', 'wpswdst', 'usales', 'lagusales')#, grep('comp[_]', colnames(brand_panel),value=T))
+  vars=c('rwpspr', 'llen', 'wpswdst', 'usales', 'lagusales', 'wsadv', 'adv')#, 'adv')#, grep('comp[_]', colnames(brand_panel),value=T))
   for (var in vars) {
     brand_panel[, anyzero:=as.numeric(any(get(var)==0),na.rm=T),by=c('market_id', 'brand')]
     brand_panel[is.na(anyzero), anyzero:=0]
@@ -83,7 +89,7 @@ dir.create('../output')
   }
   
   # competitive mmix
-  for (v in c('lnrwpspr', 'lnllen', 'lnwpswdst')) {
+  for (v in c('lnrwpspr', 'lnllen', 'lnwpswdst', 'lnwsadv', 'lnadv')) {#}, 'lnadv')) {
     brand_panel[, paste0('sum_', v):=sum(get(v),na.rm=T), by = c('market_id', 'date')]
     brand_panel[, paste0('N_', v):=length(which(!is.na(get(v)))), by = c('market_id', 'date')]
     brand_panel[, paste0('comp_', v):=(get(paste0('sum_', v))-get(v))/(get(paste0('N_', v))-1)]
@@ -165,7 +171,7 @@ dir.create('../output')
   
   
   # Define copula terms
-  for (var in c('lnrwpspr', 'lnllen', 'lnwpswdst')) {
+  for (var in c('lnrwpspr', 'lnllen', 'lnwpswdst', 'lnwsadv', 'lnadv')) {
     brand_panel[, paste0('cop_', var):=make_copula(get(paste0(var))), by = c('market_id','brand')]
     brand_panel[, paste0('cop_d.1.', var):=make_copula(dshift(get(paste0(var)))), by = c('market_id','brand')]
   }
@@ -174,6 +180,18 @@ dir.create('../output')
   brand_panel[, lnholiday := log(npublicholidays+1)]
   
   brand_panel <- brand_panel[!grepl('alloth',brand, ignore.case=T)]
+  return(brand_panel)
+  })
+
+  brand_panel<-bp[[1]]
+  brand_panel_robust<-bp[[2]]
+  
+  
+  brand_panel[, noadv:=all(adv==0),by=c('category','country','brand')]
+  
+ # brand_panel[noadv==T, wsadv:=NA]
+  brand_panel[noadv==F,list(.N),by=c('category','country')]
+  
   
 ##########################
 # DYNAMAC ARDL PROCEDURE #
@@ -216,6 +234,7 @@ bids <- unique(brand_panel$brand_id) #[1:50]
 length(bids)
 
 init()
+
 
 
 results_ec_restricted_nocop = parLapplyLB(cl, bids, function(bid)
@@ -275,6 +294,9 @@ results_ec_restricted_lntrend = parLapplyLB(cl, bids, function(bid)
                 pval = .1, kickout_ns_copula = T),
       silent = T)
 )
+
+
+
 
 
 ###############
@@ -376,3 +398,233 @@ save_by_regex <- function(regex, filename) {
 }
 
 save_by_regex('^results[_]', filename = '../output/results_simplified.RData')
+
+
+
+###########
+# Holdout #
+###########
+
+
+results_ec_restricted_sigcop_holdout10 = parLapplyLB(cl, bids, function(bid)
+  try(simple_ec(bid, controls_diffs='^comp[_]', 
+                controls_laglevels = '',
+                controls_curr = 'quarter[1-3]|lnholiday|^trend',
+                controls_cop = '^cop[_]ln',
+                pval = .1, kickout_ns_copula = T, holdout=.1),
+      silent = T)
+)
+
+table(unlist(lapply(results_ec_restricted_sigcop_holdout20, class)))
+bids[which(unlist(lapply(results_ec_restricted_sigcop_holdout20, class))=='try-error')]
+
+# R2 comparison
+r2s=rbindlist(lapply(results_ec_restricted_sigcop_holdout20, function(x) x$predictions))
+
+# Mean squared error
+
+r2s = unique(r2s, by = c('category','country','brand'))
+summary(r2s$r2_estim)
+summary(r2s$r2_holdout)
+
+
+results_ec_restricted_sigcop_holdout20 = parLapplyLB(cl, bids, function(bid)
+  try(simple_ec(bid, controls_diffs='^comp[_]', 
+                controls_laglevels = '',
+                controls_curr = 'quarter[1-3]|lnholiday|^trend',
+                controls_cop = '^cop[_]ln',
+                pval = .1, kickout_ns_copula = T, holdout=.2),
+      silent = T)
+)
+
+
+### --> 
+
+
+######################################
+# Robustness w/ advertising spending #
+######################################
+
+
+#assign_model(m1_adv)
+#clusterExport(cl,names(m1_adv))
+#clusterExport(cl,c('brand_panel'))
+#brand_panel[, list(mean(wsadv)),by=c('category','country','brand')]
+
+china_hk_selection = brand_panel[country%in%c('china','hong kong')&
+                                   noadv==F & date<ifelse(country=='china', '2012-09-01', '2014-12-01'), 
+                                 list(obs= length(unique(date))),by=c('category','country', 'market_id', 'brand_id')]
+
+china_hk_selection = china_hk_selection[, selected:=obs>ifelse(category=='tablet',4*12,5*12)]
+china_hk = unique(china_hk_selection[selected==T]$brand_id)
+
+length(china_hk)
+
+# find markets with adv
+#
+table(sapply(china_hk, function(bid) use_ts(brand_panel[brand_id==bid]$adv)))
+brand_panel[brand_id%in%china_hk, list(length(unique(brand))),by=c('category','country')]
+
+#} # adv coverage is low!
+
+#
+#bid_adv <- unique(brand_panel$brand_id) #[1:50]
+#length(bids)
+
+
+results_ec_restricted_sigcop_adv_without = parLapplyLB(cl, china_hk, function(bid)
+  try(simple_ec(bid, controls_diffs='^comp[_]', 
+                controls_laglevels = '',
+                controls_curr = 'quarter[1-3]|lnholiday|^trend',
+                controls_cop = '^cop[_]ln',
+                pval = .1, kickout_ns_copula = T),
+      silent = T)
+)
+
+
+results_ec_restricted_sigcop_adv_with = parLapplyLB(cl, china_hk, function(bid)
+  try(simple_ec(bid, vars = c('lnrwpspr','lnllen','lnwpswdst', 'lnadv'),
+                controls_diffs='^comp[_]', 
+                controls_laglevels = '',
+                controls_curr = 'quarter[1-3]|lnholiday|^trend',
+                controls_cop = '^cop[_]ln',
+                pval = .1, kickout_ns_copula = T),
+      silent = T)
+)
+
+# compare elasticities
+
+out=rbindlist(lapply(results_ec_restricted_sigcop_adv_without, function(x) x$elast))
+out_with=rbindlist(lapply(results_ec_restricted_sigcop_adv_with, function(x) x$elast))
+
+# keep elast
+
+out_with <- out_with[, tagged:=any(variable=='lnadv'),by=c('category','country','brand')]
+
+
+out_with <- out_with[tagged==T]
+out=out[brand_id%in%out_with$brand_id]
+
+# comparison
+out[, list(N=.N, mean(elastlt)),by=c('variable')]
+out_with[, list(N=.N, mean(elastlt)),by=c('variable')]
+
+
+
+##################################
+# Robustness w/ leaving out mmix #
+##################################
+
+
+results_ec_wprice = parLapplyLB(cl, bids, function(bid)
+  try(simple_ec(bid, vars = c('lnrwpspr'),
+                controls_diffs='^comp[_].*(pr)$', 
+                controls_laglevels = '',
+                controls_curr = 'quarter[1-3]|lnholiday|^trend',
+                controls_cop = '^cop[_]ln.*(pr)$',
+                pval = .1, kickout_ns_copula = T),
+      silent = T)
+)
+
+
+results_ec_nopr = parLapplyLB(cl, bids, function(bid)
+  try(simple_ec(bid, vars = c('lnllen','lnwpswdst'),
+                controls_diffs='^comp[_]', 
+                controls_laglevels = '',
+                controls_curr = 'quarter[1-3]|lnholiday|^trend',
+                controls_cop = '^cop[_]ln',
+                pval = .1, kickout_ns_copula = T),
+      silent = T)
+)
+
+
+results_ec_nodst = parLapplyLB(cl, bids, function(bid)
+  try(simple_ec(bid, vars = c('lnrwpspr','lnllen'),
+                controls_diffs='^comp[_]', 
+                controls_laglevels = '',
+                controls_curr = 'quarter[1-3]|lnholiday|^trend',
+                controls_cop = '^cop[_]ln',
+                pval = .1, kickout_ns_copula = T),
+      silent = T)
+)
+
+
+results_ec_nommix = parLapplyLB(cl, bids, function(bid)
+  try(simple_ec(bid, vars = NULL,
+                controls_diffs=NULL, #'^comp[_].*(pr', 
+                controls_laglevels = '',
+                controls_curr = 'quarter[1-3]|lnholiday|^trend',
+                controls_cop = NULL, #'^cop[_]ln',
+                pval = .1, kickout_ns_copula = F),
+      silent = T)
+)
+
+
+summary(unlist(lapply(results_ec_nollen, function(x) x$r2)))
+summary(unlist(lapply(results_ec_nopr, function(x) x$r2)))
+summary(unlist(lapply(results_ec_nodst, function(x) x$r2)))
+summary(unlist(lapply(results_ec_nommix, function(x) x$r2)))
+
+
+summary(unlist(lapply(results_ec_restricted_sigcop, function(x) x$r2))) #<- main model
+
+###################################################
+# Robustness w/ first and last x% of observations #
+###################################################
+
+save_brandpanel = copy(brand_panel)
+
+
+perc_select=.6
+brand_panel_robust[!is.na(usales), percentile_obs:=(1:.N)/.N, by = c('category','country','brand')]
+
+brand_panel = brand_panel_robust[percentile_obs<=perc_select]
+clusterExport(cl,c('brand_panel'))
+bids = unique(brand_panel$brand_id)
+length(bids)
+
+
+results_first60 = parLapplyLB(cl, bids, function(bid)
+  try(simple_ec(bid, controls_diffs='^comp[_]', 
+                controls_laglevels = '',
+                controls_curr = 'quarter[1-3]|lnholiday|^trend',
+                controls_cop = '^cop[_]ln',
+                pval = .1, kickout_ns_copula = T),
+      silent = T)
+)
+
+ch=(unlist(lapply(results_first60, class)))
+which(ch=='try-error')
+
+
+
+# last x
+brand_panel = brand_panel_robust[percentile_obs>=(1-perc_select)]
+clusterExport(cl,c('brand_panel'))
+bids = unique(brand_panel$brand_id)
+length(bids)
+
+results_last60 = parLapplyLB(cl, bids, function(bid)
+  try(simple_ec(bid, controls_diffs='^comp[_]', 
+                controls_laglevels = '',
+                controls_curr = 'quarter[1-3]|lnholiday|^trend',
+                controls_cop = '^cop[_]ln',
+                pval = .1, kickout_ns_copula = T),
+      silent = T)
+)
+
+ch=(unlist(lapply(results_last60, class)))
+which(ch=='try-error')
+
+# comparison
+
+rbindlist(lapply(results_first60, function(x) x$elast))[, list(N=.N,mean(elastlt)),by=c('variable')]
+rbindlist(lapply(results_last60, function(x) x$elast))[, list(N=.N,mean(elastlt)),by=c('variable')]
+
+
+
+save_by_regex('^results[_]', filename = '../output/results_simplified.RData')
+
+
+### END ADV CHECK
+
