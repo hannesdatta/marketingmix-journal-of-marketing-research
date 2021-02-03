@@ -1,4 +1,9 @@
 source	target	type
+_N$	N	grepl
+_lbl$	Mean	grepl
+_percpos$	%-pos.	grepl
+_percneg$	%-neg.	grepl
+_percns$	%-n.s.	grepl
 survself$	Self-expression culture	grepl
 tradrat$	Secular-rational culture	grepl
 ^usalessh$	Market share	grepl
@@ -14,7 +19,7 @@ thailand	Thailand	grepl
 taiwan	Taiwan	grepl
 china	China	grepl
 indonesia	Indonesia	grepl
-philippines	The Philippines	grepl
+philippines	Philippines	grepl
 india	India	grepl
 vietnam	Vietnam	grepl
 netherlands	The Netherlands	gsub
