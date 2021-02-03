@@ -5,8 +5,10 @@ library(data.table)
 brand_panel=fread('../externals/preclean_main.csv')
 brand_panel[, ':=' (date = as.Date(date))]
 
+
 # find attributes
 unlink(list.files('../output/', pattern='^covariates.*', full.names = T))
+dir.create('../output')
 
 tmp1=brand_panel[, lapply(.SD, mean,na.rm=T),by=c('category','country','year'),.SDcol=grep('catvolat',colnames(brand_panel),value=T)]
 tmp2=tmp1[, lapply(.SD, mean,na.rm=T),by=c('category','country'),.SDcol=grep('catvolat',colnames(brand_panel),value=T)]

@@ -22,12 +22,12 @@ fns <- c('app_workspace.RData')
 for (fn in fns) if (file.exists(fn)) {cat(paste0('loading...', fn, '...\n')); load(fn)}
 
 
-brands <- elasticities$with_sur[, list(Ncountries = length(unique(country)), Ncategory=length(unique(category))),by=c('brand')]
+brands <- elasticities$ec_main_sur[, list(Ncountries = length(unique(country)), Ncategory=length(unique(category))),by=c('brand')]
 setorderv(brands, c('Ncountries', 'Ncategory'), order=-1L)
 brands <- brands[!grepl('alloth', brand)]
 
-categories = unique(elasticities$with_sur$category)
-countries = unique(elasticities$with_sur$country)
+categories = unique(elasticities$ec_main_sur$category)
+countries = unique(elasticities$ec_main_sur$country)
 
 
 
@@ -194,8 +194,8 @@ orthogonalization <- function(elast, input, bootstrap = T) {
 
 names(elasticities)
 
-model_names = list('M1) Error correction (sales, with SUR)' = 'with_sur',
-                   'M2) Error correction (sales, without SUR)' = 'ec_restricted_sigcop',
+model_names = list('M1) Error correction (sales, with SUR)' = 'ec_main_sur',
+                   'M2) Error correction (sales, without SUR)' = 'ec_main',
                    #'M3) Error correction (sales; but with copula of d_mmix)' = 'ec_restricted_sigdcop',
                    'M3) Attraction model (market share)' = 'marketshare')
             

@@ -68,9 +68,9 @@ elasticities=lapply(elast_list, merge_covar)
 
 
 
-setkey(elasticities$with_sur, category,country,brand)
+setkey(elasticities$ec_main_sur, category,country,brand)
 setkey(elasticities$marketshare, category,country,brand)
-elasticities$marketshare[elasticities$with_sur, brand_id:=i.brand_id]
+elasticities$marketshare[elasticities$ec_main_sur, brand_id:=i.brand_id]
 
 
 save(elasticities, file= 'app/app_workspace.RData')
