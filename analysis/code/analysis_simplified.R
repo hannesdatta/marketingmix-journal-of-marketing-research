@@ -226,10 +226,10 @@ try(stopCluster(cl),silent=T)
 cl<-makePSOCKcluster(ncpu)
 clusterExport(cl,c('brand_panel', 'init'))
 void<-clusterEvalQ(cl, init())
-init()
 
 
-bids <- unique(brand_panel$brand_id) #[1:50]
+
+bids <- unique(brand_panel$brand_id)[1:50]
 length(bids)
 
 init()

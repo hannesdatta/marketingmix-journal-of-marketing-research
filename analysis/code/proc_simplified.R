@@ -171,11 +171,14 @@ simple_ec <- function(id, vars = c('lnrwpspr','lnllen','lnwpswdst'),
     m2 = lm(my_form, data= dt, subset = estim_set==T)
   } else {m2=m}
   
-  predictions = cbind(dt[, c('category','country','brand','date', 'estim_set', 'dlnusales'),with=F],
+  predictions = cbind(dt[, c('category','country','brand','date', 'estim_set', 'lnusales', 'lnlagusales', 'dlnusales'),with=F],
                       dlnusales_hat=predict(m2, newdata=dt))
-  predictions[, r2_estim := cor(dlnusales[estim_set==T], dlnusales_hat[estim_set==T], use='pairwise')^2]
-  predictions[, r2_holdout:=as.numeric(NA)]
-  if (!is.null(holdout)) predictions[, r2_holdout := cor(dlnusales[estim_set==F], dlnusales_hat[estim_set==F], use='pairwise')^2]
+  predictions[, lnusales_hat := lnlagusales + dlnusales_hat]
+  
+  #r2s = list(r2_)
+  #predictions[, r2_estim := cor(dlnusales[estim_set==T], dlnusales_hat[estim_set==T], use='pairwise')^2]
+  #predictions[, r2_holdout:=as.numeric(NA)]
+  #if (!is.null(holdout)) predictions[, r2_holdout := cor(dlnusales[estim_set==F], dlnusales_hat[estim_set==F], use='pairwise')^2]
   
   
   if (!is.null(m2$na.action)) identifiers = dt[-m2$na.action,c('market_id', 'category','country', 'brand', 'brand_id' , 'date'),with=F]
