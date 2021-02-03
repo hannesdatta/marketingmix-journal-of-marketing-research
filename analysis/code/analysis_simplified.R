@@ -229,7 +229,7 @@ void<-clusterEvalQ(cl, init())
 
 
 
-bids <- unique(brand_panel$brand_id)[1:50]
+bids <- unique(brand_panel$brand_id)#[1:50]
 length(bids)
 
 init()
@@ -419,7 +419,7 @@ save_by_regex <- function(regex, filename) {
     }
 }
 
-save_by_regex('^results[_]', filename = '../output/results_simplified.RData')
+#save_by_regex('^results[_]', filename = '../output/results_simplified.RData')
 
 
 
