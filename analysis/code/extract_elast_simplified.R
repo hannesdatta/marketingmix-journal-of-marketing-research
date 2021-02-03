@@ -32,22 +32,33 @@ out = lapply(models, function(model_name) {
   # identify model crashes
   checks <- unlist(lapply(results_brands, class))
   
+  if (nrow(rbindlist(lapply(results_brands, function(x) x$elast)))==0) {
+    elast=NULL} else {
+      # extract elasticities
+      elast <- rbindlist(lapply(results_brands[!checks=='try-error'], function(x) x$elast))
+      
+      setkey(brand_panel, category, country, brand)
+      setkey(elast, category, country, brand)
+      elast[brand_panel, ':=' (selection_obs48=i.obs48, selection_brands=!grepl('allothers|^super|^amazon',brand,ignore.case=T))]
+      
+    }
+  
+  # get predictions
+  preds <- rbindlist(lapply(results_brands[!checks=='try-error'], function(x) x$predictions))
+  
+  
   #markets=data.table(market_id=analysis_markets)[, ':=' (i=1:.N, available=!checks=='try-error')]
   
-  # extract elasticities
-  elast <- rbindlist(lapply(results_brands[!checks=='try-error'], function(x) x$elast))
   
-  setkey(brand_panel, category, country, brand)
-  setkey(elast, category, country, brand)
-  elast[brand_panel, ':=' (selection_obs48=i.obs48, selection_brands=!grepl('allothers|unbranded|^local|^super|^amazon',brand,ignore.case=T))]
-  
-  return(list(checks=checks, elast=elast, model = model_name))
+  return(list(model = model_name, checks=checks, elast=elast, predictions=preds))
   })
 
 results <- out
 
 for (i in seq(along=out)) {
- fwrite(out[[i]]$elast, file=paste0('../output/elast_', out[[i]]$model,'.csv'), row.names=F) 
+  if (!is.null(out[[i]]$elast)) fwrite(out[[i]]$elast, file=paste0('../output/elast_', out[[i]]$model,'.csv'), row.names=F) 
+  fwrite(out[[i]]$predictions, file=paste0('../output/predictions_', out[[i]]$model,'.csv'), row.names=F) 
+  
 }
 
 sink('../output/elasticities_simplified.txt')

@@ -215,7 +215,7 @@ simple_ec <- function(id, vars = c('lnrwpspr','lnllen','lnwpswdst'),
               model_matrix = m2$model,
               dt=dt,
               orig_results = m$coefficients, kicked_out_coefs = kickoutcoef,
-              predictions=predictions, r2= summary(m2)$r.squared))
+              predictions=predictions, r2_within_dv= summary(m2)$r.squared))
   
 }
 

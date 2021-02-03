@@ -13,11 +13,14 @@ for (mname in models) {
   mname <<- mname
   
   vifs_model <<- eval(parse(text=paste0('rbindlist(lapply(', mname, ', function(x) x$vif))')))
-  elast_model <<- eval(parse(text=paste0('rbindlist(lapply(', mname, ', function(x) x$elast))')))[, z:=elastlt/elastlt_se]
-  results_model <<- eval(parse(text=paste0(mname)))
-  markdown_title <<- mname
-  zval_sig=qnorm(.95)
-  rmarkdown::render('explore_simple.rmd', output_file=paste0('../audit/model_', mname, '.html'))
+  elast_model <<- eval(parse(text=paste0('rbindlist(lapply(', mname, ', function(x) x$elast))')))
+  if (nrow(elast_model)>0) {
+    elast_model[, z:=elastlt/elastlt_se]
+    results_model <<- eval(parse(text=paste0(mname)))
+    markdown_title <<- mname
+    zval_sig=qnorm(.95)
+    rmarkdown::render('explore_simple.rmd', output_file=paste0('../audit/model_', mname, '.html'))
+    }
 }
 
 sink('../temp/explore_simplified.txt')
