@@ -250,3 +250,153 @@ process_sur <- function(mod) {
   return(mod)
 }
 
+
+# Estimate models jointly
+model_sur <- function(focal_models, maxiter = 5000) {
+  
+  single_eqs <- lapply(seq(along=focal_models), function(x) {
+    tmp = focal_models[[x]]$model_matrix
+    #add intercept
+    newtmp = cbind(tmp[,1], 1, tmp[,-1])
+    names(newtmp)[2]<-'(Intercept)'
+    brid=paste0('bid', gsub('[ ]', '0', prettyNum(x,width=3)), '_')
+    names(newtmp) <- paste0(brid, names(newtmp))
+    names(newtmp) <- c('y', names(newtmp)[-1])
+    
+    newret = as.matrix(newtmp)
+    
+    #colnames(newtmp) <- names(newtmp)
+    return(data.frame(newret))
+  })
+  #colnames(single_eqs[[1]])
+  #single_eqs[[1]][1:2,]
+  
+  #if (length(single_eqs)==2) {
+  #  single_eqs = lapply(single_eqs, function(x) {
+  #  cols <- grep('comp[_]', colnames(x),value=T)
+  #  if (length(cols)>0) return(x[, -match(cols,colnames(x))])
+  #  return(x)
+  #})}
+  
+  stacked_eq = rbindlist(single_eqs,fill=T)
+  
+  
+  index_list = rbindlist(lapply(seq(along=focal_models), function(x) {
+    focal_models[[x]]$paneldimension 
+  }))
+  index_list[, ordered:=1:.N]
+  setorder(index_list, date, market_id, brand)
+  index_list[, period:=.GRP,by=c('date')]
+  setorder(index_list, ordered)
+  
+  
+  for (resetvar in colnames(stacked_eq)) {
+    vals = stacked_eq[,resetvar, with=F]
+    stacked_eq[, (resetvar) := ifelse(is.na(get(resetvar)), 0, get(resetvar))]
+  }
+  
+  # separate DVs from IVs for estimation
+  X = stacked_eq[,!colnames(stacked_eq)%in%'y',with=F]
+  Y = data.frame(stacked_eq[,'y',with=F])
+  
+  index=data.frame(date=index_list$period,brand=index_list$brand)
+  
+  #dcast(index, date~brand)
+  if(0) {
+    # remove rows where only 1 brand is observed
+    nbrands_eval <- aggregate(index$brand, by=list(index$date),FUN = length)
+    # first and last stretch of at least two brands
+    nbrands_eval$larger_two <- nbrands_eval$x>=4
+    
+    complete_eqs <- nbrands_eval$`Group.1`[which(nbrands_eval$larger_two==T)]
+    
+    # kick out incomplete ('diffed') vars, i.e., their first observation (as it is NA) by brand
+    X=as.matrix(X[complete_eqs,])
+    Y=as.matrix(Y[complete_eqs,])
+    index=data.frame(index[complete_eqs,])
+  }
+  
+  #################
+  # Estimate SURs #
+  #################
+  
+  # rescale X matrix (normalize to 1?) - strongly recommended for these models to help conversion
+  rescale = TRUE
+  
+  # save ranges before rescaling
+  #res$ranges=list(before=data.table(original_variable=colnames(X), min = colMins(X), max=colMaxs(X))[!grepl('[_]sq|[_]cop[_]|[_]dum', original_variable)])
+  
+  if (rescale==T) rescale_values = apply(X, 2, function(x) max(abs(x)))
+  if (rescale==F) rescale_values = apply(X, 2, function(x) 1)
+  
+  div_matrix <- matrix(rep(rescale_values, nrow(X)), byrow=TRUE, ncol=length(rescale_values))
+  X=X/div_matrix
+  
+  # save ranges after rescaling
+  #if (rescale==T) res$ranges$after=data.table(original_variable=colnames(X), min = colMins(X), max=colMaxs(X))[!grepl('[_]sq|[_]cop[_]|[_]dum', original_variable)]
+  if(0){
+    # flatten correlation
+    tmp=data.table(melt(cor(X)))
+    
+    uniqvar = unique(tmp$Var2)
+    tmp[, Var1index:=match(Var1,uniqvar)]
+    tmp[, Var2index:=match(Var2,uniqvar)]
+    tmp <- tmp[Var1index<Var2index]
+    
+    tmp[abs(value)>.9]
+    tmp[,abscor:=abs(value)]
+    ct=tmp[Var1=='bid001_d.1.comp_lnllen'|Var2=='bid001_d.1.comp_lnllen']
+    setorder(ct, abscor)
+    
+  }
+  
+  estmethod = "FGLS"
+  #maxiter=5000
+  
+  # remove var from itersur
+  #tmp=sapply(1:ncol(X), function(rem) try(itersur(X=as.matrix(X[,-rem]),Y=as.matrix(Y),index=index, method = estmethod, maxiter=maxiter),silent=T))
+  
+  #unlist(lapply(tmp,class))
+  
+  
+  #colnames(X)[which(unlist(lapply(tmp,class))=='character')]
+  
+  
+  
+  m<-itersur(X=as.matrix(X),Y=as.matrix(Y),index=index, method = estmethod, maxiter=maxiter) #, use_ginv=F
+  if (m@iterations==maxiter&maxiter>1) stop("Reached max. number of iterations with SUR. Likely did not converge.")
+  
+  # compare parameter estimates
+  if (rescale == T) {
+    retr_coefs <- coef(m)$coef
+    mvarcovar=m@varcovar
+    
+    rescale_after = rescale_values #[keep_vars]
+    retr_coefs[seq(length.out=length(rescale_after))] = retr_coefs[seq(length.out=length(rescale_after))] / rescale_after
+    
+    for (ch in seq(length.out=length(rescale_after))) {
+      mvarcovar[ch,] <- mvarcovar[ch,] / rescale_after[ch]
+      mvarcovar[,ch] <- mvarcovar[,ch] / rescale_after[ch]
+    }
+    
+    m@coefficients[,2:3] <- cbind(retr_coefs, sqrt(diag(mvarcovar)))
+    m@varcovar <- mvarcovar
+  }
+  
+  m@coefficients$type = gsub('[_].*', '', m@coefficients$variable)
+  m@coefficients$varname = gsub('bid[0-9]{1,3}[_]', '', m@coefficients$variable)
+  m@coefficients$coef_index = 1:nrow(m@coefficients)
+  
+  coefs = lapply(split(m@coefficients$coef_index, m@coefficients$type), function(x) {
+    m@coefficients[x,]
+  })
+  
+  
+  varcovar = lapply(split(m@coefficients$coef_index, m@coefficients$type), function(x) {
+    m@varcovar[x,x]
+  })
+  
+  return(list(coefs=coefs, varcovar=varcovar))
+  
+}
+

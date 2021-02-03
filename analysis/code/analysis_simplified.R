@@ -84,6 +84,7 @@ dir.create('../output')
   
 # Define additional variables
   
+  brand_panel_raw <- copy(brand_panel)
   
   bp <- lapply(list(brand_panel, brand_panel_robust), function(brand_panel) { 
     setorder(brand_panel, market_id, brand, date)
@@ -207,8 +208,11 @@ dir.create('../output')
   
  # brand_panel[noadv==T, wsadv:=NA]
   brand_panel[noadv==F,list(.N),by=c('category','country')]
-  
-  
+   
+  list1= brand_panel[, list(.N),by=c('category','country', 'market_id')]
+  list2=brand_panel_raw[, list(.N),by=c('category','country', 'market_id')]
+  list2[!market_id%in%list1$market_id]
+  # we're losing another two tablet categories
 
 
 ##########################
@@ -287,6 +291,7 @@ init()
 results_ec_main = parLapplyLB(cl, bids, function(bid)
   try(simple_ec(bid), silent=T)
 )
+
 
 ####### ADDING MARKETING MIX INSTRUMENTS ITERATIVELY ######
 
@@ -392,6 +397,8 @@ results_ec_main_sur <- lapply(results_with_sur_models, function(x) {
   
   x
 })
+
+
 
 rm(results_with_sur_models)
 rm(results_model)
