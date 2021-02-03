@@ -540,7 +540,7 @@ clusterExport(cl,c('brand_panel'))
 bids = unique(brand_panel$brand_id)
 length(bids)
 
-results_first60 = parLapplyLB(cl, bids, function(bid)
+results_ec_first60 = parLapplyLB(cl, bids, function(bid)
   try(simple_ec(bid), silent = T)
 )
 
@@ -555,37 +555,15 @@ clusterExport(cl,c('brand_panel'))
 bids = unique(brand_panel$brand_id)
 length(bids)
 
-if(0){
 
-
-ch=(unlist(lapply(results_first60, class)))
-which(ch=='try-error')
-
-
-
-# last x
-
-clusterExport(cl,c('brand_panel'))
-bids = unique(brand_panel$brand_id)
-length(bids)
-
-results_last60 = parLapplyLB(cl, bids, function(bid)
-  try(simple_ec(bid, controls_diffs='^comp[_]', 
-                controls_laglevels = '',
-                controls_curr = 'quarter[1-3]|lnholiday|^trend',
-                controls_cop = '^cop[_]ln',
-                pval = .1, kickout_ns_copula = T),
-      silent = T)
+results_ec_last60 = parLapplyLB(cl, bids, function(bid)
+  try(simple_ec(bid), silent = T)
 )
 
-ch=(unlist(lapply(results_last60, class)))
-which(ch=='try-error')
+#
+#rbindlist(lapply(results_first60, function(x) x$elast))[, list(N=.N,mean(elastlt)),by=c('variable')]
+#rbindlist(lapply(results_last60, function(x) x$elast))[, list(N=.N,mean(elastlt)),by=c('variable')]
 
-# comparison
-
-rbindlist(lapply(results_first60, function(x) x$elast))[, list(N=.N,mean(elastlt)),by=c('variable')]
-rbindlist(lapply(results_last60, function(x) x$elast))[, list(N=.N,mean(elastlt)),by=c('variable')]
-
-}
+#}
 
 save_by_regex('^results[_]', filename = '../output/results_simplified.RData')
