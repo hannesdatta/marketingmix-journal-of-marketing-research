@@ -278,7 +278,7 @@ rownames(tabl) <- NULL
 
 tabl=sanitize_table(tabl)
 setorder(tabl, Category)
-print(kable(tabl, digits =3, caption = tab(paste0('Mean ', tolower(names(ordered_vars)[ordered_vars==i]), ' elasticity by market (category/country combination)^1^'), prefix='A'))%>% kable_styling() %>% footnote(number=paste0('Elasticities weighted by inverse standard errors.')))
+print(kable(tabl, digits =3, caption = tab(paste0('Mean ', tolower(names(ordered_vars)[ordered_vars==i]), ' by market (category/country combination)^1^'), prefix='A'))%>% kable_styling() %>% footnote(number=paste0('Elasticities weighted by inverse standard errors.')))
 }
 
 ```

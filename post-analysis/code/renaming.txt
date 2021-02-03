@@ -23,8 +23,8 @@ philippines	Philippines	grepl
 india	India	grepl
 vietnam	Vietnam	grepl
 netherlands	The Netherlands	gsub
-^usa	USA	gsub
-Usa	USA	gsub
+^usa$	USA	gsub
+^Usa$	USA	gsub
 othercountry	Other country	gsub
 ^ginicoef	Income inequality	grepl
 ^country	Country	gsub
