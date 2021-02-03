@@ -9,106 +9,141 @@ output: html_document
 
 # Load required packages
 library(data.table)
+library(MASS)
 
 # Initialize random number
 set.seed(1234)
 
-N =120 # sample size
-
-#
-data = data.table(date=1:N)
-data[, quarter:=floor(((date-1)%%12)/3)+1]
-for (i in 1:3) data[,paste0('quarter',i):=ifelse(quarter==i, 1, 0)]
 
 
-data[, trend:=log(1:.N+1)]
-y_0 = 12
-k = 4
-x = matrix(runif(k*N),ncol=k)
-colnames(x) <- paste0('x', 1:k)
+sim_data <- function() {
+  N =120 # sample size
+  
+  #
+  data = data.table(date=1:N)
+  data[, quarter:=floor(((date-1)%%12)/3)+1]
+  for (i in 1:3) data[,paste0('quarter',i):=ifelse(quarter==i, 1, 0)]
+  
+  
+  data[, trend:=log(1:.N+1)]
+  y_0 = 12
+  k = 4
+  x = matrix(runif(k*N),ncol=k)
+  colnames(x) <- paste0('x', 1:k)
+  
+  data <- cbind(data,x)
+  data[, intercept:=1]
+  
+  beta = c('intercept' = 0, 'quarter1' = 1, 'quarter2' = -1, 'quarter3' = -.5, 'trend' = .1, 'x1' = 1, 'x2' = -2, 'x3' = .5, 'x4'=2, 'ly' = .9)
+  
+  rho = .5
+  
+  # Correlation matrix
+  R = matrix(c(1, rho,
+                  rho, 1), ncol=2)
+  # Standard deviations
+  S <- c(sqrt(.5), sqrt(.5))
+  
+  cor2cov <- function(R, S) {
+   sweep(sweep(R, 1, S, "*"), 2, S, "*")
+  }
+  
+  Sigma = cor2cov(R, S)
+    
+  # Draws from the Var-Covar Matrix
+  
+  error = mvrnorm(n = N, mu = c(0,0), Sigma =Sigma)
+  
+  F_x=pnorm(error[,2])
+  pi_vals=c(-2,2)
+  
+  #x = F_x*(max(pi_vals)-min(pi_vals))+min(pi_vals)
+  x=qgamma(F_x,.5)
+  
+  #hist(x)
+  #print(shapiro.test(x))
+  
+  #xx=qunif(F_x,min(pi_vals),max(pi_vals))
+  
+  # let's take gamma distribution
+  # loop e.g., 500 times to rule out influence of seed value
+  
+  data[, x1:=x]
+  	  
+  data[, ly:=as.numeric(NA)]
+  data[1, ly:=0]
+  data[, y:=as.numeric(NA)]  
+  
+  
+  #hist(data$x1)
+  #cor(data$x1, data$x1_star)
+  
+  shapiro.test(data$x1)
+  
+  for (i in 1:N) {
+    ysim <- as.matrix(data[i, names(beta),with=F])%*%beta + error[i,1]
+    
+    data[i, y:=ysim]
+    if (i<N) data[i+1, ly:=ysim]
+  
+  
+  }
+  
+  make_copula <- function(x, increment = .001) {
+		if (length(unique(x))==1) return(as.numeric(rep(NA, length(x))))
+		return(ifelse(ecdf(x)(x)==1, qnorm(1-increment), qnorm(ecdf(x)(x))))
+  }
+  
+  data[, x1_star:=make_copula(x1)]
 
-data <- cbind(data,x)
-data[, intercept:=1]
-
-beta = c('intercept' = 0, 'quarter1' = 1, 'quarter2' = -1, 'quarter3' = -.5, 'trend' = .1, 'x1' = 1, 'x2' = -2, 'x3' = .5, 'x4'=2, 'ly' = .9)
-
-rho = .5
-
-# Correlation matrix
-R = matrix(c(1, rho,
-                rho, 1), ncol=2)
-# Standard deviations
-S <- c(sqrt(.5), sqrt(.5))
-
-cor2cov <- function(R, S) {
- sweep(sweep(R, 1, S, "*"), 2, S, "*")
+  return(data)
 }
 
-Sigma = cor2cov(R, S)
-  
-# Draws from the Var-Covar Matrix
-  
-library(MASS)
+```
+
+```{r}
+
+
 set.seed(1984)
 
-error = mvrnorm(n = N, mu = c(0,0), Sigma =Sigma)
+reps = 100
 
-F_x=pnorm(error[,2])
-pi_vals=c(-2,2)
+data <- lapply(1:reps, function(...) sim_data())
 
-#x = F_x*(max(pi_vals)-min(pi_vals))+min(pi_vals)
-x=qgamma(F_x,.5)
-
-hist(x)
-print(shapiro.test(x))
-
-#xx=qunif(F_x,min(pi_vals),max(pi_vals))
-
-# let's take gamma distribution
-# loop e.g., 500 times to rule out influence of seed value
-
-data[, x1:=x]
-	  
-data[, ly:=as.numeric(NA)]
-data[1, ly:=0]
-data[, y:=as.numeric(NA)]  
-
-
-#hist(data$x1)
-#cor(data$x1, data$x1_star)
-
-shapiro.test(data$x1)
-
-for (i in 1:N) {
-  ysim <- as.matrix(data[i, names(beta),with=F])%*%beta + error[i,1]
-  
-  data[i, y:=ysim]
-  if (i<N) data[i+1, ly:=ysim]
-
-}
-  
 ```
+
 
 # Simulate data
 
 ```{r}
 
 # Recovery
-make_copula <- function(x, increment = .001) {
-		if (length(unique(x))==1) return(as.numeric(rep(NA, length(x))))
-		return(ifelse(ecdf(x)(x)==1, qnorm(1-increment), qnorm(ecdf(x)(x))))
-}
-data[, x1_star:=make_copula(x1)]
 
-print(cor(data$x1, data$x1_star))
+#print(cor(data$x1, data$x1_star))
 
 library(stargazer)
-m1 <- lm(y~1+quarter1+quarter2+quarter3+trend+x1+x2+x3+x4+ly, data = data)
-m2 <- lm(y~1+quarter1+quarter2+quarter3+trend+x1+x2+x3+x4+x1_star+ly, data = data)
+m1 <- lm(y~1+quarter1+quarter2+quarter3+trend+x1+x2+x3+x4+ly, data = data[[1]])
+m2 <- lm(y~1+quarter1+quarter2+quarter3+trend+x1+x2+x3+x4+x1_star+ly, data = data[[1]])
 
 stargazer(m1,m2, type='text')
 
 ```
+
+
+```{r}
+# Loop
+
+all_res=rbindlist(lapply(data, function(dt) {
+  mcor=lm(y~1+quarter1+quarter2+quarter3+trend+x1+x2+x3+x4+x1_star+ly, data = dt)
+  m=lm(y~1+quarter1+quarter2+quarter3+trend+x1+x2+x3+x4+ly, data = dt)
+  return(data.table(biased = m$coefficients['x1'], corrected = mcor$coefficients['x1']))
+}))
+
+summary(all_res)
+hist(all_res,breaks=100)
+```
+
+
 
 ## Including Plots
 
