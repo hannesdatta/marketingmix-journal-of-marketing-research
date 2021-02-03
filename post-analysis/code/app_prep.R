@@ -1,10 +1,14 @@
 rm(list=ls())
+
+
 # Load data
 library(lme4)
 library(bit64)
 library(data.table)
 library(stargazer)
 library(shiny)
+
+
 brand_panel=fread('../externals/preclean_main.csv')
 brand_panel[, ':=' (date = as.Date(date))]
 

@@ -77,21 +77,14 @@ zval = qnorm(1-sigvalue/2)
 # Data
 
 ```{r table1_countries, echo = FALSE}
-tmp=unique(elast, by='country')[, c('country','gdppercapitacurrent2010','gdpgrowth2010', 'ginicoef','developed'),with=F] #ci_overall_s','hdi2010', '')
-setorderv(tmp, c('developed', 'gdppercapitacurrent2010'), order=-1L)
-first_emerging=match(0,tmp$developed)
-tmp[, developed:=NULL]
+tmp=unique(elast, by='country')[, c('country','gdppercapitacurrent2010','gdpgrowth2010', 'ginicoef','survself', 'tradrat'),with=F]
+
+setorderv(tmp, c('country'))
 
 tmp=sanitize_table(tmp)
-colnames(tmp)[2]<-paste0(colnames(tmp)[2], '^2^')
-colnames(tmp)[3]<-paste0(colnames(tmp)[3], '^2^')
-colnames(tmp)[4]<-paste0(colnames(tmp)[4], '^3^')
 
-kable(tmp, format='html', digits=c(2,0,2,2), format.args = list(big.mark = ","), initial.zero = FALSE, caption=tab('Development indicators for countries in sample^1^')) %>%
-        kable_styling() %>% footnote(number=c('Countries ranked by GDP per capita.', "Sources to be updated.")) %>%
-  group_rows("Developed economies", 1, first_emerging-1) %>%
-  group_rows("Emerging economies", first_emerging, 14)
-
+kable(tmp, format='html', digits=c(0,0,2,2,2,2), format.args = list(big.mark = ",", format ='f'), initial.zero = FALSE, caption=tab('Development indicators for countries in sample^1^')) %>%
+        kable_styling() %>% footnote(number=c('Countries shown in alphabethical order. Sources to be updated.'))
 ```
 
 <P style='page-break-before: always'>

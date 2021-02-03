@@ -1,4 +1,6 @@
 source	target	type
+survself$	Self-expression culture	grepl
+tradrat$	Secular-rational culture	grepl
 ^usalessh$	Market share	grepl
 australia	Australia	grepl
 singapore	Singapore	grepl
