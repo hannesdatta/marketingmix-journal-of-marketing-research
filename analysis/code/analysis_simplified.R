@@ -22,14 +22,30 @@
 rm(list = ls())
 
 ### LOAD DATA SETS
-library(data.table)
-library(bit64)
+
 library(parallel)
-library(marketingtools)
-library(car)
 library(devtools)
-library(dynamac)
-library(tseries)
+
+init <- function() {
+  library(data.table)
+  library(bit64)
+  library(timeSeries)
+  library(marketingtools)
+  library(car)
+  #source('proc_analysis_marketshare.R')
+  #source('proc_analysis_ardl.R')
+  #source('proc_analysis_ardlbounds.R')
+  #source('proc_analysis_sales.R')
+  source('proc_auxilary.R')
+  source('c1c5b3af32343d042fcbc8e249ae9ff6/proc_unitroots.R')
+  source('proc_simplified.R')
+}
+
+init()
+
+
+#library(dynamac)
+#library(tseries)
 
 
 dir.create('../output')
@@ -80,7 +96,7 @@ dir.create('../output')
     brand_panel[quarter==q, paste0('quarter', q):=1]
   }  
     
-  vars=c('rwpspr', 'llen', 'wpswdst', 'usales', 'lagusales', 'wsadv', 'adv')#, 'adv')#, grep('comp[_]', colnames(brand_panel),value=T))
+  vars=c('rwpspr', 'llen', 'wpswdst', 'usales', 'lagusales', 'radv')#, 'adv')#, grep('comp[_]', colnames(brand_panel),value=T))
   for (var in vars) {
     brand_panel[, anyzero:=as.numeric(any(get(var)==0),na.rm=T),by=c('market_id', 'brand')]
     brand_panel[is.na(anyzero), anyzero:=0]
@@ -89,7 +105,7 @@ dir.create('../output')
   }
   
   # competitive mmix
-  for (v in c('lnrwpspr', 'lnllen', 'lnwpswdst', 'lnwsadv', 'lnadv')) {#}, 'lnadv')) {
+  for (v in c('lnrwpspr', 'lnllen', 'lnwpswdst', 'lnradv')) {#}, 'lnadv')) {
     brand_panel[, paste0('sum_', v):=sum(get(v),na.rm=T), by = c('market_id', 'date')]
     brand_panel[, paste0('N_', v):=length(which(!is.na(get(v)))), by = c('market_id', 'date')]
     brand_panel[, paste0('comp_', v):=(get(paste0('sum_', v))-get(v))/(get(paste0('N_', v))-1)]
@@ -171,7 +187,7 @@ dir.create('../output')
   
   
   # Define copula terms
-  for (var in c('lnrwpspr', 'lnllen', 'lnwpswdst', 'lnwsadv', 'lnadv')) {
+  for (var in c('lnrwpspr', 'lnllen', 'lnwpswdst', 'lnradv')) {
     brand_panel[, paste0('cop_', var):=make_copula(get(paste0(var))), by = c('market_id','brand')]
     brand_panel[, paste0('cop_d.1.', var):=make_copula(dshift(get(paste0(var)))), by = c('market_id','brand')]
   }
@@ -193,32 +209,11 @@ dir.create('../output')
   brand_panel[noadv==F,list(.N),by=c('category','country')]
   
   
-##########################
-# DYNAMAC ARDL PROCEDURE #
-##########################
-
-  init <- function() {
-    library(data.table)
-    library(timeSeries)
-    library(marketingtools)
-    library(car)
-    source('proc_analysis_marketshare.R')
-    source('proc_analysis_ardl.R')
-    source('proc_analysis_ardlbounds.R')
-    source('proc_analysis_sales.R')
-    source('proc_auxilary.R')
-    source('c1c5b3af32343d042fcbc8e249ae9ff6/proc_unitroots.R')
-    source('proc_simplified.R')
-  }
-  
-init()
 
 
 ##########################
 ### CLUSTER ESTIMATION ###
 ##########################
-
-require(parallel)
 
 # try whether cluster exists
 ncpu=7
@@ -236,89 +231,110 @@ length(bids)
 init()
 
 
+# 
+# results_ec_restricted_nocop = parLapplyLB(cl, bids, function(bid)
+#   try(simple_ec(bid, controls_diffs='^comp[_]', 
+#                 controls_laglevels = '',
+#                 controls_curr = 'quarter[1-3]|lnholiday|^trend',
+#                 controls_cop = '',
+#                 pval = .1, kickout_ns_copula = T),
+#       silent = T)
+# )
+# 
+# 
+# 
+# results_ec_restricted_alwaysdcop = parLapplyLB(cl, bids, function(bid)
+#   try(simple_ec(bid, controls_diffs='^comp[_]', 
+#                 controls_laglevels = '',
+#                 controls_curr = 'quarter[1-3]|lnholiday|^trend',
+#                 controls_cop = '^cop[_]d[.]1[.]',
+#                 pval = .1, kickout_ns_copula = F),
+#       silent = T)
+# )
+# 
+# results_ec_restricted_sigdcop = parLapplyLB(cl, bids, function(bid)
+#   try(simple_ec(bid, controls_diffs='^comp[_]', 
+#                 controls_laglevels = '',
+#                 controls_curr = 'quarter[1-3]|lnholiday|^trend',
+#                 controls_cop = '^cop[_]d[.]1[.]',
+#                 pval = .1, kickout_ns_copula = T),
+#       silent = T)
+# )
+# 
+# 
+# results_ec_restricted_alwayscop = parLapplyLB(cl, bids, function(bid)
+#   try(simple_ec(bid, controls_diffs='^comp[_]', 
+#                 controls_laglevels = '',
+#                 controls_curr = 'quarter[1-3]|lnholiday|^trend',
+#                 controls_cop = '^cop[_]ln',
+#                 pval = .1, kickout_ns_copula = F),
+#       silent = T)
+# )
+# 
+# 
+# results_ec_restricted_lntrend = parLapplyLB(cl, bids, function(bid)
+#   try(simple_ec(bid, controls_diffs='^comp[_]', 
+#                 controls_laglevels = '',
+#                 controls_curr = 'quarter[1-3]|lnholiday|^lntrend',
+#                 controls_cop = '^cop[_]d[.]1[.]',
+#                 pval = .1, kickout_ns_copula = T),
+#       silent = T)
+# )
 
-results_ec_restricted_nocop = parLapplyLB(cl, bids, function(bid)
-  try(simple_ec(bid, controls_diffs='^comp[_]', 
-                controls_laglevels = '',
-                controls_curr = 'quarter[1-3]|lnholiday|^trend',
-                controls_cop = '',
-                pval = .1, kickout_ns_copula = T),
-      silent = T)
+
+####### MAIN MODEL ######
+
+results_ec_main = parLapplyLB(cl, bids, function(bid)
+  try(simple_ec(bid), silent=T)
+)
+
+####### ADDING MARKETING MIX INSTRUMENTS ITERATIVELY ######
+
+results_ec_nommix = parLapplyLB(cl, bids, function(bid)
+  try(simple_ec(bid,vars = NULL, 
+                controls_cop = NULL), silent=T)
+)
+
+results_ec_onlypr = parLapplyLB(cl, bids, function(bid)
+  try(simple_ec(bid,vars = c('lnrwpspr'), 
+                controls_cop = '^cop[_]ln.*(pr)$'), silent=T)
+)
+
+results_ec_onlyllen = parLapplyLB(cl, bids, function(bid)
+  try(simple_ec(bid,vars = c('lnllen'), 
+                controls_cop = '^cop[_]ln.*(llen)$'), silent=T)
+)
+
+results_ec_onlydst = parLapplyLB(cl, bids, function(bid)
+  try(simple_ec(bid,vars = c('lnwpswdst'), 
+                controls_cop = '^cop[_]ln.*(dst)$'), silent=T)
+)
+
+####### WITH LAGGED COMPETITION VARIABLES ######
+
+results_ec_unrestrictedcompetition = parLapplyLB(cl, bids, function(bid)
+  try(simple_ec(bid, controls_laglevels = '^comp[_].*(pr|llen|dst)$'), silent=T)
+)
+
+####### WITHOUT ENDOGENEITY CONTROLS ######
+
+results_ec_unrestrictedcompetition = parLapplyLB(cl, bids, function(bid)
+  try(simple_ec(bid, controls_cop = NULL),silent=T)
+)
+
+####### WITH LN TREND INSTEAD OF TREND ######
+
+results_ec_unrestrictedcompetition = parLapplyLB(cl, bids, function(bid)
+  try(simple_ec(bid, controls_curr = 'quarter[1-3]|lnholiday|^lntrend'),silent=T)
 )
 
 
-
-results_ec_restricted_alwaysdcop = parLapplyLB(cl, bids, function(bid)
-  try(simple_ec(bid, controls_diffs='^comp[_]', 
-                controls_laglevels = '',
-                controls_curr = 'quarter[1-3]|lnholiday|^trend',
-                controls_cop = '^cop[_]d[.]1[.]',
-                pval = .1, kickout_ns_copula = F),
-      silent = T)
-)
-
-results_ec_restricted_sigdcop = parLapplyLB(cl, bids, function(bid)
-  try(simple_ec(bid, controls_diffs='^comp[_]', 
-                controls_laglevels = '',
-                controls_curr = 'quarter[1-3]|lnholiday|^trend',
-                controls_cop = '^cop[_]d[.]1[.]',
-                pval = .1, kickout_ns_copula = T),
-      silent = T)
-)
+#####################
+# SUR ON MAIN MODEL #
+#####################
 
 
-results_ec_restricted_alwayscop = parLapplyLB(cl, bids, function(bid)
-  try(simple_ec(bid, controls_diffs='^comp[_]', 
-                controls_laglevels = '',
-                controls_curr = 'quarter[1-3]|lnholiday|^trend',
-                controls_cop = '^cop[_]ln',
-                pval = .1, kickout_ns_copula = F),
-      silent = T)
-)
-
-results_ec_restricted_sigcop = parLapplyLB(cl, bids, function(bid)
-  try(simple_ec(bid, controls_diffs='^comp[_]', 
-                controls_laglevels = '',
-                controls_curr = 'quarter[1-3]|lnholiday|^trend',
-                controls_cop = '^cop[_]ln',
-                pval = .1, kickout_ns_copula = T),
-      silent = T)
-)
-
-
-results_ec_restricted_lntrend = parLapplyLB(cl, bids, function(bid)
-  try(simple_ec(bid, controls_diffs='^comp[_]', 
-                controls_laglevels = '',
-                controls_curr = 'quarter[1-3]|lnholiday|^lntrend',
-                controls_cop = '^cop[_]d[.]1[.]',
-                pval = .1, kickout_ns_copula = T),
-      silent = T)
-)
-
-
-
-
-
-###############
-# TRY OUT SUR #
-###############
-
-
-results_model <- results_ec_restricted_sigcop
-
-if(0){
-  bids <- unique(brand_panel$brand_id) #[1:50]
-  length(bids)
-  
-  results_model <- lapply(bids[1:20], function(bid) {
-    print(bid)
-    simple_ec(bid, controls_diffs='^comp[_]', 
-              controls_laglevels = '',
-              controls_curr = 'quarter[1-3]|lnholiday|^trend',
-              controls_cop = '',
-              pval = .1, kickout_ns_copula = T)
-  })
-}
+results_model <- results_ec_main
 
 
 estimated_markets <- rbindlist(lapply(results_model, function(x) x$paneldimension[,-c('date'),with=F][1]))
@@ -333,11 +349,10 @@ cat(paste0('Estimating SUR for ', length(split_by_market), ' markets...\n'))
 sur_res = parLapplyLB(cl, split_by_market, function(focal_models) {
   mid=focal_models[[1]]$paneldimension$market_id[1]
   cat(mid,fill=T)
-  #if(0){
+  
   res=suppressWarnings(try(model_sur(focal_models), silent=T))
   if(class(res)=='try-error') res=suppressWarnings(try(model_sur(focal_models, maxiter=1), silent=T))
-  #}
-  #res=suppressWarnings(try(model_sur(focal_models, maxiter=1), silent=T))
+  
   
   list(market_id=mid, results=res)
 })
@@ -363,7 +378,7 @@ for (i in seq(along=sur_res)) {
 results_with_sur_models = parLapplyLB(cl, results_model, process_sur)
 
 # remove models
-results_with_sur <- lapply(results_with_sur_models, function(x) {
+results_ec_main_sur <- lapply(results_with_sur_models, function(x) {
   x$model_matrix <- NULL
   x$paneldimension <- NULL
   x$dt <- NULL
@@ -380,7 +395,7 @@ results_with_sur <- lapply(results_with_sur_models, function(x) {
 
 rm(results_with_sur_models)
 rm(results_model)
-#save(results_with_sur, file = '../output/results_sur.RData')
+
 
 
 # Function scans global environment for occurence of regular expression (`regex`), 
@@ -406,15 +421,17 @@ save_by_regex('^results[_]', filename = '../output/results_simplified.RData')
 ###########
 
 
-results_ec_restricted_sigcop_holdout10 = parLapplyLB(cl, bids, function(bid)
-  try(simple_ec(bid, controls_diffs='^comp[_]', 
-                controls_laglevels = '',
-                controls_curr = 'quarter[1-3]|lnholiday|^trend',
-                controls_cop = '^cop[_]ln',
-                pval = .1, kickout_ns_copula = T, holdout=.1),
+results_ec_holdout10 = parLapplyLB(cl, bids, function(bid)
+  try(simple_ec(bid, holdout=.1),
       silent = T)
 )
 
+results_ec_holdout20 = parLapplyLB(cl, bids, function(bid)
+  try(simple_ec(bid, holdout=.2),
+      silent = T)
+)
+
+if(0){
 table(unlist(lapply(results_ec_restricted_sigcop_holdout20, class)))
 bids[which(unlist(lapply(results_ec_restricted_sigcop_holdout20, class))=='try-error')]
 
@@ -427,29 +444,13 @@ r2s = unique(r2s, by = c('category','country','brand'))
 summary(r2s$r2_estim)
 summary(r2s$r2_holdout)
 
-
-results_ec_restricted_sigcop_holdout20 = parLapplyLB(cl, bids, function(bid)
-  try(simple_ec(bid, controls_diffs='^comp[_]', 
-                controls_laglevels = '',
-                controls_curr = 'quarter[1-3]|lnholiday|^trend',
-                controls_cop = '^cop[_]ln',
-                pval = .1, kickout_ns_copula = T, holdout=.2),
-      silent = T)
-)
-
-
-### --> 
+}
 
 
 ######################################
 # Robustness w/ advertising spending #
 ######################################
 
-
-#assign_model(m1_adv)
-#clusterExport(cl,names(m1_adv))
-#clusterExport(cl,c('brand_panel'))
-#brand_panel[, list(mean(wsadv)),by=c('category','country','brand')]
 
 china_hk_selection = brand_panel[country%in%c('china','hong kong')&
                                    noadv==F & date<ifelse(country=='china', '2012-09-01', '2014-12-01'), 
@@ -461,36 +462,25 @@ china_hk = unique(china_hk_selection[selected==T]$brand_id)
 length(china_hk)
 
 # find markets with adv
-#
+
 table(sapply(china_hk, function(bid) use_ts(brand_panel[brand_id==bid]$adv)))
 brand_panel[brand_id%in%china_hk, list(length(unique(brand))),by=c('category','country')]
 
-#} # adv coverage is low!
 
-#
-#bid_adv <- unique(brand_panel$brand_id) #[1:50]
-#length(bids)
+results_ec_chinahk_withadv = parLapplyLB(cl, china_hk, function(bid)
+  try(simple_ec(bid, vars = c('lnrwpspr','lnllen','lnwpswdst', 'lnradv'),
+                controls_diffs='^comp[_].*(pr|llen|dst|adv)$', 
+                controls_cop = '^cop[_]ln.*(pr|llen|dst|adv)$'),
+      silent = T)
+)
 
-
-results_ec_restricted_sigcop_adv_without = parLapplyLB(cl, china_hk, function(bid)
-  try(simple_ec(bid, controls_diffs='^comp[_]', 
-                controls_laglevels = '',
-                controls_curr = 'quarter[1-3]|lnholiday|^trend',
-                controls_cop = '^cop[_]ln',
-                pval = .1, kickout_ns_copula = T),
+results_ec_chinahk_withoutadv = parLapplyLB(cl, china_hk, function(bid)
+  try(simple_ec(bid),
       silent = T)
 )
 
 
-results_ec_restricted_sigcop_adv_with = parLapplyLB(cl, china_hk, function(bid)
-  try(simple_ec(bid, vars = c('lnrwpspr','lnllen','lnwpswdst', 'lnadv'),
-                controls_diffs='^comp[_]', 
-                controls_laglevels = '',
-                controls_curr = 'quarter[1-3]|lnholiday|^trend',
-                controls_cop = '^cop[_]ln',
-                pval = .1, kickout_ns_copula = T),
-      silent = T)
-)
+if(0){
 
 # compare elasticities
 
@@ -509,56 +499,8 @@ out=out[brand_id%in%out_with$brand_id]
 out[, list(N=.N, mean(elastlt)),by=c('variable')]
 out_with[, list(N=.N, mean(elastlt)),by=c('variable')]
 
-
-
-##################################
-# Robustness w/ leaving out mmix #
-##################################
-
-
-results_ec_wprice = parLapplyLB(cl, bids, function(bid)
-  try(simple_ec(bid, vars = c('lnrwpspr'),
-                controls_diffs='^comp[_].*(pr)$', 
-                controls_laglevels = '',
-                controls_curr = 'quarter[1-3]|lnholiday|^trend',
-                controls_cop = '^cop[_]ln.*(pr)$',
-                pval = .1, kickout_ns_copula = T),
-      silent = T)
-)
-
-
-results_ec_nopr = parLapplyLB(cl, bids, function(bid)
-  try(simple_ec(bid, vars = c('lnllen','lnwpswdst'),
-                controls_diffs='^comp[_]', 
-                controls_laglevels = '',
-                controls_curr = 'quarter[1-3]|lnholiday|^trend',
-                controls_cop = '^cop[_]ln',
-                pval = .1, kickout_ns_copula = T),
-      silent = T)
-)
-
-
-results_ec_nodst = parLapplyLB(cl, bids, function(bid)
-  try(simple_ec(bid, vars = c('lnrwpspr','lnllen'),
-                controls_diffs='^comp[_]', 
-                controls_laglevels = '',
-                controls_curr = 'quarter[1-3]|lnholiday|^trend',
-                controls_cop = '^cop[_]ln',
-                pval = .1, kickout_ns_copula = T),
-      silent = T)
-)
-
-
-results_ec_nommix = parLapplyLB(cl, bids, function(bid)
-  try(simple_ec(bid, vars = NULL,
-                controls_diffs=NULL, #'^comp[_].*(pr', 
-                controls_laglevels = '',
-                controls_curr = 'quarter[1-3]|lnholiday|^trend',
-                controls_cop = NULL, #'^cop[_]ln',
-                pval = .1, kickout_ns_copula = F),
-      silent = T)
-)
-
+}
+if(0){
 
 summary(unlist(lapply(results_ec_nollen, function(x) x$r2)))
 summary(unlist(lapply(results_ec_nopr, function(x) x$r2)))
@@ -567,6 +509,7 @@ summary(unlist(lapply(results_ec_nommix, function(x) x$r2)))
 
 
 summary(unlist(lapply(results_ec_restricted_sigcop, function(x) x$r2))) #<- main model
+}
 
 ###################################################
 # Robustness w/ first and last x% of observations #
@@ -574,24 +517,39 @@ summary(unlist(lapply(results_ec_restricted_sigcop, function(x) x$r2))) #<- main
 
 save_brandpanel = copy(brand_panel)
 
+brand_sel = brand_panel[, list(obs = sum(usales>0,na.rm=T)), by = c('category','country','brand', 'brand_id')]
+brand_sel[, selected:=obs>=8*12]
+
+selected_bids = brand_sel[selected==T]$brand_id
+length(selected_bids)
+
 
 perc_select=.6
-brand_panel_robust[!is.na(usales), percentile_obs:=(1:.N)/.N, by = c('category','country','brand')]
+brand_panel[!is.na(usales), percentile_obs:=(1:.N)/.N, by = c('category','country','brand')]
+brand_panel = brand_panel[percentile_obs<=perc_select & brand_id %in% selected_bids]
 
-brand_panel = brand_panel_robust[percentile_obs<=perc_select]
+
 clusterExport(cl,c('brand_panel'))
 bids = unique(brand_panel$brand_id)
 length(bids)
 
-
 results_first60 = parLapplyLB(cl, bids, function(bid)
-  try(simple_ec(bid, controls_diffs='^comp[_]', 
-                controls_laglevels = '',
-                controls_curr = 'quarter[1-3]|lnholiday|^trend',
-                controls_cop = '^cop[_]ln',
-                pval = .1, kickout_ns_copula = T),
-      silent = T)
+  try(simple_ec(bid), silent = T)
 )
+
+# Last X
+
+brand_panel = save_brandpanel
+
+brand_panel[!is.na(usales), percentile_obs:=(1:.N)/.N, by = c('category','country','brand')]
+brand_panel = brand_panel[percentile_obs>=(1-perc_select) & brand_id %in% selected_bids]
+
+clusterExport(cl,c('brand_panel'))
+bids = unique(brand_panel$brand_id)
+length(bids)
+
+if(0){
+
 
 ch=(unlist(lapply(results_first60, class)))
 which(ch=='try-error')
@@ -599,7 +557,7 @@ which(ch=='try-error')
 
 
 # last x
-brand_panel = brand_panel_robust[percentile_obs>=(1-perc_select)]
+
 clusterExport(cl,c('brand_panel'))
 bids = unique(brand_panel$brand_id)
 length(bids)
@@ -621,10 +579,6 @@ which(ch=='try-error')
 rbindlist(lapply(results_first60, function(x) x$elast))[, list(N=.N,mean(elastlt)),by=c('variable')]
 rbindlist(lapply(results_last60, function(x) x$elast))[, list(N=.N,mean(elastlt)),by=c('variable')]
 
-
+}
 
 save_by_regex('^results[_]', filename = '../output/results_simplified.RData')
-
-
-### END ADV CHECK
-

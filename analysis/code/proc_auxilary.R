@@ -23,3 +23,19 @@ use_ts <- function(x) {
   
   return(T)
 }
+
+# from dynamac
+dshift <- function (x) 
+{
+  stopifnot(is.numeric(x))
+  out <- c(NA, diff(x))
+  out
+}
+
+lshift <- function (x, l) 
+{
+  stopifnot(is.numeric(l))
+  stopifnot(is.numeric(x))
+  out <- c(rep(NA, l), head(x, -l))
+  out
+}

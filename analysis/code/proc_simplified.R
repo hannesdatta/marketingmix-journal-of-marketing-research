@@ -87,13 +87,13 @@ return(list(elast=elast1, model=m1, vif=vif1))
 
 # Configure model type and calibrate lag structure
 simple_ec <- function(id, vars = c('lnrwpspr','lnllen','lnwpswdst'),
-                          controls_diffs='^comp[_]', #
+                          controls_diffs='^comp[_].*(pr|llen|dst)$', 
                           controls_laglevels = '',
-                          controls_curr = 'quarter[1-3]|lnholiday',
-                          controls_cop = '^cop[_]d[.]1[.]', 
-                      pval = .1,
-                      kickout_ns_copula = T, 
-                      holdout= NULL) {
+                          controls_curr = 'quarter[1-3]|lnholiday|^trend',
+                          controls_cop = '^cop[_]ln.*(pr|llen|dst)$', 
+                          pval = .1,
+                          kickout_ns_copula = T, 
+                          holdout= NULL) {
   
   # 1.0 Conduct bounds test
   dv='lnusales'
@@ -118,8 +118,8 @@ simple_ec <- function(id, vars = c('lnrwpspr','lnllen','lnwpswdst'),
   vars_lags = paste0('lag', c(vars, control_vars$lags))
   vars_curr = control_vars$curr
   
-  if (length(control_vars$diff)==0) vars_delta=NULL
-  if (length(control_vars$lags)==0) vars_lags=NULL
+  if (length(c(vars,control_vars$diff))==0) vars_delta=NULL
+  if (length(c(vars,control_vars$lags))==0) vars_lags=NULL
   
   if (is.null(controls_cop)) {
     vars_cop = NULL 
