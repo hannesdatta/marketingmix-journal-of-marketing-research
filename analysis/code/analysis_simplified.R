@@ -287,9 +287,15 @@ init()
 
 
 ####### MAIN MODEL ######
+holdout = .2
+clusterExport(cl, 'holdout')
 
 results_ec_main = parLapplyLB(cl, bids, function(bid)
   try(simple_ec(bid), silent=T)
+)
+
+results_ec_main_holdout = parLapplyLB(cl, bids, function(bid)
+  try(simple_ec(bid, holdout=holdout), silent=T)
 )
 
 
@@ -300,14 +306,31 @@ results_ec_nommix = parLapplyLB(cl, bids, function(bid)
                 controls_cop = NULL), silent=T)
 )
 
+results_ec_nommix_holdout = parLapplyLB(cl, bids, function(bid)
+  try(simple_ec(bid,vars = NULL, 
+                controls_cop = NULL,holdout=holdout), silent=T)
+)
+
+
 results_ec_onlypr = parLapplyLB(cl, bids, function(bid)
   try(simple_ec(bid,vars = c('lnrwpspr'), 
                 controls_cop = '^cop[_]ln.*(pr)$'), silent=T)
 )
 
+results_ec_onlypr_holdout = parLapplyLB(cl, bids, function(bid)
+  try(simple_ec(bid,vars = c('lnrwpspr'), 
+                controls_cop = '^cop[_]ln.*(pr)$', holdout=holdout), silent=T)
+)
+
+
 results_ec_onlyllen = parLapplyLB(cl, bids, function(bid)
   try(simple_ec(bid,vars = c('lnllen'), 
                 controls_cop = '^cop[_]ln.*(llen)$'), silent=T)
+)
+
+results_ec_onlyllen_holdout = parLapplyLB(cl, bids, function(bid)
+  try(simple_ec(bid,vars = c('lnllen'), 
+                controls_cop = '^cop[_]ln.*(llen)$', holdout=holdout), silent=T)
 )
 
 results_ec_onlydst = parLapplyLB(cl, bids, function(bid)
@@ -315,22 +338,39 @@ results_ec_onlydst = parLapplyLB(cl, bids, function(bid)
                 controls_cop = '^cop[_]ln.*(dst)$'), silent=T)
 )
 
+results_ec_onlydst_holdout = parLapplyLB(cl, bids, function(bid)
+  try(simple_ec(bid,vars = c('lnwpswdst'), 
+                controls_cop = '^cop[_]ln.*(dst)$', holdout=holdout), silent=T)
+)
+
+
 ####### WITH LAGGED COMPETITION VARIABLES ######
 
 results_ec_unrestrictedcompetition = parLapplyLB(cl, bids, function(bid)
   try(simple_ec(bid, controls_laglevels = '^comp[_].*(pr|llen|dst)$'), silent=T)
 )
 
+results_ec_unrestrictedcompetition_holdout = parLapplyLB(cl, bids, function(bid)
+  try(simple_ec(bid, controls_laglevels = '^comp[_].*(pr|llen|dst)$', holdout=holdout), silent=T)
+)
+
 ####### WITHOUT ENDOGENEITY CONTROLS ######
 
-results_ec_unrestrictedcompetition = parLapplyLB(cl, bids, function(bid)
+results_ec_noendogeneity = parLapplyLB(cl, bids, function(bid)
   try(simple_ec(bid, controls_cop = NULL),silent=T)
+)
+
+results_ec_noendogeneity_holdout = parLapplyLB(cl, bids, function(bid)
+  try(simple_ec(bid, controls_cop = NULL, holdout=holdout),silent=T)
 )
 
 ####### WITH LN TREND INSTEAD OF TREND ######
 
-results_ec_unrestrictedcompetition = parLapplyLB(cl, bids, function(bid)
+results_ec_lntrend = parLapplyLB(cl, bids, function(bid)
   try(simple_ec(bid, controls_curr = 'quarter[1-3]|lnholiday|^lntrend'),silent=T)
+)
+results_ec_lntrend_holdout = parLapplyLB(cl, bids, function(bid)
+  try(simple_ec(bid, controls_curr = 'quarter[1-3]|lnholiday|^lntrend', holdout=holdout),silent=T)
 )
 
 
@@ -433,26 +473,6 @@ results_ec_holdout10 = parLapplyLB(cl, bids, function(bid)
       silent = T)
 )
 
-results_ec_holdout20 = parLapplyLB(cl, bids, function(bid)
-  try(simple_ec(bid, holdout=.2),
-      silent = T)
-)
-
-if(0){
-table(unlist(lapply(results_ec_restricted_sigcop_holdout20, class)))
-bids[which(unlist(lapply(results_ec_restricted_sigcop_holdout20, class))=='try-error')]
-
-# R2 comparison
-r2s=rbindlist(lapply(results_ec_restricted_sigcop_holdout20, function(x) x$predictions))
-
-# Mean squared error
-
-r2s = unique(r2s, by = c('category','country','brand'))
-summary(r2s$r2_estim)
-summary(r2s$r2_holdout)
-
-}
-
 
 ######################################
 # Robustness w/ advertising spending #
@@ -486,37 +506,6 @@ results_ec_chinahk_withoutadv = parLapplyLB(cl, china_hk, function(bid)
       silent = T)
 )
 
-
-if(0){
-
-# compare elasticities
-
-out=rbindlist(lapply(results_ec_restricted_sigcop_adv_without, function(x) x$elast))
-out_with=rbindlist(lapply(results_ec_restricted_sigcop_adv_with, function(x) x$elast))
-
-# keep elast
-
-out_with <- out_with[, tagged:=any(variable=='lnadv'),by=c('category','country','brand')]
-
-
-out_with <- out_with[tagged==T]
-out=out[brand_id%in%out_with$brand_id]
-
-# comparison
-out[, list(N=.N, mean(elastlt)),by=c('variable')]
-out_with[, list(N=.N, mean(elastlt)),by=c('variable')]
-
-}
-if(0){
-
-summary(unlist(lapply(results_ec_nollen, function(x) x$r2)))
-summary(unlist(lapply(results_ec_nopr, function(x) x$r2)))
-summary(unlist(lapply(results_ec_nodst, function(x) x$r2)))
-summary(unlist(lapply(results_ec_nommix, function(x) x$r2)))
-
-
-summary(unlist(lapply(results_ec_restricted_sigcop, function(x) x$r2))) #<- main model
-}
 
 ###################################################
 # Robustness w/ first and last x% of observations #
@@ -559,11 +548,5 @@ length(bids)
 results_ec_last60 = parLapplyLB(cl, bids, function(bid)
   try(simple_ec(bid), silent = T)
 )
-
-#
-#rbindlist(lapply(results_first60, function(x) x$elast))[, list(N=.N,mean(elastlt)),by=c('variable')]
-#rbindlist(lapply(results_last60, function(x) x$elast))[, list(N=.N,mean(elastlt)),by=c('variable')]
-
-#}
 
 save_by_regex('^results[_]', filename = '../output/results_simplified.RData')
