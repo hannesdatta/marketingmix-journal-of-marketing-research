@@ -1,7 +1,7 @@
 ---
 title: "Parameter recovery w/ Copulas"
 author: "Hannes Datta"
-date: "1/18/2021"
+date: "2/4/2021"
 output: html_document
 ---
 
@@ -39,10 +39,13 @@ sim_data <- function() {
   rho = .5
   
   # Correlation matrix
-  R = matrix(c(1, rho,
-                  rho, 1), ncol=2)
+  R = matrix(c(1, rho, rho, rho,
+               rho, 1, 0, 0,
+               rho, 0, 1, 0,
+               rho, 0, 0, 1), ncol=4)
   # Standard deviations
-  S <- c(sqrt(.5), sqrt(.5))
+  
+  S <- c(sqrt(.5), sqrt(.5), sqrt(.5), sqrt(.5))
   
   cor2cov <- function(R, S) {
    sweep(sweep(R, 1, S, "*"), 2, S, "*")
@@ -52,13 +55,27 @@ sim_data <- function() {
     
   # Draws from the Var-Covar Matrix
   
-  error = mvrnorm(n = N, mu = c(0,0), Sigma =Sigma)
+  error = mvrnorm(n = N, mu = c(0,0,0,0), Sigma =Sigma)
   
+  # x1 endog
   F_x=pnorm(error[,2])
   pi_vals=c(-2,2)
+  x=qgamma(F_x,.5)
+  data[, x1:=x]
+  
+  # x2 endog
+  F_x=pnorm(error[,3])
+  pi_vals=c(-2,2)
+  x=qgamma(F_x,.5)
+  data[, x2:=x]
+  # x3 endog
+  F_x=pnorm(error[,4])
+  pi_vals=c(-2,2)
+  x=qgamma(F_x,.5)
+  data[, x3:=x]
+  
   
   #x = F_x*(max(pi_vals)-min(pi_vals))+min(pi_vals)
-  x=qgamma(F_x,.5)
   
   #hist(x)
   #print(shapiro.test(x))
@@ -68,7 +85,6 @@ sim_data <- function() {
   # let's take gamma distribution
   # loop e.g., 500 times to rule out influence of seed value
   
-  data[, x1:=x]
   	  
   data[, ly:=as.numeric(NA)]
   data[1, ly:=0]
@@ -95,6 +111,8 @@ sim_data <- function() {
   }
   
   data[, x1_star:=make_copula(x1)]
+data[, x2_star:=make_copula(x2)]
+data[, x3_star:=make_copula(x3)]
 
   return(data)
 }
@@ -115,7 +133,7 @@ data <- lapply(1:reps, function(...) sim_data())
 
 # Simulate data
 
-```{r}
+```{r, results='asis',echo=FALSE}
 
 # Recovery
 
@@ -123,9 +141,9 @@ data <- lapply(1:reps, function(...) sim_data())
 
 library(stargazer)
 m1 <- lm(y~1+quarter1+quarter2+quarter3+trend+x1+x2+x3+x4+ly, data = data[[1]])
-m2 <- lm(y~1+quarter1+quarter2+quarter3+trend+x1+x2+x3+x4+x1_star+ly, data = data[[1]])
+m2 <- lm(y~1+quarter1+quarter2+quarter3+trend+x1+x2+x3+x4+x1_star+x2_star+x3_star+ly, data = data[[1]])
 
-stargazer(m1,m2, type='text')
+stargazer(m1,m2, type='html')
 
 ```
 
@@ -134,14 +152,22 @@ stargazer(m1,m2, type='text')
 # Loop
 
 all_res=rbindlist(lapply(data, function(dt) {
-  mcor=lm(y~1+quarter1+quarter2+quarter3+trend+x1+x2+x3+x4+x1_star+ly, data = dt)
+  mcor=lm(y~1+quarter1+quarter2+quarter3+trend+x1+x2+x3+x4+x1_star+x2_star+x3_star+ly, data = dt)
   m=lm(y~1+quarter1+quarter2+quarter3+trend+x1+x2+x3+x4+ly, data = dt)
-  return(data.table(biased = m$coefficients['x1'], corrected = mcor$coefficients['x1']))
+  return(data.table(biased_x1 = m$coefficients['x1'], corrected_x1 = mcor$coefficients['x1'],
+                    biased_x1 = m$coefficients['x2'], corrected_x1 = mcor$coefficients['x2'],
+                    biased_x1 = m$coefficients['x3'], corrected_x1 = mcor$coefficients['x3']
+                    
+                    
+                    ))
+  
 }))
 
 summary(all_res)
-hist(all_res$biased,breaks=20, main = 'Histogram of parameter without Copula correction')
-hist(all_res$corrected,breaks=20, main = 'Histogram of parameter with Copula correction')
+#hist(all_res$biased,breaks=20, main = 'Histogram of parameter without Copula correction')
+#hist(all_res$corrected,breaks=20, main = 'Histogram of parameter with Copula correction')
+
+# true:  'x1' = 1, 'x2' = -2, 'x3' = .5
 
 ```
 
