@@ -22,10 +22,6 @@ names(files) = gsub('[.]csv$', '', gsub('.*elast[_]results[_]', '', files))
 elast_list <- lapply(files, function(fn) {
   tmp = fread(fn)
   tmp[, w_elastlt := (1/elastlt_se)/sum(1/elastlt_se), by = c('variable')]
-  #if ('sbbe' %in% colnames(tmp)) {
-  #  tmp[, sbbe_round1:=sbbe]
-  #  tmp[!is.na(elastlt), sbbe_round1_mc := sbbe_round1-mean(sbbe_round1,na.rm=T),by=c('variable')]
-  #  }
   setkey(tmp, category, country, brand)
   return(tmp)
 })
@@ -41,6 +37,17 @@ elast_list = lapply(elast_list, function(elast) {
 })
 
 # Load covariates from panel data set
+
+files = list.files('../externals/', pattern = '^predictions[_].*[.]csv$', full.names=T)
+names(files) = gsub('[.]csv$', '', gsub('.*predictions[_]results[_]', '', files))
+
+predictions <- rbindlist(lapply(seq(along=files), function(f) {
+  pr <- fread(files[f])
+  pr[, type:=names(files)[f]]
+  setcolorder(pr, 'type')
+  return(pr)
+  
+}))
 
 merge_covar <- function(dt){
   fns <- list.files('../output/',pattern='covariates.*csv', full.names = T)
@@ -73,4 +80,4 @@ setkey(elasticities$marketshare, category,country,brand)
 elasticities$marketshare[elasticities$ec_main_sur, brand_id:=i.brand_id]
 
 
-save(elasticities, file= 'app/app_workspace.RData')
+save(elasticities, predictions, file= 'app/app_workspace.RData')
