@@ -218,7 +218,7 @@ potential_vars_raw = list(brandequity=list('!SBBE' = 'sbbe_round1_mc',
                                        'Distr. (std.)' = 'wpswdst_std_mc',
                                        'Line length (std.)' = 'llen_std_mc'),
                       
-                      brandother = list('!Brand novelty' = 'ln_brandnovelty3_mc'),#,
+                      brandother = list('!Brand novelty' = 'ln_brandnovelty6_mc'),#,
                                         #'Price positioning' = 'brand_prindex_mean_mc'),
                       
                       category = list('!Market concentration' = "ln_market_herf_mc",
