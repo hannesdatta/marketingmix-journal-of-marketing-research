@@ -1,0 +1,13 @@
+Categories excluded due to data errors:
+  COUNTRY       cat  used
+1   CHINA desktoppc FALSE
+2   INDIA desktoppc FALSE
+3   CHINA    laptop FALSE
+4   INDIA    laptop FALSE
+Categories with no data from GfK:
+        cat    variable
+1 microwave       JAPAN
+2   cooling NEW ZEALAND
+3 desktoppc NEW ZEALAND
+4   washing NEW ZEALAND
+Number of possible markets (Ncategories x Ncountries):  196

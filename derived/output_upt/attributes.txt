@@ -1,0 +1,516 @@
+////////////////////////////////////////////////////
+Category: desktoppc
+////////////////////////////////////////////////////
+
+Attribute: attr_raminmb
+  attr_raminmb  
+ Min.   :   16  
+ 1st Qu.: 1024  
+ Median : 2048  
+ Mean   : 2562  
+ 3rd Qu.: 4096  
+ Max.   :16382  
+
+Attribute: attr_cpumhz
+  attr_cpumhz  
+ Min.   : 650  
+ 1st Qu.:2400  
+ Median :2800  
+ Mean   :2728  
+ 3rd Qu.:3200  
+ Max.   :4700  
+
+Attribute: attr_hdd
+    attr_hdd      
+ Min.   :    1.7  
+ 1st Qu.:  160.0  
+ Median :  320.0  
+ Mean   :  413.6  
+ 3rd Qu.:  500.0  
+ Max.   :48000.0  
+
+
+
+
+
+
+
+
+////////////////////////////////////////////////////
+Category: laptop
+////////////////////////////////////////////////////
+
+Attribute: attr_raminmb
+  attr_raminmb  
+ Min.   :    2  
+ 1st Qu.: 1024  
+ Median : 2048  
+ Mean   : 2669  
+ 3rd Qu.: 4096  
+ Max.   :10254  
+
+Attribute: attr_weightkg
+ attr_weightkg 
+ Min.   :0.20  
+ 1st Qu.:1.97  
+ Median :2.40  
+ Mean   :2.28  
+ 3rd Qu.:2.70  
+ Max.   :9.80  
+
+Attribute: attr_cpumhz
+  attr_cpumhz  
+ Min.   :  50  
+ 1st Qu.:1730  
+ Median :2100  
+ Mean   :2063  
+ 3rd Qu.:2400  
+ Max.   :3800  
+
+Attribute: attr_touchscreen
+
+    NO    YES 
+176044   4671 
+
+     (Number of NAs in this variable: 0)
+
+
+Attribute: attr_camera
+
+    NO    YES 
+ 78084 102631 
+
+     (Number of NAs in this variable: 0)
+
+
+
+
+
+
+
+
+
+////////////////////////////////////////////////////
+Category: tablets
+////////////////////////////////////////////////////
+
+Attribute: attr_raminmb
+  attr_raminmb  
+ Min.   :  128  
+ 1st Qu.:  512  
+ Median : 1024  
+ Mean   : 2217  
+ 3rd Qu.: 1024  
+ Max.   :64000  
+
+Attribute: attr_weightkg
+ attr_weightkg   
+ Min.   :0.0180  
+ 1st Qu.:0.3500  
+ Median :0.4584  
+ Mean   :0.4590  
+ 3rd Qu.:0.5100  
+ Max.   :3.1000  
+
+Attribute: attr_screensize
+ attr_screensize 
+ Min.   : 2.800  
+ 1st Qu.: 7.000  
+ Median : 7.000  
+ Mean   : 7.951  
+ 3rd Qu.: 9.700  
+ Max.   :18.400  
+
+
+
+
+
+
+
+
+////////////////////////////////////////////////////
+Category: phones_smart
+////////////////////////////////////////////////////
+
+Attribute: attr_screensize
+ attr_screensize
+ Min.   :1.000  
+ 1st Qu.:3.500  
+ Median :4.000  
+ Mean   :4.082  
+ 3rd Qu.:4.700  
+ Max.   :7.000  
+
+Attribute: attr_touchscreen
+
+   NO   YES 
+  846 21003 
+
+     (Number of NAs in this variable: 0)
+
+
+Attribute: attr_wifi
+
+   NO   YES 
+ 1642 20207 
+
+     (Number of NAs in this variable: 0)
+
+
+Attribute: attr_memoryingb
+ attr_memoryingb 
+ Min.   : 0.010  
+ 1st Qu.: 0.500  
+ Median : 4.000  
+ Mean   : 6.549  
+ 3rd Qu.: 8.000  
+ Max.   :64.000  
+
+
+
+
+
+
+
+
+////////////////////////////////////////////////////
+Category: phones_mobile
+////////////////////////////////////////////////////
+
+Attribute: attr_touchscreen
+
+   NO   YES 
+41055 15333 
+
+     (Number of NAs in this variable: 0)
+
+
+Attribute: attr_bluetooth
+
+   NO   YES 
+24913 31475 
+
+     (Number of NAs in this variable: 0)
+
+
+Attribute: attr_wifi
+
+   NO   YES 
+54089  2299 
+
+     (Number of NAs in this variable: 0)
+
+
+
+
+
+
+
+
+
+////////////////////////////////////////////////////
+Category: camera_slr
+////////////////////////////////////////////////////
+
+Attribute: attr_megapixels
+ attr_megapixels
+ Min.   : 1.40  
+ 1st Qu.:10.00  
+ Median :12.40  
+ Mean   :14.01  
+ 3rd Qu.:18.00  
+ Max.   :39.00  
+
+
+
+
+
+
+
+
+////////////////////////////////////////////////////
+Category: camera_compact
+////////////////////////////////////////////////////
+
+Attribute: attr_megapixels
+ attr_megapixels 
+ Min.   : 0.020  
+ 1st Qu.: 5.000  
+ Median : 8.240  
+ Mean   : 8.967  
+ 3rd Qu.:12.200  
+ Max.   :20.200  
+
+Attribute: attr_digitalzoom
+ attr_digitalzoom
+ Min.   : 0.000  
+ 1st Qu.: 4.000  
+ Median : 4.000  
+ Mean   : 4.257  
+ 3rd Qu.: 5.000  
+ Max.   :36.000  
+
+
+
+
+
+
+
+
+////////////////////////////////////////////////////
+Category: dvd
+////////////////////////////////////////////////////
+
+Attribute: attr_blueray
+
+  YES    NO 
+ 2535 36380 
+
+     (Number of NAs in this variable: 0)
+
+
+Attribute: attr_recorder
+
+   NO   YES 
+36351  2564 
+
+     (Number of NAs in this variable: 0)
+
+
+
+
+
+
+
+
+
+////////////////////////////////////////////////////
+Category: microwave
+////////////////////////////////////////////////////
+
+Attribute: attr_capacity
+ attr_capacity 
+ Min.   : 1.0  
+ 1st Qu.: 8.0  
+ Median :11.0  
+ Mean   :12.6  
+ 3rd Qu.:15.0  
+ Max.   :57.0  
+
+Attribute: attr_type
+
+  MW ONLY MW+OTHERS 
+     4900      5994 
+
+     (Number of NAs in this variable: 0)
+
+
+Attribute: attr_power
+   attr_power   
+ Min.   : 1.00  
+ 1st Qu.:23.00  
+ Median :25.00  
+ Mean   :21.42  
+ 3rd Qu.:27.00  
+ Max.   :74.00  
+
+Attribute: attr_timecontrol
+
+DIGITAL  OTHERS 
+   7978    2916 
+
+     (Number of NAs in this variable: 0)
+
+
+
+
+
+
+
+
+
+////////////////////////////////////////////////////
+Category: cooling
+////////////////////////////////////////////////////
+
+Attribute: attr_freezer
+
+          YES     NO_OTHERS NOT ESTIMABLE 
+        38069          2347          5781 
+
+     (Number of NAs in this variable: 0)
+
+
+Attribute: attr_numdoors
+ attr_numdoors  
+ Min.   :1.000  
+ 1st Qu.:2.000  
+ Median :2.000  
+ Mean   :2.133  
+ 3rd Qu.:2.000  
+ Max.   :7.000  
+
+
+
+
+
+
+
+
+////////////////////////////////////////////////////
+Category: tv_gen1_crtv
+////////////////////////////////////////////////////
+
+Attribute: attr_screensize_recode
+
+<=24 INCH >=25 INCH    OTHERS 
+    13352      9722      2315 
+
+     (Number of NAs in this variable: 0)
+
+
+
+
+
+
+
+
+
+////////////////////////////////////////////////////
+Category: tv_gen3_lcd_only
+////////////////////////////////////////////////////
+
+Attribute: attr_type
+
+ LCD-TV W/O LED LCD-TV WITH LED 
+          23234           19808 
+
+     (Number of NAs in this variable: 0)
+
+
+Attribute: attr_screensize_recode
+
+ <40 INCH >=40 INCH    OTHERS 
+    24335     17243      1464 
+
+     (Number of NAs in this variable: 0)
+
+
+Attribute: attr_3d
+
+   NO   YES 
+36929  6113 
+
+     (Number of NAs in this variable: 0)
+
+
+
+
+
+
+
+
+
+////////////////////////////////////////////////////
+Category: tv_gen2_ptv
+////////////////////////////////////////////////////
+
+Attribute: attr_screensize_recode
+
+ <40 INCH >=40 INCH    OTHERS 
+    22597     24199      4281 
+
+     (Number of NAs in this variable: 0)
+
+
+Attribute: attr_3d
+
+   NO   YES 
+44183  6894 
+
+     (Number of NAs in this variable: 0)
+
+
+
+
+
+
+
+
+
+////////////////////////////////////////////////////
+Category: washing
+////////////////////////////////////////////////////
+
+Attribute: attr_capacity
+ attr_capacity   
+ Min.   :  1.00  
+ 1st Qu.: 24.00  
+ Median : 29.00  
+ Mean   : 28.48  
+ 3rd Qu.: 33.00  
+ Max.   :109.00  
+
+Attribute: attr_function
+
+ COMBINATION PURE WASHING 
+        2825        33948 
+
+     (Number of NAs in this variable: 0)
+
+
+Attribute: attr_type
+
+ FRONT OTHERS    TOP 
+  7004  12392  17377 
+
+     (Number of NAs in this variable: 0)
+
+
+
+
+
+
+
+
+
+////////////////////////////////////////////////////
+Category: minioven
+////////////////////////////////////////////////////
+
+Attribute: attr_capacity
+ attr_capacity  
+ Min.   : 1.00  
+ 1st Qu.: 6.00  
+ Median :14.00  
+ Mean   :16.21  
+ 3rd Qu.:29.00  
+ Max.   :30.00  
+
+
+
+
+
+
+
+
+////////////////////////////////////////////////////
+Category: tumbledryers
+////////////////////////////////////////////////////
+
+Attribute: attr_capacity
+ attr_capacity   
+ Min.   : 3.000  
+ 1st Qu.: 5.000  
+ Median : 6.000  
+ Mean   : 6.321  
+ 3rd Qu.: 7.000  
+ Max.   :11.000  
+
+
+
+
+
+
+
+
