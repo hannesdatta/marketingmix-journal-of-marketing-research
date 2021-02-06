@@ -10,11 +10,12 @@ output: html_document
 # Load required packages
 library(data.table)
 library(MASS)
+library(knitr)
 
 # Initialize random number
 set.seed(1234)
 
-sim_data <- function(rho=.5, sig=.5) {
+sim_data <- function(rho=.5) {
   N = 120 # sample size
   
   #
@@ -53,8 +54,8 @@ sim_data <- function(rho=.5, sig=.5) {
                rho, 0, 1, 0,
                rho, 0, 0, 1), ncol = 4)
   # Standard deviations
-  
-  S <- c(sqrt(sig), sqrt(sig), sqrt(sig), sqrt(sig))
+  sig=.5
+  S <- c(sqrt(.2), sqrt(sig), sqrt(sig), sqrt(sig))
   
   cor2cov <- function(R, S) {
     sweep(sweep(R, 1, S, "*"), 2, S, "*")
@@ -146,29 +147,44 @@ out2 = lapply(data, function(dt)
     data = dt
   )$coefficients)
 
-# summarize coefficients
-for (out in list(out1, out2)) {
+
+evals <- lapply(list(out1, out2), function(out) {
+    
+  o = do.call('rbind', out)
+  res=colMeans(o)
   
-o = do.call('rbind', out)
-res=colMeans(o)
-
-for (i in 1:4) o[,paste0('lx', i)]<- (-o[,paste0('lx', i)])/o[,'ly']
-true = c(dx1=1, dx2=-2, dx3=.5, dx4=2, lx1=1/.1, lx2=-2/.1, lx3=.5/.1, lx4=2/.1)
-
-par(mfrow=c(2,4))
-
-vars=grep('^dx[0-9]$|lx[0-9]$', colnames(o), value=T)
-
-for (i in seq(along=vars)) {
-  hist(o[,vars[i]], breaks=20, main = vars[i])
-  abline(v=true[i], col='red')
-}
-
-}
+  for (i in 1:4) o[,paste0('lx', i)]<- (-o[,paste0('lx', i)])/o[,'ly']
+  true = c(dx1=1, dx2=-2, dx3=.5, dx4=2, lx1=1/.1, lx2=-2/.1, lx3=.5/.1, lx4=2/.1)
+  
+  par(mfrow=c(2,4))
+  
+  vars=grep('^dx[0-9]$|lx[0-9]$', colnames(o), value=T)
+  
+  for (i in seq(along=vars)) {
+    hist(o[,vars[i]], breaks=20, main = vars[i])
+    abline(v=true[i], col='red')
+  }
+  return(o)
+})
 
 ```
 
-# Simulate data
+# Comparison
+
+```{r}
+vars=grep('^dx[0-9]$|lx[0-9]$', colnames(evals[[1]]), value=T)
+
+comp=rbind(data.table(evals[[1]][, vars], type='without Copulas', iteration = 1:nrow(evals[[1]])),
+      data.table(evals[[2]][, vars], type='with Copulas', iteration = 1:nrow(evals[[1]])))
+tmp=melt(comp, id.vars=c('type'))
+
+tmp2 = tmp[variable%in%vars, list(mean=mean(value)),by=c('type','variable')]
+
+tmp3=cbind(dcast(tmp2, variable~type), true=c(dx1=1, dx2=-2, dx3=.5, dx4=2, lx1=1/.1, lx2=-2/.1, lx3=.5/.1, lx4=2/.1))
+setcolorder(tmp3, c('variable', 'true', 'without Copulas','with Copulas'))
+
+kable(tmp3)
+```
 
 ```{r eval=FALSE, include=FALSE, results='asis'}
 
