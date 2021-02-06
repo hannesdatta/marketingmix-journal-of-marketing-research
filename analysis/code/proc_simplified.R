@@ -1,88 +1,100 @@
 library(MASS)
 library(car)
 
+
 # Configure model type and calibrate lag structure
-simple_loglog <- function(id, controls='quarter[1-3]|^attr[_]|lngdp|lnholiday|^comp[_]|^trend') {
+simple_loglog <- function(id, vars = c('lnrwpspr','lnllen','lnwpswdst'),
+                      controls='(^comp[_].*(pr|llen|dst)$)|quarter[1-3]|lnholiday|^trend|(^cop[_]ln.*(pr|llen|dst)$)', 
+                      pval = .1,
+                      kickout_ns_copula = T, 
+                      holdout= NULL) {
   
-  # 1.0 Conduct bounds test
   dv='lnusales'
   dt=data.table(brand_panel[brand_id==id])
   
-  vars = c('lnrwpspr','lnllen','lnwpswdst') 
+  brands_in_market <- unique(brand_panel[market_id%in%unique(brand_panel[brand_id==id]$market_id)]$brand)
   
+  print(vars)
   vars = vars[unlist(lapply(dt[, vars, with=F], use_ts))]
+  print(vars)
   
-  #brands_in_market <- unique(brand_panel[market_id%in%unique(brand_panel[brand_id==id]$market_id)]$brand)
+  control_vars = unlist(sapply(controls, function(ctrls) if (nchar(ctrls)>0) grep(ctrls, colnames(dt),value=T)))
+  control_vars = unlist(lapply(control_vars, function(control_var) control_var[unlist(lapply(dt[, control_var, with=F], use_ts))]))
+  print(control_vars)
   
-  #if (length(brands_in_market)>2) 
-  #if (length(brands_in_market)<=2) control_vars = c('lngdp', 'lnholiday')
-  
-  
-  control_vars = grep(controls, colnames(dt),value=T)
-  
-  if(length(control_vars)==0|controls=='') control_vars = NULL
-  
-  control_vars = control_vars[unlist(lapply(dt[, control_vars, with=F], use_ts))]
-  
-  #dt[, lntrend:=log(1:.N)]
   dt[, lntrend:=lntrend-mean(lntrend,na.rm=T)]
   dt[, trend:=trend-mean(trend,na.rm=T)]
   
-  # LOG-LOG
+  my_form = update.formula(lnusales~1, as.formula(paste0('.~.+1+', paste0(c(vars, 'lnlagusales', control_vars), collapse='+'))))
+  
+  dt[, estim_set:=T]
+  
+  dt[, percentile_obs:=(1:.N)/.N]
+  
+  if (!is.null(holdout)) dt[percentile_obs>(1-holdout), estim_set:=F]
+  
+  m = lm(my_form, data= dt, subset = estim_set==T)
+  
+  # kickout coefs with NA values (e.g., attributes that are not identified)
+  kickoutcoef = NULL
+  if (any(is.na(m$coefficients))) kickoutcoef = c(kickoutcoef, names(m$coefficients[is.na(m$coefficients)]))
+  
+  # kickout ns. copulas
+  vars_cop=grep('^cop[_]', control_vars, value=T)
+  
+  if (!is.null(vars_cop) & kickout_ns_copula == T) {
+    tmpres = data.table(variable=rownames(summary(m)$coefficients), summary(m)$coefficients)[grepl('^cop[_]', variable)]
+    setnames(tmpres, c('variable','est','se','t','p'))
+    tmpres = tmpres[p>pval]
     
-    # lm model
-    my_form =update.formula(lnusales~1, as.formula(paste0('.~.+1+', paste0(c(vars, control_vars, 'lnlagusales'), collapse='+'))))
-    
-    m1 = lm(my_form, data= dt)
-    
-    identifiers = unique(dt[,c('market_id', 'category','country', 'brand', 'brand_id' ),with=F], by=c('brand_id'))
-    setkey(identifiers, market_id, brand)
-    
-    if (any(is.na(m1$coefficients))) {
-      kickoutcoef = names(m1$coefficients[is.na(m1$coefficients)])
-      my_form =update.formula(my_form, as.formula(paste0('.~.-', paste0(kickoutcoef, collapse='-'))))
-      m1 = lm(my_form, data= dt)
-    }
+    if (nrow(tmpres)>0) kickoutcoef = c(kickoutcoef, tmpres$variable)
+  }
+  
+  if (length(kickoutcoef>0)) {
+    my_form =update.formula(my_form, as.formula(paste0('.~.-', paste0(kickoutcoef, collapse='-'))))
+    m2 = lm(my_form, data= dt, subset = estim_set==T)
+  } else {m2=m}
+  
+  predictions = cbind(dt[, c('category','country','brand','date', 'estim_set', 'lnusales'),with=F],
+                      lnusales_hat=predict(m2, newdata=dt))
+  
+  if (!is.null(m2$na.action)) identifiers = dt[-m2$na.action,c('market_id', 'category','country', 'brand', 'brand_id' , 'date'),with=F]
+  if (is.null(m2$na.action)) identifiers = dt[,c('market_id', 'category','country', 'brand', 'brand_id' , 'date'),with=F]
+  
+  setkey(identifiers, market_id, date, brand)
+  
+  if (length(vars)>0) {
+    elast2 = rbindlist(lapply(vars, function(v) {
+      st=deltaMethod(m2, paste0('(', v, ')'))
       
-    if (0) {#(any(grepl('^attr[_]', control_vars))) {
-      # Add brand attributes
-      retain_attr=unlist(lapply(dt[-m1$na.action, grep('^attr',colnames(dt),value=T),with=F], function(x) !all(is.na(x))))
-      attr_vars = names(retain_attr[which(retain_attr==T)])
-      attr_vars = attr_vars[unlist(lapply(dt[-m1$na.action, attr_vars, with=F], use_ts))]
-      
-      if(length(attr_vars)>0) my_form =update.formula(my_form, as.formula(paste0('.~.+', paste0(c(attr_vars), collapse='+'))))
-    
-      m1 = lm(my_form, data= dt)
-      if (any(is.na(m1$coefficients))) {
-        kickoutcoef = names(m1$coefficients[is.na(m1$coefficients)])
-        my_form =update.formula(my_form, as.formula(paste0('.~.-', paste0(kickoutcoef, collapse='-'))))
-        m1 = lm(my_form, data= dt)
-        
-      }
-    }
-    
-     
-    # elasticities
-    
-    elast1 = rbindlist(lapply(vars, function(v) {
-      st=deltaMethod(m1, paste0('(', v, ')'))
-      lt=deltaMethod(m1, paste0('(', v, ')/(1-lnlagusales)'))
+      if (v%in% names(m2$coefficients)) {
+        lt=deltaMethod(m2, paste0('(', v, ')/(1-lnlagusales)')) } #else {
+          #lt=deltaMethod(m2, paste0('(0)/(lnlagusales)'))
+        #}
       
       data.frame(variable=v, elast = st$Estimate, elast_se=st$SE,
-                 elastlt = lt$Estimate, elastlt_se = lt$SE, beta = m1$coefficients[v], carryover = m1$coefficients['lnlagusales'])
+                 elastlt = lt$Estimate, elastlt_se = lt$SE, beta = m2$coefficients[v], 
+                 carryover = m2$coefficients['lnlagusales'])
       
     }))
-   
- elast1=cbind(identifiers[1],elast1)
- 
- .v=vif(m1)
- vif1=cbind(identifiers[1], data.table(variable=names(.v), vif=.v))
- 
-
- 
-return(list(elast=elast1, model=m1, vif=vif1))
+    
+    uniq_identifiers = copy(identifiers)[1][, date:=NULL]
+    elast2=cbind(uniq_identifiers,elast2)
+    .v=vif(m2)
+    vif2=cbind(uniq_identifiers, data.table(variable=names(.v), vif=.v))
+  } else {
+    elast2=NULL
+    vif2=NULL
+  }
+  
+  return(list(elast=elast2, model=m2, vif=vif2,
+              paneldimension = identifiers,
+              model_matrix = m2$model,
+              dt=dt,
+              orig_results = m$coefficients, kicked_out_coefs = kickoutcoef,
+              predictions=predictions, r2_within_dv= summary(m2)$r.squared))
+  
 }
-
 
 
 # Configure model type and calibrate lag structure

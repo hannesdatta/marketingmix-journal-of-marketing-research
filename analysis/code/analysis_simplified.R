@@ -298,6 +298,15 @@ results_ec_main_holdout = parLapplyLB(cl, bids, function(bid)
   try(simple_ec(bid, holdout=holdout), silent=T)
 )
 
+## LOG LOG MAIN MODEL ##
+results_loglog_main = parLapplyLB(cl, bids, function(bid)
+  try(simple_loglog(bid), silent=T)
+)
+
+results_loglog_main_holdout = parLapplyLB(cl, bids, function(bid)
+  try(simple_loglog(bid, holdout=holdout), silent=T)
+)
+
 
 ####### ADDING MARKETING MIX INSTRUMENTS ITERATIVELY ######
 

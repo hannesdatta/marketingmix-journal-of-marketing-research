@@ -47,7 +47,7 @@ predictions <- rbindlist(lapply(seq(along=files), function(f) {
   setcolorder(pr, 'type')
   return(pr)
   
-}))
+}), fill = T)
 
 merge_covar <- function(dt){
   fns <- list.files('../output/',pattern='covariates.*csv', full.names = T)
