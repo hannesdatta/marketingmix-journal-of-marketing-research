@@ -130,15 +130,6 @@ hist(drop(res[,2]),breaks=100)
 
 ```
 
-
-No bias when `rho = 0`
-
-```{r}
-# no bias:
-out=sim_data(rho = 0, coef_x=.5, pi_vals=c(-1,2))
-summary(lm(y~1+x, data = out$data))
-```
-
 ## 2.3 Recovery using MLE a la Ebbes et al. 
 
 ### Estimation
@@ -148,13 +139,12 @@ library(optimx)
 
 # Simulate data
 set.seed(999)
-out=sim_data(rho = .3, coef_x=.5, pi_vals=c(-1,2), N = 100)
+out=sim_data(rho = .3, N = 1000)
+
 source('liv_llik.R')
 
 y=out$data$y
-x=out$data$x
-z=out$data$z
-pi_vals=out$pi_vals
+x=out$data$x1
 
 params = c(0, 1, 1, 0, 1, 0, 1, 2)
 
@@ -172,65 +162,4 @@ unlist(MLE2)
 
 
 ```
-
-
-```{r}
-# try copulas
-
-#Gewone OLS zonder EC: Onze X’s; correlatie opbrengen met error term; Gaussian werkt (?) (yt, xt; endogeniteit aanmaken; xt, delta xt opnemen, kijken of het nog werkt)
-#Wel toewerken naar EC
-out=sim_data(rho = .3, coef_x=.5, pi_vals=c(-1,2), N = 10000)
-out=sim_data(rho = .5, coef_x=.5, pi_vals=c(-2,2), N = 10000, type = 'copula')
-
-make_copula <- function(x, increment = .001) {
-		if (length(unique(x))==1) return(as.numeric(rep(NA, length(x))))
-		return(ifelse(ecdf(x)(x)==1, qnorm(1-increment), qnorm(ecdf(x)(x))))
-}
-data=out$data
-data$copula <- make_copula(data$x)
-
-hist(data$x)
-
-shapiro.test(sample(data$x,5000))
-
-
-summary(lm(y~1+x,data=data))
-summary(lm(y~1+x+copula,data=data))
-
-# fantastic!
-
-```
-
-```{r}
-# recovery via Latent IVs?
-
-y=data$y
-x=data$x
-
-params = c(0, 1, 1, 0, 1, 0, 1, 2)
-
-# without simulated maximum likelihood
-MLE = optimx(params, fn = llik, method = 'Nelder-Mead', hessian = TRUE, itnmax = 10000, 
-        control = list(trace = 0, dowarn = FALSE))
-unlist(MLE)
-
-summary(lm(y~1+x,data=data))
-summary(lm(y~1+x+copula,data=data))
-
-y=data$y
-x=data$x
-
-
-#z=out$data$z
-#pi_vals=out$pi_vals
-
-# use copula in estimation?
-
-params = c(0, 1, 1, 0, 1, 0, 1, 2)
-
-MLE = optimx(params, fn = llik, method = 'Nelder-Mead', hessian = TRUE, itnmax = 10000, 
-        control = list(trace = 0, dowarn = FALSE))
-unlist(MLE)
-
-#llik(params, sim=T)
 
