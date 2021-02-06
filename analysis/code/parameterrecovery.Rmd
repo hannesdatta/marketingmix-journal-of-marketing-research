@@ -16,7 +16,7 @@ set.seed(1234)
 
 
 
-sim_data <- function() {
+sim_data <- function(rho=.5) {
   N =120 # sample size
   
   #
@@ -36,7 +36,7 @@ sim_data <- function() {
   
   beta = c('intercept' = 0, 'quarter1' = 1, 'quarter2' = -1, 'quarter3' = -.5, 'trend' = .1, 'x1' = 1, 'x2' = -2, 'x3' = .5, 'x4'=2, 'ly' = .9)
   
-  rho = .5
+ # rho = .5
   
   # Correlation matrix
   R = matrix(c(1, rho, rho, rho,
@@ -110,10 +110,15 @@ sim_data <- function() {
 		return(ifelse(ecdf(x)(x)==1, qnorm(1-increment), qnorm(ecdf(x)(x))))
   }
   
-  data[, x1_star:=make_copula(x1)]
-data[, x2_star:=make_copula(x2)]
-data[, x3_star:=make_copula(x3)]
-
+  data[, dy:=y-c(NA,y[-.N])]
+  
+  for (v in grep('x[0-9]', colnames(data),value=T)) {
+    data[, paste0(v, '_star'):=make_copula(get(v))]
+    data[, paste0('l', v):=c(NA,get(v)[-.N])]
+    data[, paste0('l', v, '_star'):=make_copula(get(paste0('l', v)))]
+    data[, paste0('d', v):=get(v)-c(NA,get(v)[-.N])]
+  }
+  
   return(data)
 }
 
@@ -130,6 +135,31 @@ data <- lapply(1:reps, function(...) sim_data())
 
 ```
 
+# Recovery without endogeneity
+
+```{r}
+set.seed(1234)
+data=sim_data(rho=0)
+
+reps = 50
+set.seed(1234)
+data <- lapply(1:reps, function(...) sim_data(rho=0))
+
+#out=lapply(data, function(dt) lm(y~1+x1+x2+x3+x4+quarter1+quarter2+quarter3+ly,data=dt)$coefficients)
+
+out=lapply(data, function(dt) lm(dy~1+dx1+dx2+dx3+dx4+quarter1+quarter2+quarter3+ly-
+                                   lx1-lx2-lx3-lx4,data=dt)$coefficients)
+
+o = do.call('rbind', out)
+res=colMeans(o)
+res
+
+# recovery
+res[grepl('^l',names(res))]/res[which(names(res)=='ly')]
+
+
+
+```
 
 # Simulate data
 
