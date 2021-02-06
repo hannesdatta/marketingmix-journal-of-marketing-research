@@ -260,7 +260,7 @@ kable(frame1,format='html', caption = tab('Assessing multicollinearity^1^', pref
 ord=c('ec_main', 
       'ec_nommix', grep('ec_only',unique(predictions$type),value=T),
        grep('unrestricted',unique(predictions$type),value=T),
-       'ec_lntrend','ec_noendogeneity')
+       'ec_lntrend','ec_noendogeneity', 'loglog_main')
 ord <- grep('holdout',ord,invert=T,value=T)
 
 sel_ord = unique(unlist(sapply(paste0(ord,'$|', ord,'_holdout'), grep, x= unique(predictions$type),value=T,simplify=F)))
@@ -273,6 +273,7 @@ sel_ord = unique(unlist(sapply(paste0(ord,'$|', ord,'_holdout'), grep, x= unique
       
 predictions[, lnusales_mc := lnusales- mean(lnusales,na.rm=T), by= c('type','category','country','brand', 'estim_set')]
 predictions[, lnusales_hat_mc := lnusales_hat- mean(lnusales_hat,na.rm=T), by= c('type','category','country','brand', 'estim_set')]
+
  predictions[, dlnusales_mc := dlnusales- mean(dlnusales,na.rm=T), by= c('type','category','country','brand', 'estim_set')]
 predictions[, dlnusales_hat_mc := dlnusales_hat- mean(dlnusales_hat,na.rm=T), by= c('type','category','country','brand', 'estim_set')]
   
