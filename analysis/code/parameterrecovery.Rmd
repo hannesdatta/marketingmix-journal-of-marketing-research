@@ -14,10 +14,8 @@ library(MASS)
 # Initialize random number
 set.seed(1234)
 
-
-
-sim_data <- function(rho=.5) {
-  N =120 # sample size
+sim_data <- function(rho=.5, sig=.5) {
+  N = 120 # sample size
   
   #
   data = data.table(date=1:N)
@@ -34,7 +32,18 @@ sim_data <- function(rho=.5) {
   data <- cbind(data,x)
   data[, intercept:=1]
   
-  beta = c('intercept' = 0, 'quarter1' = 1, 'quarter2' = -1, 'quarter3' = -.5, 'trend' = .1, 'x1' = 1, 'x2' = -2, 'x3' = .5, 'x4'=2, 'ly' = .9)
+  beta = c(
+    'intercept' = 0,
+    'quarter1' = 1,
+    'quarter2' = -1,
+    'quarter3' = -.5,
+    'trend' = .1,
+    'x1' = 1,
+    'x2' = -2,
+    'x3' = .5,
+    'x4' = 2,
+    'ly' = .9
+  )
   
  # rho = .5
   
@@ -42,20 +51,22 @@ sim_data <- function(rho=.5) {
   R = matrix(c(1, rho, rho, rho,
                rho, 1, 0, 0,
                rho, 0, 1, 0,
-               rho, 0, 0, 1), ncol=4)
+               rho, 0, 0, 1), ncol = 4)
   # Standard deviations
   
-  S <- c(sqrt(.5), sqrt(.5), sqrt(.5), sqrt(.5))
+  S <- c(sqrt(sig), sqrt(sig), sqrt(sig), sqrt(sig))
   
   cor2cov <- function(R, S) {
-   sweep(sweep(R, 1, S, "*"), 2, S, "*")
+    sweep(sweep(R, 1, S, "*"), 2, S, "*")
   }
   
   Sigma = cor2cov(R, S)
-    
+  
   # Draws from the Var-Covar Matrix
   
-  error = mvrnorm(n = N, mu = c(0,0,0,0), Sigma =Sigma)
+  error = mvrnorm(n = N,
+                  mu = c(0, 0, 0, 0),
+                  Sigma = Sigma)
   
   # x1 endog
   F_x=pnorm(error[,2])
@@ -74,49 +85,39 @@ sim_data <- function(rho=.5) {
   x=qgamma(F_x,.5)
   data[, x3:=x]
   
-  
-  #x = F_x*(max(pi_vals)-min(pi_vals))+min(pi_vals)
-  
-  #hist(x)
-  #print(shapiro.test(x))
-  
-  #xx=qunif(F_x,min(pi_vals),max(pi_vals))
-  
-  # let's take gamma distribution
-  # loop e.g., 500 times to rule out influence of seed value
-  
   	  
   data[, ly:=as.numeric(NA)]
   data[1, ly:=0]
   data[, y:=as.numeric(NA)]  
   
+  #shapiro.test(data$x1)
+ 
+  data=data.frame(data)
   
-  #hist(data$x1)
-  #cor(data$x1, data$x1_star)
-  
-  shapiro.test(data$x1)
-  
+  # simulate data 
   for (i in 1:N) {
-    ysim <- as.matrix(data[i, names(beta),with=F])%*%beta + error[i,1]
+    ysim <- as.matrix(data[i, names(beta)]) %*% beta + error[i, 1]
     
-    data[i, y:=ysim]
-    if (i<N) data[i+1, ly:=ysim]
-  
-  
-  }
+    data[i, 'y'] <-  ysim
+    if (i < N)
+      data[i + 1, 'ly'] <- ysim
+    
+ }
+  data=data.table(data)
   
   make_copula <- function(x, increment = .001) {
-		if (length(unique(x))==1) return(as.numeric(rep(NA, length(x))))
-		return(ifelse(ecdf(x)(x)==1, qnorm(1-increment), qnorm(ecdf(x)(x))))
+    if (length(unique(x)) == 1)
+      return(as.numeric(rep(NA, length(x))))
+    return(ifelse(ecdf(x)(x) == 1, qnorm(1 - increment), qnorm(ecdf(x)(x))))
   }
   
-  data[, dy:=y-c(NA,y[-.N])]
+  data[, dy := y - c(NA, y[-.N])]
   
-  for (v in grep('x[0-9]', colnames(data),value=T)) {
-    data[, paste0(v, '_star'):=make_copula(get(v))]
-    data[, paste0('l', v):=c(NA,get(v)[-.N])]
-    data[, paste0('l', v, '_star'):=make_copula(get(paste0('l', v)))]
-    data[, paste0('d', v):=get(v)-c(NA,get(v)[-.N])]
+  for (v in grep('x[0-9]', colnames(data), value = T)) {
+    data[, paste0(v, '_star') := make_copula(get(v))]
+    data[, paste0('l', v) := c(NA, get(v)[-.N])]
+    data[, paste0('l', v, '_star') := make_copula(get(paste0('l', v)))]
+    data[, paste0('d', v) := get(v) - c(NA, get(v)[-.N])]
   }
   
   return(data)
@@ -124,46 +125,52 @@ sim_data <- function(rho=.5) {
 
 ```
 
+# Recovery with Error Correction
+
 ```{r}
-
-
-set.seed(1984)
-
 reps = 100
-
-data <- lapply(1:reps, function(...) sim_data())
-
-```
-
-# Recovery without endogeneity
-
-```{r}
 set.seed(1234)
-data=sim_data(rho=0)
+data <- lapply(1:reps, function(...) sim_data(rho=.5))
 
-reps = 50
-set.seed(1234)
-data <- lapply(1:reps, function(...) sim_data(rho=0))
+out1 = lapply(data, function(dt)
+  lm(
+    dy ~ 1 + dx1 + dx2 + dx3 + dx4 + trend + ly + quarter1 + quarter2 + quarter3 +
+      lx1 + lx2 + lx3 + lx4,
+    data = dt
+  )$coefficients)
 
-#out=lapply(data, function(dt) lm(y~1+x1+x2+x3+x4+quarter1+quarter2+quarter3+ly,data=dt)$coefficients)
+out2 = lapply(data, function(dt)
+  lm(
+    dy ~ 1 + dx1 + dx2 + dx3 + dx4 + trend + ly + quarter1 + quarter2 + quarter3 +
+      lx1 + lx2 + lx3 + lx4 + x1_star + x2_star + x3_star,
+    data = dt
+  )$coefficients)
 
-out=lapply(data, function(dt) lm(dy~1+dx1+dx2+dx3+dx4+quarter1+quarter2+quarter3+ly-
-                                   lx1-lx2-lx3-lx4,data=dt)$coefficients)
-
+# summarize coefficients
+for (out in list(out1, out2)) {
+  
 o = do.call('rbind', out)
 res=colMeans(o)
-res
 
-# recovery
-res[grepl('^l',names(res))]/res[which(names(res)=='ly')]
+for (i in 1:4) o[,paste0('lx', i)]<- (-o[,paste0('lx', i)])/o[,'ly']
+true = c(dx1=1, dx2=-2, dx3=.5, dx4=2, lx1=1/.1, lx2=-2/.1, lx3=.5/.1, lx4=2/.1)
 
+par(mfrow=c(2,4))
 
+vars=grep('^dx[0-9]$|lx[0-9]$', colnames(o), value=T)
+
+for (i in seq(along=vars)) {
+  hist(o[,vars[i]], breaks=20, main = vars[i])
+  abline(v=true[i], col='red')
+}
+
+}
 
 ```
 
 # Simulate data
 
-```{r, results='asis',echo=FALSE}
+```{r eval=FALSE, include=FALSE, results='asis'}
 
 # Recovery
 
@@ -178,7 +185,7 @@ stargazer(m1,m2, type='html')
 ```
 
 
-```{r}
+```{r eval=FALSE, include=FALSE}
 # Loop
 
 all_res=rbindlist(lapply(data, function(dt) {
