@@ -549,4 +549,62 @@ for (byvar in c('category')) {
 
 ```	
 
+```{r elasticities_advertising, echo = FALSE, results='asis'}
+  
+out= NULL
+
+
+units <- c('Advertising not included (focal model)' = 'ec_chinahk_withoutadv',
+           'Advertising included' = 'ec_chinahk_withadv')
+
+
+
+compare_elast = rbindlist(lapply(units, function(.unit) {
+  return(elasticities[[.unit]][, c('category','country','brand','variable','elastlt','elastlt_se'),with=F][, ':=' (type=.unit, w_elastlt=1/elastlt_se, elastlt_z=elastlt/elastlt_se)])
+}))
+  
+
+# keep only adv markets
+compare_elast[, has_adv:=any(grepl('adv',variable)),by=c('category','country','brand')]
+compare_elast <- compare_elast[has_adv==T]  
+
+tmp=compare_elast[, list(N=.N, mean=sum(elastlt*w_elastlt)/sum(w_elastlt),
+                         rosenthal=signstars(sum(elastlt_z)/sqrt(length(which(!is.na(elastlt)))))),by=c('type','variable')]
+setnames(tmp, 'variable','vars')
+
+
+# t-tests
+ttests=rbindlist(lapply(grep('adv', unique(tmp$vars), invert=T,value=T), function(.v) {
+  tmp2=summary(lm(elastlt~1+I(grepl('withadv',type)),data=compare_elast, subset=variable==.v))
+  tmp3 = data.table(variable=.v, rbind(tmp2$coefficients[2,]))
+  setnames(tmp3, c('vars','est','se','t','p'))
+}))
+
+tmp[, type:=factor(as.character(type), levels=units)]
+
+
+tmpx=dcast(melt(tmp, id.vars=c('type','vars')), vars~type+variable)
+
+tmpx[, order:=match(vars, c('lnradv',ordered_vars))]
+
+tmpx=merge(tmpx, ttests[,c('vars','t','p')],by.x='vars',by.y='vars',all.x=T)
+setorder(tmpx, order)
+tmpx[,order:=NULL]     
+for (.v in grep('N$|mean$|est$|se$|t$|p$', colnames(tmpx),value=T)) tmpx[, paste0(.v):=as.numeric(get(.v))]
+
+la=sanitize_table(tmpx)
+la
+
+nheaders=c(' ', names(units), 'Tests on differences')
+headers = c(1, 3, 3, 2)
+names(headers) = nheaders
+
+
+print(kable(la), digits=3, format='html', format.args = list(big.mark = ","),
+        caption=tab(paste0('Differences in long-term elasticities in models with and without advertising spending^1^'),prefix='A')) %>% kable_styling() %>% add_header_above(headers)
+
+
+```
+
+
 

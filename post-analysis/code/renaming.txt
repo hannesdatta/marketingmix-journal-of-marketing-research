@@ -4,6 +4,12 @@ _lbl$	Mean	grepl
 _percpos$	%-pos.	grepl
 _percneg$	%-neg.	grepl
 _percns$	%-n.s.	grepl
+_N$	N	grepl
+_mean$	Mean elasticity	grepl
+^t$	t-value	grepl
+^p$	p-value	grepl
+^lnradv$	Advertising	grepl
+rosenthal	Sig.	grepl
 survself$	Self-expression culture	grepl
 tradrat$	Secular-rational culture	grepl
 ^usalessh$	Market share	grepl
