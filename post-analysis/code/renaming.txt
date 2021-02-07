@@ -13,6 +13,19 @@ rosenthal	Sig.	grepl
 survself$	Self-expression culture	grepl
 tradrat$	Secular-rational culture	grepl
 ^usalessh$	Market share	grepl
+Full[ ]model_training	Full model	grepl
+Holdout[ ]model_training	Holdout training	grepl
+Holdout[ ]model_validation	Holdout validation	grepl
+ec[_]main	Main model	grepl
+ec[_]nommix	Without marketing mix	grepl
+ec[_]onlydst	With only distribution	grepl
+ec[_]onlypr	With only price	grepl
+ec[_]onlyllen	With only line length	grepl
+ec[_]onlydst	With only distribution	grepl
+ec[_]unrestrictedcompetition	With long-term competitive effects	grepl
+ec[_]lntrend	With log trend	grepl
+ec[_]noendogeneity	Without endogeneity correction	grepl
+loglog[_]main	Log-log specification	grepl
 australia	Australia	grepl
 singapore	Singapore	grepl
 japan	Japan	grepl
@@ -29,6 +42,8 @@ philippines	Philippines	grepl
 india	India	grepl
 vietnam	Vietnam	grepl
 netherlands	The Netherlands	gsub
+^usales$	Unit sales	grepl
+^threed$	3D	grepl
 ^usa$	USA	gsub
 ^Usa$	USA	gsub
 othercountry	Other country	gsub

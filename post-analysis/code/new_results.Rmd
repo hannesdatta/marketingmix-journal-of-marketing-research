@@ -218,6 +218,7 @@ cat("<P style='page-break-before: always'>")
 cols =  c('country_of_origin')
 tmp = elast[, list(.N), by = c('brand',cols)]
 tmp = tmp[!grepl('alloth', brand)]
+tmp[brand=='threed', brand:='3D']
 tmp = tmp[, list(nbrands=length(unique(brand)), all_brands=paste(my_capitalize(brand)[order(brand)], collapse=', ')), by = cols]
 tmp[country_of_origin==''|is.na(country_of_origin), country_of_origin := 'Country not available']
 tmp[, country_of_origin:=my_capitalize(country_of_origin)]
@@ -233,6 +234,7 @@ kable(tmp, caption = tab('Country-of-origins for brands in sample^1^', prefix ='
 ```
 
 <P style='page-break-before: always'>
+
 ```{r VIFS, echo=FALSE,results='asis', include=FALSE}
 if(0){
 m1 = ~1+ appliance + ln_market_growth_mc + ln_market_herf_mc + local_to_market  + ln_brand_prindex_mean_mc + brandz
@@ -252,125 +254,6 @@ kable(frame1,format='html', caption = tab('Assessing multicollinearity^1^', pref
 }
 }
 ```
-
-# Robustness checks
-
-```{r, results='asis', echo = FALSE}
-
-ord=c('ec_main', 
-      'ec_nommix', grep('ec_only',unique(predictions$type),value=T),
-       grep('unrestricted',unique(predictions$type),value=T),
-       'ec_lntrend','ec_noendogeneity', 'loglog_main')
-ord <- grep('holdout',ord,invert=T,value=T)
-
-sel_ord = unique(unlist(sapply(paste0(ord,'$|', ord,'_holdout'), grep, x= unique(predictions$type),value=T,simplify=F)))
-
-
-
-      #                                            grep('first|last',unique(tmp$model),value=T),
-      #                                            grep('chinahk',unique(tmp$model),value=T),
-      #                                            grep('holdout',unique(tmp$model),value=T)
-      
-predictions[, lnusales_mc := lnusales- mean(lnusales,na.rm=T), by= c('type','category','country','brand', 'estim_set')]
-predictions[, lnusales_hat_mc := lnusales_hat- mean(lnusales_hat,na.rm=T), by= c('type','category','country','brand', 'estim_set')]
-
- predictions[, dlnusales_mc := dlnusales- mean(dlnusales,na.rm=T), by= c('type','category','country','brand', 'estim_set')]
-predictions[, dlnusales_hat_mc := dlnusales_hat- mean(dlnusales_hat,na.rm=T), by= c('type','category','country','brand', 'estim_set')]
-  
-# individual
-for (ty in c('individual','omnibus')) {
-  
-  r2s=predictions[type%in%sel_ord, list(R2_diff = cor(dlnusales, dlnusales_hat, use='pairwise')^2,
-                         R2_lev = cor(lnusales, lnusales_hat, use='pairwise')^2,
-                         MSE_diff = mean((dlnusales_hat-dlnusales)^2,na.rm=T),
-                         MSE_lev = mean((lnusales_hat-lnusales)^2,na.rm=T)),
-               by = c('type','category','country','brand', 'estim_set')]
-
-  if (ty=='omnibus') {
-  # omnibus
-  r2s=predictions[type%in%sel_ord, list(R2_diff = cor(dlnusales_mc, dlnusales_hat_mc, use='pairwise')^2,
-                         R2_lev = cor(lnusales_mc, lnusales_hat_mc, use='pairwise')^2,
-                         MSE_diff = mean((dlnusales_hat_mc-dlnusales_mc)^2,na.rm=T),
-                         MSE_lev = mean((lnusales_hat_mc-lnusales_mc)^2,na.rm=T)),
-               by = c('type', 'estim_set')]
-  }
-  
-  r2s[, model_type:='Full model']
-  r2s[grepl('holdout$',type), model_type:='Holdout model']
-  r2s[, metric_type:=ifelse(estim_set==T, 'training', 'validation')]
-  
-  r2s[, type2:=gsub('[_]holdout$', '', type)]
-  
-  
-  tmp = r2s[, lapply(.SD, mean,na.rm=T), by = c('type2','model_type', 'metric_type'), .SDcols=grep("R2|MSE",colnames(r2s),value=T)]
-  
-  tmp2=melt(tmp, id.vars=c('type2','model_type','metric_type'))
-  
-  tmp3 = dcast(tmp2, type2~variable+model_type+metric_type)
-  
-  tmp3[, ord:=match(type2, ord)]
-  setorder(tmp3, ord)
-  
-  lbl = 'Robustness checks (average of brand-specific fit values)'
-  if (ty == 'omnibus') lbl = 'Robustness checks (fit values of mean-centered predictions)'
-  
-  print(kable(tmp3, format= 'html', caption =lbl))
-}
-
-
-```
-
-
-```{r,echo=FALSE}
-
-tmp = predictions[type=='ec_main' & brand =='samsung' & category=='washing'&country=='india']
-tmp[,date:=as.Date(date)]
-# selection
-with(tmp, plot(date, lnusales, lty=2, type = 'l'))
-with(tmp, lines(date, lnusales_hat, lty=1,lwd=2))
-
-
-```
-
-```{r,echo=FALSE}
-if(0){
-tmp = predictions[type=='ec_holdout20']
-
-tmp[, ':=' (R2_diff = cor(dlnusales, dlnusales_hat, use='pairwise')^2,
-                   R2_lev = cor(lnusales, lnusales_hat, use='pairwise')^2,
-            MSE_lev = mean((lnusales_hat-lnusales)^2,na.rm=T)),
-            by = c('type','category','country','brand', 'estim_set')]
-
-summary(tmp$R2_lev)
-
-brands <- unique(tmp, by = c('type','estim_set', 'category','country','brand'))[, c('category','country','brand','type','estim_set', 'R2_diff','R2_lev', 'MSE_lev'),with=F]
-
-
-tmp2 = tmp[category=='desktoppc'&country=='thailand'&brand=='dell']
-tmp2[,date:=as.Date(date)]
-# selection
-with(tmp2, plot(date, lnusales, lty=2, type = 'l'))
-with(tmp2, lines(date, lnusales_hat, lty=1,lwd=2))
-
-plot(tmp2[estim_set==FALSE]$date,tmp2[estim_set==FALSE]$lnusales, type='l',col='red')
-lines(tmp2[estim_set==FALSE]$date,tmp2[estim_set==FALSE]$lnusales_hat, type='l',col='black')
-
-check=tmp2[estim_set==FALSE]$lnusales
-check2=tmp2[estim_set==FALSE]$lnusales_hat
-
-}
-```
-
-
-```{r}
-
-#elast[]
-
-
-
-```
-
-
 
 ```{r overview2, echo=FALSE, results='asis'}
 #elast_all
@@ -480,7 +363,7 @@ print(kable(dtf, format='html', initial.zero = FALSE, digits=3,caption = tab(pas
 ```
 
 
-```{r correl, echo=FALSE, results = 'asis'}
+```{r correl, echo=FALSE, message=FALSE, warning=FALSE, results=}
 
 tmp = dcast(elast,category+country+brand~variable, value.var=c('elast', 'elastlt'))
 
@@ -568,7 +451,14 @@ unitlist = list(
       'Estimated on split data set (late)' = 'ec_last60'
     ),
     title =  'Differences in Long-Term Elasticities Over Time^1^'
-  )
+  )#,
+ # list(
+  #  units = c(
+ #     'Error correction model' = 'ec_main_sur',
+  #    'Market share attraction model' = 'marketshare'
+ #   ),
+ #   title =  'Differences in Long-Term Elasticities Between Model Specifications^1^'
+ # )
 )
 
 
@@ -589,14 +479,15 @@ for (u in unitlist) {
   
   
   # keep only markets for which both estimates are available
-  if (any('adv' %in% units)) {
+  if (any(grepl('adv', units))) {
     compare_elast[, has_adv := any(grepl('adv', variable)), by = c('category', 'country', 'brand')]
     compare_elast <- compare_elast[has_adv == T]
+  } else {
+    compare_elast[, N := .N, by = c('category', 'country', 'brand', 'variable')]
+  compare_elast <- compare_elast[N == 2][, N := NULL]
+  
   }
   
-  
-  compare_elast[, N := .N, by = c('category', 'country', 'brand', 'variable')]
-  compare_elast <- compare_elast[N == 2][, N := NULL]
   
   compare_elast[, ttest_indic := ifelse(type == units[2], T, F)]
   
@@ -665,4 +556,111 @@ for (u in unitlist) {
 ```
 
 
+```{r, results='asis', echo = FALSE}
 
+ord=c('ec_main', 
+      'ec_nommix', grep('ec_only',unique(predictions$type),value=T),
+       grep('unrestricted',unique(predictions$type),value=T),
+       'ec_lntrend','ec_noendogeneity', 'loglog_main')
+ord <- grep('holdout',ord,invert=T,value=T)
+
+sel_ord = unique(unlist(sapply(paste0(ord,'$|', ord,'_holdout'), grep, x= unique(predictions$type),value=T,simplify=F)))
+
+for (.v in c('lnusales','lnusales_hat',' dlnusales', 'dlnusales_hat')) {
+  try(predictions[, paste0(.v, '_mc') := get(.v) - mean(get(.v),na.rm=T), by= c('type','category','country','brand', 'estim_set')],silent=T)
+}
+
+
+# individual
+for (ty in c('individual','omnibus')) {
+  
+  r2s=predictions[type%in%sel_ord, list(R2_diff = cor(dlnusales, dlnusales_hat, use='pairwise')^2,
+                         R2_lev = cor(lnusales, lnusales_hat, use='pairwise')^2,
+                         MSE_diff = mean((dlnusales_hat-dlnusales)^2,na.rm=T),
+                         MSE_lev = mean((lnusales_hat-lnusales)^2,na.rm=T)),
+               by = c('type','category','country','brand', 'estim_set')]
+
+  if (ty=='omnibus') {
+  # omnibus
+  r2s=predictions[type%in%sel_ord, list(R2_diff = cor(dlnusales_mc, dlnusales_hat_mc, use='pairwise')^2,
+                         R2_lev = cor(lnusales_mc, lnusales_hat_mc, use='pairwise')^2,
+                         MSE_diff = mean((dlnusales_hat_mc-dlnusales_mc)^2,na.rm=T),
+                         MSE_lev = mean((lnusales_hat_mc-lnusales_mc)^2,na.rm=T)),
+               by = c('type', 'estim_set')]
+  
+  #r2s=predictions[type%in%sel_ord, list(R2_diff = cor(dlnusales, dlnusales_hat, use='pairwise')^2,
+  #                       R2_lev = cor(lnusales, lnusales_hat, use='pairwise')^2,
+  #                       MSE_diff = mean((dlnusales_hat-dlnusales)^2,na.rm=T),
+  #                       MSE_lev = mean((lnusales_hat-lnusales)^2,na.rm=T)),
+  #             by = c('type', 'estim_set')]
+  
+  }
+  
+  r2s[, model_type:='Full model']
+  r2s[grepl('holdout$',type), model_type:='Holdout model']
+  r2s[, metric_type:=ifelse(estim_set==T, 'training', 'validation')]
+  
+  r2s[, type2:=gsub('[_]holdout$', '', type)]
+  
+  
+  tmp = r2s[, lapply(.SD, mean,na.rm=T), by = c('type2','model_type', 'metric_type'), .SDcols=grep("R2|MSE",colnames(r2s),value=T)]
+  
+  tmp2=melt(tmp, id.vars=c('type2','model_type','metric_type'))
+  
+  tmp3 = dcast(tmp2[grepl('lev', variable)], type2~variable+model_type+metric_type)
+  
+  tmp3[, ord:=match(type2, ord)]
+  setorder(tmp3, ord)
+  
+  lbl = 'Robustness checks (average of brand-specific fit values)'
+  if (ty == 'omnibus') lbl = 'Robustness checks (fit values of mean-centered predictions)'
+  
+  tmp3[, ord:=NULL]
+  tmp4 = sanitize_table((tmp3))
+  setnames(tmp4, 'type2', 'Model type')
+  print(kable(tmp4, format= 'html', caption =lbl) %>% add_header_above(list(' '=1, 'R2' =3, 'MSE'=3)) %>% kable_styling())
+  
+}
+
+```
+
+
+```{r,echo=FALSE}
+
+tmp = predictions[type=='ec_main' & brand =='samsung' & category=='washing'&country=='india']
+tmp[,date:=as.Date(date)]
+# selection
+with(tmp, plot(date, lnusales, lty=2, type = 'l'))
+with(tmp, lines(date, lnusales_hat, lty=1,lwd=2))
+
+
+```
+
+```{r,echo=FALSE}
+if(0){
+tmp = predictions[type=='ec_holdout20']
+
+tmp[, ':=' (R2_diff = cor(dlnusales, dlnusales_hat, use='pairwise')^2,
+                   R2_lev = cor(lnusales, lnusales_hat, use='pairwise')^2,
+            MSE_lev = mean((lnusales_hat-lnusales)^2,na.rm=T)),
+            by = c('type','category','country','brand', 'estim_set')]
+
+summary(tmp$R2_lev)
+
+brands <- unique(tmp, by = c('type','estim_set', 'category','country','brand'))[, c('category','country','brand','type','estim_set', 'R2_diff','R2_lev', 'MSE_lev'),with=F]
+
+
+tmp2 = tmp[category=='desktoppc'&country=='thailand'&brand=='dell']
+tmp2[,date:=as.Date(date)]
+# selection
+with(tmp2, plot(date, lnusales, lty=2, type = 'l'))
+with(tmp2, lines(date, lnusales_hat, lty=1,lwd=2))
+
+plot(tmp2[estim_set==FALSE]$date,tmp2[estim_set==FALSE]$lnusales, type='l',col='red')
+lines(tmp2[estim_set==FALSE]$date,tmp2[estim_set==FALSE]$lnusales_hat, type='l',col='black')
+
+check=tmp2[estim_set==FALSE]$lnusales
+check2=tmp2[estim_set==FALSE]$lnusales_hat
+
+}
+```
