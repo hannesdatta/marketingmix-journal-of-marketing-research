@@ -19,19 +19,25 @@ Ebbes, P., Wedel, M., Böckenholt, U., & Steerneman, T. (2005). Solving and test
 # 2.1 Simulate data
 
 ```{r}
+set.seed(1234)
 
-sim_data <- function(rho = .5, N = 1000, pi_vals = c(-.3, .7), coef_x = 3, type='latentIV') {
-  # Number of observations
-  #N = 1000
+#Simulate data
+sim_data <- function(rho = .3,
+                     N = 100,
+                     latent_instruments = list(list(
+                       pi = c(-1, 2),
+                       p = c(.3, .7),
+                       beta = .5
+                     ))) {
   
-  # Coefficients on latent instruments
-  #pi_vals = c(-.3, .7) 
-
   # Correlation matrix
-  R = matrix(c(1, rho,
-                  rho, 1), ncol=2)
+  n=length(latent_instruments)+1
+  R = diag(n)
+  R[-1,1]<-rho
+  R[1,-1]<-rho
+  
   # Standard deviations
-  S <- c(sqrt(.5), sqrt(.5))
+  S <- rep(sqrt(.5), n)
   
   cor2cov <- function(R, S) {
    sweep(sweep(R, 1, S, "*"), 2, S, "*")
@@ -40,91 +46,88 @@ sim_data <- function(rho = .5, N = 1000, pi_vals = c(-.3, .7), coef_x = 3, type=
   Sigma = cor2cov(R, S)
   
   # Draws from the Var-Covar Matrix
-  
   library(MASS)
-  set.seed(1234)
-  errorterm = mvrnorm(n = N, mu = c(0,0), Sigma =Sigma)
+  errorterm = mvrnorm(n = N, mu = rep(0, n), Sigma = Sigma)
   
-  # Step 3: Compute endogenous regressor (uniformly distributed from min(unif) to max(unif)
+  #Compute endogenous regressor (uniformly distributed from min(unif) to max(unif)
+  #cor(errorterm)
+  #cov(errorterm)
 
-	
-  cor(errorterm)
-  cov(errorterm)
-  
-  z=NULL
-  
-  if(type=='latentIV') {
-    # Class probabilities
-    p = c(.7, .3)
-    
+  instr = do.call('cbind', lapply(latent_instruments, function(liv) {
     # Assert the probs sum to 1
-    stopifnot(sum(p)==1)
-    
+    stopifnot(sum(liv$p)==1)
+  
     # Number of latent instruments
-    k = length(pi_vals)
+    k = length(liv$pi)
+  
+    # Draw class memberships
+    z <- sample(1:k, N, replace = T, prob = liv$p)
     
-    z <- sample(1:k, N, replace = T, prob = p)
-    cbind(class = 1:k, frequency = table(z), prob = table(z)/sum(table(z)))
-  
-    # Simulate data
-    x <- pi_vals[z] + errorterm[,2]
-   # print('typex')
-    #print(x)
-  }
-  
-  if (type=='copula') {
-  
-    F_x=pnorm(errorterm[,2])
-	  x = F_x*(max(pi_vals)-min(pi_vals))+min(pi_vals)
-	#F_y=pnorm(y)
-	
-	
-  #x <- runif(N, min = min(pi_vals), max = max(pi_vals)) + errorterm[,2]
-  
-  }
-  
-  
-  
-  y = 1 + coef_x * x + errorterm[,1]
-  
-  return(list(data = data.frame(y, x), z=z,pi_vals=pi_vals, coef_x = coef_x))
+    #cbind(class = 1:k, frequency = table(z), prob = table(z)/sum(table(z)))
 
+    # Simulate data
+    x <- liv$pi[z]
+    return(x)
+    }))
+
+  instr = instr+errorterm[,-1]
+  
+  colnames(instr) <- paste0('x', 1:length(latent_instruments))
+  
+  liv_betas = unlist(lapply(latent_instruments, function(x) x$beta))
+  
+  
+  
+  y = 1 + instr%*%cbind(liv_betas) + errorterm[,1]
+  
+  colnames(y) <- 'y'
+  return(list(data=data.frame(y,instr),rho, N, latent_instruments))
 
 }
 ```
 
-## 2.2 Estimate using OLS
+## 2.2 Comparison Latent IV with OLS
 
-Bias when `rho = .5`
+```{r include=FALSE}
+# Startup cluster
 
-```{r}
-# bias:
-out=sim_data(rho = 0.95, coef_x=.5, pi_vals=c(-1,2))
-hist(out$data$x, breaks=100)
-summary(lm(y~1+x, data = out$data))
-```
-
-```{r}
-# recovery by package
-out=sim_data(rho = .3, coef_x=.5, pi_vals=c(-1,2), N = 10000)
-#hist(out$data$x, breaks=100)
-#out$data$y = out$data$y
-library(REndo)
-
-l <- latentIV(y~x, data = out$data)
-summary(l)
+library(parallel)
+init <- function() {
+  library(REndo)
+  library(data.table)
+}
+cl <- makePSOCKcluster(4)
+clusterExport(cl, 'init')
 
 ```
 
-summary(l)
+```{r message=FALSE, warning=FALSE}
+set.seed(1984)
+reps = 100
+data=lapply(1:reps, function(x) sim_data(rho = 0 ))
+
+clusterEvalQ(cl, init())
+
+out = clusterApplyLB(cl, data, function(dt) {
+  ols = lm(y ~ 1 + x1, data = dt$data)
+  liv <- latentIV(y ~ x1, data = dt$data)
+  return(cbind(
+    ols = ols$coefficients[2],
+    liv = liv$coefficients[2]
+  ))
+})
 
 
-No bias when `rho = 0`
+res = do.call('rbind',out)
 
-```{r}
-# no bias:
-out=sim_data(rho = 0, coef_x=.5, pi_vals=c(-1,2))
-summary(lm(y~1+x, data = out$data))
+colMeans(res)
+apply(res,2, sd) # in the confidence bounds!
+
+hist(drop(res[,2]),breaks=100)
+#hist(data[[1]]$data$x1)
+
+
+
 ```
 
 ## 2.3 Recovery using MLE a la Ebbes et al. 
@@ -136,13 +139,12 @@ library(optimx)
 
 # Simulate data
 set.seed(999)
-out=sim_data(rho = .3, coef_x=.5, pi_vals=c(-1,2), N = 100)
+out=sim_data(rho = .3, N = 1000)
+
 source('liv_llik.R')
 
 y=out$data$y
-x=out$data$x
-z=out$data$z
-pi_vals=out$pi_vals
+x=out$data$x1
 
 params = c(0, 1, 1, 0, 1, 0, 1, 2)
 
@@ -160,65 +162,4 @@ unlist(MLE2)
 
 
 ```
-
-
-```{r}
-# try copulas
-
-#Gewone OLS zonder EC: Onze X’s; correlatie opbrengen met error term; Gaussian werkt (?) (yt, xt; endogeniteit aanmaken; xt, delta xt opnemen, kijken of het nog werkt)
-#Wel toewerken naar EC
-out=sim_data(rho = .3, coef_x=.5, pi_vals=c(-1,2), N = 10000)
-out=sim_data(rho = .5, coef_x=.5, pi_vals=c(-2,2), N = 10000, type = 'copula')
-
-make_copula <- function(x, increment = .001) {
-		if (length(unique(x))==1) return(as.numeric(rep(NA, length(x))))
-		return(ifelse(ecdf(x)(x)==1, qnorm(1-increment), qnorm(ecdf(x)(x))))
-}
-data=out$data
-data$copula <- make_copula(data$x)
-
-hist(data$x)
-
-shapiro.test(sample(data$x,5000))
-
-
-summary(lm(y~1+x,data=data))
-summary(lm(y~1+x+copula,data=data))
-
-# fantastic!
-
-```
-
-```{r}
-# recovery via Latent IVs?
-
-y=data$y
-x=data$x
-
-params = c(0, 1, 1, 0, 1, 0, 1, 2)
-
-# without simulated maximum likelihood
-MLE = optimx(params, fn = llik, method = 'Nelder-Mead', hessian = TRUE, itnmax = 10000, 
-        control = list(trace = 0, dowarn = FALSE))
-unlist(MLE)
-
-summary(lm(y~1+x,data=data))
-summary(lm(y~1+x+copula,data=data))
-
-y=data$y
-x=data$x
-
-
-#z=out$data$z
-#pi_vals=out$pi_vals
-
-# use copula in estimation?
-
-params = c(0, 1, 1, 0, 1, 0, 1, 2)
-
-MLE = optimx(params, fn = llik, method = 'Nelder-Mead', hessian = TRUE, itnmax = 10000, 
-        control = list(trace = 0, dowarn = FALSE))
-unlist(MLE)
-
-#llik(params, sim=T)
 
