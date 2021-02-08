@@ -629,7 +629,20 @@ for (ty in c('individual','omnibus')) {
 
 ```{r,echo=FALSE}
 
-tmp = predictions[type=='ec_main' & brand =='samsung' & category=='washing'&country=='india']
+r2=predictions[type=='ec_main_holdout', list(r2=cor(lnusales, lnusales_hat, use='pairwise')), by = c('category','country','brand', 'estim_set')]
+
+setorder(r2, r2)
+
+
+tmp = predictions[type=='ec_main_holdout' & brand =='samsung' & category=='phones_smart'&country=='china']
+
+tmp = predictions[type=='ec_main_holdout' & brand =='lenovo' & category=='laptop'&country=='south korea']
+
+tmp = predictions[type=='ec_main_holdout' & brand =='bajaj' & category=='microwave'&country=='india']
+
+tmp = predictions[type=='ec_main_holdout' & brand =='telefunken' & category=='tv_gen1_crtv'&country=='australia']
+
+
 tmp[,date:=as.Date(date)]
 # selection
 with(tmp, plot(date, lnusales, lty=2, type = 'l'))
