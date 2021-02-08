@@ -1,0 +1,9 @@
+Finished building extract_elast.R at:
+[1] "2021-02-02 20:14:35 CET"
+results_marketshare
+
+models converged 
+             184 
+
+
+(File used to enable track changes by makefile).

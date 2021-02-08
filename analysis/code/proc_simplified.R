@@ -7,7 +7,7 @@ simple_loglog <- function(id, vars = c('lnrwpspr','lnllen','lnwpswdst'),
                       controls='(^comp[_].*(pr|llen|dst)$)|quarter[1-3]|lnholiday|^trend|(^cop[_]ln.*(pr|llen|dst)$)', 
                       pval = .1,
                       kickout_ns_copula = T, 
-                      holdout= NULL) {
+                      holdout= NULL, withlagdv=T) {
   
   dv='lnusales'
   dt=data.table(brand_panel[brand_id==id])
@@ -25,7 +25,7 @@ simple_loglog <- function(id, vars = c('lnrwpspr','lnllen','lnwpswdst'),
   dt[, lntrend:=lntrend-mean(lntrend,na.rm=T)]
   dt[, trend:=trend-mean(trend,na.rm=T)]
   
-  my_form = update.formula(lnusales~1, as.formula(paste0('.~.+1+', paste0(c(vars, 'lnlagusales', control_vars), collapse='+'))))
+  my_form = update.formula(lnusales~1, as.formula(paste0('.~.+1+', paste0(c(vars, switch(withlagdv, 'lnlagusales', NULL), control_vars), collapse='+'))))
   
   dt[, estim_set:=T]
   
@@ -68,13 +68,16 @@ simple_loglog <- function(id, vars = c('lnrwpspr','lnllen','lnwpswdst'),
       st=deltaMethod(m2, paste0('(', v, ')'))
       
       if (v%in% names(m2$coefficients)) {
-        lt=deltaMethod(m2, paste0('(', v, ')/(1-lnlagusales)')) } #else {
+        lt=try(deltaMethod(m2, paste0('(', v, ')/(1-lnlagusales)')), silent=T)
+        if (class(lt)=='try-error') lt = deltaMethod(m2, paste0('(', v, ')/(1-0)'))
+        
+        } #else {
           #lt=deltaMethod(m2, paste0('(0)/(lnlagusales)'))
         #}
-      
+      if ('lnlagusales'%in%names(m2$coefficients)) lnlagcoef=m2$coefficients['lnlagusales'] else lnlagcoef=NA
       data.frame(variable=v, elast = st$Estimate, elast_se=st$SE,
                  elastlt = lt$Estimate, elastlt_se = lt$SE, beta = m2$coefficients[v], 
-                 carryover = m2$coefficients['lnlagusales'])
+                 carryover = lnlagcoef)
       
     }))
     

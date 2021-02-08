@@ -298,6 +298,8 @@ results_ec_main_holdout = parLapplyLB(cl, bids, function(bid)
   try(simple_ec(bid, holdout=holdout), silent=T)
 )
 
+
+
 ## LOG LOG MAIN MODEL ##
 results_loglog_main = parLapplyLB(cl, bids, function(bid)
   try(simple_loglog(bid), silent=T)
@@ -306,6 +308,28 @@ results_loglog_main = parLapplyLB(cl, bids, function(bid)
 results_loglog_main_holdout = parLapplyLB(cl, bids, function(bid)
   try(simple_loglog(bid, holdout=holdout), silent=T)
 )
+
+## LOG LOG MAIN MODEL - NO LAGGED DV ##
+results_loglog_noldv = parLapplyLB(cl, bids, function(bid)
+  try(simple_loglog(bid, withlagdv=F), silent=T)
+)
+
+results_loglog_noldv_holdout = parLapplyLB(cl, bids, function(bid)
+  try(simple_loglog(bid, holdout=holdout, withlagdv=F), silent=T)
+)
+
+
+## LOG LOG MAIN MODEL - ONLY LAGGED DV
+results_loglog_onlyldv = parLapplyLB(cl, bids, function(bid)
+  try(simple_loglog(bid, withlagdv=T, vars=NULL, controls=NULL), silent=T)
+)
+
+results_loglog_onlyldv_holdout = parLapplyLB(cl, bids, function(bid)
+  try(simple_loglog(bid, withlagdv=T, vars=NULL, controls=NULL, holdout=holdout), silent=T)
+)
+
+
+#table(unlist(lapply(results_loglog_noldv_holdout, class)))
 
 
 ####### ADDING MARKETING MIX INSTRUMENTS ITERATIVELY ######
@@ -471,16 +495,15 @@ save_by_regex <- function(regex, filename) {
 #save_by_regex('^results[_]', filename = '../output/results_simplified.RData')
 
 
-
 ###########
 # Holdout #
 ###########
 
 
-results_ec_holdout10 = parLapplyLB(cl, bids, function(bid)
-  try(simple_ec(bid, holdout=.1),
-      silent = T)
-)
+#results_ec_holdout10 = parLapplyLB(cl, bids, function(bid)
+#  try(simple_ec(bid, holdout=.1),
+#      silent = T)
+#)
 
 
 ######################################
