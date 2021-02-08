@@ -11,7 +11,8 @@ output: html_document
 library(data.table)
 library(MASS)
 library(knitr)
-
+lambda=1-.5
+  
 # Initialize random number
 set.seed(1234)
 
@@ -43,7 +44,7 @@ sim_data <- function(rho=.5) {
     'x2' = -2,
     'x3' = .5,
     'x4' = 2,
-    'ly' = .9
+    'ly' = .5
   )
   
  # rho = .5
@@ -154,7 +155,7 @@ evals <- lapply(list(out1, out2), function(out) {
   res=colMeans(o)
   
   for (i in 1:4) o[,paste0('lx', i)]<- (-o[,paste0('lx', i)])/o[,'ly']
-  true = c(dx1=1, dx2=-2, dx3=.5, dx4=2, lx1=1/.1, lx2=-2/.1, lx3=.5/.1, lx4=2/.1)
+  true = c(dx1=1, dx2=-2, dx3=.5, dx4=2, lx1=1/lambda, lx2=-2/lambda, lx3=.5/lambda, lx4=2/lambda)
   
   par(mfrow=c(2,4))
   
@@ -180,7 +181,7 @@ tmp=melt(comp, id.vars=c('type'))
 
 tmp2 = tmp[variable%in%vars, list(mean=mean(value)),by=c('type','variable')]
 
-tmp3=cbind(dcast(tmp2, variable~type), true=c(dx1=1, dx2=-2, dx3=.5, dx4=2, lx1=1/.1, lx2=-2/.1, lx3=.5/.1, lx4=2/.1))
+tmp3=cbind(dcast(tmp2, variable~type), true=c(dx1=1, dx2=-2, dx3=.5, dx4=2, lx1=1/lambda, lx2=-2/lambda, lx3=.5/lambda, lx4=2/lambda))
 setcolorder(tmp3, c('variable', 'true', 'without Copulas','with Copulas'))
 
 kable(tmp3)
