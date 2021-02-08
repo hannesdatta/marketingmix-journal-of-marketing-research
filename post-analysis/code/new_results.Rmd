@@ -363,7 +363,7 @@ print(kable(dtf, format='html', initial.zero = FALSE, digits=3,caption = tab(pas
 ```
 
 
-```{r correl, echo=FALSE, message=FALSE, warning=FALSE, results=}
+```{r correl, echo=FALSE, message=FALSE, warning=FALSE, results='asis'}
 
 tmp = dcast(elast,category+country+brand~variable, value.var=c('elast', 'elastlt'))
 
@@ -567,6 +567,7 @@ ord <- grep('holdout',ord,invert=T,value=T)
 sel_ord = unique(unlist(sapply(paste0(ord,'$|', ord,'_holdout'), grep, x= unique(predictions$type),value=T,simplify=F)))
 
 for (.v in c('lnusales','lnusales_hat',' dlnusales', 'dlnusales_hat')) {
+  predictions[, paste0(.v, '_mc'):=NA]
   try(predictions[, paste0(.v, '_mc') := get(.v) - mean(get(.v),na.rm=T), by= c('type','category','country','brand', 'estim_set')],silent=T)
 }
 
@@ -582,6 +583,7 @@ for (ty in c('individual','omnibus')) {
 
   if (ty=='omnibus') {
   # omnibus
+  
   r2s=predictions[type%in%sel_ord, list(R2_diff = cor(dlnusales_mc, dlnusales_hat_mc, use='pairwise')^2,
                          R2_lev = cor(lnusales_mc, lnusales_hat_mc, use='pairwise')^2,
                          MSE_diff = mean((dlnusales_hat_mc-dlnusales_mc)^2,na.rm=T),
