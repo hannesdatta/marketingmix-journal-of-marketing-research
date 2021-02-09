@@ -300,6 +300,31 @@ results_ec_main_holdout = parLapplyLB(cl, bids, function(bid)
 
 
 
+holdout = .10
+clusterExport(cl, 'holdout')
+
+
+results_ec_main_holdout10 = parLapplyLB(cl, bids, function(bid)
+  try(simple_ec(bid, holdout=holdout), silent=T)
+)
+
+holdout = .25
+clusterExport(cl, 'holdout')
+
+
+results_ec_main_holdout25 = parLapplyLB(cl, bids, function(bid)
+  try(simple_ec(bid, holdout=holdout), silent=T)
+)
+
+# Compare predictions
+summary(rbindlist(lapply(results_ec_main_holdout10, function(x) x$predictions[estim_set==F][, list(cor(lnusales, lnusales_hat,use='pair')^2)]))$V1)
+summary(rbindlist(lapply(results_ec_main_holdout, function(x) x$predictions[estim_set==F][, list(cor(lnusales, lnusales_hat,use='pair')^2)]))$V1)
+summary(rbindlist(lapply(results_ec_main_holdout25, function(x) x$predictions[estim_set==F][, list(cor(lnusales, lnusales_hat,use='pair')^2)]))$V1)
+
+#
+#lapply(list(results_ec_main_holdout, results_ec_main_holdout10, results_ec_main))
+
+
 ## LOG LOG MAIN MODEL ##
 results_loglog_main = parLapplyLB(cl, bids, function(bid)
   try(simple_loglog(bid), silent=T)
