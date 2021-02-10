@@ -153,16 +153,17 @@ simple_ec <- function(id, vars = c('lnrwpspr','lnllen','lnwpswdst'),
   
   my_form = update.formula(dlnusales~1, as.formula(paste0('.~.+1+', paste0(c(vars_delta, vars_cop, 'lnlagusales', switch(length(vars_lags)>0, paste0('I(-', vars_lags,')')), vars_curr), collapse='+'))))
   
-  dt[, estim_set:=T]
-  
   dt[, percentile_obs:=(1:.N)/.N]
+  
   
   #dt[, percentile_obs:=(percentile_obs-min(percentile_obs))]
   #dt[, percentile_obs:=percentile_obs/max(percentile_obs)]
   
+  dt[, estim_set:=T]
   if (!is.null(holdout)) dt[percentile_obs>(1-holdout), estim_set:=F]
   
-  m = lm(my_form, data= dt, subset = estim_set==T)
+  
+  m = lm(my_form, data= dt) #, subset = estim_set==T)
   
   
   #identifiers = unique(dt[,c('market_id', 'category','country', 'brand', 'brand_id' ),with=F], by=c('brand_id'))
@@ -185,6 +186,31 @@ simple_ec <- function(id, vars = c('lnrwpspr','lnllen','lnwpswdst'),
     my_form =update.formula(my_form, as.formula(paste0('.~.-', paste0(kickoutcoef, collapse='-'))))
     m2 = lm(my_form, data= dt, subset = estim_set==T)
   } else {m2=m}
+  
+  
+  if(0){
+  # do new kfold
+  kfold=.80
+  trainingsets=floor(nrow(dt)*.80):(nrow(dt)-1)
+  
+  preds_new=sapply(trainingsets, function(pset) {
+    print(pset)
+    obs<<-1:pset
+    m3=update(m2, .~.,subset=obs)
+    predict(m3, newdata=dt[pset+1,])
+  })
+  
+  pred_new2 = data.table(date=dt$date[trainingsets+1], period=trainingsets+1, dlnusales_hat=preds_new)
+  pred_new3 = merge(pred_new2, dt[, c('category','country','brand','date', 'lnlagusales', 'lnusales','dlnusales'),with=F],by=c('date'),all.x=T)
+  pred_new3[, lnusales_hat:=lnlagusales+dlnusales_hat]
+  }
+  
+  #m2b = lm(my_form, data= dt, subset = 1:110)
+  #predict(m2b,newdata=dt[111])
+  
+  #m3=update(m2, .~.,subset=1:100)
+  #predict(m3)
+  
   
   predictions = cbind(dt[, c('category','country','brand','date', 'estim_set', 'lnusales', 'lnlagusales', 'dlnusales'),with=F],
                       dlnusales_hat=predict(m2, newdata=dt))
@@ -230,7 +256,8 @@ simple_ec <- function(id, vars = c('lnrwpspr','lnllen','lnwpswdst'),
               model_matrix = m2$model,
               dt=dt,
               orig_results = m$coefficients, kicked_out_coefs = kickoutcoef,
-              predictions=predictions, r2_within_dv= summary(m2)$r.squared))
+              predictions=predictions,#predictions_kfold=pred_new3, 
+              r2_within_dv= summary(m2)$r.squared))
   
 }
 
