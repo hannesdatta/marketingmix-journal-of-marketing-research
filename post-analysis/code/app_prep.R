@@ -38,10 +38,21 @@ elast_list = lapply(elast_list, function(elast) {
 
 # Load covariates from panel data set
 
-files = list.files('../externals/', pattern = '^predictions[_].*[.]csv$', full.names=T)
-names(files) = gsub('[.]csv$', '', gsub('.*predictions[_]results[_]', '', files))
+files = list.files('../externals/', pattern = '^predictions-within[_].*[.]csv$', full.names=T)
+names(files) = gsub('[.]csv$', '', gsub('.*predictions-within[_]results[_]', '', files))
 
 predictions <- rbindlist(lapply(seq(along=files), function(f) {
+  pr <- fread(files[f])
+  pr[, type:=names(files)[f]]
+  setcolorder(pr, 'type')
+  return(pr)
+  
+}), fill = T)
+
+files = list.files('../externals/', pattern = '^predictions-kfold[_].*[.]csv$', full.names=T)
+names(files) = gsub('[.]csv$', '', gsub('.*predictions-kfold[_]results[_]', '', files))
+
+predictions_kfold <- rbindlist(lapply(seq(along=files), function(f) {
   pr <- fread(files[f])
   pr[, type:=names(files)[f]]
   setcolorder(pr, 'type')
@@ -80,4 +91,4 @@ setkey(elasticities$marketshare, category,country,brand)
 elasticities$marketshare[elasticities$ec_main_sur, brand_id:=i.brand_id]
 
 
-save(elasticities, predictions, file= 'app/app_workspace.RData')
+save(elasticities, predictions, predictions_kfold, file= 'app/app_workspace.RData')
