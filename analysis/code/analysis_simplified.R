@@ -235,70 +235,160 @@ length(bids)
 init()
 
 
-# 
-# results_ec_restricted_nocop = parLapplyLB(cl, bids, function(bid)
-#   try(simple_ec(bid, controls_diffs='^comp[_]', 
-#                 controls_laglevels = '',
-#                 controls_curr = 'quarter[1-3]|lnholiday|^trend',
-#                 controls_cop = '',
-#                 pval = .1, kickout_ns_copula = T),
-#       silent = T)
-# )
-# 
-# 
-# 
-# results_ec_restricted_alwaysdcop = parLapplyLB(cl, bids, function(bid)
-#   try(simple_ec(bid, controls_diffs='^comp[_]', 
-#                 controls_laglevels = '',
-#                 controls_curr = 'quarter[1-3]|lnholiday|^trend',
-#                 controls_cop = '^cop[_]d[.]1[.]',
-#                 pval = .1, kickout_ns_copula = F),
-#       silent = T)
-# )
-# 
-# results_ec_restricted_sigdcop = parLapplyLB(cl, bids, function(bid)
-#   try(simple_ec(bid, controls_diffs='^comp[_]', 
-#                 controls_laglevels = '',
-#                 controls_curr = 'quarter[1-3]|lnholiday|^trend',
-#                 controls_cop = '^cop[_]d[.]1[.]',
-#                 pval = .1, kickout_ns_copula = T),
-#       silent = T)
-# )
-# 
-# 
-# results_ec_restricted_alwayscop = parLapplyLB(cl, bids, function(bid)
-#   try(simple_ec(bid, controls_diffs='^comp[_]', 
-#                 controls_laglevels = '',
-#                 controls_curr = 'quarter[1-3]|lnholiday|^trend',
-#                 controls_cop = '^cop[_]ln',
-#                 pval = .1, kickout_ns_copula = F),
-#       silent = T)
-# )
-# 
-# 
-# results_ec_restricted_lntrend = parLapplyLB(cl, bids, function(bid)
-#   try(simple_ec(bid, controls_diffs='^comp[_]', 
-#                 controls_laglevels = '',
-#                 controls_curr = 'quarter[1-3]|lnholiday|^lntrend',
-#                 controls_cop = '^cop[_]d[.]1[.]',
-#                 pval = .1, kickout_ns_copula = T),
-#       silent = T)
-# )
+# Test
+if(0){
+out =  try(simple_ec(1), silent=T)
 
+with(out$predictions_kfold, cor(lnusales_hat, lnusales, use='pairw')^2)
+with(out$predictions_kfold, cor(dlnusales_hat, dlnusales, use='pairw')^2)
+
+
+with(out$predictions, cor(lnusales_hat, lnusales, use='pairw')^2)
+
+
+summary(rbindlist(lapply(results_ec_main, function(x) x$predictions_kfold[, list(cor(lnusales, lnusales_hat,use='pair')^2)]))$V1)
+
+summary(rbindlist(lapply(results_ec_main, function(x) x$predictions_kfold[, list(cor(dlnusales, dlnusales_hat,use='pair')^2)]))$V1)
+}
 
 ####### MAIN MODEL ######
-holdout = .2
-clusterExport(cl, 'holdout')
 
 results_ec_main = parLapplyLB(cl, bids, function(bid)
   try(simple_ec(bid), silent=T)
 )
 
+if(0) {
+  r2=rbindlist(lapply(results_ec_main, function(x) x$predictions_kfold))
+  tmp=r2[kfold%in%8:10, list(r2=cor(lnusales, lnlagusales+dlnusales_hat,use='pair')^2,
+                rmse=sqrt(mean((lnusales-lnlagusales-dlnusales_hat)^2))), by = c('category','country','brand','kfold')]
+  tmp=tmp[, list(r2=mean(r2),
+                 rmse=mean(rmse)),by = c('category','country','brand')]
+ 
+  summary(tmp$r2)
+  summary(tmp$rmse)
+  
+  hist(tmp$r2)
+  hist(tmp$rmse)
+  
+  
+   r2=rbindlist(lapply(results_ec_main, function(x) x$predictions_kfold))
+   tmp=r2[, list(cor(dlnusales, dlnusales_hat,use='pair')^2), by = c('category','country','brand','kfold')]
+   tmp=tmp[, list(V1=mean(V1)),by = c('category','country','brand')]
+   summary(tmp$V1)
+   
+  
+   out=try(simple_ec(1), silent=T)
+  
+   newpred = data.table(dhat=predict(out$model))
+   nrow(newpred)
+   nrow(out$model_matrix)
+   
+   cor(newpred$dhat, out$model_matrix$dlnusales, use='pair')^2
+   
+   # within in differences
+   summary(unlist(lapply(results_ec_main, function(x) cor(predict(x$model), x$model_matrix$dlnusales, use='pair')^2)))
+   summary(unlist(lapply(results_ec_main, function(x) cor(x$model_matrix$lnlagusales+predict(x$model), x$model_matrix$lnlagusales+x$model_matrix$dlnusales, use='pair')^2)))
+   
+   
+   summary(unlist(lapply(results_ec_main, function(x) cor(predict(x$model), x$model_matrix$dlnusales, use='pair')^2)))
+   
+   tmp=r2[kfold%in%9:10, list(r2d=cor(dlnusales, dlnusales_hat,use='pair')^2,
+                 r2l=cor(lnlagusales+dlnusales, dlnusales_hat+lnlagusales)^2), by = c('category','country','brand','kfold')]
+   tmp=tmp[, list(r2d=mean(r2d),
+                  r2l=mean(r2l)),by = c('category','country','brand')]
+   summary(tmp)
+   
+   # old holdout
+   
+   
+   
+ #  summary(unlist(lapply(results_ec_main, function(x) cor(predict(x$model), x$model_matrix$dlnusales, use='pair')^2)))
+   
+ 
+ 
+}
+
+
 results_ec_main_holdout = parLapplyLB(cl, bids, function(bid)
   try(simple_ec(bid, holdout=holdout), silent=T)
 )
 
+#
+if(0) {
+ # Exploration
+  
+  coefs_main=rbindlist(lapply(results_ec_main, function(x) data.table(x$paneldimension[,-c('date'),with=F][1], 
+                                                       variable=names(x$model$coefficients), coef= x$model$coefficients)))[, type:='alldata']
+  
+  coefs_holdout=rbindlist(lapply(results_ec_main_holdout, function(x) data.table(x$paneldimension[,-c('date'),with=F][1], 
+                                                                                 variable=names(x$model$coefficients), coef= x$model$coefficients)))[, type:='testonly']
+  
+  
+  tmp1=dcast(rbind(coefs_main, coefs_holdout), category+country+brand+brand_id~variable+type,value.var='coef')
+  tmp2=dcast(rbind(coefs_main, coefs_holdout), category+country+brand+brand_id~type+variable,value.var='coef')
+  
+  # means for parameters
+  data=rbindlist(lapply(results_ec_main, function(x) {
 
+  dt = cbind(x$paneldimension, x$model_matrix)
+  dt[, holdout:=ifelse((1:.N)/.N>=.8, 'holdout','training')]
+  return(dt)
+  }),fill=T)
+  
+  tmp3 = data[, lapply(.SD, mean, na.rm=T), by = c('market_id','category','country','brand','brand_id', 'holdout')]
+  tmp3[, date:=NULL]
+  tmp3x = melt(tmp3, id.vars=c('category','country','brand','brand_id','holdout','market_id'))
+  tmp3x[is.na(value), value:=NA]
+  tmp4=dcast(tmp3x, category+country+brand+brand_id~variable+holdout,value.var='value')
+  tmp5=dcast(tmp3x, category+country+brand+brand_id~holdout+variable,value.var='value')
+  
+  library(xlsx)
+  
+  tmp1x=data.table(tmp1)[, lapply(.SD, mean,na.rm=T),.SDcols=grep('^brand|category|country', colnames(tmp1), value=T, invert=T)]
+  tmp4x=data.table(tmp4)[, lapply(.SD, mean,na.rm=T),.SDcols=grep('^brand|category|country', colnames(tmp4), value=T, invert=T)]
+  
+  
+  melt_coef = melt(coefs_holdout, id.vars=c('market_id','brand','category','country','brand_id','type', 'variable'))
+  melt_coef[, type2:='coefficient']
+  tmp3x[, type2:=ifelse(holdout=='training','data-training','data-validiation')]
+  
+  
+  tmp5 = rbindlist(list(melt_coef, tmp3x),fill=T)
+  
+  table(tmp5$variable)
+  
+  tmp6 <- dcast(tmp5, category+country+brand~variable+type2)
+  #colMeans(tmp6)
+  
+  tmp7 = tmp5[, mean(value, na.rm=T), by = c('variable','type2')]
+  tmp8 <- dcast(tmp7, variable~type2, value.var='V1')
+  
+  barplot(tmp8$`data-training`)
+  library(ggplot2)
+  
+  ggplot(tmp7[grepl('data',type2)], aes(fill=type2, y=V1, x=variable)) + 
+    geom_bar(position="dodge", stat="identity")+coord_flip()
+  
+  
+  colsel=grep('brand|category|country', colnames(tmp6), value=T, invert=T)
+  tmp7 = data.table(tmp6)[, lapply(.SD, mean,na.rm=T), .SDcols=colsel]
+ # tmp8 = cbind(colnames(tmp7), tmp7)
+  
+  
+  
+  write.xlsx(tmp1, 'holdout.xlsx', sheetName="parameters_by_variable", 
+             col.names=TRUE, row.names=TRUE, append=FALSE)
+  write.xlsx(tmp2, 'holdout.xlsx', sheetName="parameters_by_sample", 
+             col.names=TRUE, row.names=TRUE, append=TRUE)
+  write.xlsx(tmp4, 'holdout.xlsx', sheetName="data_means_by_variable", 
+             col.names=TRUE, row.names=TRUE, append=TRUE)
+  write.xlsx(tmp5, 'holdout.xlsx', sheetName="data_means_by_sample", 
+             col.names=TRUE, row.names=TRUE, append=TRUE)
+  
+  
+}
+
+if(0){
 
 holdout = .10
 clusterExport(cl, 'holdout')
@@ -317,12 +407,14 @@ results_ec_main_holdout25 = parLapplyLB(cl, bids, function(bid)
 )
 
 # Compare predictions
-summary(rbindlist(lapply(results_ec_main_holdout10, function(x) x$predictions[estim_set==F][, list(cor(lnusales, lnusales_hat,use='pair')^2)]))$V1)
-summary(rbindlist(lapply(results_ec_main_holdout, function(x) x$predictions[estim_set==F][, list(cor(lnusales, lnusales_hat,use='pair')^2)]))$V1)
-summary(rbindlist(lapply(results_ec_main_holdout25, function(x) x$predictions[estim_set==F][, list(cor(lnusales, lnusales_hat,use='pair')^2)]))$V1)
+#summary(rbindlist(lapply(results_ec_main_holdout10, function(x) x$predictions[estim_set==F][, list(cor(lnusales, lnusales_hat,use='pair')^2)]))$V1)
+#summary(rbindlist(lapply(results_ec_main_holdout, function(x) x$predictions[estim_set==F][, list(cor(lnusales, lnusales_hat,use='pair')^2)]))$V1)
+#summary(rbindlist(lapply(results_ec_main_holdout25, function(x) x$predictions[estim_set==F][, list(cor(lnusales, lnusales_hat,use='pair')^2)]))$V1)
 
 #
 #lapply(list(results_ec_main_holdout, results_ec_main_holdout10, results_ec_main))
+}
+
 
 
 ## LOG LOG MAIN MODEL ##

@@ -188,22 +188,39 @@ simple_ec <- function(id, vars = c('lnrwpspr','lnllen','lnwpswdst'),
   } else {m2=m}
   
   
-  if(0){
-  # do new kfold
-  kfold=.80
-  trainingsets=floor(nrow(dt)*.80):(nrow(dt)-1)
+ # if(0){
+  # do block holdouts
+    
+  kfolds=10
   
-  preds_new=sapply(trainingsets, function(pset) {
-    print(pset)
-    obs<<-1:pset
+  folds = split(1:nrow(dt), cut(1:nrow(dt), kfolds))
+  iter<-0
+  preds_new=rbindlist(lapply(folds, function(pset) {
+    iter<<-iter+1
+    #print(pset)
+    obs<<-setdiff(1:nrow(dt), c(pset)) #, max(pset)+1))
+    newpset = seq(from=min(pset)+1, to=max(pset)-1)
+    
     m3=update(m2, .~.,subset=obs)
-    predict(m3, newdata=dt[pset+1,])
-  })
+    return(data.table(dt[newpset, c('date', 'dlnusales','lnlagusales','lnusales'),with=F], kfold=iter,dlnusales_hat=predict(m3, newdata=dt[newpset,])))
+    
+  }))
   
-  pred_new2 = data.table(date=dt$date[trainingsets+1], period=trainingsets+1, dlnusales_hat=preds_new)
-  pred_new3 = merge(pred_new2, dt[, c('category','country','brand','date', 'lnlagusales', 'lnusales','dlnusales'),with=F],by=c('date'),all.x=T)
-  pred_new3[, lnusales_hat:=lnlagusales+dlnusales_hat]
-  }
+  #summary(preds_new[, cor(dlnusales, dlnusales_hat, use='pairwise')^2, by = c('batch')]$V1)
+  #summary(preds_new[, cor(lnusales, lnlagusales+dlnusales_hat, use='pairwise')^2, by = c('batch')]$V1)
+  
+  
+  pred_new3 = merge(dt[, c('category','country','brand','date'),with=F],
+                    preds_new,
+                    by=c('date'),all.x=F)
+  
+  #with(pred_new3, cor(dlnusales, dlnusales_hat,use='pair'))
+  
+  #
+  #
+  #pred_new2 = data.table(date=dt$date[trainingsets+1], period=trainingsets+1, dlnusales_hat=preds_new)
+  #pred_new3[, lnusales_hat:=lnlagusales+dlnusales_hat]
+  #}
   
   #m2b = lm(my_form, data= dt, subset = 1:110)
   #predict(m2b,newdata=dt[111])
@@ -211,11 +228,13 @@ simple_ec <- function(id, vars = c('lnrwpspr','lnllen','lnwpswdst'),
   #m3=update(m2, .~.,subset=1:100)
   #predict(m3)
   
-  
+  #if(0){
+    
   predictions = cbind(dt[, c('category','country','brand','date', 'estim_set', 'lnusales', 'lnlagusales', 'dlnusales'),with=F],
                       dlnusales_hat=predict(m2, newdata=dt))
   predictions[, lnusales_hat := lnlagusales + dlnusales_hat]
   
+  #}
   #r2s = list(r2_)
   #predictions[, r2_estim := cor(dlnusales[estim_set==T], dlnusales_hat[estim_set==T], use='pairwise')^2]
   #predictions[, r2_holdout:=as.numeric(NA)]
@@ -256,7 +275,7 @@ simple_ec <- function(id, vars = c('lnrwpspr','lnllen','lnwpswdst'),
               model_matrix = m2$model,
               dt=dt,
               orig_results = m$coefficients, kicked_out_coefs = kickoutcoef,
-              predictions=predictions,#predictions_kfold=pred_new3, 
+              predictions=predictions, predictions_kfold = pred_new3, #,#predictions_kfold=pred_new3, 
               r2_within_dv= summary(m2)$r.squared))
   
 }
