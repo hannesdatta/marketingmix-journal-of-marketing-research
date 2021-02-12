@@ -5,9 +5,9 @@ account: tilburg
 server: shinyapps.io
 hostUrl: https://api.shinyapps.io/v1
 appId: 3392373
-bundleId: 4152638
+bundleId: 4189711
 url: https://tilburg.shinyapps.io/gfkproject/
-when: 1611818170.12226
+when: 1612642885.95457
 asMultiple: FALSE
 asStatic: FALSE
-ignoredFiles: input|input_lmer
+ignoredFiles: input_lmer
