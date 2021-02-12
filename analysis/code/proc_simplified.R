@@ -30,8 +30,6 @@ simple_loglog <- function(id, vars = c('lnrwpspr','lnllen','lnwpswdst'),
   
   dt[, percentile_obs:=(1:.N)/.N]
   
-  if (!is.null(holdout)) dt[percentile_obs>(1-holdout), estim_set:=F]
-  
   m = lm(my_form, data= dt, subset = estim_set==T)
   
   # kickout coefs with NA values (e.g., attributes that are not identified)
