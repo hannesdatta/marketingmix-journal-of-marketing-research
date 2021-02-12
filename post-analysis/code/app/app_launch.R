@@ -690,6 +690,8 @@ produce_model <- function(input) {
     
     lbllist = NULL
     
+    m_ord = c(3,1,2)
+    
     if (mspec$modeltype=='lmer') {
       rsqs=unlist(lapply(mods, function(x) lapply(x[c('pr','dst','llen')], rsq)))
       obss = unlist(lapply(mods, function(x) lapply(x[c('pr','dst','llen')], function(i) length(which(!is.na(residuals(i)))))))
@@ -698,22 +700,22 @@ produce_model <- function(input) {
       bics = unlist(lapply(fits, function(x) x['BIC']))
       logliks = unlist(lapply(mods[[1]][c('pr','dst','llen')], function(x) as.numeric(logLik(x))))
       
-      r2s = c('R-squared', sub('^(-)?0[.]', '\\1.', formatC(rsqs, digits=3, format='f', flag='#')))
-      aic = c('AIC',sub('^(-)?0[.]', '\\1.', formatC(aics, digits=2, format='f', flag='#')))
-      bic = c('BIC',sub('^(-)?0[.]', '\\1.', formatC(bics, digits=2, format='f', flag='#')))
-      loglik = c('LL',sub('^(-)?0[.]', '\\1.', formatC(logliks, digits=2, format='f', flag='#')))
-      obs = c('Observations',obss)
+      r2s = c('R-squared', sub('^(-)?0[.]', '\\1.', formatC(rsqs[m_ord], digits=3, format='f', flag='#')))
+      aic = c('AIC',sub('^(-)?0[.]', '\\1.', formatC(aics[m_ord], digits=2, format='f', flag='#')))
+      bic = c('BIC',sub('^(-)?0[.]', '\\1.', formatC(bics[m_ord], digits=2, format='f', flag='#')))
+      loglik = c('LL',sub('^(-)?0[.]', '\\1.', formatC(logliks[m_ord], digits=2, format='f', flag='#')))
+      obs = c('Observations',obss[m_ord])
       
       lbllist = list(r2s,aic, bic,loglik, obs)
     } 
     
     if (mspec$modeltype=='lm') {
-      rsqs=mods[[1]]$rsqs
+      rsqs=mods[[1]]$rsqs[m_ord]
       
-      obss = mods[[1]]$obs
+      obss = mods[[1]]$obs[m_ord]
       
-      aics = mods[[1]]$aic
-      bics =mods[[1]]$bic
+      aics = mods[[1]]$aic[m_ord]
+      bics =mods[[1]]$bic[m_ord]
       
       r2s = c('R-squared', sub('^(-)?0[.]', '\\1.', formatC(rsqs, digits=3, format='f', flag='#')))
       aic = c('AIC',sub('^(-)?0[.]', '\\1.', formatC(aics, digits=2, format='f', flag='#')))
@@ -723,7 +725,7 @@ produce_model <- function(input) {
       lbllist = list(r2s,aic, bic,obs)
     } 
     
-    m_ord = c(3,1,2)
+    
     outp=paste0(paste0(capture.output({stargazer(mods2[m_ord], type='html', add.lines=lbllist,
                                                  column.labels = rep(c('price','distribution','line length')[m_ord], length(mods2)))}), collapse=''),
                 '<br><br>', mspec$formula, "<br><br>", paste0(as.character(mspec$cluster), collapse=''), '<br><br>', mspec$modeltype)
