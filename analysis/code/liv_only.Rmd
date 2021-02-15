@@ -104,13 +104,15 @@ clusterExport(cl, 'init')
 ```{r message=FALSE, warning=FALSE}
 set.seed(1984)
 reps = 100
-data=lapply(1:reps, function(x) sim_data(rho = 0 ))
+data=lapply(1:reps, function(x) sim_data(N=300, rho = .2))
 
 clusterEvalQ(cl, init())
 
 out = clusterApplyLB(cl, data, function(dt) {
   ols = lm(y ~ 1 + x1, data = dt$data)
-  liv <- latentIV(y ~ x1, data = dt$data)
+  liv <- latentIV(y ~ x1, data = dt$data, optimx.args=list(itnmax=1E5, method='Nelder-Mead'))
+  
+                  
   return(cbind(
     ols = ols$coefficients[2],
     liv = liv$coefficients[2]
