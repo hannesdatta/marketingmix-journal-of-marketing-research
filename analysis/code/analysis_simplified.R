@@ -25,6 +25,7 @@ rm(list = ls())
 
 library(parallel)
 library(devtools)
+library(zoo)
 
 init <- function() {
   library(data.table)
@@ -53,11 +54,8 @@ dir.create('../output')
 ## Load panel data
 	brand_panel=fread('../temp/preclean_main.csv')
 	brand_panel[, ':=' (date = as.Date(date))]
+#  brand_panel[, brand:=paste0('bid',.GRP), by = c('market_id','brand_id')]
   
-	
-	brand_panel_robust=fread('../temp/preclean_8years.csv')
-	brand_panel_robust[, ':=' (date = as.Date(date))]
-
 # define markets to run analysis on 
 	markets <- brand_panel[, list(n_brands = length(unique(brand)),
 	                              n_obs = .N,
@@ -84,14 +82,13 @@ dir.create('../output')
   
 # Define additional variables
   
-  brand_panel_raw <- copy(brand_panel)
+ 
+
+  setorder(brand_panel, market_id, brand, date)
+  brand_panel[selected==T&timewindow==T, trend:=as.double(.GRP),by=c('market_id', 'brand','date')]
+  brand_panel[selected==T&timewindow==T, trend:=trend-min(trend,na.rm=T)+1,by=c('market_id', 'brand')]
+  brand_panel[selected==T&timewindow==T, lntrend:=log(trend),by=c('market_id', 'brand')]
   
-  bp <- lapply(list(brand_panel, brand_panel_robust), function(brand_panel) { 
-    setorder(brand_panel, market_id, brand, date)
-    brand_panel[selected==T&timewindow==T, trend:=as.double(.GRP),by=c('market_id', 'brand','date')]
-    brand_panel[selected==T&timewindow==T, trend:=trend-min(trend,na.rm=T)+1,by=c('market_id', 'brand')]
-    brand_panel[selected==T&timewindow==T, lntrend:=log(trend),by=c('market_id', 'brand')]
-    
   for (q in 1:3) {  
     brand_panel[, paste0('quarter', q):=0]
     brand_panel[quarter==q, paste0('quarter', q):=1]
@@ -105,14 +102,25 @@ dir.create('../output')
     brand_panel[, paste0('dln', var):= get(paste0('ln', var))-c(NA, get(paste0('ln', var))[-.N]), by = c('market_id', 'brand')]
   }
   
+  
   # competitive mmix
-  for (v in c('lnrwpspr', 'lnllen', 'lnwpswdst', 'lnradv')) {#}, 'lnadv')) {
-    brand_panel[, paste0('sum_', v):=sum(get(v),na.rm=T), by = c('market_id', 'date')]
-    brand_panel[, paste0('N_', v):=length(which(!is.na(get(v)))), by = c('market_id', 'date')]
-    brand_panel[, paste0('comp_', v):=(get(paste0('sum_', v))-get(v))/(get(paste0('N_', v))-1)]
-    brand_panel[, paste0('sum_', v):=NULL]
-    brand_panel[, paste0('N_', v):=NULL]
-    brand_panel[, paste0('dcomp_',v):=get(paste0('comp_', v))-c(NA, get(paste0('comp_', v))[-.N]), by = c('market_id', 'brand')]
+  for (v in c('lnrwpspr', 'lnllen', 'lnwpswdst', 'lnradv')) { #}, 'lnadv')) {
+    setorder(brand_panel, market_id, category, country, brand_id, date)
+    
+    brand_panel[, rollmean_sales:=c(NA, NA, rollmean(usales, k = 3)), 
+                by = c('market_id','brand_id')]
+    brand_panel[, rollmean_sales:=ifelse(1:.N%in%1:2, rollmean_sales[3], rollmean_sales), 
+                by = c('market_id','brand_id')]
+    
+    brand_panel[, paste0('numerator_', v):=sum(rollmean_sales*get(v),na.rm=T), by = c('market_id', 'date')]
+    brand_panel[, paste0('denominator_', v):=sum(rollmean_sales, na.rm=T), by = c('market_id', 'date')]
+    
+    brand_panel[, paste0('comp_', v):=(get(paste0('numerator_', v))-rollmean_sales*get(v))/(get(paste0('denominator_', v))-rollmean_sales)]
+    
+    brand_panel[, paste0('numerator_', v):=NULL]
+    brand_panel[, paste0('denominator_', v):=NULL]
+    
+    brand_panel[, paste0('dcomp_',v):=get(paste0('comp_', v))-c(NA, get(paste0('comp_', v))[-.N]), by = c('market_id', 'brand_id')]
     }
   
   # run shapiro-wilk tests to assess non-normality of untransformed inputs to the copula function
@@ -197,21 +205,16 @@ dir.create('../output')
   brand_panel[, lnholiday := log(npublicholidays+1)]
   
   brand_panel <- brand_panel[!grepl('alloth',brand, ignore.case=T)]
-  return(brand_panel)
-  })
 
-  brand_panel<-bp[[1]]
-  brand_panel_robust<-bp[[2]]
-  
-  
+
   brand_panel[, noadv:=all(adv==0),by=c('category','country','brand')]
   
  # brand_panel[noadv==T, wsadv:=NA]
   brand_panel[noadv==F,list(.N),by=c('category','country')]
    
   list1= brand_panel[, list(.N),by=c('category','country', 'market_id')]
-  list2=brand_panel_raw[, list(.N),by=c('category','country', 'market_id')]
-  list2[!market_id%in%list1$market_id]
+  #list2=brand_panel_raw[, list(.N),by=c('category','country', 'market_id')]
+  #list2[!market_id%in%list1$market_id]
   # we're losing another two tablet categories
 
 
