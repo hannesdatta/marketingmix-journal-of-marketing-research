@@ -13,6 +13,8 @@ rosenthal	Sig.	grepl
 survself$	Self-expression culture	grepl
 tradrat$	Secular-rational culture	grepl
 ^usalessh$	Market share	grepl
+[_]training$	Training	grepl
+[_]holdout$	Holdout	grepl
 Full[ ]model_training	Full model	grepl
 Holdout[ ]model_training	Holdout training	grepl
 Holdout[ ]model_validation	Holdout validation	grepl
@@ -26,6 +28,8 @@ ec[_]unrestrictedcompetition	With long-term competitive effects	grepl
 ec[_]lntrend	With log trend	grepl
 ec[_]noendogeneity	Without endogeneity correction	grepl
 loglog[_]main	Log-log specification	grepl
+loglog[_]onlyldv	Log-log specification, only with lagged dependent variable	grepl
+loglog[_]noldv	Log-log specification without lagged dependent variable	grepl
 australia	Australia	grepl
 singapore	Singapore	grepl
 japan	Japan	grepl
