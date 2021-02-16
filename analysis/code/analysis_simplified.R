@@ -105,7 +105,7 @@ dir.create('../output')
   
   # competitive mmix
   for (v in c('lnrwpspr', 'lnllen', 'lnwpswdst', 'lnradv')) { #}, 'lnadv')) {
-    setorder(brand_panel, market_id, category, country, brand_id, date)
+    setorder(brand_panel, market_id, category, country, brand, date)
     
     brand_panel[, rollmean_sales:=c(NA, NA, rollmean(usales, k = 3)), 
                 by = c('market_id','brand_id')]
@@ -260,7 +260,6 @@ results_ec_main = parLapplyLB(cl, bids, function(bid)
   try(simple_ec(bid), silent=T)
 )
 
-
 ## LOG LOG MAIN MODEL ##
 results_loglog_main = parLapplyLB(cl, bids, function(bid)
   try(simple_loglog(bid), silent=T)
@@ -346,8 +345,13 @@ sur_res = parLapplyLB(cl, split_by_market, function(focal_models) {
   list(market_id=mid, results=res)
 })
 
+#
+#table(unlist(lapply(sur_res,function(x) class(x$results))))
+#which(unlist(lapply(sur_res,function(x) class(x$results)))=='try-error')
 
-table(unlist(lapply(sur_res,class)))
+#sur_res[[49]]
+#sur_res[[94]]
+
 
 # WRITE RESULTS OF SUR TO MAIN RESULT SET
 for (i in seq(along=sur_res)) {
@@ -364,7 +368,13 @@ for (i in seq(along=sur_res)) {
 
 # calculation of elasticities [hm...]
 
-results_with_sur_models = parLapplyLB(cl, results_model, process_sur)
+results_with_sur_models = parLapplyLB(cl, results_model, function(x) {
+  try(process_sur(x), silent=T)
+})
+#which(unlist(lapply(results_with_sur_models, class))=='try-error')
+
+
+
 
 # remove models
 results_ec_main_sur <- lapply(results_with_sur_models, function(x) {
