@@ -12,52 +12,51 @@ library(data.table)
 library(MASS)
 library(knitr)
 
-lambda=1-.5
-  
 # Initialize random number
 set.seed(1234)
 
-sim_data <- function(rho=.5) {
-  N = 120 # sample size
+sim_data <- function(rho = .5, lambda = .5, N = 120) {
   
-  #
+  # Simulate data
   data = data.table(date=1:N)
   data[, quarter:=floor(((date-1)%%12)/3)+1]
   for (i in 1:3) data[,paste0('quarter',i):=ifelse(quarter==i, 1, 0)]
-  
-  
   data[, trend:=1:.N+1]
+  data[, comp1:=runif(N)]
+  data[, comp2:=runif(N)]
+  data[, comp3:=runif(N)]
+  data[, holiday:=runif(N)]
   
   y_0 = 8
   
-  k = 4
-  
-  x = matrix(runif(k*N),ncol=k)
-  colnames(x) <- paste0('x', 1:k)
-  
-  data <- cbind(data,x)
   data[, intercept:=1]
+  data[, interceptdyn:=1]
   
   beta = c(
     'intercept' = .1,
+    'interceptdyn' = 0,
+    'x1' = 1,
+    'x2' = -1,
+    'x3' = 2,
     'quarter1' = 1,
     'quarter2' = -1,
     'quarter3' = -.5,
     'trend' = .1,
-    'x1' = 1,
-    'x2' = -2,
-    'x3' = .5,
-    'x4' = 2,
-    'ly' = .5
-  )
-  
- # rho = .5
+    'comp1' = -1,
+    'comp2' = 2,
+    'comp3' = -1,
+    'holiday' = .5,
+    'ly' = lambda)
   
   # Correlation matrix
+  # dimension 1: delta sales
+  # dimensions 2-4: endogenous marketing mix regressors
+  
   R = matrix(c(1, rho, rho, rho,
                rho, 1, 0, 0,
                rho, 0, 1, 0,
                rho, 0, 0, 1), ncol = 4)
+  
   # Standard deviations
   sig=.5
   S <- c(sqrt(.2), sqrt(sig), sqrt(sig), sqrt(sig))
@@ -65,50 +64,48 @@ sim_data <- function(rho=.5) {
   cor2cov <- function(R, S) {
     sweep(sweep(R, 1, S, "*"), 2, S, "*")
   }
-  
+
   Sigma = cor2cov(R, S)
+  #Sigma[Sigma==0]<-1E-4
+  #R
   
-  # Draws from the Var-Covar Matrix
+  #S
   
+  # Generate draws from the Var-Covar Matrix
   error = mvrnorm(n = N,
                   mu = c(0, 0, 0, 0),
                   Sigma = Sigma)
   
-  # x1 endog
-  F_x=pnorm(error[,2])
-  pi_vals=c(-2,2)
-  x=qgamma(F_x,.5)
-  data[, x1:=x]
+  # Generate endogenous marketing mix regressors
+  data[, x1:= qgamma(pnorm(error[,2]), .5)]
+  data[, x2:= qgamma(pnorm(error[,3]), .5)]
+  data[, x3:= qgamma(pnorm(error[,4]), .5)]
   
-  # x2 endog
-  F_x=pnorm(error[,3])
-  pi_vals=c(-2,2)
-  x=qgamma(F_x,.5)
-  data[, x2:=x]
-  # x3 endog
-  F_x=pnorm(error[,4])
-  pi_vals=c(-2,2)
-  x=qgamma(F_x,.5)
-  data[, x3:=x]
-  
-  	  
   data[, ly:=as.numeric(NA)]
-  data[1, ly:=0]
+  data[1, ly:=y_0]
   data[, y:=as.numeric(NA)]  
   
-  #shapiro.test(data$x1)
- 
   data=data.frame(data)
   
-  # simulate data 
+  # simulate dynamic part of data
   for (i in 1:N) {
-    ysim <- as.matrix(data[i, names(beta)]) %*% beta + error[i, 1]
+    vars = c('interceptdyn', 'x1','x2','x3', 'ly')
+    ysim <- as.matrix(data[i, vars]) %*% beta[vars] + error[i, 1]
     
     data[i, 'y'] <-  ysim
+    
     if (i < N)
       data[i + 1, 'ly'] <- ysim
     
- }
+  }
+  
+  # add static part
+  vars = c('intercept', 'comp1', 'comp2','comp3','holiday','trend','quarter1','quarter2','quarter3')
+  
+  data$dsales = data$y - data$ly + as.matrix(data[, vars]) %*% beta[vars] #+ error[,1]
+  data$sales = y_0 + cumsum(data$dsales)
+  data$lsales = c(y_0, data$sales[-N])
+  
   data=data.table(data)
   
   make_copula <- function(x, increment = .001) {
@@ -117,9 +114,7 @@ sim_data <- function(rho=.5) {
     return(ifelse(ecdf(x)(x) == 1, qnorm(1 - increment), qnorm(ecdf(x)(x))))
   }
   
-  data[, dy := y - c(NA, y[-.N])]
-  
-  for (v in grep('x[0-9]', colnames(data), value = T)) {
+  for (v in grep('^x[0-9]', colnames(data), value = T)) {
     data[, paste0(v, '_star') := make_copula(get(v))]
     data[, paste0('l', v) := c(NA, get(v)[-.N])]
     data[, paste0('l', v, '_star') := make_copula(get(paste0('l', v)))]
@@ -129,103 +124,163 @@ sim_data <- function(rho=.5) {
   return(data)
 }
 
+estimate <- function(data) {
+  
+out1 = lapply(data, function(dt) {
+  m <- lm(
+    dsales ~ 1 + dx1 + dx2 + dx3 + trend + ly + comp1 + comp2 + comp3 + holiday + quarter1 + quarter2 + quarter3 +
+      lx1 + lx2 + lx3,
+    data = dt)
+  ret=data.table(variable=names(m$coefficients), summary(m)$coefficients[,1:2])
+  setnames(ret, c('variable','est','se'))
+  ret
+})
+
+out2 = lapply(data, function(dt) {
+  m<-lm(
+    dsales ~ 1 + dx1 + dx2 + dx3 + trend + ly + comp1 + comp2 + comp3 + holiday +  quarter1 + quarter2 + quarter3 +
+      lx1 + lx2 + lx3 + x1_star + x2_star + x3_star,
+    data = dt
+  )
+  ret=data.table(variable=names(m$coefficients), summary(m)$coefficients[,1:2])
+  setnames(ret, c('variable','est','se'))
+  ret
+})
+
+v1= rbindlist(out1)
+v1[, model:=rep(1:length(out1), each=nrow(out1[[1]]))]
+v1$endogeneity_controls=F
+
+v2= rbindlist(out2)
+v2[, model:=rep(1:length(out2), each=nrow(out2[[1]]))]
+v2$endogeneity_controls=T
+
+return(rbindlist(list(v1,v2),fill=T))
+}
+
+
 ```
 
 # Recovery with Error Correction
 
 ```{r}
+
 reps = 100
-set.seed(1234)
-data <- lapply(1:reps, function(...) sim_data(rho=.5))
 
-out1 = lapply(data, function(dt)
-  lm(
-    dy ~ 1 + dx1 + dx2 + dx3 + dx4 + trend + ly + quarter1 + quarter2 + quarter3 +
-      lx1 + lx2 + lx3 + lx4,
-    data = dt
-  )$coefficients)
+sims <- expand.grid(N=c(50,85,120), lambda = .5, rho = c(.2, .5))#, .8))
 
-out2 = lapply(data, function(dt)
-  lm(
-    dy ~ 1 + dx1 + dx2 + dx3 + dx4 + trend + ly + quarter1 + quarter2 + quarter3 +
-      lx1 + lx2 + lx3 + lx4 + x1_star + x2_star + x3_star,
-    data = dt
-  )$coefficients)
-
-
-evals <- lapply(list(out1, out2), function(out) {
-    
-  o = do.call('rbind', out)
-  res=colMeans(o)
-  
-  for (i in 1:4) o[,paste0('lx', i)]<- (-o[,paste0('lx', i)])/o[,'ly']
-  true = c(dx1=1, dx2=-2, dx3=.5, dx4=2, lx1=1/lambda, lx2=-2/lambda, lx3=.5/lambda, lx4=2/lambda)
-  
-  par(mfrow=c(2,4))
-  
-  vars=grep('^dx[0-9]$|lx[0-9]$', colnames(o), value=T)
-  
-  for (i in seq(along=vars)) {
-    hist(o[,vars[i]], breaks=20, main = vars[i])
-    abline(v=true[i], col='red')
-  }
-  return(o)
+data=lapply(split(sims, 1:nrow(sims)), function(sim) {
+  set.seed(1234)
+  #print(sim)
+  lapply(1:reps, function(...) sim_data(rho=sim$rho, lambda=sim$lambda, N=sim$N))
 })
 
 ```
 
-# Comparison
-
-```{r}
-vars=grep('^dx[0-9]$|lx[0-9]$', colnames(evals[[1]]), value=T)
-
-comp=rbind(data.table(evals[[1]][, vars], type='without Copulas', iteration = 1:nrow(evals[[1]])),
-      data.table(evals[[2]][, vars], type='with Copulas', iteration = 1:nrow(evals[[1]])))
-tmp=melt(comp, id.vars=c('type'))
-
-tmp2 = tmp[variable%in%vars, list(mean=mean(value)),by=c('type','variable')]
-
-tmp3=cbind(dcast(tmp2, variable~type), true=c(dx1=1, dx2=-2, dx3=.5, dx4=2, lx1=1/lambda, lx2=-2/lambda, lx3=.5/lambda, lx4=2/lambda))
-setcolorder(tmp3, c('variable', 'true', 'without Copulas','with Copulas'))
-
-kable(tmp3)
-```
-
-```{r eval=FALSE, include=FALSE, results='asis'}
-
 # Recovery
 
-#print(cor(data$x1, data$x1_star))
+```{r}
 
-library(stargazer)
-m1 <- lm(y~1+quarter1+quarter2+quarter3+trend+x1+x2+x3+x4+ly, data = data[[1]])
-m2 <- lm(y~1+quarter1+quarter2+quarter3+trend+x1+x2+x3+x4+x1_star+x2_star+x3_star+ly, data = data[[1]])
+estimated_coefficients = NULL
 
-stargazer(m1,m2, type='html')
+for (i in 1:length(data)) {
+  estimated_coefficients[[i]] <- data.table(rbindlist(lapply(data[i], function(d) estimate(data=d))))
+  estimated_coefficients[[i]]$N <- sims[i,'N']
+  estimated_coefficients[[i]]$lambda <- sims[i,'lambda']
+  estimated_coefficients[[i]]$rho <- sims[i,'rho']
+}
 
 ```
 
+# Summarize
+```{r, results= 'asis'} 
 
-```{r eval=FALSE, include=FALSE}
-# Loop
+comp <- rbindlist(estimated_coefficients)
+comp[, type:=.GRP,by=c('N','lambda','rho')]
+comp[, model:=1:.N, by = c('type', 'variable', 'endogeneity_controls')]
+# summarize one model
 
-all_res=rbindlist(lapply(data, function(dt) {
-  mcor=lm(y~1+quarter1+quarter2+quarter3+trend+x1+x2+x3+x4+x1_star+x2_star+x3_star+ly, data = dt)
-  m=lm(y~1+quarter1+quarter2+quarter3+trend+x1+x2+x3+x4+ly, data = dt)
-  return(data.table(biased_x1 = m$coefficients['x1'], corrected_x1 = mcor$coefficients['x1'],
-                    biased_x1 = m$coefficients['x2'], corrected_x1 = mcor$coefficients['x2'],
-                    biased_x1 = m$coefficients['x3'], corrected_x1 = mcor$coefficients['x3']
-                    
-                    
-                    ))
+tmp=comp
+#tmp = melt(comp,id.vars=c('N','rho','lambda','type', 'endogeneity_controls', 'model'))
+tmp[, endo:=ifelse(endogeneity_controls==T,'with copulas','without copulas')]
+tmp[grepl('intercept',variable, ignore.case=T), variable:='intercept']
+
+lambda=.5
   
-}))
+  beta = c(
+    'intercept' = .1,
+    'interceptdyn' = 0,
+    'x1' = 1,
+    'x2' = -1,
+    'x3' = 2,
+    'quarter1' = 1,
+    'quarter2' = -1,
+    'quarter3' = -.5,
+    'trend' = .1,
+    'comp1' = -1,
+    'comp2' = 2,
+    'comp3' = -1,
+    'holiday' = .5,
+    'ly' = lambda)
 
-summary(all_res)
-#hist(all_res$biased,breaks=20, main = 'Histogram of parameter without Copula correction')
-#hist(all_res$corrected,breaks=20, main = 'Histogram of parameter with Copula correction')
+  
+tmp[,true:=beta[match(variable, names(beta))]]
+tmp[grepl('^dx[0-9]', variable), true:=beta[gsub('^d','',variable)]]
+tmp[grepl('^lx[0-9]', variable), true:=beta[gsub('^l','',variable)]/(1-lambda)]
 
-# true:  'x1' = 1, 'x2' = -2, 'x3' = .5
+tmp[, lyval:=est[variable=='ly'],by=c('type', 'endogeneity_controls', 'model')]
+
+tmp[grepl('^lx[0-9]', variable), est:=beta[gsub('^l','',variable)]/(-lyval)]
+tmp[grepl('^ly$', variable), true:=true-1]
+tmp[, lyval:=NULL]
+#unique(tmp[is.na(true)], by=c('variable'))
+
+
+sigtwosided = .1
+sigz=abs(qnorm(sigtwosided/2))
+tmp[, lower:=est-sigz*se]
+tmp[, upper:=est+sigz*se]
+
+
+tmp2 = tmp[, list(true=unique(true), without=mean(est[endogeneity_controls==F]),
+                  bounds_without = paste0(round(quantile(est[endogeneity_controls==F], c(sigtwosided/2,(1-sigtwosided/2)),na.rm=T),3),collapse=','),
+                  bias_without = mean(est[endogeneity_controls==F]-true),
+                  recoveryrate_without = length(which(between(true[endogeneity_controls==F], lower[endogeneity_controls==F], upper[endogeneity_controls==F])))/length(which(endogeneity_controls==F)),
+                  
+                  with=mean(est[endogeneity_controls==T]),
+                  bounds_with = paste0(round(quantile(est[endogeneity_controls==T], c(sigtwosided/2,(1-sigtwosided/2)),na.rm=T),3),collapse=','),
+                  bias_with = mean(est[endogeneity_controls==T]-true),
+                  recoveryrate_with = length(which(between(true[endogeneity_controls==T], lower[endogeneity_controls==T], upper[endogeneity_controls==T])))/length(which(endogeneity_controls==T))
+                  
+                 ), by = c('type','N','rho','lambda', 'variable')]
+
+# table 1
+
+tmp3 = tmp2[type==6]
+
+
+varorder <- c('intercept','dx1','dx2','dx3','lx1','lx2','lx3', 'ly',
+           grep('comp|holiday|quarter|trend', unique(tmp$variable),ignore.case=T,value=T))
+
+tmp3[, varorder:=match(variable, varorder)]
+setorder(tmp3, varorder)
+
+tmp3 <- tmp3[!grepl('star', variable)]
+tmp3[, varorder:=NULL]
+kable(tmp3, caption = 'parameter recovery for selected model')
+#write.table(tmp3, 'r')
+
 
 ```
 
+```{r, results = 'asis'}
+
+# table 2
+
+tmp4 = dcast(tmp2[grepl('^dx|^lx', variable)], type+N+rho+lambda~variable,value.var='recoveryrate_without')
+tmp5 = dcast(tmp2[grepl('^dx|^lx', variable)], type+N+rho+lambda~variable,value.var='recoveryrate_with')
+kable(tmp4, caption = 'recovery rates without endogeneity correction')
+kable(tmp5, caption = 'recovery rates with endogeneity correction')
+
+
+```
