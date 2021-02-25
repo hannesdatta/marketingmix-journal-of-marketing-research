@@ -64,7 +64,12 @@ simple_loglog <- function(id, vars = c('lnrwpspr','lnllen','lnwpswdst'),
     obs<<-setdiff(1:nrow(dt), c(pset)) #, max(pset)+1))
     newpset = seq(from=min(pset)+1, to=max(pset)-1)
     m3=update(m2, .~.,subset=obs)
-    return(data.table(dt[newpset, c('date', 'dlnusales','lnlagusales','lnusales'),with=F], kfold=iter,dlnusales_hat=predict(m3, newdata=dt[newpset,])))
+    combobs = union(newpset, obs)
+    combobs = combobs[order(combobs)]
+    res=data.table(dt[combobs, c('date', 'dlnusales','lnlagusales','lnusales'),with=F], kfold=iter,lnusales_hat=predict(m3, newdata=dt[combobs,]))
+    res[, estim_set:=combobs%in%obs]
+    
+    return(res)
     
   }))
   
@@ -214,8 +219,12 @@ simple_ec <- function(id, vars = c('lnrwpspr','lnllen','lnwpswdst'),
     obs<<-setdiff(1:nrow(dt), c(pset)) #, max(pset)+1))
     newpset = seq(from=min(pset)+1, to=max(pset)-1)
     m3=update(m2, .~.,subset=obs)
-    return(data.table(dt[newpset, c('date', 'dlnusales','lnlagusales','lnusales'),with=F], kfold=iter,dlnusales_hat=predict(m3, newdata=dt[newpset,])))
     
+    combobs = union(newpset, obs)
+    combobs = combobs[order(combobs)]
+    res=data.table(dt[combobs, c('date', 'dlnusales','lnlagusales','lnusales'),with=F], kfold=iter,dlnusales_hat=predict(m3, newdata=dt[combobs,]))
+    res[, estim_set:=combobs%in%obs]
+    return(res)
   }))
 
   pred_new3 = merge(dt[, c('category','country','brand','date'),with=F],
@@ -385,24 +394,6 @@ model_sur <- function(focal_models, maxiter = 5000) {
   div_matrix <- matrix(rep(rescale_values, nrow(X)), byrow=TRUE, ncol=length(rescale_values))
   X=X/div_matrix
   
-  # save ranges after rescaling
-  #if (rescale==T) res$ranges$after=data.table(original_variable=colnames(X), min = colMins(X), max=colMaxs(X))[!grepl('[_]sq|[_]cop[_]|[_]dum', original_variable)]
-  if(0){
-    # flatten correlation
-    tmp=data.table(melt(cor(X)))
-    
-    uniqvar = unique(tmp$Var2)
-    tmp[, Var1index:=match(Var1,uniqvar)]
-    tmp[, Var2index:=match(Var2,uniqvar)]
-    tmp <- tmp[Var1index<Var2index]
-    
-    tmp[abs(value)>.9]
-    tmp[,abscor:=abs(value)]
-    ct=tmp[Var1=='bid001_d.1.comp_lnllen'|Var2=='bid001_d.1.comp_lnllen']
-    setorder(ct, abscor)
-    
-  }
-  
   estmethod = "FGLS"
   #maxiter=5000
   
@@ -414,6 +405,7 @@ model_sur <- function(focal_models, maxiter = 5000) {
   
   #colnames(X)[which(unlist(lapply(tmp,class))=='character')]
   
+ # !all(order(index[, 2], index[, 1]) == 1:nrow(X))
   
   
   m<-itersur(X=as.matrix(X),Y=as.matrix(Y),index=index, method = estmethod, maxiter=maxiter) #, use_ginv=F
