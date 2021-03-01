@@ -56,9 +56,9 @@ sim_data <- function(rho = .5, lambda = .5, N = 120) {
   # dimensions 2-4: endogenous marketing mix regressors
   
   R = matrix(c(1, rho, rho, rho,
-               rho, 1, 0, 0,
-               rho, 0, 1, 0,
-               rho, 0, 0, 1), ncol = 4)
+               rho, 1, rho/2, rho/2,
+               rho, rho/2, 1, rho/2,
+               rho, rho/2, rho/2, 1), ncol = 4)
   
   # Standard deviations
   sig=.5
@@ -69,10 +69,6 @@ sim_data <- function(rho = .5, lambda = .5, N = 120) {
   }
 
   Sigma = cor2cov(R, S)
-  #Sigma[Sigma==0]<-1E-4
-  #R
-  
-  #S
   
   # Generate draws from the Var-Covar Matrix
   error = mvrnorm(n = N,
@@ -170,7 +166,7 @@ return(rbindlist(list(v1,v2),fill=T))
 
 reps = 100
 
-sims <- expand.grid(N=c(50,85,120), lambda = .5, rho = c(.2, .5))#, .8))
+sims <- expand.grid(N=c(50,85,120), lambda = .5, rho = c(.3, .5, .7))
 
 data=lapply(split(sims, 1:nrow(sims)), function(sim) {
   set.seed(1234)
