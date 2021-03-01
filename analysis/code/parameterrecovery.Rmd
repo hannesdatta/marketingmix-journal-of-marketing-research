@@ -16,6 +16,9 @@ library(knitr)
 set.seed(1234)
 
 sim_data <- function(rho = .5, lambda = .5, N = 120) {
+  # rho = .9
+  # lambda = .5
+  # N = 120
   
   # Simulate data
   data = data.table(date=1:N)
