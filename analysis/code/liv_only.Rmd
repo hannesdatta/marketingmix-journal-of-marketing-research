@@ -187,12 +187,15 @@ out = clusterApplyLB(cl, data, function(dt) {
   k=2
   prob=1/(k)
   pgo=log(prob/(1-prob))
-  lambdas = rep(mean(x),2)
+  lambdas = rep(0,2)
     
   params = c(0, 1, 1, 0, 1, 0, 1, 2)
+  
+  params = c(0, 0, 1, 0, 1, 0, 1, 0)
+  params = c(0, 0, 1, 0, 1, 0, 1, 2)
   #params = c(startpar, uppertri,pgo,lambdas)
   
-  MLE = optimx(params, fn = llik, method = 'Nelder-Mead', hessian = FALSE, itnmax = 10000, 
+  MLE = optimx(params, fn = llik, method = 'BFGS', hessian = FALSE, itnmax = 10000, 
         control = list(trace = 0, dowarn = FALSE), sim = TRUE)
   unlist(MLE)
 
@@ -209,8 +212,9 @@ hist(drop(res[,2]),breaks=10, main = 'Histogram of bias-corrected parameter esti
 
 # Steps:
 
+#3) why can't i specify lambdas with exp - optimizer problem!
+#3) why can i not use better starting values - OLS don't work well!
 
-# 3) Use starting values from OLS --> doesn't work well
 
 # 4) Extend to multiple endogenous variables
 

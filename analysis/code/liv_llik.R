@@ -16,7 +16,7 @@ map_pars <- function(pars) {
   # class memberships
   prob <- exp(pars[6])/(1+exp(pars[6]))
 
-  lambdas = pars[7:8]  
+  lambdas = pars[7:8]#c(pars[7], pars[7]+exp(pars[8]))  
   return(list(beta0=beta0, beta1=beta1, uchol=uchol, sigma=sigma, prob=prob, lambdas=lambdas))
 }
 
