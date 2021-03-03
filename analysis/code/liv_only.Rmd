@@ -179,8 +179,19 @@ clusterEvalQ(cl, source('liv_llik.R'))
 out = clusterApplyLB(cl, data, function(dt) {
   x<<-dt$data$x
   y<<-dt$data$y
+  
+  # get starting parameters
+  startpar = lm(y~1+x)$coefficients
+  cov=diag(2)
+  uppertri=cov[upper.tri(cov, diag = T)]
+  k=2
+  prob=1/(k)
+  pgo=log(prob/(1-prob))
+  lambdas = rep(mean(x),2)
+    
   params = c(0, 1, 1, 0, 1, 0, 1, 2)
-
+  #params = c(startpar, uppertri,pgo,lambdas)
+  
   MLE = optimx(params, fn = llik, method = 'Nelder-Mead', hessian = FALSE, itnmax = 10000, 
         control = list(trace = 0, dowarn = FALSE), sim = TRUE)
   unlist(MLE)
@@ -197,18 +208,12 @@ hist(drop(res[,2]),breaks=10, main = 'Histogram of bias-corrected parameter esti
 ```
 
 # Steps:
-# 1) Check recovery of sim. max. lik for 1-instrument case
 
 
-# 2) Use Halton draws w/ simulation
-# 3) Fast estimator by scaling
-
-# 3) Use starting values from OLS
-
+# 3) Use starting values from OLS --> doesn't work well
 
 # 4) Extend to multiple endogenous variables
 
-# try whether it recovers
 
 ```
 
