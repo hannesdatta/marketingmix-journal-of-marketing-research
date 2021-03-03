@@ -22,7 +22,9 @@ map_pars <- function(pars) {
 
 reps=100
 set.seed(1234)
-simvals = matrix(runif(nrow(out$data)*reps),ncol=100)
+N=try(nrow(out$data), silent=T)
+if (class(N)=='try-error') N=120
+simvals = matrix(runif(N*reps),ncol=100)
 
 llik <- function (params, sim=F) {
   

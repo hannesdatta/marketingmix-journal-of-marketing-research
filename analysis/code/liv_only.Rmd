@@ -26,7 +26,7 @@ sim_data <- function(rho = .3,
                      N = 100,
                      latent_instruments = list(list(
                        pi = c(-1, 2),
-                       p = c(.3, .7),
+                       p = c(.7, .3),
                        beta = .5
                      ))) {
   
@@ -57,7 +57,7 @@ sim_data <- function(rho = .3,
     # Assert the probs sum to 1
     stopifnot(sum(liv$p)==1)
   
-    # Number of latent instruments
+    # Number of latent classes
     k = length(liv$pi)
   
     # Draw class memberships
@@ -104,7 +104,7 @@ clusterExport(cl, 'init')
 ```{r message=FALSE, warning=FALSE}
 set.seed(1984)
 reps = 100
-data=lapply(1:reps, function(x) sim_data(N=300, rho = .2))
+data=lapply(1:reps, function(x) sim_data(N=120, rho = .6))
 
 clusterEvalQ(cl, init())
 
@@ -132,6 +132,17 @@ hist(drop(res[,2]),breaks=100)
 
 ```
 
+try out old code
+```{r}
+out=sim_data(rho = .3, coef_x=.5, pi_vals=c(-1,2), N = 120)
+#hist(out$data$x, breaks=100)
+#out$data$y = out$data$y
+library(REndo)
+
+l <- latentIV(y~x, data = out$data)
+summary(l)
+```
+
 ## 2.3 Recovery using MLE a la Ebbes et al. 
 
 ### Estimation
@@ -140,8 +151,10 @@ library(stats4)
 library(optimx)
 
 # Simulate data
-set.seed(999)
-out=sim_data(rho = .3, N = 1000)
+set.seed(1984)
+reps = 100
+data=lapply(1:reps, function(x) sim_data(N=120, rho = .6))
+out=data[[1]]
 
 source('liv_llik.R')
 
@@ -151,17 +164,88 @@ x=out$data$x1
 params = c(0, 1, 1, 0, 1, 0, 1, 2)
 
 # without simulated maximum likelihood
-MLE = optimx(params, fn = llik, method = 'Nelder-Mead', hessian = TRUE, itnmax = 10000, 
+MLE = optimx(params, fn = llik, method = 'Nelder-Mead', hessian = FALSE, itnmax = 10000, 
         control = list(trace = 0, dowarn = FALSE))
 unlist(MLE)
+
+#params=unlist(MLE)[1:8]
+
+
 
 llik(params, sim=T)
 
 # with simulated maximum likelihood
-MLE2 = optimx(params, fn = llik, method = 'Nelder-Mead', hessian = TRUE, itnmax = 10000, 
+MLE2 = optimx(params, fn = llik, method = 'Nelder-Mead', hessian = FALSE, itnmax = 10000, 
         control = list(trace = 0, dowarn = FALSE), sim=T)
 unlist(MLE2)
 
+summary(lm(y~1+x))
+
+# Steps:
+# 1) Check recovery of sim. max. lik for 1-instrument case
+# 2) Use Halton draws w/ simulation
+# 3) Use starting values from OLS
+# 4) Extend to multiple endogenous variables
+
+# try whether it recovers
 
 ```
+
+```{r} 
+set.seed(1984)
+reps = 100
+data=lapply(1:reps, function(x) sim_data(N=120, rho = .6))
+
+# loop
+ests=lapply(data[1:10], function(out) {
+  y<<-out$data$y
+  x<<-out$data$x1
+
+  params = c(0, 1, 1, 0, 1, 0, 1, 2)
+  
+  # we need better starting parameters
+  
+# without simulated maximum likelihood
+  MLE = optimx(params, fn = llik, method = 'Nelder-Mead', hessian = FALSE, itnmax = 10000, 
+          control = list(trace = 0, dowarn = FALSE), sim = T)
+  return(unlist(MLE))
+})
+
+sdata=do.call('rbind', ests)
+summary(sdata[,2])
+
+
+```
+
+```{r}
+# test
+clusterExport(cl, c('llik', 'map_pars'))
+clusterEvalQ(cl, library(optimx))
+clusterEvalQ(cl, library(mvtnorm))
+clusterEvalQ(cl, source('liv_llik.R'))
+
+
+
+
+
+out = clusterApplyLB(cl, data[1:5], function(dt) {
+  x<<-dt$data$x
+  y<<-dt$data$y
+  params = c(0, 1, 1, 0, 1, 0, 1, 2)
+
+  MLE = optimx(params, fn = llik, method = 'Nelder-Mead', hessian = FALSE, itnmax = 10000, 
+        control = list(trace = 0, dowarn = FALSE), sim = TRUE)
+  unlist(MLE)
+
+})
+
+
+
+clusterEvalQ(cl, {
+  params = c(0, 1, 1, 0, 1, 0, 1, 2)
+
+  optimx(params, fn = llik, method = 'Nelder-Mead', hessian = TRUE, itnmax = 10000, 
+        control = list(trace = 0, dowarn = FALSE))
+})
+
 
