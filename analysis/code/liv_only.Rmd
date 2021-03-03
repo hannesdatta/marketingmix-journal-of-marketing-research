@@ -7,21 +7,22 @@ output:
 ---
 
 ```{r, echo = FALSE}
-set.seed(1234)
+library(knitr)
+library(data.table)
+library(parallel)
+library(stats4)
+library(optimx)
 ```
 
 As a first step towards our own LIV estimation for the GfK project, I propose to code up:
 
 Ebbes, P., Wedel, M., Böckenholt, U., & Steerneman, T. (2005). Solving and testing for regressor-error (in) dependence when no instrumental variables are available: With new evidence for the effect of education on income. *Quantitative Marketing and Economics*, 3(4), 365-392. To the extent possible, I adhere to the notation in that paper.
 
-# 2.0 LIV 
-
-# 2.1 Simulate data
+# Simulation of data
 
 ```{r}
-set.seed(1234)
 
-#Simulate data
+
 sim_data <- function(rho = .3,
                      N = 100,
                      latent_instruments = list(list(
@@ -86,12 +87,12 @@ sim_data <- function(rho = .3,
 }
 ```
 
-## 2.2 Comparison Latent IV with OLS
+# Parameter recovery for one endogenous regressor
+
+## OLS versus `REndo`-based estimator
 
 ```{r include=FALSE}
 # Startup cluster
-
-library(parallel)
 init <- function() {
   library(REndo)
   library(data.table)
@@ -103,10 +104,11 @@ clusterExport(cl, 'init')
 
 ```{r message=FALSE, warning=FALSE}
 set.seed(1984)
-reps = 100
+
+reps = 100 # number of replications
 data=lapply(1:reps, function(x) sim_data(N=120, rho = .6))
 
-clusterEvalQ(cl, init())
+void <- clusterEvalQ(cl, init())
 
 out = clusterApplyLB(cl, data, function(dt) {
   ols = lm(y ~ 1 + x1, data = dt$data)
@@ -122,113 +124,59 @@ out = clusterApplyLB(cl, data, function(dt) {
 
 res = do.call('rbind',out)
 
-colMeans(res)
-apply(res,2, sd) # in the confidence bounds!
+kable(apply(res, 2, function(x) return(c(mean=mean(x), sd=sd(x)))), caption = 'Comparison between OLS versus REndo-based LIV estimator')
 
-hist(drop(res[,2]),breaks=100)
-#hist(data[[1]]$data$x1)
-
-
+hist(drop(res[,2]),breaks=20, main = 'Histogram of bias-corrected parameter estimates')
 
 ```
 
-try out old code
+## `REndo`-based estimator versus self-coded estimator
+
+### One-case only
+
 ```{r}
-out=sim_data(rho = .3, coef_x=.5, pi_vals=c(-1,2), N = 120)
-#hist(out$data$x, breaks=100)
-#out$data$y = out$data$y
-library(REndo)
-
-l <- latentIV(y~x, data = out$data)
-summary(l)
-```
-
-## 2.3 Recovery using MLE a la Ebbes et al. 
-
-### Estimation
-```{r}
-library(stats4)
-library(optimx)
-
-# Simulate data
 set.seed(1984)
-reps = 100
-data=lapply(1:reps, function(x) sim_data(N=120, rho = .6))
-out=data[[1]]
+out = sim_data(N=120, rho = .6)
 
+# Load estimation likelihood function
 source('liv_llik.R')
 
 y=out$data$y
 x=out$data$x1
 
+# starting parameters
 params = c(0, 1, 1, 0, 1, 0, 1, 2)
 
 # without simulated maximum likelihood
 MLE = optimx(params, fn = llik, method = 'Nelder-Mead', hessian = FALSE, itnmax = 10000, 
         control = list(trace = 0, dowarn = FALSE))
-unlist(MLE)
-
-#params=unlist(MLE)[1:8]
-
-
-
-llik(params, sim=T)
+#unlist(MLE)
 
 # with simulated maximum likelihood
-MLE2 = optimx(params, fn = llik, method = 'Nelder-Mead', hessian = FALSE, itnmax = 10000, 
+MLE_sim = optimx(params, fn = llik, method = 'Nelder-Mead', hessian = FALSE, itnmax = 10000, 
         control = list(trace = 0, dowarn = FALSE), sim=T)
-unlist(MLE2)
+#unlist(MLE_sim)
 
-summary(lm(y~1+x))
+ols = lm(y~1+x)
 
-# Steps:
-# 1) Check recovery of sim. max. lik for 1-instrument case
-# 2) Use Halton draws w/ simulation
-# 3) Use starting values from OLS
-# 4) Extend to multiple endogenous variables
-
-# try whether it recovers
+data.frame(ols=ols$coefficients, MLE=unlist(MLE)[1:2], `MLE_simulatedmaxlik`=unlist(MLE_sim)[1:2])
 
 ```
+
+### Across `reps` replications
 
 ```{r} 
 set.seed(1984)
-reps = 100
+reps = 50
 data=lapply(1:reps, function(x) sim_data(N=120, rho = .6))
 
-# loop
-ests=lapply(data[1:10], function(out) {
-  y<<-out$data$y
-  x<<-out$data$x1
-
-  params = c(0, 1, 1, 0, 1, 0, 1, 2)
-  
-  # we need better starting parameters
-  
-# without simulated maximum likelihood
-  MLE = optimx(params, fn = llik, method = 'Nelder-Mead', hessian = FALSE, itnmax = 10000, 
-          control = list(trace = 0, dowarn = FALSE), sim = T)
-  return(unlist(MLE))
-})
-
-sdata=do.call('rbind', ests)
-summary(sdata[,2])
-
-
-```
-
-```{r}
-# test
 clusterExport(cl, c('llik', 'map_pars'))
 clusterEvalQ(cl, library(optimx))
 clusterEvalQ(cl, library(mvtnorm))
 clusterEvalQ(cl, source('liv_llik.R'))
 
 
-
-
-
-out = clusterApplyLB(cl, data[1:5], function(dt) {
+out = clusterApplyLB(cl, data, function(dt) {
   x<<-dt$data$x
   y<<-dt$data$y
   params = c(0, 1, 1, 0, 1, 0, 1, 2)
@@ -240,12 +188,28 @@ out = clusterApplyLB(cl, data[1:5], function(dt) {
 })
 
 
+res = do.call('rbind',out)
 
-clusterEvalQ(cl, {
-  params = c(0, 1, 1, 0, 1, 0, 1, 2)
+kable(t(apply(res, 2, function(x) return(c(mean=mean(x), sd=sd(x))))), caption = 'Comparison between OLS versus REndo-based LIV estimator')
 
-  optimx(params, fn = llik, method = 'Nelder-Mead', hessian = TRUE, itnmax = 10000, 
-        control = list(trace = 0, dowarn = FALSE))
-})
+hist(drop(res[,2]),breaks=10, main = 'Histogram of bias-corrected parameter estimates')
+
+```
+
+# Steps:
+# 1) Check recovery of sim. max. lik for 1-instrument case
+
+
+# 2) Use Halton draws w/ simulation
+# 3) Fast estimator by scaling
+
+# 3) Use starting values from OLS
+
+
+# 4) Extend to multiple endogenous variables
+
+# try whether it recovers
+
+```
 
 
