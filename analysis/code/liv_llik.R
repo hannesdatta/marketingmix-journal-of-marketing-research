@@ -1,7 +1,7 @@
 
 library(mvtnorm)
 
-map_pars <- function(pars) {
+map_pars <- function(pars, reparametrization = FALSE) {
   beta0 = pars[1]
   beta1 = pars[2]
   
@@ -15,22 +15,25 @@ map_pars <- function(pars) {
   
   # class memberships
   prob <- exp(pars[6])/(1+exp(pars[6]))
+  
+  lambdas = pars[7:8] 
+  if (reparametrization==T) lambdas = c(pars[7], pars[7]+exp(pars[8]))  
+  
 
-  lambdas = pars[7:8]#c(pars[7], pars[7]+exp(pars[8]))  
   return(list(beta0=beta0, beta1=beta1, uchol=uchol, sigma=sigma, prob=prob, lambdas=lambdas))
 }
 
 reps=100
 set.seed(1234)
-N=try(nrow(out$data), silent=T)
+N=try(nrow(data[[1]]$data), silent=T)
 if (class(N)=='try-error') N=120
 
 simvals = matrix(runif(N*reps),ncol=100)
 
 
-llik <- function (params, sim=F) {
+llik <- function (params, sim=FALSE, reparametrization = FALSE) {
   
-  pars=map_pars(params)
+  pars=map_pars(params, reparametrization = reparametrization)
   
   lambdas = pars$lambdas
   beta0=pars$beta0
