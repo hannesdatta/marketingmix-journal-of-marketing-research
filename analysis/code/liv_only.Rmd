@@ -150,8 +150,8 @@ params = c(0, 1, 1, 0, 1, 0, 1, 0)
 # without simulated maximum likelihood
 MLE = optimx(params, fn = llik, method = 'Nelder-Mead', hessian = FALSE, itnmax = 10000, 
         control = list(trace = 0, dowarn = FALSE))
-nlminb  = nlminb(start = params, objective = llik, reparametrization = TRUE)
-  
+nlminb  = nlminb(start = params, objective = llik)
+
 # with simulated maximum likelihood
 MLE_sim = optimx(params, fn = llik, method = 'Nelder-Mead', hessian = FALSE, itnmax = 10000, 
         control = list(trace = 0, dowarn = FALSE), sim=T)
@@ -211,7 +211,7 @@ out = clusterApplyLB(cl, data, function(dt) {
   #ucminf  = ucminf::ucminf(par = params, fn = llik, hessian = 0, sim = T, reparametrization = T)
   #llik(c(startpar, uppertri,-1,lambdas), sim = T, reparametrization = T)
   
-  nlminb  = nlminb(start = params, objective = llik, sim = TRUE, reparametrization = TRUE)#,
+  nlminb  = nlminb(start = params, objective = llik, sim = FALSE, reparametrization = TRUE)#,
                    #control=list(abs.tol = 1e-20, rel.tol = 1e-10))
    
                    #control=list(abs.tol = 1e-20, rel.tol = 1e-10))
@@ -247,6 +247,8 @@ hist(drop(res[,2]),breaks=10, main = 'Histogram of bias-corrected parameter esti
 
 #3) why can't i specify lambdas with exp (optimizer problem? / label switching)
 # --> tried nlminb, and others; they are faster, but sometimes less accurate
+
+# --> most stable solution seems closed form.
 
 # I observed p wasn't changing. keep MLE?
 
