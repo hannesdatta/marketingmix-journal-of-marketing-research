@@ -132,7 +132,7 @@ hist(drop(res[,2]),breaks=20, main = 'Histogram of bias-corrected parameter esti
 
 ## `REndo`-based estimator versus self-coded estimator
 
-### One-case only
+### One-case only, two levels, one regressor
 
 ```{r}
 set.seed(1984)
@@ -150,34 +150,29 @@ params = c(0, 1, 1, 0, 1, 0, 1, 0)
 # without simulated maximum likelihood
 MLE = optimx(params, fn = llik, method = 'Nelder-Mead', hessian = FALSE, itnmax = 10000, 
         control = list(trace = 0, dowarn = FALSE))
+
 nlminb  = nlminb(start = params, objective = llik)
 
-# with simulated maximum likelihood
-MLE_sim = optimx(params, fn = llik, method = 'Nelder-Mead', hessian = FALSE, itnmax = 10000, 
-        control = list(trace = 0, dowarn = FALSE), sim=T)
-#unlist(MLE_sim)
-nlminb_sim  = nlminb(start = params, objective = llik, sim = T, reparametrization = TRUE)
-  
 ols = lm(y~1+x)
 
-kable(data.frame(ols=ols$coefficients, MLE_neldermead=unlist(MLE)[1:2], `MLE_neldermead_simulatedmaxlik`=unlist(MLE_sim)[1:2],
-           MLE_port=unlist(nlminb$par)[1:2], `MLE_port_simulatedmaxlik`=unlist(nlminb_sim$par)[1:2]),
+kable(data.frame(ols=ols$coefficients, MLE_neldermead=unlist(MLE)[1:2],
+           MLE_port=unlist(nlminb$par)[1:2]),
       caption = 'Comparison of parameter estimates between OLS and MLE estimators (Nelder-Mead, PORT)')
 
 ```
+
 
 ### Across `reps` replications
 
 ```{r} 
 set.seed(1984)
-reps = 10
+reps = 100
 data=lapply(1:reps, function(x) sim_data(N=120, rho = .6))
 
 clusterExport(cl, c('llik', 'map_pars'))
 clusterEvalQ(cl, library(optimx))
 clusterEvalQ(cl, library(mvtnorm))
 clusterEvalQ(cl, library(ucminf))
-
 
 clusterEvalQ(cl, source('liv_llik.R'))
 #void<-clusterEvalQ(cl, {simvals <<- matrix(runif(N*reps),ncol=100)})
@@ -211,31 +206,18 @@ out = clusterApplyLB(cl, data, function(dt) {
   #ucminf  = ucminf::ucminf(par = params, fn = llik, hessian = 0, sim = T, reparametrization = T)
   #llik(c(startpar, uppertri,-1,lambdas), sim = T, reparametrization = T)
   
-  nlminb  = nlminb(start = params, objective = llik, sim = FALSE, reparametrization = TRUE)#,
-                   #control=list(abs.tol = 1e-20, rel.tol = 1e-10))
-   
-                   #control=list(abs.tol = 1e-20, rel.tol = 1e-10))
+  nlminb  = nlminb(start = params, objective = llik)#,
   
-    MLE = optimx(nlminb$par, fn = llik, method = 'Nelder-Mead', hessian = FALSE, itnmax = 10000, 
-        control = list(trace = 0, dowarn = FALSE), sim = TRUE,reparametrization = TRUE)
-
-   # MLE = optimx(params, fn = llik, method = 'Nelder-Mead', hessian = FALSE, itnmax = 10000, 
-   #     control = list(trace = 0, dowarn = FALSE), sim = TRUE,reparametrization = FALSE)
-
-  #ucminf
-  #ucminf$par
+  #MLE = optimx(params, fn = llik, method = 'Nelder-Mead', hessian = FALSE, itnmax = 10000, 
+  #      control = list(trace = 0, dowarn = FALSE))#, sim = TRUE,reparametrization = FALSE)
   
- # MLE = optimx(params, fn = llik, method = 'Nelder-Mead', hessian = FALSE, itnmax = 10000, 
- #       control = list(trace = 0, dowarn = FALSE), sim = TRUE)
-  unlist(MLE)
-  #c(nlminb$par, nlminb$convergence, nlminb$objective)
-  #c(ucminf$par, ucminf$convergence)
+  #unlist(MLE)
+  c(nlminb$par, nlminb$convergence, nlminb$objective)
+  
 })
 
 
 res = do.call('rbind',out)
-
-# discard extreme values
 
 kable(t(apply(res, 2, function(x) return(c(mean=mean(x), sd=sd(x))))), caption = paste0('Parameter recovery across ', reps, ' replications'))
 
@@ -243,19 +225,48 @@ hist(drop(res[,2]),breaks=10, main = 'Histogram of bias-corrected parameter esti
 
 ```
 
+### One-case only, three levels, one regressor
+
+```{r}
+set.seed(1984)
+out = sim_data(N=1200, rho = .3, latent_instruments = list(list(pi=c(-1,1,2),
+                                                               p=c(.3,.4,.3),
+                                                               beta=.5)))
+
+# Load estimation likelihood function
+source('liv_llik.R')
+
+y=out$data$y
+x=out$data$x1
+
+# starting parameters
+params = c(0, 1, 1, 0, 1,   0,1,    -1,0,0)
+map_pars(params,levels=3)
+
+# without simulated maximum likelihood
+MLE = optimx(params, fn = llik, method = 'Nelder-Mead', hessian = FALSE, itnmax = 10000, 
+        control = list(trace = 0, dowarn = FALSE), levels=3)
+nlminb  = nlminb(start = params, objective = llik, levels = 3)
+
+ols = lm(y~1+x)
+
+kable(data.frame(ols=ols$coefficients, MLE_neldermead=unlist(MLE)[1:2],
+           MLE_port=unlist(nlminb$par)[1:2]),
+      caption = 'Comparison of parameter estimates between OLS and MLE estimators (Nelder-Mead, PORT)')
+MLE
+nlminb
+
+map_pars(nlminb$par, levels=3)
+
+```
+
+
 # Steps:
 
-#3) why can't i specify lambdas with exp (optimizer problem? / label switching)
-# --> tried nlminb, and others; they are faster, but sometimes less accurate
+# Recovered three-level LIV with CLOSED FORM solution!
 
-# --> most stable solution seems closed form.
+# Only thing that remains: extending to multiple-instrument case + adding other controls to equation!
 
-# I observed p wasn't changing. keep MLE?
-
-#3) why can i not use better starting values - OLS don't work well!
-
-
-# 4) Extend to multiple endogenous variables
 
 
 ```

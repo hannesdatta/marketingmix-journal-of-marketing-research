@@ -35,9 +35,9 @@ if (class(N)=='try-error') N=120
 simvals = matrix(runif(N*reps),ncol=100)
 
 
-llik <- function (params, sim=FALSE, reparametrization = FALSE) {
+llik <- function (params, levels = 2) {
   
-  pars=map_pars(params)
+  pars=map_pars(params, levels = levels)
   
   lambdas = pars$lambdas
   beta0=pars$beta0
@@ -46,38 +46,31 @@ llik <- function (params, sim=FALSE, reparametrization = FALSE) {
   prob=pars$prob
   varcov=pars$sigma
 
+  y_pred = sapply(lambdas, function(lambda) beta0 + beta1 * lambda)
   
-  if (sim==T) {
- 
-    y_y_pred = y - (beta0 + beta1 * ifelse(simvals < prob[1], lambdas[1], lambdas[2]))
-    x_x_pred = x - (ifelse(simvals < prob[1], lambdas[1], lambdas[2]))
-    
-    llik = sapply(1:nrow(y_y_pred), function(i) log(mean(dmvnorm(cbind(y_y_pred[i,], x_x_pred[i,]), mean=c(0,0), sigma=varcov, log=F))))
-    return(-sum(llik))
-    
-    #llik = sapply(1:reps, function(i) dmvnorm(cbind(y_y_pred[,i], x_x_pred[,i]), mean=c(0,0), sigma=varcov, log=T))
-    #return(-sum(apply(llik, 1, function(x) log(mean(exp(x-max(x)))))))
-    
-   # sllik = colSums(llik)
-    #return(-log(mean(exp(sllik-max(sllik)))))
-    
-    
-    #-log(mean(exp(llik_vals-max(llik_vals))))
-    
-    
-  }
+  liks = sapply(seq(from=1, to=levels), function(l) {
+    dmvnorm(cbind(y-y_pred[l], x-lambdas[l]), mean=c(0,0), sigma=varcov, log=T)
+  })
   
   
-  # first: move this to simulated maximum likelihood
-  y_pred1 = beta0 + beta1 * lambdas[1]
-  y_pred2 = beta0 + beta1 * lambdas[2]
+  lprob = matrix(rep(log(prob),each=length(y)),ncol=levels)
   
-  llik1 = dmvnorm(cbind(y-y_pred1, x-lambdas[1]), mean=c(0,0), sigma=varcov, log=T)
-  llik2 = dmvnorm(cbind(y-y_pred2, x-lambdas[2]), mean=c(0,0), sigma=varcov, log=T)
+  max.AB = apply(lprob+liks,1,max)
   
-  max.AB = pmax(log(prob[1]) + llik1, log(prob[2]) + llik2)
+  llik_min_maxab = apply(liks, 2, function(x) exp(x- max.AB))
   
-  llik_lse = sum(max.AB + log(prob[1] * exp(llik1 - max.AB) + prob[2] * exp(llik2-max.AB)))
+  prob_times_exp = sapply(seq(from=1, to=levels), function(i) prob[i]*llik_min_maxab[,i])
+  
+  #llik_lse = sum(max.AB + log(prob[1] * exp(llik1 - max.AB) + prob[2] * exp(llik2-max.AB)))
+  #llik_lse = sum(max.AB + log(prob[1] * llik_min_maxab[,1] + prob[2] * llik_min_maxab[,2]))
+  
+  llik_lse = sum(max.AB + log(rowSums(prob_times_exp)))
+  
+  
+  #llik_lse = sum(max.AB + log(sum()
+  
+  #llik_lse = sum(max.AB + log(sum(sapply(seq(from=1, to=levels), function(i) prob[i]+llik_min_maxab[,i]))))
+                                
   
   return(-llik_lse)
 }
