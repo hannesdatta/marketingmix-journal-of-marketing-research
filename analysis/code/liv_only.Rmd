@@ -238,25 +238,39 @@ source('liv_llik.R')
 
 y=out$data$y
 x=out$data$x1
-
+X=cbind(rep(1, length(y)))
+        
 # starting parameters
-params = c(0, 1, 1, 0, 1,   0,1,    -1,0,0)
-map_pars(params,levels=3)
+params = c(0, 0, 0, -.5, 0, 1, 0, 1,  0, 0)
+map_pars(params,levels=3, endogenous_variables = 1)
+
 
 # without simulated maximum likelihood
-MLE = optimx(params, fn = llik, method = 'Nelder-Mead', hessian = FALSE, itnmax = 10000, 
-        control = list(trace = 0, dowarn = FALSE), levels=3)
-nlminb  = nlminb(start = params, objective = llik, levels = 3)
+MLE = optimx(params, fn = llik, method = 'Nelder-Mead', hessian = FALSE, 
+             itnmax = 10000, 
+        control = list(trace = 0, dowarn = FALSE), levels=3, endogenous_variables=1, data = list(y=y,endog=cbind(x),
+                                                                                                                   X=X))
+
+#map_pars(unlist(MLE)[1:10], levels=3, endogenous_variables = 1)
+
+
+#llik(params, levels=3,endogenous_variables = 1, data = list(y=y,X=cbind(rep(1, length(y))), endog=cbind(x)))
+
+
+nlminb  = nlminb(start = params, objective = llik, levels = 3,
+                 endogenous_variables=1, data=list(y=y,endog=cbind(x),
+                                                                                                                   X=X))
+#map_pars(nlminb$par, levels=3, endogenous_variables = 1)
+
+
 
 ols = lm(y~1+x)
 
-kable(data.frame(ols=ols$coefficients, MLE_neldermead=unlist(MLE)[1:2],
-           MLE_port=unlist(nlminb$par)[1:2]),
+kable(data.frame(ols=ols$coefficients[2], MLE_neldermead=unlist(MLE)[7],
+           MLE_port=unlist(nlminb$par)[7]),
       caption = 'Comparison of parameter estimates between OLS and MLE estimators (Nelder-Mead, PORT)')
-MLE
-nlminb
 
-map_pars(nlminb$par, levels=3)
+#map_pars(nlminb$par, levels=3)
 
 ```
 
