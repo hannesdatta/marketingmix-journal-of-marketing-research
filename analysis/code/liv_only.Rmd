@@ -283,3 +283,5 @@ map_pars(nlminb$par, levels = 3, endogenous_variables=2)
 - Check whether correct number of classes can be recovered (e.g., some kind of AIC, BIC to be supplied in the model results)
 - Evaluate recovery with *small* N (=120) and 100 replications (as above), including number of classes
 
+- Move code into a package that can easily be used
+
