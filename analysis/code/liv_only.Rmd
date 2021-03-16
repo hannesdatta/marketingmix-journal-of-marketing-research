@@ -214,6 +214,8 @@ hist(drop(res[,7]),breaks=10, main = 'Histogram of bias-corrected parameter esti
 
 ```{r}
 set.seed(1984)
+# use lage sample size to obtain parameters close to the true values for benchmark purposes
+
 out = sim_data(N=1200, rho = .3, latent_instruments = list(list(pi=c(-1,1,2),
                                                                p=c(.3,.4,.3),
                                                                beta=.5)))
@@ -243,4 +245,41 @@ kable(data.frame(old=nlminb_old$par, new=nlminb$par),
 
 ```
 
+### Two instruments, three levels
+
+```{r}
+set.seed(1984)
+out = sim_data(N=1200, rho = .3, latent_instruments = list(list(pi=c(-1,1,2),
+                                                               p=c(.3,.4,.3),
+                                                               beta=.5),
+                                                           list(pi=c(-2,0,1),
+                                                               p=c(.1,.5,.4),
+                                                               beta=-.5)))
+
+# Load estimation likelihood function
+source('liv_llik.R')
+
+data = list(y=out$data$y, endog=cbind(out$data$x1, out$data$x2), X=cbind(rep(1,length(out$data$y))))
+ 
+# starting parameters
+params = c(0, 0, 0, 0, 0, 0, # lambdas
+           0, 0, 0, 0, # prob
+           1, 0, 1, 0, 0, 1, # chol
+           0, 0, # gamma
+           0) # beta
+
+# try calling loglik
+
+nlminb  = nlminb(start = params, objective = llik, levels = 3, endogenous_variables=2,
+        data = data, control = list(iter.max=1000, eval.max = 1000))
+
+
+map_pars(nlminb$par, levels = 3, endogenous_variables=2)
+
+```
+
+# Steps to move this into production:
+- Evaluate recovery with *small* N (=120) and 100 replications (as above)
+- Check whether correct number of classes can be recovered (e.g., some kind of AIC, BIC to be supplied in the model results)
+- Add "noise" to estimator in the form of other regression data and check recovery attributes
 

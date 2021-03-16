@@ -128,13 +128,13 @@ llik <- function(params, levels = 2, endogenous_variables = 2, data = list(y=y,X
     .lambda= iterating_lambdas[l,]
     y_pred = data$X%*%betas + drop(t(cbind(.lambda))%*%cbind(gamma))
     
-    .tmp = cbind(y-y_pred, data$endog - matrix(rep(.lambda,nrow(data$endog)),ncol=endogenous_variables, byrow=T))
+    .tmp = cbind(data$y-y_pred, data$endog - matrix(rep(.lambda,nrow(data$endog)),ncol=endogenous_variables, byrow=T))
     
     dmvnorm(.tmp, mean=rep(0, each=endogenous_variables+1), sigma=varcov, log=T)
   })
   
   
-  lprob = matrix(rep(log(iterating_probabilities),each=length(y)),ncol=length(iterating_probabilities))
+  lprob = matrix(rep(log(iterating_probabilities),each=length(data$y)),ncol=length(iterating_probabilities))
   
   max.AB = apply(lprob+liks,1,max)
   
@@ -142,30 +142,7 @@ llik <- function(params, levels = 2, endogenous_variables = 2, data = list(y=y,X
   
   prob_times_exp = sapply(seq(from=1, to=length(iterating_probabilities)), function(i) iterating_probabilities[i]*llik_min_maxab[,i])
   
-  #llik_lse = sum(max.AB + log(prob[1] * exp(llik1 - max.AB) + prob[2] * exp(llik2-max.AB)))
-  #llik_lse = sum(max.AB + log(prob[1] * llik_min_maxab[,1] + prob[2] * llik_min_maxab[,2]))
-  
   llik_lse = sum(max.AB + log(rowSums(prob_times_exp)))
-  
-  
-  #llik_lse = sum(max.AB + log(sum()
-  
-  #llik_lse = sum(max.AB + log(sum(sapply(seq(from=1, to=levels), function(i) prob[i]+llik_min_maxab[,i]))))
-                                
-  
+
   return(-llik_lse)
 }
-
-# Extensions: 
-# - multiple endogenous variables
-# - multiple classes
-# - "exp" trick
-
-# EC
-# --
-# Gaussian Copulas in EC model
-# Use our data, similar model
-
-# Step 1:
-# -> regression model with lagged DV + copula
-# -> regression model with 
