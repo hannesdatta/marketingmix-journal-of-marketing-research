@@ -61,6 +61,50 @@ if (class(N)=='try-error') N=120
 simvals = matrix(runif(N*reps),ncol=100)
 
 
+
+llik_old <- function (params, levels = 2) {
+  
+  pars=map_pars(params, levels = levels, endogenous_variables = 1)
+  
+  lambdas = pars$lambdas
+  beta0 = pars$betas[1]
+  
+  beta1=pars$gamma
+  
+  prob=drop(pars$prob)
+  
+  varcov=pars$sigma
+ 
+  y_pred = sapply(lambdas, function(lambda) beta0 + beta1 * lambda)
+  
+  liks = sapply(seq(from=1, to=levels), function(l) {
+    dmvnorm(cbind(y-y_pred[l], x-lambdas[l]), mean=c(0,0), sigma=varcov, log=T)
+  })
+  
+  
+  lprob = matrix(rep(log(prob),each=length(y)),ncol=levels)
+  
+  max.AB = apply(lprob+liks,1,max)
+  
+  llik_min_maxab = apply(liks, 2, function(x) exp(x- max.AB))
+  
+  prob_times_exp = sapply(seq(from=1, to=levels), function(i) prob[i]*llik_min_maxab[,i])
+  
+  #llik_lse = sum(max.AB + log(prob[1] * exp(llik1 - max.AB) + prob[2] * exp(llik2-max.AB)))
+  #llik_lse = sum(max.AB + log(prob[1] * llik_min_maxab[,1] + prob[2] * llik_min_maxab[,2]))
+  
+  llik_lse = sum(max.AB + log(rowSums(prob_times_exp)))
+  
+  
+  #llik_lse = sum(max.AB + log(sum()
+  
+  #llik_lse = sum(max.AB + log(sum(sapply(seq(from=1, to=levels), function(i) prob[i]+llik_min_maxab[,i]))))
+  
+  
+  return(-llik_lse)
+}
+
+
 llik <- function(params, levels = 2, endogenous_variables = 2, data = list(y=y,X=cbind(rep(1,length(y))),
                                                                             endog=cbind(x,x))) {
   

@@ -22,7 +22,6 @@ Ebbes, P., Wedel, M., Böckenholt, U., & Steerneman, T. (2005). Solving and test
 
 ```{r}
 
-
 sim_data <- function(rho = .3,
                      N = 100,
                      latent_instruments = list(list(
@@ -145,22 +144,25 @@ y=out$data$y
 x=out$data$x1
 
 # starting parameters
-params = c(0, 1, 1, 0, 1, 0, 1, 0)
+params = c(0, 0, 0, 1, 0, 1, 0, 0)
 
 # without simulated maximum likelihood
 MLE = optimx(params, fn = llik, method = 'Nelder-Mead', hessian = FALSE, itnmax = 10000, 
-        control = list(trace = 0, dowarn = FALSE))
+        control = list(trace = 0, dowarn = FALSE), levels = 2, endogenous_variables=1,
+        data = list(y=y,endog=cbind(x),X=cbind(rep(1,length(y)))))
 
-nlminb  = nlminb(start = params, objective = llik)
+nlminb  = nlminb(start = params, objective = llik, levels = 2, endogenous_variables=1,
+        data = list(y=y,endog=cbind(x),X=cbind(rep(1,length(y)))))
 
 ols = lm(y~1+x)
 
-kable(data.frame(ols=ols$coefficients, MLE_neldermead=unlist(MLE)[1:2],
-           MLE_port=unlist(nlminb$par)[1:2]),
+kable(data.frame(ols=ols$coefficients, MLE_neldermead=unlist(MLE)[8:7],
+           MLE_port=unlist(nlminb$par)[8:7]),
       caption = 'Comparison of parameter estimates between OLS and MLE estimators (Nelder-Mead, PORT)')
 
 ```
 
+--> `nlminb` looks much more stable.
 
 ### Across `reps` replications
 
@@ -170,48 +172,31 @@ reps = 100
 data=lapply(1:reps, function(x) sim_data(N=120, rho = .6))
 
 clusterExport(cl, c('llik', 'map_pars'))
-clusterEvalQ(cl, library(optimx))
-clusterEvalQ(cl, library(mvtnorm))
-clusterEvalQ(cl, library(ucminf))
-
-clusterEvalQ(cl, source('liv_llik.R'))
-#void<-clusterEvalQ(cl, {simvals <<- matrix(runif(N*reps),ncol=100)})
-
-
+void <- clusterEvalQ(cl, library(optimx))
+void <- clusterEvalQ(cl, library(mvtnorm))
+void <- clusterEvalQ(cl, library(ucminf))
+void <- clusterEvalQ(cl, source('liv_llik.R'))
 
 out = clusterApplyLB(cl, data, function(dt) {
   x<<-dt$data$x
   y<<-dt$data$y
   
   # get starting parameters
-  startpar = lm(y~1+x)$coefficients
-  cov=diag(2)
-  uppertri=cov[upper.tri(cov, diag = T)]
-  k=2
-  prob=1/(k)
-  pgo=log(prob/(1-prob))
-  lambdas = rep(0,2)
   
-  #params = c(0, 1, 1, 0, 1, 0, 1, 2)
+  #startpar = lm(y~1+x)$coefficients
+  #cov=diag(2)
+  #uppertri=cov[upper.tri(cov, diag = T)]
+  #k=2
+  #prob=1/(k)
+  #pgo=log(prob/(1-prob))
+  #lambdas = rep(0,2)
+  #params = c(startpar, uppertri,pgo,lambdas)
   
-  #params = c(0, 0, 1, 0, 1, 0, 1, 0)
+  params = c(0, 0, 0, 1, 0, 1, 0, 0)
+
+  nlminb  = nlminb(start = params, objective = llik, levels = 2, endogenous_variables=1,
+        data = list(y=y,endog=cbind(x),X=cbind(rep(1,length(y)))))
   
-  #params = c(0, 0, 1, 0, 1, 0, 1, -10)
-  #params = c(0, 0, 1, 0, 1, 0, 0, -10)
-  #pgo = -1
-  #lambdas=c(-1,1)
-  params = c(startpar, uppertri,pgo,lambdas)
-  #params = c(startpar, uppertri,0,0,0)
-  
-  #ucminf  = ucminf::ucminf(par = params, fn = llik, hessian = 0, sim = T, reparametrization = T)
-  #llik(c(startpar, uppertri,-1,lambdas), sim = T, reparametrization = T)
-  
-  nlminb  = nlminb(start = params, objective = llik)#,
-  
-  #MLE = optimx(params, fn = llik, method = 'Nelder-Mead', hessian = FALSE, itnmax = 10000, 
-  #      control = list(trace = 0, dowarn = FALSE))#, sim = TRUE,reparametrization = FALSE)
-  
-  #unlist(MLE)
   c(nlminb$par, nlminb$convergence, nlminb$objective)
   
 })
@@ -221,7 +206,7 @@ res = do.call('rbind',out)
 
 kable(t(apply(res, 2, function(x) return(c(mean=mean(x), sd=sd(x))))), caption = paste0('Parameter recovery across ', reps, ' replications'))
 
-hist(drop(res[,2]),breaks=10, main = 'Histogram of bias-corrected parameter estimates')
+hist(drop(res[,7]),breaks=10, main = 'Histogram of bias-corrected parameter estimates')
 
 ```
 
@@ -243,45 +228,18 @@ X=cbind(rep(1, length(y)))
 # starting parameters
 params = c(0, 0, 0, -.5, 0, 1, 0, 1,  0, 0)
 map_pars(params,levels=3, endogenous_variables = 1)
+#map_pars(1:20,levels=3, endogenous_variables = 1)
 
 
-# without simulated maximum likelihood
-MLE = optimx(params, fn = llik, method = 'Nelder-Mead', hessian = FALSE, 
-             itnmax = 10000, 
-        control = list(trace = 0, dowarn = FALSE), levels=3, endogenous_variables=1, data = list(y=y,endog=cbind(x),
-                                                                                                                   X=X))
+nlminb  = nlminb(start = params, objective = llik, levels = 3, endogenous_variables=1,
+        data = list(y=y,endog=cbind(x),X=X))
+  
 
-#map_pars(unlist(MLE)[1:10], levels=3, endogenous_variables = 1)
+nlminb_old  = nlminb(start = params, objective = llik_old, levels = 3)
 
-
-#llik(params, levels=3,endogenous_variables = 1, data = list(y=y,X=cbind(rep(1, length(y))), endog=cbind(x)))
-
-
-nlminb  = nlminb(start = params, objective = llik, levels = 3,
-                 endogenous_variables=1, data=list(y=y,endog=cbind(x),
-                                                                                                                   X=X))
-#map_pars(nlminb$par, levels=3, endogenous_variables = 1)
-
-
-
-ols = lm(y~1+x)
-
-kable(data.frame(ols=ols$coefficients[2], MLE_neldermead=unlist(MLE)[7],
-           MLE_port=unlist(nlminb$par)[7]),
-      caption = 'Comparison of parameter estimates between OLS and MLE estimators (Nelder-Mead, PORT)')
-
-#map_pars(nlminb$par, levels=3)
-
-```
-
-
-# Steps:
-
-# Recovered three-level LIV with CLOSED FORM solution!
-
-# Only thing that remains: extending to multiple-instrument case + adding other controls to equation!
-
-
+  
+kable(data.frame(old=nlminb_old$par, new=nlminb$par),
+      caption = 'Comparison of parameter estimates between REndo-inspired estimator and more flexible one that allows mixing distributions')
 
 ```
 
