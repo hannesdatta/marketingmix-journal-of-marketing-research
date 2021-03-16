@@ -279,7 +279,7 @@ map_pars(nlminb$par, levels = 3, endogenous_variables=2)
 ```
 
 # Steps to move this into production:
-- Evaluate recovery with *small* N (=120) and 100 replications (as above)
-- Check whether correct number of classes can be recovered (e.g., some kind of AIC, BIC to be supplied in the model results)
 - Add "noise" to estimator in the form of other regression data and check recovery attributes
+- Check whether correct number of classes can be recovered (e.g., some kind of AIC, BIC to be supplied in the model results)
+- Evaluate recovery with *small* N (=120) and 100 replications (as above), including number of classes
 
