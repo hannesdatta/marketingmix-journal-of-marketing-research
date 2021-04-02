@@ -24,7 +24,7 @@ map_pars <- function(pars, levels = 2, endogenous_variables = 1) {
   
   prob = apply(rbind(0, .prob), 2, function(x) exp(x)/sum(exp(x)))
   
-  istart = max(.mapping) + 1
+  if (length(.mapping)>0) istart = max(.mapping) + 1
   
   # Covariance/correlation structure
   .uchol = diag(endogenous_variables + 1)
@@ -104,14 +104,38 @@ llik_old <- function (params, levels = 2) {
   return(-llik_lse)
 }
 
+llik <- function(...) llik_complete(...)$neg_likelihood
 
-llik <- function(params, levels = 2, endogenous_variables = 2, data = list(y=y,X=cbind(rep(1,length(y))),
+#llik_lm <- function(...) llik_complete(...)$neg_likelihood_lm
+
+
+llik_lm <- function(params, endogenous_variables = 2, data = list(y=y,X=cbind(rep(1,length(y))),
+                                                                                    endog=cbind(x,x))) {
+  
+  pars=map_pars(params, levels = 1, endogenous_variables = endogenous_variables)
+  
+  lambdas = pars$lambdas
+  betas=pars$betas
+  
+  gamma=pars$gamma
+  
+  prob=pars$prob
+  varcov=pars$sigma
+  
+  y_ypred = data$y - as.matrix(cbind(data$endog, data$X)) %*% cbind(c(gamma,betas))
+    
+  -sum(dnorm(y_ypred, mean=0, sd = sqrt(varcov[1,1]), log=T))
+  
+}
+
+
+llik_complete <- function(params, levels = 2, endogenous_variables = 2, data = list(y=y,X=cbind(rep(1,length(y))),
                                                                             endog=cbind(x,x))) {
   
   pars=map_pars(params, levels = levels, endogenous_variables = endogenous_variables)
   
   lambdas = pars$lambdas
-  betas=pars$betas[1]
+  betas=pars$betas
   
   gamma=pars$gamma
   
@@ -122,11 +146,9 @@ llik <- function(params, levels = 2, endogenous_variables = 2, data = list(y=y,X
   
   iterating_probabilities = apply(expand.grid(split(drop(prob), rep(1:endogenous_variables,each=levels))),1,prod)
   
-  
-  
   liks = sapply(seq(from=1, to=length(iterating_probabilities)), function(l) {
     .lambda= iterating_lambdas[l,]
-    y_pred = data$X%*%betas + drop(t(cbind(.lambda))%*%cbind(gamma))
+    y_pred = data$X%*%cbind(betas) + drop(t(cbind(.lambda))%*%cbind(gamma))
     
     .tmp = cbind(data$y-y_pred, data$endog - matrix(rep(.lambda,nrow(data$endog)),ncol=endogenous_variables, byrow=T))
     
@@ -135,14 +157,36 @@ llik <- function(params, levels = 2, endogenous_variables = 2, data = list(y=y,X
   
   
   lprob = matrix(rep(log(iterating_probabilities),each=length(data$y)),ncol=length(iterating_probabilities))
+  lprob_liks = lprob + liks
   
-  max.AB = apply(lprob+liks,1,max)
-  
+  max.AB = apply(lprob_liks,1,max)
   llik_min_maxab = apply(liks, 2, function(x) exp(x- max.AB))
   
   prob_times_exp = sapply(seq(from=1, to=length(iterating_probabilities)), function(i) iterating_probabilities[i]*llik_min_maxab[,i])
-  
   llik_lse = sum(max.AB + log(rowSums(prob_times_exp)))
-
-  return(-llik_lse)
+  
+  # fit measures
+  
+  BIC = -2 * llik_lse + length(params) * log(length(data$y))
+  
+  #cond_probs = apply(exp(lliks))
+  pk_times_h = exp(lprob_liks)
+  t_ik = t(apply(pk_times_h, 1, function(x) x/sum(x)))
+  entropy = sum(t_ik * log(t_ik))
+  
+  mean_entropy = sum(apply(t_ik, 1, function(x) return(log(x)[which(x==max(x))])))
+  
+ # mean_entropy2 = rowSums(t_ik * log(t_ik))
+ # mean(mean_entropy2)
+  
+  
+  ICL = BIC - 2 * entropy
+  
+  return(list(likelihood = llik_lse,
+              neg_likelihood = -llik_lse,
+              bic = BIC,
+              icl = ICL,
+              entropy = entropy,
+              mean_entropy = mean_entropy,
+              ICL2 = BIC - 2*mean_entropy))
 }

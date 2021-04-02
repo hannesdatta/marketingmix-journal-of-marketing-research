@@ -25,6 +25,8 @@ Ebbes, P., Wedel, M., Böckenholt, U., & Steerneman, T. (2005). Solving and test
 
 sim_data <- function(rho = .3,
                      N = 100,
+                     beta_controls = NULL,
+                     beta_intercept = 1,
                      latent_instruments = list(list(
                        pi = c(-1, 2),
                        p = c(.7, .3),
@@ -50,10 +52,11 @@ sim_data <- function(rho = .3,
   library(MASS)
   errorterm = mvrnorm(n = N, mu = rep(0, n), Sigma = Sigma)
   
-  #Compute endogenous regressor (uniformly distributed from min(unif) to max(unif)
-  #cor(errorterm)
-  #cov(errorterm)
-
+  # Compute control variables (uniformly distributed)
+  
+  X_controls = matrix(runif(N*length(beta_controls)),ncol=length(beta_controls))
+  if(nrow(X_controls)>0) colnames(X_controls) <- paste0('ctrl_', 1:length(beta_controls))
+  
   instr = do.call('cbind', lapply(latent_instruments, function(liv) {
     # Assert the probs sum to 1
     stopifnot(sum(liv$p)==1)
@@ -77,12 +80,14 @@ sim_data <- function(rho = .3,
   
   liv_betas = unlist(lapply(latent_instruments, function(x) x$beta))
   
+  if(!is.null(beta_controls)) add_controls = X_controls %*% cbind(beta_controls) else add_controls = 0
   
-  
-  y = 1 + instr%*%cbind(liv_betas) + errorterm[,1]
+  y = beta_intercept + instr%*%cbind(liv_betas) + add_controls + errorterm[,1]
   
   colnames(y) <- 'y'
-  return(list(data=data.frame(y,instr),rho, N, latent_instruments))
+  if (!is.null(beta_controls)) df_return = data.frame(y, instr, X_controls) else df_return = data.frame(y, instr)
+  
+  return(list(data=df_return,rho, N, latent_instruments))
 
 }
 ```
@@ -271,16 +276,214 @@ params = c(0, 0, 0, 0, 0, 0, # lambdas
 
 # try calling loglik
 
-nlminb  = nlminb(start = params, objective = llik, levels = 3, endogenous_variables=2,
-        data = data, control = list(iter.max=1000, eval.max = 1000))
+nlminb  = nlminb(
+  start = params,
+  objective = llik,
+  levels = 3,
+  endogenous_variables = 2,
+  data = data,
+  control = list(iter.max = 1000, eval.max = 1000)
+)
 
-
-map_pars(nlminb$par, levels = 3, endogenous_variables=2)
+map_pars(nlminb$par,
+         levels = 3,
+         endogenous_variables = 2)
 
 ```
 
+### Two instruments, three levels with control variables + different intercept
+
+```{r}
+set.seed(1984)
+out = sim_data(N=1200, rho = .3, beta_intercept = 2, beta_controls = c(-1,-2,1),
+               latent_instruments = list(list(pi=c(-1,1,2),
+                                                               p=c(.3,.4,.3),
+                                                               beta=.5),
+                                                           list(pi=c(-2,0,1),
+                                                               p=c(.1,.5,.4),
+                                                               beta=-.5)))
+
+# Load estimation likelihood function
+source('liv_llik.R')
+
+ctrl_vars = out$data[, grepl('^ctrl', colnames(out$data))]
+
+
+data = list(y=out$data$y, endog=cbind(out$data$x1, out$data$x2), X=as.matrix(cbind(rep(1,length(out$data$y)), ctrl_vars)))
+ 
+# starting parameters
+params = c(0, 0, 0, 0, 0, 0, # lambdas
+           0, 0, 0, 0, # prob
+           1, 0, 1, 0, 0, 1, # chol
+           0, 0, # gamma
+           0, 0, 0, 0) # beta (first one is intercept)
+
+# try parameter mapping
+map_pars(params,
+         levels = 3,
+         endogenous_variables = 2)
+
+nlminb  = nlminb(
+  start = params,
+  objective = llik,
+  levels = 3,
+  endogenous_variables = 2,
+  data = data,
+  control = list(iter.max = 1000, eval.max = 1000)
+)
+
+map_pars(nlminb$par,
+         levels = 3,
+         endogenous_variables = 2)
+
+```
+
+### Determining number of classes using unsupervised learning (ICL)
+
+```{r}
+set.seed(1984)
+
+# true classes (three classes, two instruments)
+out = sim_data(N=120, rho = .3, beta_intercept = 2, beta_controls = c(-1,-2,1),
+               latent_instruments = list(list(pi=c(-1,1,2),
+                                              p=c(.3,.4,.3),
+                                              beta=.5),
+                                         list(pi=c(-2,0,1),
+                                              p=c(.1,.5,.4),
+                                              beta=-.5)))
+
+# Load estimation likelihood function
+source('liv_llik.R')
+
+ctrl_vars = out$data[, grepl('^ctrl', colnames(out$data))]
+data = list(y=out$data$y, endog=cbind(out$data$x1, out$data$x2), X=as.matrix(cbind(rep(1,length(out$data$y)), ctrl_vars)))
+
+# assemble starting parameters
+results <- sapply(2:4, function(levels) {
+  cat('Estimationg for ', levels, ' levels...\n')
+  #levels = 3
+  endogenous_variables = 2
+   
+  # starting parameters
+  params = c(rep(0, levels * endogenous_variables), #0, 0, 0, 0, 0, 0, # lambdas
+             rep(0, (levels-1)*endogenous_variables), #           0, 0, 0, 0, # prob
+             1, 0, 1, 0, 0, 1, # chol
+             0, 0, # gamma
+             0, 0, 0, 0) # beta (first one is intercept)
+  
+  # try parameter mapping
+  map_pars(params,
+           levels = levels,
+           endogenous_variables = endogenous_variables)
+  
+  nlminb  = nlminb(
+    start = params,
+    objective = llik,
+    levels = levels,
+    endogenous_variables = endogenous_variables,
+    data = data,
+    control = list(iter.max = 1000, eval.max = 1000)
+  )
+  
+  if(0) {
+  # compare to lm
+  summary(lm(y~x1+x2+ctrl_1+ctrl_2+ctrl_3, data=out$data))
+  
+  nlminb  = nlminb(
+    start = params,
+    objective = llik_lm,
+    endogenous_variables = endogenous_variables,
+    data = data,
+    control = list(iter.max = 1000, eval.max = 1000)
+  )
+  
+   map_pars(nlminb$par,
+           levels = 1,
+           endogenous_variables = endogenous_variables)
+        
+  }
+  
+  return(c(levels=levels, endogenous_variables=endogenous_variables, unlist(llik_complete(nlminb$par, levels = levels, endogenous_variables = endogenous_variables, data = data))))
+})
+
+results
+
+```
+
+
+### Number of classes x `reps`
+
+```{r}
+set.seed(1984)
+reps = 50
+data=lapply(1:reps, function(x) sim_data(N=120, rho = .3, beta_intercept = 2, beta_controls = c(-1,-2,1),
+               latent_instruments = list(list(pi=c(-1,1,2),
+                                              p=c(.3,.4,.3),
+                                              beta=.5),
+                                         list(pi=c(-2,0,1),
+                                              p=c(.1,.5,.4),
+                                              beta=-.5))))
+
+clusterExport(cl, c('llik', 'llik_complete', 'map_pars'))
+
+void <- clusterEvalQ(cl, library(mvtnorm))
+void <- clusterEvalQ(cl, source('liv_llik.R'))
+
+out = clusterApplyLB(cl, data, function(dt) {
+  
+  ctrl_vars = dt$data[, grepl('^ctrl', colnames(dt$data))]
+  my_data <<- list(y=dt$data$y, endog=cbind(dt$data$x1, dt$data$x2), X=as.matrix(cbind(rep(1,length(dt$data$y)), ctrl_vars)))
+
+  results <- sapply(2:4, function(levels) {
+    cat('Estimationg for ', levels, ' levels...\n')
+    #levels = 3
+    endogenous_variables = 2
+   
+    # starting parameters
+    params = c(rep(0, levels * endogenous_variables), #0, 0, 0, 0, 0, 0, # lambdas
+               rep(0, (levels-1)*endogenous_variables), #           0, 0, 0, 0, # prob
+               1, 0, 1, 0, 0, 1, # chol
+               0, 0, # gamma
+               0, 0, 0, 0) # beta (first one is intercept)
+    
+  nlminb  = nlminb(
+    start = params,
+    objective = llik,
+    levels = levels,
+    endogenous_variables = endogenous_variables,
+    data = my_data,
+    control = list(iter.max = 1000, eval.max = 1000)
+  )
+  
+  return(c(levels=levels, endogenous_variables=endogenous_variables, unlist(llik_complete(nlminb$par, levels = levels, endogenous_variables = endogenous_variables, data = my_data))))
+  })  
+  
+  t(results)
+})
+
+
+# assemble starting parameters
+
+
+
+```
+
+
+```{r}
+iter=0
+results=rbindlist(lapply(seq(along=out), function(i) {
+  iter = iter + 1
+  data.table(model = i, out[[i]])
+}))
+
+res=results[, list(choice_icl = levels[icl==min(icl)],
+               choice_icl2 = levels[ICL2==min(ICL2)],
+               choice_bic = levels[bic==min(bic)]), by = c('model')]
+table(res$choice_icl)
+table(res$choice_icl2)
+table(res$choice_bic)
+```
 # Steps to move this into production:
-- Add "noise" to estimator in the form of other regression data and check recovery attributes
 - Check whether correct number of classes can be recovered (e.g., some kind of AIC, BIC to be supplied in the model results)
 - Evaluate recovery with *small* N (=120) and 100 replications (as above), including number of classes
 
