@@ -6,13 +6,16 @@ output:
     df_print: paged
 ---
 
-```{r, echo = FALSE}
+```{r echo=, message=FALSE, warning=FALSE}
 library(knitr)
 library(data.table)
 library(parallel)
 library(stats4)
 library(optimx)
 library(REndo)
+max_reps = 10
+n_cpu = 4
+
 ```
 
 As a first step towards our own LIV estimation for the GfK project, I propose to code up:
@@ -96,13 +99,13 @@ sim_data <- function(rho = .3,
 
 ## OLS versus `REndo`-based estimator
 
-```{r include=FALSE}
+```{r message=FALSE, warning=FALSE, include=FALSE}
 # Startup cluster
 init <- function() {
   library(REndo)
   library(data.table)
 }
-cl <- makePSOCKcluster(4)
+cl <- makePSOCKcluster(n_cpu)
 clusterExport(cl, 'init')
 
 ```
@@ -110,7 +113,7 @@ clusterExport(cl, 'init')
 ```{r message=FALSE, warning=FALSE}
 set.seed(1984)
 
-reps = 100 # number of replications
+reps = max_reps #100 # number of replications
 data=lapply(1:reps, function(x) sim_data(N=120, rho = .6))
 
 void <- clusterEvalQ(cl, init())
@@ -174,7 +177,7 @@ kable(data.frame(ols=ols$coefficients, MLE_neldermead=unlist(MLE)[8:7],
 
 ```{r} 
 set.seed(1984)
-reps = 100
+reps = max_reps #100
 data=lapply(1:reps, function(x) sim_data(N=120, rho = .6))
 
 clusterExport(cl, c('llik', 'map_pars'))
@@ -411,18 +414,15 @@ results
 ```
 
 
-### Number of classes x `reps`
+### Number of classes x `reps`, with just one endogenous regressor
 
 ```{r}
 set.seed(1984)
-reps = 50
+reps = max_reps #10
 data=lapply(1:reps, function(x) sim_data(N=120, rho = .3, beta_intercept = 2, beta_controls = c(-1,-2,1),
                latent_instruments = list(list(pi=c(-1,1,2),
-                                              p=c(.3,.4,.3),
-                                              beta=.5),
-                                         list(pi=c(-2,0,1),
-                                              p=c(.1,.5,.4),
-                                              beta=-.5))))
+                                              p=c(.2,.6,.2),
+                                              beta=.5))))
 
 clusterExport(cl, c('llik', 'llik_complete', 'map_pars'))
 
@@ -430,20 +430,22 @@ void <- clusterEvalQ(cl, library(mvtnorm))
 void <- clusterEvalQ(cl, source('liv_llik.R'))
 
 out = clusterApplyLB(cl, data, function(dt) {
-  
+  try({
   ctrl_vars = dt$data[, grepl('^ctrl', colnames(dt$data))]
-  my_data <<- list(y=dt$data$y, endog=cbind(dt$data$x1, dt$data$x2), X=as.matrix(cbind(rep(1,length(dt$data$y)), ctrl_vars)))
+  #endog_vars = dt$data[, grepl('^x[0-9]', colnames(dt$data))]
+  
+  my_data <<- list(y=dt$data$y, endog=cbind(dt$data$x1), X=as.matrix(cbind(rep(1,length(dt$data$y)), ctrl_vars)))
 
   results <- sapply(2:4, function(levels) {
-    cat('Estimationg for ', levels, ' levels...\n')
+    cat('Estimating for ', levels, ' levels...\n')
     #levels = 3
-    endogenous_variables = 2
+    endogenous_variables = 1
    
     # starting parameters
     params = c(rep(0, levels * endogenous_variables), #0, 0, 0, 0, 0, 0, # lambdas
                rep(0, (levels-1)*endogenous_variables), #           0, 0, 0, 0, # prob
-               1, 0, 1, 0, 0, 1, # chol
-               0, 0, # gamma
+               chol(diag(endogenous_variables+1))[upper.tri(diag(endogenous_variables+1),diag=T)],# chol
+               rep(0, endogenous_variables), # gamma
                0, 0, 0, 0) # beta (first one is intercept)
     
   nlminb  = nlminb(
@@ -456,9 +458,10 @@ out = clusterApplyLB(cl, data, function(dt) {
   )
   
   return(c(levels=levels, endogenous_variables=endogenous_variables, unlist(llik_complete(nlminb$par, levels = levels, endogenous_variables = endogenous_variables, data = my_data))))
-  })  
+  })
   
   t(results)
+  }, silent=T)
 })
 
 
@@ -477,15 +480,90 @@ results=rbindlist(lapply(seq(along=out), function(i) {
 }))
 
 res=results[, list(choice_icl = levels[icl==min(icl)],
-               choice_icl2 = levels[ICL2==min(ICL2)],
                choice_bic = levels[bic==min(bic)]), by = c('model')]
 table(res$choice_icl)
-table(res$choice_icl2)
 table(res$choice_bic)
 ```
-# Steps to move this into production:
-- Check whether correct number of classes can be recovered (e.g., some kind of AIC, BIC to be supplied in the model results)
-- Evaluate recovery with *small* N (=120) and 100 replications (as above), including number of classes
 
+
+### Number of classes x `reps`, with multiple endogenous regressors
+
+```{r}
+set.seed(1984)
+reps = max_reps #10
+data=lapply(1:reps, function(x) sim_data(N=120, rho = .3, beta_intercept = 2, beta_controls = c(-1,-2,1),
+               latent_instruments = list(list(pi=c(-1,1,2),
+                                              p=c(.3,.4,.3),
+                                              beta=.5),
+                                         list(pi=c(-2,0,1),
+                                              p=c(.1,.5,.4),
+                                              beta=-.5))))
+
+clusterExport(cl, c('llik', 'llik_complete', 'map_pars'))
+
+void <- clusterEvalQ(cl, library(mvtnorm))
+void <- clusterEvalQ(cl, source('liv_llik.R'))
+
+out = clusterApplyLB(cl, data, function(dt) {
+  
+  ctrl_vars = dt$data[, grepl('^ctrl', colnames(dt$data))]
+  #endog_vars = dt$data[, grepl('^x[0-9]', colnames(dt$data))]
+  
+  my_data <<- list(y=dt$data$y, endog=cbind(dt$data$x1, dt$data$x2), X=as.matrix(cbind(rep(1,length(dt$data$y)), ctrl_vars)))
+
+  results <- sapply(2:4, function(levels) {
+    cat('Estimating for ', levels, ' levels...\n')
+    #levels = 3
+    endogenous_variables = 2
+   
+    # starting parameters
+    params = c(rep(0, levels * endogenous_variables), #0, 0, 0, 0, 0, 0, # lambdas
+               rep(0, (levels-1)*endogenous_variables), #           0, 0, 0, 0, # prob
+               chol(diag(endogenous_variables+1))[upper.tri(diag(endogenous_variables+1),diag=T)],# chol
+               rep(0, endogenous_variables), # gamma
+               0, 0, 0, 0) # beta (first one is intercept)
+    
+  nlminb  = nlminb(
+    start = params,
+    objective = llik,
+    levels = levels,
+    endogenous_variables = endogenous_variables,
+    data = my_data,
+    control = list(iter.max = 1000, eval.max = 1000)
+  )
+  
+  return(c(levels=levels, endogenous_variables=endogenous_variables, unlist(llik_complete(nlminb$par, levels = levels, endogenous_variables = endogenous_variables, data = my_data))))
+  })
+  
+  t(results)
+
+})
+
+
+iter=0
+results=rbindlist(lapply(seq(along=out), function(i) {
+  iter = iter + 1
+  data.table(model = i, out[[i]])
+}))
+
+res=results[, list(choice_icl = levels[icl==min(icl)],
+               choice_bic = levels[bic==min(bic)]), by = c('model')]
+kable(table(res$choice_icl), caption = "Number of classes chosen with ICL")
+kable(table(res$choice_bic), caption = "Number of classes chosen with BIC")
+```
+
+# References
+
+Biernacki, C., Celeux, G., & Govaert, G. (2000). Assessing a mixture model for clustering with the integrated completed likelihood. IEEE transactions on pattern analysis and machine intelligence, 22(7), 719-725. https://doi.org/10.1109/34.865189. --> original reference for ICL criterion
+
+Ebbes, P., Wedel, M., & Böckenholt, U. (2009). Frugal IV alternatives to identify the parameter for an endogenous regressor. Journal of Applied Econometrics, 24(3), 446-468. https://doi.org/10.1002/jae.1058. --> paper underlying `REndo`
+
+Ebbes, P., Wedel, M., Böckenholt, U. et al. Solving and Testing for Regressor-Error (in)Dependence When no Instrumental Variables are Available: With New Evidence for the Effect of Education on Income. Quant Market Econ 3, 365–392 (2005). https://doi.org/10.1007/s11129-005-1177-6 --> original LIV paper
+
+https://rdrr.io/cran/rebmix/ --> ICL implementation in R, but not with LIV
+
+
+# Next steps
+- Allow varying number of classes for endogenous regressors
+- Verify correct implementation of ICL (e.g., correct classes)
 - Move code into a package that can easily be used
-

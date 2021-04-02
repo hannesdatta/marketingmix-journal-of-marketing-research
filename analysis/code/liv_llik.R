@@ -155,38 +155,43 @@ llik_complete <- function(params, levels = 2, endogenous_variables = 2, data = l
     dmvnorm(.tmp, mean=rep(0, each=endogenous_variables+1), sigma=varcov, log=T)
   })
   
-  
+  # likelihood (L, see Biernacki et al. 2000, formula 2.2) (?)
   lprob = matrix(rep(log(iterating_probabilities),each=length(data$y)),ncol=length(iterating_probabilities))
   lprob_liks = lprob + liks
   
+  # complete likelihood (CL, see Biernacki et al. 2000, formula 2.3) (?)
   max.AB = apply(lprob_liks,1,max)
   llik_min_maxab = apply(liks, 2, function(x) exp(x- max.AB))
   
   prob_times_exp = sapply(seq(from=1, to=length(iterating_probabilities)), function(i) iterating_probabilities[i]*llik_min_maxab[,i])
   llik_lse = sum(max.AB + log(rowSums(prob_times_exp)))
   
+  
+  #
+  pk_times_h = exp(lprob_liks)
+  t_ik = t(apply(pk_times_h, 1, function(x) x/sum(x)))
+
+  #EC = -sum(apply(t_ik, 1, function(x) return(log(x)[which(x==max(x))])))
+  #CL = sum(lprob_liks) - EC
+  
   # fit measures
   
   BIC = -2 * llik_lse + length(params) * log(length(data$y))
   
-  #cond_probs = apply(exp(lliks))
-  pk_times_h = exp(lprob_liks)
-  t_ik = t(apply(pk_times_h, 1, function(x) x/sum(x)))
-  entropy = sum(t_ik * log(t_ik))
+  #entropy = sum(t_ik * log(t_ik))
   
-  mean_entropy = sum(apply(t_ik, 1, function(x) return(log(x)[which(x==max(x))])))
+  mean_entropy = -sum(apply(t_ik, 1, function(x) return(log(x)[which(x==max(x))])))
   
  # mean_entropy2 = rowSums(t_ik * log(t_ik))
  # mean(mean_entropy2)
   
-  
-  ICL = BIC - 2 * entropy
+  ICL = BIC - 2 * mean_entropy
   
   return(list(likelihood = llik_lse,
               neg_likelihood = -llik_lse,
               bic = BIC,
               icl = ICL,
-              entropy = entropy,
-              mean_entropy = mean_entropy,
-              ICL2 = BIC - 2*mean_entropy))
+              #entropy = entropy,
+              mean_entropy = mean_entropy))#,
+              #ICL2 = BIC - 2*mean_entropy))
 }
