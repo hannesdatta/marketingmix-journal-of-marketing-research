@@ -12,6 +12,7 @@ library(data.table)
 library(parallel)
 library(stats4)
 library(optimx)
+library(REndo)
 ```
 
 As a first step towards our own LIV estimation for the GfK project, I propose to code up:
