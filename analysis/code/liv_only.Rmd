@@ -6,15 +6,15 @@ output:
     df_print: paged
 ---
 
-```{r echo=, message=FALSE, warning=FALSE}
+```{r echo=FALSE, message=FALSE, warning=FALSE}
 library(knitr)
 library(data.table)
 library(parallel)
 library(stats4)
 library(optimx)
 library(REndo)
-max_reps = 10
-n_cpu = 4
+max_reps = 100
+n_cpu = 10
 
 ```
 
@@ -178,7 +178,7 @@ kable(data.frame(ols=ols$coefficients, MLE_neldermead=unlist(MLE)[8:7],
 ```{r} 
 set.seed(1984)
 reps = max_reps #100
-data=lapply(1:reps, function(x) sim_data(N=120, rho = .6))
+data =lapply(1:reps, function(x) sim_data(N=120, rho = .6))
 
 clusterExport(cl, c('llik', 'map_pars'))
 void <- clusterEvalQ(cl, library(optimx))

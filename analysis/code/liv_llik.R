@@ -131,6 +131,7 @@ llik_lm <- function(params, endogenous_variables = 2, data = list(y=y,X=cbind(re
 
 llik_complete <- function(params, levels = 2, endogenous_variables = 2, data = list(y=y,X=cbind(rep(1,length(y))),
                                                                             endog=cbind(x,x))) {
+ # print(params)
   
   pars=map_pars(params, levels = levels, endogenous_variables = endogenous_variables)
   
@@ -170,7 +171,9 @@ llik_complete <- function(params, levels = 2, endogenous_variables = 2, data = l
   #
   pk_times_h = exp(lprob_liks)
   t_ik = t(apply(pk_times_h, 1, function(x) x/sum(x)))
-
+  
+  #t_ik[is.na(rowSums(t_ik)),] <-  
+    
   #EC = -sum(apply(t_ik, 1, function(x) return(log(x)[which(x==max(x))])))
   #CL = sum(lprob_liks) - EC
   
@@ -180,18 +183,18 @@ llik_complete <- function(params, levels = 2, endogenous_variables = 2, data = l
   
   #entropy = sum(t_ik * log(t_ik))
   
-  mean_entropy = -sum(apply(t_ik, 1, function(x) return(log(x)[which(x==max(x))])))
+  mean_entropy = -sum(apply(t_ik[!is.na(rowSums(t_ik)),], 1, function(x) return(log(x)[which(x==max(x))])))
   
  # mean_entropy2 = rowSums(t_ik * log(t_ik))
  # mean(mean_entropy2)
   
   ICL = BIC - 2 * mean_entropy
-  
   return(list(likelihood = llik_lse,
               neg_likelihood = -llik_lse,
               bic = BIC,
               icl = ICL,
               #entropy = entropy,
+              no_missings_in_tk = !any(is.na(rowSums(t_ik))),
               mean_entropy = mean_entropy))#,
               #ICL2 = BIC - 2*mean_entropy))
 }
