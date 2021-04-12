@@ -681,3 +681,29 @@ with(r2x, lines(date, lnlagusales+dlnusales, lty=2, type = 'c'))
 
 ```
 
+
+```{r coefvar_by_cc2, echo=F,results='asis', include=TRUE}
+
+qval=qnorm(1-sigvalue/2)
+
+CV = lapply(c('category','country'), function(byvar) {
+
+tmp=elast[!is.na(elastlt), list(N=.N,
+                                  elast = sum(elastlt*w_elastlt)/sum(w_elastlt)),
+                                   by=c('variable', byvar)]
+tmp[, list(CV=sd(elast)/mean(elast)),by=c('variable')][, byvar:=byvar]
+
+})
+
+cv2=rbindlist(CV)
+
+tmp=dcast(cv2, variable~byvar, value.var='CV')
+  tmp=sanitize_table(tmp)
+ 
+  cat("<P style='page-break-before: always'>")
+  {print(kable(tmp, digits=3, caption = tab(paste0('Coefficient of variation (CV) by Category and Country')), format='html', initial.zero = FALSE) %>% kable_styling() %>% footnote(number='Computed on the basis of weighted elasticities'))
+  }
+}
+
+
+```	
