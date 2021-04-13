@@ -122,7 +122,6 @@ simple_loglog <- function(id, vars = c('lnrwpspr','lnllen','lnwpswdst'),
   
 }
 
-
 # Configure model type and calibrate lag structure
 simple_ec <- function(id, vars = c('lnrwpspr','lnllen','lnwpswdst'),
                           controls_diffs='^comp[_].*(pr|llen|dst)$', 
@@ -277,6 +276,232 @@ simple_ec <- function(id, vars = c('lnrwpspr','lnllen','lnwpswdst'),
               r2_within_dv= summary(m2)$r.squared))
   
 }
+
+
+# Configure model type and calibrate lag structure
+simple_ec_liv <- function(id, vars = c('lnrwpspr','lnllen','lnwpswdst'),
+                      controls_diffs='^comp[_].*(pr|llen|dst)$', 
+                      controls_laglevels = '',
+                      controls_curr = 'quarter[1-3]|lnholiday|^trend',
+                      liv = c('dlnrwpspr'), 
+                      pval = .1,
+                      classes = 1:3) {
+  
+  source('liv_llik.R')
+  
+  dv='lnusales'
+  dt=data.table(brand_panel[brand_id==id])
+  
+  brands_in_market <- unique(brand_panel[market_id%in%unique(brand_panel[brand_id==id]$market_id)]$brand)
+
+  print(vars)
+  vars = vars[unlist(lapply(dt[, vars, with=F], use_ts))]
+  print(vars)
+  
+  control_vars = sapply(c(diffs=controls_diffs,lags=controls_laglevels,curr=controls_curr), function(ctrls) if (nchar(ctrls)>0) grep(ctrls, colnames(dt),value=T))
+  control_vars = lapply(control_vars, function(control_var) control_var[unlist(lapply(dt[, control_var, with=F], use_ts))])
+  print(control_vars)
+  
+  dt[, lntrend:=lntrend-mean(lntrend,na.rm=T)]
+  dt[, trend:=trend-mean(trend,na.rm=T)]
+  
+  vars_delta = paste0('d', c(vars, control_vars$diffs))
+  vars_lags = paste0('lag', c(vars, control_vars$lags))
+  vars_curr = control_vars$curr
+  
+  if (length(c(vars,control_vars$diff))==0) vars_delta=NULL
+  if (length(c(vars,control_vars$lags))==0) vars_lags=NULL
+  
+  for (v in vars_lags) dt[, (v):=c(NA, get(gsub('^lag','',v))[-.N])]
+  
+  my_form = update.formula(dlnusales~1, as.formula(paste0('.~.+1+', paste0(c(vars_delta, 'lnlagusales', switch(length(vars_lags)>0, paste0('I(-', vars_lags,')')), vars_curr), collapse='+'))))
+  
+  # estimation to get to final model structure
+  m = lm(my_form, data= dt) 
+  
+  # kickout coefs with NA values (e.g., attributes that are not identified)
+  kickoutcoef = NULL
+  if (any(is.na(m$coefficients))) kickoutcoef = c(kickoutcoef, names(m$coefficients[is.na(m$coefficients)]))
+  
+  if (length(kickoutcoef>0)) {
+    my_form =update.formula(my_form, as.formula(paste0('.~.-', paste0(kickoutcoef, collapse='-'))))
+    m2 = lm(my_form, data= dt, subset = estim_set==T)
+  } else {m2=m}
+  
+  
+  liv_choice = c('dlnrwpspr','dlnllen') # 'dlnwpswdst' #c('dlnrwpspr','dlnllen') #,'dlnwpswdst')
+  liv = liv_choice
+  
+  # get data for estimation
+  new_X = as.matrix(cbind(1,m2$model[,-grep(paste0('d',dv,'|', paste0(liv, collapse='|')),colnames(m2$model))]))
+  new_endog = cbind(m2$model[,grep(paste0(liv, collapse='|'),colnames(m2$model))])
+  
+  liv_data <<- list(y=m2$model[,1], endog=new_endog, X=new_X)
+  
+  
+  classes_estimator = 1:3
+  
+  # estimate LIV model
+ res= lapply(classes_estimator, function(levels) {
+   # levels = 1
+  print(levels)
+  cat('Estimating for ', levels, ' levels...\n')
+  endogenous_variables = ncol(new_endog)
+  
+  # starting parameters
+  params = c(rep(0, levels * endogenous_variables), #0, 0, 0, 0, 0, 0, # lambdas
+             rep(0, (levels-1)*endogenous_variables), #           0, 0, 0, 0, # prob
+             chol(diag(endogenous_variables+1))[upper.tri(diag(endogenous_variables+1),diag=T)],# chol
+             m2$coefficients[liv], # gamma
+             m2$coefficients[-which(names(m2$coefficients)%in%liv)]) # beta (first one is intercept)
+  
+  lik_fun = llik
+  if (levels==1) lik_fun = llik_lm
+  
+  nlminb  = nlminb(
+    start = params,
+    objective = lik_fun,
+    levels = levels,
+    endogenous_variables = endogenous_variables,
+    data = liv_data,
+    control = list(iter.max = 1000, eval.max = 1000)
+  )
+  
+  library(optimx)
+  optimres=optimx(nlminb$par, fn = lik_fun, method = 'Nelder-Mead', hessian = TRUE, itnmax = 100000, 
+         control = list(trace = 0, dowarn = FALSE), levels = levels, endogenous_variables=ncol(new_endog),
+         data = liv_data)
+  
+  diagnostics = NULL
+  if (levels>1) {
+    diagnostics = llik_complete(as.numeric(optimres[1:length(params)]), levels=levels,
+                                endogenous_variables=ncol(new_endog),
+                                data = liv_data)
+    
+  }
+  # extract gammas
+  # kick out 0-sum colums
+  excluded=NULL
+  if (levels==1) {
+    par_mapping = map_pars(1:length(params),endogenous_variables = ncol(new_endog),
+             levels=levels)
+    excluded = c(par_mapping$lambdas_untransformed, unlist(par_mapping$uchol[-1]))
+    excluded=excluded[excluded>0]
+  }
+  
+  pos_of_gamma = par_mapping$gamma-length(excluded)
+  
+  hessian=attr(optimres, 'details')[[3]]
+  if (length(excluded)>0) hessian=attr(optimres, 'details')[[3]][-excluded,-excluded]
+  
+  
+  varcovar=solve(hessian)
+  
+  return(list(optim_result=optimres,
+              parameters = as.numeric(optimres[1:length(params)]),
+              mapped_parameters=map_pars(as.numeric(optimres[1:length(params)]), levels=levels, endogenous_variables=endogenous_variables),
+              varcovar = varcovar,
+              excluded=excluded,
+              target_varcovar = varcovar[pos_of_gamma,pos_of_gamma]))
+ })
+ 
+ # only try for non-normally distributed regressors?
+ # only try for those for which copula indicated?!
+
+ #################
+ # Hausman tests #
+ #################
+ 
+ diff = res[[2]]$mapped_parameters$gamma - res[[1]]$mapped_parameters$gamma
+
+ inverse_sigma = solve(res[[2]]$target_varcovar-res[[1]]$target_varcovar)
+ 
+ teststat = t(cbind(diff)) %*% inverse_sigma %*% cbind(diff)
+ crit_val = qchisq(1-(pval/2), df=1)
+ 
+ 
+ # To do:
+ # - Decide which variables to include in estimation (only the ones that work?)
+ # - Verify Hausmann test (inverse sigma, critical value, test statistic)
+ 
+ ###############################
+ # Calculation of elasticities #
+ ###############################
+ 
+ # - Pick number of classes
+ # - Spit out elasticities
+ elast2 = rbindlist(lapply(classes_estimator, function(i) {
+   
+ params = res[[i]]$optim_result[1:length(res[[i]]$parameters)]
+ nam=names(params)
+ params = as.numeric(unlist(params))
+ names(params) <- nam
+ 
+ vcov=res[[i]]$varcovar
+ if (length(res[[i]]$excluded>0)) params=params[-res[[i]]$excluded]
+ colnames(vcov)=names(params)
+ 
+ 
+ 
+  if (!is.null(m2$na.action)) identifiers = dt[-m2$na.action,c('market_id', 'category','country', 'brand', 'brand_id' , 'date'),with=F]
+  if (is.null(m2$na.action)) identifiers = dt[,c('market_id', 'category','country', 'brand', 'brand_id' , 'date'),with=F]
+  setkey(identifiers, market_id, date, brand)
+  
+  # derive elasticities
+  if (length(vars)>0) {
+    
+    elast2 = rbindlist(lapply(vars, function(v) {
+      
+      #deltaMethod(params, 
+      #            'dlnrwpspr', vcov. = vcov)
+      
+      
+      #deltaMethod(params, 
+      #            vname, vcov. = vcov)
+      
+      st=deltaMethod(params, paste0('(d', v, ')'),vcov. = vcov)
+      vname = grep(paste0('lag', v), names(params),value=T)
+      
+      if (length(vname)>0)  {
+        
+        lt=deltaMethod(params, paste0('(-`', vname, '`)/(lnlagusales)'), vcov.=vcov) } else {
+          lt=deltaMethod(params, paste0('(0)/(lnlagusales)'), vcov.=vcov)
+        }
+      
+      data.frame(variable=v, elast = st$Estimate, elast_se=st$SE,
+                 elastlt = lt$Estimate, elastlt_se = lt$SE, beta = m2$coefficients[paste0('d',v)], 
+                 carryover = m2$coefficients['lnlagusales'])
+      
+    }))
+    
+    uniq_identifiers = copy(identifiers)[1][, date:=NULL]
+    elast2=cbind(uniq_identifiers,elast2)
+    } else {
+    elast2=NULL
+    }
+  
+ elast2[, classes:=i]
+ 
+  return(elast2)
+ 
+ 
+ 
+ }))
+ 
+ 
+ 
+  return(list(elast=elast2, model=m2, #vif=vif2,
+              paneldimension = identifiers,
+              model_matrix = m2$model,
+              dt=dt,
+              orig_results = m$coefficients, 
+              kicked_out_coefs = kickoutcoef))
+  
+              #predictions=predictions, predictions_kfold = pred_new3, #,#predictions_kfold=pred_new3, 
+              #r2_within_dv= summary(m2)$r.squared))
+  
+}
+
 
 
 #####

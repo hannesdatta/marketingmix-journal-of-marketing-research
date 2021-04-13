@@ -23,6 +23,15 @@ elast_model[, z:=elastlt/elastlt_se]
 zval_sig=qnorm(.95)
 
 results_model = eval(parse(text=paste0(mname)))
+
+
+# %-copula terms
+vars=unlist(lapply(results_model, function(x) return(names(x$model$coefficients))))
+vars <- data.table(vars)
+vars = vars[, list(.N),by=c('vars')]
+vars[grepl('pr$|llen$|dst$|cop', vars)]
+(297+323+223)/(1619+1618+1619)
+
 }
 
 ```

@@ -53,15 +53,6 @@ map_pars <- function(pars, levels = 2, endogenous_variables = 1) {
               lambdas_untransformed = .lambdas))
 }
 
-reps=100
-set.seed(1234)
-N=try(nrow(data[[1]]$data), silent=T)
-if (class(N)=='try-error') N=120
-
-simvals = matrix(runif(N*reps),ncol=100)
-
-
-
 llik_old <- function (params, levels = 2) {
   
   pars=map_pars(params, levels = levels, endogenous_variables = 1)
@@ -106,10 +97,7 @@ llik_old <- function (params, levels = 2) {
 
 llik <- function(...) llik_complete(...)$neg_likelihood
 
-#llik_lm <- function(...) llik_complete(...)$neg_likelihood_lm
-
-
-llik_lm <- function(params, endogenous_variables = 2, data = list(y=y,X=cbind(rep(1,length(y))),
+llik_lm <- function(params, endogenous_variables = 2, levels=1,data = list(y=y,X=cbind(rep(1,length(y))),
                                                                                     endog=cbind(x,x))) {
   
   pars=map_pars(params, levels = 1, endogenous_variables = endogenous_variables)

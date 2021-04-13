@@ -1,5 +1,5 @@
 ---
-title: "Simulation of Latent Instrumental Variables"
+title: "Parameter Recovery with Latent Instrumental Variables"
 output:
   pdf_document: default
   html_document:
@@ -18,11 +18,16 @@ n_cpu = 10
 
 ```
 
-As a first step towards our own LIV estimation for the GfK project, I propose to code up:
+# 1) Overview
 
-Ebbes, P., Wedel, M., Böckenholt, U., & Steerneman, T. (2005). Solving and testing for regressor-error (in) dependence when no instrumental variables are available: With new evidence for the effect of education on income. *Quantitative Marketing and Economics*, 3(4), 365-392. To the extent possible, I adhere to the notation in that paper.
+The purpose of this document is to develop and test code to recover parameters from a model with multiple endogeneous variables, using instrumental variables. The core methodology is explained in Ebbes et al. (2005) and Ebbes et al. (2009), and I borrow code from the `REndo` package to compare parameter recovery between (simple) versions of my own estimator with the recovery properties of `REndo`.
 
-# Simulation of data
+I proceed in the following steps:
+
+In section 2, I simulate data. In section 3, I compare parameter recovery between `REndo` and my own estimator for cases in which only *one endogenous regressor* with *two classes* is used (this is what currently is supported by `REndo`). In section 4, I propose novel extensions to the LIV estimator, including the support for multiple endogenous regressors, multiple classes, and an arbitrary number of control variables. Finally, in section 5, I test the integrated complete likelihood (ICL) criterion for selection of the number of classes.
+
+
+# 2) Simulation of data
 
 ```{r}
 
@@ -95,7 +100,7 @@ sim_data <- function(rho = .3,
 }
 ```
 
-# Parameter recovery for one endogenous regressor
+# 3) Parameter recovery for one endogenous regressor
 
 ## OLS versus `REndo`-based estimator
 
@@ -219,7 +224,9 @@ hist(drop(res[,7]),breaks=10, main = 'Histogram of bias-corrected parameter esti
 
 ```
 
-### One-case only, three levels, one regressor
+# 4) Extensions
+
+## 4.1) Multiple levels (one regressor)
 
 ```{r}
 set.seed(1984)
@@ -254,7 +261,7 @@ kable(data.frame(old=nlminb_old$par, new=nlminb$par),
 
 ```
 
-### Two instruments, three levels
+## 4.2) Two endogenous variables, with three levels
 
 ```{r}
 set.seed(1984)
@@ -294,7 +301,7 @@ map_pars(nlminb$par,
 
 ```
 
-### Two instruments, three levels with control variables + different intercept
+## 4.3) Two instruments, three levels with control variables + intercept different from 1
 
 ```{r}
 set.seed(1984)
@@ -341,7 +348,10 @@ map_pars(nlminb$par,
 
 ```
 
-### Determining number of classes using unsupervised learning (ICL)
+# 5) Determining number of classes (using ICL)
+
+## 5.1) Trying to recover three classes, for two endogenous regressors (without replication)
+
 
 ```{r}
 set.seed(1984)
@@ -413,8 +423,7 @@ results
 
 ```
 
-
-### Number of classes x `reps`, with just one endogenous regressor
+## 5.2) Trying to recover `reps` classes, with just one endogenous regressor
 
 ```{r}
 set.seed(1984)
@@ -465,10 +474,6 @@ out = clusterApplyLB(cl, data, function(dt) {
 })
 
 
-# assemble starting parameters
-
-
-
 ```
 
 
@@ -486,7 +491,7 @@ table(res$choice_bic)
 ```
 
 
-### Number of classes x `reps`, with multiple endogenous regressors
+## 5.3) Trying to recover `reps` classes, with two endogenous regressors
 
 ```{r}
 set.seed(1984)
@@ -556,14 +561,18 @@ kable(table(res$choice_bic), caption = "Number of classes chosen with BIC")
 
 Biernacki, C., Celeux, G., & Govaert, G. (2000). Assessing a mixture model for clustering with the integrated completed likelihood. IEEE transactions on pattern analysis and machine intelligence, 22(7), 719-725. https://doi.org/10.1109/34.865189. --> original reference for ICL criterion
 
-Ebbes, P., Wedel, M., & Böckenholt, U. (2009). Frugal IV alternatives to identify the parameter for an endogenous regressor. Journal of Applied Econometrics, 24(3), 446-468. https://doi.org/10.1002/jae.1058. --> paper underlying `REndo`
+Ebbes, P., Wedel, M., Böckenholt, U. et al. (2005). Solving and Testing for Regressor-Error (in)Dependence When no Instrumental Variables are Available: With New Evidence for the Effect of Education on Income. *Quantitative Marketing and Economics*, 3(4), 365–392. https://doi.org/10.1007/s11129-005-1177-6 --> original LIV paper
 
-Ebbes, P., Wedel, M., Böckenholt, U. et al. Solving and Testing for Regressor-Error (in)Dependence When no Instrumental Variables are Available: With New Evidence for the Effect of Education on Income. Quant Market Econ 3, 365–392 (2005). https://doi.org/10.1007/s11129-005-1177-6 --> original LIV paper
+Ebbes, P., Wedel, M., & Böckenholt, U. (2009). Frugal IV alternatives to identify the parameter for an endogenous regressor. Journal of Applied Econometrics, 24(3), 446-468. https://doi.org/10.1002/jae.1058. --> paper underlying `REndo`
 
 https://rdrr.io/cran/rebmix/ --> ICL implementation in R, but not with LIV
 
 
 # Next steps
-- Allow varying number of classes for endogenous regressors
-- Verify correct implementation of ICL (e.g., correct classes)
+- Model selection
+  - Verify correct implementation of ICL (e.g., correct classes)
+  - Can BIC be ok, too?
+  
+- Varying classes per regressor
+
 - Move code into a package that can easily be used
