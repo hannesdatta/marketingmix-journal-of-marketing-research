@@ -701,9 +701,9 @@ tmp=dcast(cv2, variable~byvar, value.var='CV')
   tmp=sanitize_table(tmp)
  
   cat("<P style='page-break-before: always'>")
-  {print(kable(tmp, digits=3, caption = tab(paste0('Coefficient of variation (CV) by Category and Country')), format='html', initial.zero = FALSE) %>% kable_styling() %>% footnote(number='Computed on the basis of weighted elasticities'))
-  }
-}
+  print(kable(tmp, digits=3, caption = tab(paste0('Coefficient of variation (CV) by Category and Country')), format='html', initial.zero = FALSE) %>% kable_styling() %>% footnote(number='Computed on the basis of weighted elasticities'))
+  
+
 
 
 ```	
