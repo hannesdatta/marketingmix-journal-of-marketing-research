@@ -176,8 +176,9 @@ for (selrule in names(selection)) {
       
       merged_attr_sales = tmp[, list( usales=sum(t_sales_units,na.rm=T),
                                       upsales=sum(t_sales_units_rolled,na.rm=T),
-  	                                         vsales = sum(t_value_sales,na.rm=T), 
-  	                                         vsalesd = sum(t_value_sales_usd,na.rm=T),
+                                      usales_sum_log = sum(ifelse(is.na(t_sales_units), 0, log(t_sales_units+1))),
+                                      vsales = sum(t_value_sales,na.rm=T), 
+  	                                   vsalesd = sum(t_value_sales_usd,na.rm=T),
   	                                         
   	                                         llen = length(unique(paste(brand_orig, model)[t_sales_units>0])),
   	                                         wspr=weigh_by_w(t_price_filled, t_sales_units, na.rm=T, type = w_type),

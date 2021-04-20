@@ -195,6 +195,17 @@ for (fn in fns) {
   setorder(brand_panel, market_id, brand, date)
   fwrite(brand_panel, file = gsub('temp', 'output', fn), row.names=F)
   
+  doc_filename = gsub('temp', 'output', fn)
+  doc_filename = gsub('.csv', '.txt', doc_filename)
+  
+  sink(doc_filename)
+  cat('Dataset summary:\n')
+  print(colnames(brand_panel))
+  cat('\n\n')
+  print(summary(brand_panel))
+  cat('\n')
+  sink()
+  
 }
 
 sink('../output/datasets.txt')
