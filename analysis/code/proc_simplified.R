@@ -6,10 +6,14 @@ library(car)
 simple_loglog <- function(id, vars = c('lnrwpspr','lnllen','lnwpswdst'),
                       controls='(^comp[_].*(pr|llen|dst)$)|quarter[1-3]|lnholiday|^trend|(^cop[_]ln.*(pr|llen|dst)$)', 
                       pval = .1,
-                      kickout_ns_copula = T, withlagdv=T) {
+                      kickout_ns_copula = T, withlagdv=T, dv = 'lnusales') {
   
-  dv='lnusales'
+  #dv='lnusales'
   dt=data.table(brand_panel[brand_id==id])
+  setorder(dt, category,country,brand,date)
+  dt[, ldv := c(NA,get(dv)[-.N]), by = c('category','country','brand')]
+  dt[, ddv := get(dv)-c(NA,get(dv)[-.N]), by = c('category','country','brand')]
+  
   
   brands_in_market <- unique(brand_panel[market_id%in%unique(brand_panel[brand_id==id]$market_id)]$brand)
   
@@ -24,7 +28,7 @@ simple_loglog <- function(id, vars = c('lnrwpspr','lnllen','lnwpswdst'),
   dt[, lntrend:=lntrend-mean(lntrend,na.rm=T)]
   dt[, trend:=trend-mean(trend,na.rm=T)]
   
-  my_form = update.formula(lnusales~1, as.formula(paste0('.~.+1+', paste0(c(vars, switch(withlagdv, 'lnlagusales', NULL), control_vars), collapse='+'))))
+  my_form = update.formula(as.formula(paste0(dv,'~1')), as.formula(paste0('.~.+1+', paste0(c(vars, switch(withlagdv, 'ldv', NULL), control_vars), collapse='+'))))
   
   dt[, estim_set:=T]
   
@@ -66,7 +70,7 @@ simple_loglog <- function(id, vars = c('lnrwpspr','lnllen','lnwpswdst'),
     m3=update(m2, .~.,subset=obs)
     combobs = union(newpset, obs)
     combobs = combobs[order(combobs)]
-    res=data.table(dt[combobs, c('date', 'dlnusales','lnlagusales','lnusales'),with=F], kfold=iter,lnusales_hat=predict(m3, newdata=dt[combobs,]))
+    res=data.table(dt[combobs, c('date', dv, 'ddv','ldv'),with=F], kfold=iter,dv_hat=predict(m3, newdata=dt[combobs,]))
     res[, estim_set:=combobs%in%obs]
     
     return(res)
@@ -78,8 +82,8 @@ simple_loglog <- function(id, vars = c('lnrwpspr','lnllen','lnwpswdst'),
                     by=c('date'),all.x=F)
   
   
-  predictions = cbind(dt[, c('category','country','brand','date', 'estim_set', 'lnusales'),with=F],
-                      lnusales_hat=predict(m2, newdata=dt))
+  predictions = cbind(dt[, c('category','country','brand','date', 'estim_set', dv),with=F],
+                      dv_hat=predict(m2, newdata=dt))
   
   if (!is.null(m2$na.action)) identifiers = dt[-m2$na.action,c('market_id', 'category','country', 'brand', 'brand_id' , 'date'),with=F]
   if (is.null(m2$na.action)) identifiers = dt[,c('market_id', 'category','country', 'brand', 'brand_id' , 'date'),with=F]
@@ -91,13 +95,13 @@ simple_loglog <- function(id, vars = c('lnrwpspr','lnllen','lnwpswdst'),
       st=deltaMethod(m2, paste0('(', v, ')'))
       
       if (v%in% names(m2$coefficients)) {
-        lt=try(deltaMethod(m2, paste0('(', v, ')/(1-lnlagusales)')), silent=T)
-        if (class(lt)=='try-error') lt = deltaMethod(m2, paste0('(', v, ')/(1-0)'))
+        lt=try(deltaMethod(m2, paste0('(', v, ')/(1-ldv)')), silent=T)
+        if ('try-error'%in%class(lt)) lt = deltaMethod(m2, paste0('(', v, ')/(1-0)'))
         
         } #else {
-          #lt=deltaMethod(m2, paste0('(0)/(lnlagusales)'))
+          #lt=deltaMethod(m2, paste0('(0)/(ldv)'))
         #}
-      if ('lnlagusales'%in%names(m2$coefficients)) lnlagcoef=m2$coefficients['lnlagusales'] else lnlagcoef=NA
+      if ('ldv'%in%names(m2$coefficients)) lnlagcoef=m2$coefficients['ldv'] else lnlagcoef=NA
       data.frame(variable=v, elast = st$Estimate, elast_se=st$SE,
                  elastlt = lt$Estimate, elastlt_se = lt$SE, beta = m2$coefficients[v], 
                  carryover = lnlagcoef)
@@ -129,11 +133,14 @@ simple_ec <- function(id, vars = c('lnrwpspr','lnllen','lnwpswdst'),
                           controls_curr = 'quarter[1-3]|lnholiday|^trend',
                           controls_cop = '^cop[_]ln.*(pr|llen|dst)$', 
                           pval = .1,
-                          kickout_ns_copula = T) {
+                          kickout_ns_copula = T, dv = 'lnusales') {
   
   # 1.0 Conduct bounds test
-  dv='lnusales'
+  #dv='lnusales'
   dt=data.table(brand_panel[brand_id==id])
+  setorder(dt, category,country,brand,date)
+  dt[, ldv := c(NA,get(dv)[-.N]), by = c('category','country','brand')]
+  dt[, ddv := get(dv)-c(NA,get(dv)[-.N]), by = c('category','country','brand')]
   
   brands_in_market <- unique(brand_panel[market_id%in%unique(brand_panel[brand_id==id]$market_id)]$brand)
   
@@ -172,7 +179,7 @@ simple_ec <- function(id, vars = c('lnrwpspr','lnllen','lnwpswdst'),
   
   for (v in vars_lags) dt[, (v):=c(NA, get(gsub('^lag','',v))[-.N])]
   
-  my_form = update.formula(dlnusales~1, as.formula(paste0('.~.+1+', paste0(c(vars_delta, vars_cop, 'lnlagusales', switch(length(vars_lags)>0, paste0('I(-', vars_lags,')')), vars_curr), collapse='+'))))
+  my_form = update.formula(ddv~1, as.formula(paste0('.~.+1+', paste0(c(vars_delta, vars_cop, 'ldv', switch(length(vars_lags)>0, paste0('I(-', vars_lags,')')), vars_curr), collapse='+'))))
   
   dt[, percentile_obs:=(1:.N)/.N]
   
@@ -221,7 +228,7 @@ simple_ec <- function(id, vars = c('lnrwpspr','lnllen','lnwpswdst'),
     
     combobs = union(newpset, obs)
     combobs = combobs[order(combobs)]
-    res=data.table(dt[combobs, c('date', 'dlnusales','lnlagusales','lnusales'),with=F], kfold=iter,dlnusales_hat=predict(m3, newdata=dt[combobs,]))
+    res=data.table(dt[combobs, c('date', 'ddv','ldv',dv),with=F], kfold=iter,ddv_hat=predict(m3, newdata=dt[combobs,]))
     res[, estim_set:=combobs%in%obs]
     return(res)
   }))
@@ -232,9 +239,9 @@ simple_ec <- function(id, vars = c('lnrwpspr','lnllen','lnwpswdst'),
   
  
   # within-predictions   
-  predictions = cbind(dt[, c('category','country','brand','date', 'estim_set', 'lnusales', 'lnlagusales', 'dlnusales'),with=F],
-                      dlnusales_hat=predict(m2, newdata=dt))
-  predictions[, lnusales_hat := lnlagusales + dlnusales_hat]
+  predictions = cbind(dt[, c('category','country','brand','date', 'estim_set', dv, 'ldv','ddv'),with=F],
+                      ddv_hat=predict(m2, newdata=dt))
+  predictions[, paste0(dv,'_hat') := ldv + ddv_hat]
   
   
   
@@ -248,13 +255,13 @@ simple_ec <- function(id, vars = c('lnrwpspr','lnllen','lnwpswdst'),
     st=deltaMethod(m2, paste0('(d', v, ')'))
     
     if (paste0('I(-lag', v, ')') %in% names(m2$coefficients)) {
-            lt=deltaMethod(m2, paste0('(`I(-lag', v, ')`)/(lnlagusales)')) } else {
-              lt=deltaMethod(m2, paste0('(0)/(lnlagusales)'))
+            lt=deltaMethod(m2, paste0('(`I(-lag', v, ')`)/(ldv)')) } else {
+              lt=deltaMethod(m2, paste0('(0)/(ldv)'))
             }
     
     data.frame(variable=v, elast = st$Estimate, elast_se=st$SE,
                elastlt = lt$Estimate, elastlt_se = lt$SE, beta = m2$coefficients[paste0('d',v)], 
-               carryover = m2$coefficients['lnlagusales'])
+               carryover = m2$coefficients['ldv'])
     
   }))
   
