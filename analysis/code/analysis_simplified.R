@@ -100,11 +100,12 @@ dir.create('../output')
     brand_panel[is.na(anyzero), anyzero:=0]
     brand_panel[, paste0('ln', var):=log(get(var)+anyzero), by = c('market_id', 'brand')]
     brand_panel[, paste0('dln', var):= get(paste0('ln', var))-c(NA, get(paste0('ln', var))[-.N]), by = c('market_id', 'brand')]
+    brand_panel[, paste0('d', var):= get(paste0('', var))-c(NA, get(paste0('', var))[-.N]), by = c('market_id', 'brand')]
   }
   
   
   # competitive mmix
-  for (v in c('lnrwpspr', 'lnllen', 'lnwpswdst', 'lnradv')) { #}, 'lnadv')) {
+  for (v in c('rwpspr', 'llen', 'wpswdst', 'radv')) { #}, 'lnadv')) {
     setorder(brand_panel, market_id, category, country, brand, date)
     
     brand_panel[, rollmean_sales:=c(NA, NA, rollmean(usales, k = 3)), 
@@ -190,13 +191,14 @@ dir.create('../output')
   
   
   # Define copula terms
-  for (var in c('lnrwpspr', 'lnllen', 'lnwpswdst', 'lnradv')) {
+  for (var in c('rwpspr', 'llen', 'wpswdst', 'radv')) {
     brand_panel[, paste0('cop_', var):=make_copula(get(paste0(var))), by = c('market_id','brand')]
     brand_panel[, paste0('cop_d.1.', var):=make_copula(dshift(get(paste0(var)))), by = c('market_id','brand')]
   }
   
   #brand_panel[, lngdp := log(gdppercapita)]
   brand_panel[, lnholiday := log(npublicholidays+1)]
+  brand_panel[, holiday := npublicholidays]
   
   brand_panel <- brand_panel[!grepl('alloth',brand, ignore.case=T)]
 
@@ -232,21 +234,6 @@ length(bids)
 init()
 
 
-# Test
-if(0){
-out =  try(simple_ec(1), silent=T)
-
-with(out$predictions_kfold, cor(lnusales_hat, lnusales, use='pairw')^2)
-with(out$predictions_kfold, cor(dlnusales_hat, dlnusales, use='pairw')^2)
-
-
-with(out$predictions, cor(lnusales_hat, lnusales, use='pairw')^2)
-
-
-summary(rbindlist(lapply(results_ec_main, function(x) x$predictions_kfold[, list(cor(lnusales, lnusales_hat,use='pair')^2)]))$V1)
-
-summary(rbindlist(lapply(results_ec_main, function(x) x$predictions_kfold[, list(cor(dlnusales, dlnusales_hat,use='pair')^2)]))$V1)
-}
 
 ####### MAIN MODEL ######
 
@@ -254,6 +241,7 @@ results_ec_main = parLapplyLB(cl, bids, function(bid)
   try(simple_ec(bid), silent=T)
 )
 
+if(0){ 
 ## LOG LOG MAIN MODEL ##
 results_loglog_main = parLapplyLB(cl, bids, function(bid)
   try(simple_loglog(bid), silent=T)
@@ -278,18 +266,18 @@ results_ec_nommix = parLapplyLB(cl, bids, function(bid)
 )
 
 results_ec_onlypr = parLapplyLB(cl, bids, function(bid)
-  try(simple_ec(bid,vars = c('lnrwpspr'), 
-                controls_cop = '^cop[_]ln.*(pr)$'), silent=T)
+  try(simple_ec(bid,vars = c('rwpspr'), 
+                controls_cop = '^cop[_](rwpspr)$'), silent=T)
 )
 
 results_ec_onlyllen = parLapplyLB(cl, bids, function(bid)
-  try(simple_ec(bid,vars = c('lnllen'), 
-                controls_cop = '^cop[_]ln.*(llen)$'), silent=T)
+  try(simple_ec(bid,vars = c('llen'), 
+                controls_cop = '^cop[_](llen)$'), silent=T)
 )
 
 results_ec_onlydst = parLapplyLB(cl, bids, function(bid)
-  try(simple_ec(bid,vars = c('lnwpswdst'), 
-                controls_cop = '^cop[_]ln.*(dst)$'), silent=T)
+  try(simple_ec(bid,vars = c('wpswdst'), 
+                controls_cop = '^cop[_](wpswdst)$'), silent=T)
 )
 
 
@@ -314,7 +302,7 @@ results_ec_lntrend = parLapplyLB(cl, bids, function(bid)
 #####################
 # SUR ON MAIN MODEL #
 #####################
-
+}
 
 results_model <- results_ec_main
 
@@ -340,11 +328,8 @@ sur_res = parLapplyLB(cl, split_by_market, function(focal_models) {
 })
 
 #
-#table(unlist(lapply(sur_res,function(x) class(x$results))))
-#which(unlist(lapply(sur_res,function(x) class(x$results)))=='try-error')
-
-#sur_res[[49]]
-#sur_res[[94]]
+table(unlist(lapply(sur_res,function(x) class(x$results))))
+which(unlist(lapply(sur_res,function(x) class(x$results)))=='try-error')
 
 
 # WRITE RESULTS OF SUR TO MAIN RESULT SET
@@ -407,14 +392,15 @@ save_by_regex <- function(regex, filename) {
     }
 }
 
-#save_by_regex('^results[_]', filename = '../output/results_simplified.RData')
+save_by_regex('^results[_]', filename = '../output/results_simplified.RData')
 
 
 ######################################
 # Robustness w/ advertising spending #
 ######################################
 
-
+if(0){
+  
 china_hk_selection = brand_panel[country%in%c('china','hong kong')&
                                    noadv==F & date<ifelse(country=='china', '2012-09-01', '2014-12-01'), 
                                  list(obs= length(unique(date))),by=c('category','country', 'market_id', 'brand_id')]
@@ -486,3 +472,4 @@ results_ec_last60 = parLapplyLB(cl, bids, function(bid)
 )
 
 save_by_regex('^results[_]', filename = '../output/results_simplified.RData')
+}

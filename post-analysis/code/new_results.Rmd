@@ -31,6 +31,7 @@ options(knitr.kable.NA = '')
     
   # set order of variables to appear in figures and tables
   ordered_vars =  c('lnllen', 'lnrwpspr', 'lnwpswdst')
+  ordered_vars =  c('llen', 'rwpspr', 'wpswdst')
   ordered_vars = ordered_vars[which(ordered_vars%in%elast$variable)]
   
   names(ordered_vars) <- paste0(unlist(sanitize_table(data.frame(gsub('^ln', '', ordered_vars)))), ' elasticity')

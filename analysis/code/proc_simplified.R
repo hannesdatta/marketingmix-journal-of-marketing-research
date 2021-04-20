@@ -1,12 +1,11 @@
 library(MASS)
 library(car)
 
-
 # Configure model type and calibrate lag structure
-simple_loglog <- function(id, vars = c('lnrwpspr','lnllen','lnwpswdst'),
-                      controls='(^comp[_].*(pr|llen|dst)$)|quarter[1-3]|lnholiday|^trend|(^cop[_]ln.*(pr|llen|dst)$)', 
+simple_loglog <- function(id, vars = c('rwpspr','llen','wpswdst'),
+                      controls='(^comp[_].*(pr|llen|dst)$)|quarter[1-3]|^holiday|^trend|(^cop[_](rwpspr|llen|wpswdst)$)', 
                       pval = .1,
-                      kickout_ns_copula = T, withlagdv=T, dv = 'lnusales') {
+                      kickout_ns_copula = T, withlagdv=T, dv = 'usales') {
   
   #dv='lnusales'
   dt=data.table(brand_panel[brand_id==id])
@@ -90,13 +89,19 @@ simple_loglog <- function(id, vars = c('lnrwpspr','lnllen','lnwpswdst'),
   
   setkey(identifiers, market_id, date, brand)
   
+  # for linear model, need to multiply elasticities by mean X / mean sales.
+  means = unlist(dt[, lapply(.SD, mean,na.rm=T), .SDcols=c(dv,vars)])
+  multipliers <- rep(1, length(vars))
+  if (!grepl('^ln|^log', dv)) multipliers <- sapply(vars, function(.v) means[.v]/means[dv])
+  names(multipliers)<-vars
+  
   if (length(vars)>0) {
     elast2 = rbindlist(lapply(vars, function(v) {
-      st=deltaMethod(m2, paste0('(', v, ')'))
+      st=deltaMethod(m2, paste0(multipliers[v],'*(', v, ')'))
       
       if (v%in% names(m2$coefficients)) {
-        lt=try(deltaMethod(m2, paste0('(', v, ')/(1-ldv)')), silent=T)
-        if ('try-error'%in%class(lt)) lt = deltaMethod(m2, paste0('(', v, ')/(1-0)'))
+        lt=try(deltaMethod(m2, paste0(multipliers[v],'*((', v, ')/(1-ldv))')), silent=T)
+        if ('try-error'%in%class(lt)) lt = deltaMethod(m2, paste0(multipliers[v],'*((', v, ')/(1-0))'))
         
         } #else {
           #lt=deltaMethod(m2, paste0('(0)/(ldv)'))
@@ -127,13 +132,13 @@ simple_loglog <- function(id, vars = c('lnrwpspr','lnllen','lnwpswdst'),
 }
 
 # Configure model type and calibrate lag structure
-simple_ec <- function(id, vars = c('lnrwpspr','lnllen','lnwpswdst'),
+simple_ec <- function(id, vars = c('rwpspr','llen','wpswdst'),
                           controls_diffs='^comp[_].*(pr|llen|dst)$', 
                           controls_laglevels = '',
-                          controls_curr = 'quarter[1-3]|lnholiday|^trend',
-                          controls_cop = '^cop[_]ln.*(pr|llen|dst)$', 
+                          controls_curr = 'quarter[1-3]|^holiday|^trend',
+                          controls_cop = '^cop[_](rwpspr|llen|wpswdst)$', 
                           pval = .1,
-                          kickout_ns_copula = T, dv = 'lnusales') {
+                          kickout_ns_copula = T, dv = 'usales') {
   
   # 1.0 Conduct bounds test
   #dv='lnusales'
@@ -191,6 +196,8 @@ simple_ec <- function(id, vars = c('lnrwpspr','lnllen','lnwpswdst'),
   
   m = lm(my_form, data= dt) #, subset = estim_set==T)
   
+  # compute means for elasticity computation
+  means = dt[, lapply(.SD, mean,na.rm=T), .SDcols=c(dv,vars)]
   
   #identifiers = unique(dt[,c('market_id', 'category','country', 'brand', 'brand_id' ),with=F], by=c('brand_id'))
   #setkey(identifiers, market_id, brand)
@@ -250,13 +257,19 @@ simple_ec <- function(id, vars = c('lnrwpspr','lnllen','lnwpswdst'),
 
   setkey(identifiers, market_id, date, brand)
   
+  # for linear model, need to multiply elasticities by mean X / mean sales.
+  means = unlist(dt[, lapply(.SD, mean,na.rm=T), .SDcols=c(dv,vars)])
+  multipliers <- rep(1, length(vars))
+  if (!grepl('^ln|^log', dv)) multipliers <- sapply(vars, function(.v) means[.v]/means[dv])
+  names(multipliers)<-vars
+  
   if (length(vars)>0) {
   elast2 = rbindlist(lapply(vars, function(v) {
-    st=deltaMethod(m2, paste0('(d', v, ')'))
+    st=deltaMethod(m2, paste0(multipliers[v],'*(d', v, ')'))
     
     if (paste0('I(-lag', v, ')') %in% names(m2$coefficients)) {
-            lt=deltaMethod(m2, paste0('(`I(-lag', v, ')`)/(ldv)')) } else {
-              lt=deltaMethod(m2, paste0('(0)/(ldv)'))
+            lt=deltaMethod(m2, paste0(multipliers[v],'*((`I(-lag', v, ')`)/(ldv))')) } else {
+              lt=deltaMethod(m2, paste0(multipliers[v],'*((0)/(ldv))'))
             }
     
     data.frame(variable=v, elast = st$Estimate, elast_se=st$SE,
@@ -515,7 +528,7 @@ simple_ec_liv <- function(id, vars = c('lnrwpspr','lnllen','lnwpswdst'),
 
 
 process_sur <- function(mod) {
-  vars=mod$elast$variable
+  vars=as.character(mod$elast$variable)
   
   vcov = mod$sur$varcovar
   
@@ -525,13 +538,21 @@ process_sur <- function(mod) {
   colnames(vcov) <- names(coefs)
   rownames(vcov) <- names(coefs)
   
+  dv = colnames(mod$predictions)
+  dv = dv[which(dv=='estim_set')+1]
+  
+  means = unlist(mod$dt[, lapply(.SD, mean,na.rm=T), .SDcols=c(dv,vars)])
+  multipliers <- rep(1, length(vars))
+  if (!grepl('^ln|^log', dv)) multipliers <- sapply(vars, function(.v) means[.v]/means[dv])
+  names(multipliers)<-vars
+  
   elast_sur = rbindlist(lapply(vars, function(v) {
     dvar= grep(paste0('d',v), names(coefs),value=T)
     lvar= grep(paste0('lag',v), names(coefs),value=T)
-    lagu= grep(paste0('lnlagusales'), names(coefs),value=T)
+    lagu= grep(paste0('ld'), names(coefs),value=T)
     
-    st=deltaMethod(coefs, paste0('(', dvar, ')'),  vcov.=vcov)
-    lt=deltaMethod(coefs, paste0('(`', lvar, '`)/(', lagu, ')'),  vcov.=vcov)
+    st=deltaMethod(coefs, paste0(multipliers[v],'*(', dvar, ')'),  vcov.=vcov)
+    lt=deltaMethod(coefs, paste0(multipliers[v],'*((`', lvar, '`)/(', lagu, '))'),  vcov.=vcov)
     
     
     data.frame(variable=v, elast = st$Estimate, elast_se=st$SE,
