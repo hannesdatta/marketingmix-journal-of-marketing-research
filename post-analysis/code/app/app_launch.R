@@ -194,11 +194,16 @@ orthogonalization <- function(elast, input, bootstrap = T) {
 
 names(elasticities)
 
-model_names = list('M1) Error correction (sales, with SUR)' = 'ec_main_sur',
-                   'M2) Error correction (sales, without SUR)' = 'ec_main',
-                   'M3) with lag competition' = 'ec_unrestrictedcompetition',
+model_names = list('M1a) Linear error correction (sales, with SUR)' = 'ec_main_sur',
+                   'M1b) Linear error correction (sales, without SUR)' = 'ec_main',
+                   'M2a) Linear error correction (sales, with SUR, no sales weights)' = 'ec_main_noweights_sur',
+                   'M2b) Linear error correction (sales, without SUR)' = 'ec_main_noweights')#,
+                   
+                   
+                  # 'M2) Error correction (sales, without SUR)' = 'ec_main',
+                  # 'M3) with lag competition' = 'ec_unrestrictedcompetition',
                    #'M3) Error correction (sales; but with copula of d_mmix)' = 'ec_restricted_sigdcop',
-                   'M3) Attraction model (market share)' = 'marketshare')
+                 #  'M3) Attraction model (market share)' = 'marketshare')
             
 potential_vars_raw = list(brandequity=list('!SBBE' = 'sbbe_round1_mc',
                                        'BrandZ indicator' = 'brandz',

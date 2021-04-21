@@ -425,10 +425,13 @@ for (selrule in names(selection)) {
   	        }
   	      
     	    # Correct monetary variables with a country's CPI
-    	    paneldata[, ':=' (rvsales = vsales/cpi, rwspr = wspr/cpi, 
-    	                      rwpspr = wpspr/cpi, 
+    	    paneldata[, ':=' (rvsales = vsales/cpi, 
+    	                      rwspr = wspr/cpi, 
+    	                      rwpspr = wpspr/cpi,
+    	                      rnwpr = nwpr/cpi,
     	                      rwsprd = wsprd/cpi, 
     	                      rwpsprd = wpsprd/cpi,
+    	                      rnwprd = nwprd/cpi,
     	                      rwsadv = wsadv/cpi,
     	                      rwpsadv = wpsadv/cpi,
     	                      radv = adv/cpi)]

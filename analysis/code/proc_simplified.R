@@ -3,7 +3,7 @@ library(car)
 
 # Configure model type and calibrate lag structure
 simple_loglog <- function(id, vars = c('rwpspr','llen','wpswdst'),
-                      controls='(^comp[_].*(pr|llen|dst)$)|quarter[1-3]|^holiday|^trend|(^cop[_](rwpspr|llen|wpswdst)$)', 
+                      controls='(^comp[_].*(rwpspr|llen|wpswdst)$)|quarter[1-3]|^holiday|^trend|(^cop[_](rwpspr|llen|wpswdst)$)', 
                       pval = .1,
                       kickout_ns_copula = T, withlagdv=T, dv = 'usales') {
   
@@ -133,7 +133,7 @@ simple_loglog <- function(id, vars = c('rwpspr','llen','wpswdst'),
 
 # Configure model type and calibrate lag structure
 simple_ec <- function(id, vars = c('rwpspr','llen','wpswdst'),
-                          controls_diffs='^comp[_].*(pr|llen|dst)$', 
+                          controls_diffs='^comp[_].*(rwpspr|llen|wpswdst)$', 
                           controls_laglevels = '',
                           controls_curr = 'quarter[1-3]|^holiday|^trend',
                           controls_cop = '^cop[_](rwpspr|llen|wpswdst)$', 
@@ -259,21 +259,37 @@ simple_ec <- function(id, vars = c('rwpspr','llen','wpswdst'),
   
   # for linear model, need to multiply elasticities by mean X / mean sales.
   means = unlist(dt[, lapply(.SD, mean,na.rm=T), .SDcols=c(dv,vars)])
-  multipliers <- rep(1, length(vars))
-  if (!grepl('^ln|^log', dv)) multipliers <- sapply(vars, function(.v) means[.v]/means[dv])
-  names(multipliers)<-vars
+  medians = unlist(dt[, lapply(.SD, median,na.rm=T), .SDcols=c(dv,vars)])
+  multipliers_means <- rep(1, length(vars))
+  if (!grepl('^ln|^log', dv)) multipliers_means <- sapply(vars, function(.v) means[.v]/means[dv])
+  multipliers_medians <- rep(1, length(vars))
+  if (!grepl('^ln|^log', dv)) multipliers_medians <- sapply(vars, function(.v) medians[.v]/medians[dv])
+  
+  names(multipliers_means)<-vars
+  names(multipliers_medians)<-vars
   
   if (length(vars)>0) {
   elast2 = rbindlist(lapply(vars, function(v) {
-    st=deltaMethod(m2, paste0(multipliers[v],'*(d', v, ')'))
+    st=deltaMethod(m2, paste0(multipliers_means[v],'*(d', v, ')'))
     
     if (paste0('I(-lag', v, ')') %in% names(m2$coefficients)) {
-            lt=deltaMethod(m2, paste0(multipliers[v],'*((`I(-lag', v, ')`)/(ldv))')) } else {
-              lt=deltaMethod(m2, paste0(multipliers[v],'*((0)/(ldv))'))
+            lt=deltaMethod(m2, paste0(multipliers_means[v],'*((`I(-lag', v, ')`)/(ldv))')) } else {
+              lt=deltaMethod(m2, paste0(multipliers_means[v],'*((0)/(ldv))'))
             }
+    # at the median
+    st_median=deltaMethod(m2, paste0(multipliers_medians[v],'*(d', v, ')'))
+    
+    if (paste0('I(-lag', v, ')') %in% names(m2$coefficients)) {
+      lt_median=deltaMethod(m2, paste0(multipliers_medians[v],'*((`I(-lag', v, ')`)/(ldv))')) } else {
+        lt_median=deltaMethod(m2, paste0(multipliers_medians[v],'*((0)/(ldv))'))
+      }
     
     data.frame(variable=v, elast = st$Estimate, elast_se=st$SE,
-               elastlt = lt$Estimate, elastlt_se = lt$SE, beta = m2$coefficients[paste0('d',v)], 
+               elastlt = lt$Estimate, elastlt_se = lt$SE, 
+               
+               elastmedian = st_median$Estimate, elastmedian_se = st_median$SE,
+               elastmedianlt = lt_median$Estimate, elastmedianlt_se = lt_median$SE,
+               beta = m2$coefficients[paste0('d',v)], 
                carryover = m2$coefficients['ldv'])
     
   }))
@@ -542,21 +558,33 @@ process_sur <- function(mod) {
   dv = dv[which(dv=='estim_set')+1]
   
   means = unlist(mod$dt[, lapply(.SD, mean,na.rm=T), .SDcols=c(dv,vars)])
-  multipliers <- rep(1, length(vars))
-  if (!grepl('^ln|^log', dv)) multipliers <- sapply(vars, function(.v) means[.v]/means[dv])
-  names(multipliers)<-vars
+  medians = unlist(mod$dt[, lapply(.SD, median,na.rm=T), .SDcols=c(dv,vars)])
+  multipliers_means <- rep(1, length(vars))
+  if (!grepl('^ln|^log', dv)) multipliers_means <- sapply(vars, function(.v) means[.v]/means[dv])
+  names(multipliers_means)<-vars
+  multipliers_medians <- rep(1, length(vars))
+  if (!grepl('^ln|^log', dv)) multipliers_medians <- sapply(vars, function(.v) medians[.v]/medians[dv])
+  names(multipliers_medians)<-vars
+  
+  
+  
   
   elast_sur = rbindlist(lapply(vars, function(v) {
     dvar= grep(paste0('d',v), names(coefs),value=T)
     lvar= grep(paste0('lag',v), names(coefs),value=T)
     lagu= grep(paste0('ld'), names(coefs),value=T)
     
-    st=deltaMethod(coefs, paste0(multipliers[v],'*(', dvar, ')'),  vcov.=vcov)
-    lt=deltaMethod(coefs, paste0(multipliers[v],'*((`', lvar, '`)/(', lagu, '))'),  vcov.=vcov)
+    st=deltaMethod(coefs, paste0(multipliers_means[v],'*(', dvar, ')'),  vcov.=vcov)
+    lt=deltaMethod(coefs, paste0(multipliers_means[v],'*((`', lvar, '`)/(', lagu, '))'),  vcov.=vcov)
     
+    stmed=deltaMethod(coefs, paste0(multipliers_medians[v],'*(', dvar, ')'),  vcov.=vcov)
+    ltmed=deltaMethod(coefs, paste0(multipliers_medians[v],'*((`', lvar, '`)/(', lagu, '))'),  vcov.=vcov)
     
     data.frame(variable=v, elast = st$Estimate, elast_se=st$SE,
-               elastlt = lt$Estimate, elastlt_se = lt$SE, beta = coefs[dvar], 
+               elastlt = lt$Estimate, elastlt_se = lt$SE, 
+               elastmedian = stmed$Estimate, elastmedian_se = stmed$SE,
+               elastmedianlt = ltmed$Estimate, elastmedianlt_se = ltmed$SE,
+               beta = coefs[dvar], 
                carryover = coefs[lagu])
     
   }))

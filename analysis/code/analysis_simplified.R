@@ -33,20 +33,12 @@ init <- function() {
   library(timeSeries)
   library(marketingtools)
   library(car)
-  #source('proc_analysis_marketshare.R')
-  #source('proc_analysis_ardl.R')
-  #source('proc_analysis_ardlbounds.R')
-  #source('proc_analysis_sales.R')
   source('proc_auxilary.R')
-  source('c1c5b3af32343d042fcbc8e249ae9ff6/proc_unitroots.R')
+  #source('c1c5b3af32343d042fcbc8e249ae9ff6/proc_unitroots.R')
   source('proc_simplified.R')
 }
 
 init()
-
-
-#library(dynamac)
-#library(tseries)
 
 
 dir.create('../output')
@@ -81,9 +73,6 @@ dir.create('../output')
   
   
 # Define additional variables
-  
- 
-
   setorder(brand_panel, market_id, brand, date)
   brand_panel[selected==T&timewindow==T, trend:=as.double(.GRP),by=c('market_id', 'brand','date')]
   brand_panel[selected==T&timewindow==T, trend:=trend-min(trend,na.rm=T)+1,by=c('market_id', 'brand')]
@@ -94,7 +83,7 @@ dir.create('../output')
     brand_panel[quarter==q, paste0('quarter', q):=1]
   }  
     
-  vars=c('rwpspr', 'llen', 'wpswdst', 'usales', 'lagusales', 'radv')#, 'adv')#, grep('comp[_]', colnames(brand_panel),value=T))
+  vars=c('rwpspr', 'rnwpr', 'llen', 'wpswdst', 'nwwdst', 'usales', 'lagusales', 'radv')#, 'adv')#, grep('comp[_]', colnames(brand_panel),value=T))
   for (var in vars) {
     brand_panel[, anyzero:=as.numeric(any(get(var)==0),na.rm=T),by=c('market_id', 'brand')]
     brand_panel[is.na(anyzero), anyzero:=0]
@@ -105,7 +94,7 @@ dir.create('../output')
   
   
   # competitive mmix
-  for (v in c('rwpspr', 'llen', 'wpswdst', 'radv')) { #}, 'lnadv')) {
+  for (v in c('rwpspr', 'rnwpr', 'llen', 'wpswdst', 'nwwdst', 'radv')) { #}, 'lnadv')) {
     setorder(brand_panel, market_id, category, country, brand, date)
     
     brand_panel[, rollmean_sales:=c(NA, NA, rollmean(usales, k = 3)), 
@@ -123,41 +112,6 @@ dir.create('../output')
     
     brand_panel[, paste0('dcomp_',v):=get(paste0('comp_', v))-c(NA, get(paste0('comp_', v))[-.N]), by = c('market_id', 'brand_id')]
     }
-  
-  # run shapiro-wilk tests to assess non-normality of untransformed inputs to the copula function
-  if(0){
-    vars=c('lnrwpspr', 'lnllen', 'lnwpswdst')
-    source('proc_auxilary.R')
-    
-    norm_test = function(x, type = 'shapiro') {
-     use_ts_eval = use_ts(x)
-     if (use_ts_eval==T) {
-       x=x[!is.na(x)]
-       if (type=='shapiro')        return(shapiro.test(x)$p)
-       if (type=='jarquebera')  return(jarque.bera.test(x)$p.value)
-     }
-       
-     return(as.double(NA))
-    }
-    
-    cop=lapply(vars, function(var) {
-      out=brand_panel[selected== T, list(shap_pval_levels = norm_test(get(var), type = 'shapiro'),
-                             shap_pval_diffs = norm_test(dshift(get(var)), type='shapiro')), by = c('category', 'country', 'market_id', 'brand_id','brand')]
-      out[, variable:=var]
-      return(out)
-    })
-    
-    cop=rbindlist(cop)
-    
-    cop[!is.na(shap_pval_diffs), list(N=.N, 
-               shap_nonnormal_share_lev=length(which(shap_pval_levels<.1))/.N,
-               shap_nonnormal_share_diff=length(which(shap_pval_diffs<.1))/.N), by = c('variable')]
-    
-    cop[!is.na(shap_pval_diffs), list(N=.N, 
-                                      shap_nonnormal_share_lev=length(which(shap_pval_levels<.1))/.N,
-                                      shap_nonnormal_share_diff=length(which(shap_pval_diffs<.1))/.N)]
-    
-  }
   
   
   length(unique(brand_panel[selected==T]$brand_id))
@@ -191,7 +145,7 @@ dir.create('../output')
   
   
   # Define copula terms
-  for (var in c('rwpspr', 'llen', 'wpswdst', 'radv')) {
+  for (var in c('rwpspr', 'rnwpr', 'llen', 'wpswdst', 'nwwdst', 'radv')) {
     brand_panel[, paste0('cop_', var):=make_copula(get(paste0(var))), by = c('market_id','brand')]
     brand_panel[, paste0('cop_d.1.', var):=make_copula(dshift(get(paste0(var)))), by = c('market_id','brand')]
   }
@@ -240,6 +194,26 @@ init()
 results_ec_main = parLapplyLB(cl, bids, function(bid)
   try(simple_ec(bid), silent=T)
 )
+
+results_ec_main_noweights = parLapplyLB(cl, bids, function(bid)
+  try(simple_ec(bid,
+                vars=c('rnwpr','llen','nwwdst'),
+                controls_diffs='^comp[_].*(rnwpr|llen|nwwdst)$',
+                controls_cop = '^cop[_](rnwpr|llen|nwwdst)$'), silent=T)
+)
+
+#table(unlist(lapply(results_ec_main_noweights,class)))
+
+#out=rbindlist(lapply(results_ec_main_noweights, function(x) x$elast))
+
+#out[, list(lt_at_mean = mean(elastlt),
+#           lt_at_median = mean(elastmedianlt)), by = c('variable')]
+
+
+#out=rbindlist(lapply(results_ec_main, function(x) x$elast))
+#out[, list(lt_at_mean = mean(elastlt),
+#           lt_at_median = mean(elastmedianlt)), by = c('variable')]
+
 
 if(0){ 
 ## LOG LOG MAIN MODEL ##
@@ -303,6 +277,8 @@ results_ec_lntrend = parLapplyLB(cl, bids, function(bid)
 # SUR ON MAIN MODEL #
 #####################
 }
+
+## MAIN MODEL
 
 results_model <- results_ec_main
 
@@ -376,6 +352,78 @@ results_ec_main_sur <- lapply(results_with_sur_models, function(x) {
 rm(results_with_sur_models)
 rm(results_model)
 
+
+
+## NO WEIGHTS MODEL
+
+results_model <- results_ec_main_noweights
+
+
+estimated_markets <- rbindlist(lapply(results_model, function(x) x$paneldimension[,-c('date'),with=F][1]))
+estimated_markets[, ordered:=1:.N,by=c('market_id')]
+estimated_markets[, index:=1:.N]
+
+# ESTIMATE SUR
+split_by_market = split(results_model, estimated_markets$market_id)
+
+cat(paste0('Estimating SUR for ', length(split_by_market), ' markets...\n'))
+
+sur_res = parLapplyLB(cl, split_by_market, function(focal_models) {
+  mid=focal_models[[1]]$paneldimension$market_id[1]
+  cat(mid,fill=T)
+  
+  res=suppressWarnings(try(model_sur(focal_models), silent=T))
+  if(class(res)=='try-error') res=suppressWarnings(try(model_sur(focal_models, maxiter=1), silent=T))
+  
+  
+  list(market_id=mid, results=res)
+})
+
+#
+table(unlist(lapply(sur_res,function(x) class(x$results))))
+which(unlist(lapply(sur_res,function(x) class(x$results)))=='try-error')
+
+
+# WRITE RESULTS OF SUR TO MAIN RESULT SET
+for (i in seq(along=sur_res)) {
+  mid = unlist(lapply(sur_res, function(x) x$market_id))[i]
+  for (j in estimated_markets[market_id==mid]$ordered) {
+    ck=try(sur_res[[i]]$results$coefs[[j]],silent=T)
+    if (class(ck)!='try-error') {
+      results_model[[estimated_markets[market_id==mid]$index[j]]]$sur <- list(coefs=sur_res[[i]]$results$coefs[[j]],
+                                                                              varcovar=sur_res[[i]]$results$varcovar[[j]])
+    }
+  }
+}
+
+
+# calculation of elasticities [hm...]
+
+results_with_sur_models = parLapplyLB(cl, results_model, function(x) {
+  try(process_sur(x), silent=T)
+})
+#which(unlist(lapply(results_with_sur_models, class))=='try-error')
+
+
+
+# remove models
+results_ec_main_noweights_sur <- lapply(results_with_sur_models, function(x) {
+  x$model_matrix <- NULL
+  x$paneldimension <- NULL
+  x$dt <- NULL
+  x$elast_sur$country=x$elast$country
+  x$elast_sur$category=x$elast$category
+  x$elast_sur$brand=x$elast$brand
+  x$elast_sur$brand_id=x$elast$brand_id
+  
+  
+  x$elast <- x$elast_sur
+  
+  x
+})
+
+rm(results_with_sur_models)
+rm(results_model)
 
 
 # Function scans global environment for occurence of regular expression (`regex`), 
