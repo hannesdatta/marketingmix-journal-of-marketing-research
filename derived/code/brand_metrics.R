@@ -162,7 +162,7 @@ for (selrule in names(selection)) {
   	tmp[adv, adv:=i.adspent]  
   	tmp[is.na(adv), adv:=0]
   	
-    w_type = 'geometric' #arithmetic' # or geometric
+    w_type = 'arithmetic' #geometric' #arithmetic' # or geometric
     
      
     for (aggkey_iter in list(aggkey, aggkey_agg)) {
@@ -191,6 +191,7 @@ for (selrule in names(selection)) {
   	                                         
   	                                         wswdst = weigh_by_w(t_wdist_filled,t_sales_units,na.rm=T, type = w_type),
   	                                         wpswdst = weigh_by_w(t_wdist_filled,t_sales_units_rolled,na.rm=T, type = w_type),
+                                            nwwdst = weigh_by_w(t_wdist_filled, t_noweights, na.rm=T, type = w_type),
   	                                         
                                             adv = mean(adv, na.rm=T),
                                             wsadv = weigh_by_w(adv, t_sales_units, na.rm=T, type = w_type),
@@ -199,8 +200,8 @@ for (selrule in names(selection)) {
   	                                         nov1 = length(unique(model[t_sales_units>0&novelty_sum%in%1])),
   	                                         nov3 = length(unique(model[t_sales_units>0&novelty_sum%in%1:3])),
   	                                         nov6 = length(unique(model[t_sales_units>0&novelty_sum%in%1:6])),
-    	                                       nov12 = length(unique(model[t_sales_units>0&novelty_sum%in%1:12])),
-    	                                       noofbrands_orig=length(unique(brand_orig))
+    	                                      nov12 = length(unique(model[t_sales_units>0&novelty_sum%in%1:12])),
+    	                                      noofbrands_orig=length(unique(brand_orig))
   	                                
   	                                 ),
   	by=aggkey_iter]
