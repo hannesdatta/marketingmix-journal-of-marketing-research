@@ -143,7 +143,9 @@ potential_vars_raw = list(brandequity=list('!SBBE' = 'sbbe_round1_mc',
                                        'Log Brand strength (BAV)' = 'ln_bav_brandstrength_mc',
                                        'Log Brand stature (BAV)' = 'ln_bav_brandstature_mc',
                                        'Log Brand energized diff. (BAV)' = 'ln_bav_energizeddifferentiation_mc',
-                                       'Log Marketshare' = 'ln_brand_ms_mc'),
+                                       'Log Marketshare' = 'ln_brand_ms_mc',
+                                       'Marketshare' = 'brand_ms_mc'),
+                          
                       brandlocation = list('!Domestic market indicator' = 'local_to_market_mc',
                                            '!JP, US, Swiss, GER, Sweden indicator' = "`brand_from_jp-us-ch-ge-sw_mc`",
                                            'Western brand indicator' = 'western_brand_mc'),
@@ -361,6 +363,10 @@ ui <- fluidPage(
              selectInput("estim", label = h5("Model estimation (second stage)"),
                        choices = list('Mixed-Effects Model (REs)'= 'lmer',
                                       'OLS' = 'lm'), selected= 'lm', multiple=F),
+             selectInput("dv", label = h5("Dependent variable (second stage)"),
+                         choices = list('LT elasticity at the mean'= 'elastlt',
+                                        'LT elasticity at the median' = 'elastmedianlt'), selected= 'elastlt', multiple=F),
+             
              selectInput("randomeffects", label = h5("List of random effects (for RE model), or clustering (in case of OLS)"),
                        choices = list('Brand'= 'brand', 'Category'='category',
                                       'Country' = 'country'), selected = c('brand', 'category','country'), multiple=TRUE),
@@ -415,15 +421,15 @@ ui <- fluidPage(
                        # tabPanel("Model Summary", verbatimTextOutput("summary")),
                        tabPanel("Model results", htmlOutput("stargazer")),#, # Regression output
                        tabPanel("VIFs", htmlOutput("vif")),
-                       tabPanel("Plots (stacked bar charts)", plotOutput('stacked')),
-                       tabPanel("Plots (brand-specific bar plots)", plotOutput('plot')),
-                       tabPanel("Plots (scatter plots)", plotOutput('surface')),
+                       #tabPanel("Plots (stacked bar charts)", plotOutput('stacked')),
+                       #tabPanel("Plots (brand-specific bar plots)", plotOutput('plot')),
+                       #tabPanel("Plots (scatter plots)", plotOutput('surface')),
                        
                        #tabPanel("VIFs2", htmlOutput("vif2")),
                        #tabPanel("Elasticities", DT::dataTableOutput("elasticities")),
                        
                        #}, options = list(searching = FALSE)
-                       tabPanel("Tables for the paper", includeHTML("tables.html")),
+                       #tabPanel("Tables for the paper", includeHTML("tables.html")),
                        tabPanel("Downloads", br(),
                                 downloadButton("downloadData", "Download model specification (RData file)"),
                                 br(),
@@ -483,8 +489,13 @@ get_model <- function(input) {
        clustering_type = 'HC1')#input$clustering_type)
 }
 
-get_sample <- function(input) {
+get_sample <- function(input, dv = 'elastlt') {
   tmp <- copy(elasticities[[input$model]][selection_obs48==T&selection_brands==T])
+  
+  # define DV
+  tmp[, elastlt:=get(dv)]
+  tmp[, elastlt_se:=get(paste0(dv,'_se'))]
+  tmp[, w_elastlt:=1/elastlt_se, by = c('variable')]
   
   tmp <- tmp[!is.na(elastlt), percentile:=ecdf(elastlt)(elastlt), by = c('variable')]
   
@@ -507,45 +518,6 @@ get_sample <- function(input) {
 
 
 
-calculate_ses <- function(input, elast, bstrap_select) {
-  
-  rep = length(bstrap_select)
-  index <- elast$brand_id
-  
-  mspec = get_model(input)
-  
-  
-  covars = gsub('[_]orth$', '', all.vars(update.formula(elastlt~ ., mspec$formula)))
-  
-
-  vars <- c('brand_id', 'variable', 'elastlt', 'w_elastlt', covars)
-  
-  elastfocal <- list()
-  
-  for (i in 1:rep){
-    elastfocal[[i]] <- cbind(copy(elast[, vars,with=F]), bstrap_select[[i]][match(index, brand_id),])
-  }
-  
-  ses=lapply(c('pr','dst','llen'), function(.v) {
-    cntr=0
-    bs_coefs = do.call('cbind', lapply(elastfocal, function(df) {
-      cntr=cntr+1
-      
-      if (mspec$modeltype=='lm') o=lm(update.formula(elastlt~.,mspec$formula), data=df[grepl(.v,variable)], weights=w_elastlt)$coefficients
-      if (mspec$modeltype=='lmer') o=attr(lmer(update.formula(elastlt~.,mspec$formula), data=df[grepl(.v,variable)], weights=w_elastlt,
-                                             control = lmerctrl, REML=F), 'beta')
-      return(o)
-    }))
-    
-    standarderrors = apply(bs_coefs, 1, sd)
-    
-    return(standarderrors)
-  })
-  names(ses) <- c('pr','dst','llen')
-  return(ses)
-}
-
-
 result_storage <<- NULL
 data_storage <<- NULL
 
@@ -566,7 +538,7 @@ produce_model <- function(input) {
     
     mspec = get_model(input)
     
-    elast <<- get_sample(input)
+    elast <<- get_sample(input, dv = input$dv)
     
    
     
@@ -791,7 +763,7 @@ server <- function(input, output) {
     
     mspec = get_model(input)
     
-    elast <<- get_sample(input)
+    elast <<- get_sample(input, dv=input$dv)
     
     vifform = as.formula(paste0('randomnr ~ 1 + ', paste0(mspec$variables, collapse='+')))
     
@@ -889,7 +861,7 @@ server <- function(input, output) {
     },
     content = function(file) {
       mspec = get_model(input)
-      elast = get_sample(input)
+      elast = get_sample(input, dv=input$dv)
       tmp = elast[, c('category','country','brand','brand_id',mspec$variables),with=F]
       if (!grepl('[.]csv$',file, ignore.case=T)) file=paste(file, '.csv')
       fwrite(tmp, file=file, row.names=F)
