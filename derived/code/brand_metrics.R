@@ -135,10 +135,20 @@ for (selrule in names(selection)) {
     	  tmp[, paste0(.var, '_filled'):=na_forwarding(get(.var)), by=idvars]
     	  }
     
-    	# add rolling sum of unit sales
+    	# add rolling sum of unit sales in `n` periods, including the current one
       tmp[, t_sales_units_rolled := run_sum(t_sales_units, n=3),by=idvars]
+      # lag, to exclude the current period
+      tmp[, t_sales_units_rolled := c(NA, t_sales_units_rolled[-.N]),by=idvars]
+      # set NAs to 0
     	tmp[is.na(t_sales_units_rolled), t_sales_units_rolled := 0]
+    	# set to zero after last observed sale
+    	tmp[, ':=' (first_sale=min(date[t_sales_units>0]), last_sale=max(date[t_sales_units>0])),by = idvars]
+    	
+    	tmp[(date>last_sale)|!last_sale>0, t_sales_units_rolled:=0]
+    	    
     	tmp[, t_noweights:=1]
+    	tmp[(date<first_sale)|(date>last_sale)|!last_sale>0, t_noweights:=0]
+    	
     	
     	aggkey=c(setdiff(idvars,c('model','brand_orig')),'date')
     	
@@ -167,12 +177,11 @@ for (selrule in names(selection)) {
      
     for (aggkey_iter in list(aggkey, aggkey_agg)) {
       print(aggkey_iter)
-      tmp[, brand_model:=paste0(brand_orig, model)]
-      tmp[, model_weights:=c(sum(t_sales_units_rolled), rep(0, .N-1)),by=c('market_id', 'brand_model', 'date')]
+      #tmp[, brand_model:=paste0(brand_orig, model)]
+      #tmp[, model_weights:=c(sum(t_sales_units_rolled), rep(0, .N-1)),by=c('market_id', 'brand_model', 'date')]
       #tmp[, N:=.N,by=c('market_id','brand_model', 'date')]
-      tmp[, sold:=0]
-      tmp[t_sales_units>0, sold:=1]
-     
+      #tmp[, sold:=0]
+      #tmp[t_sales_units>0, sold:=1]
       
       merged_attr_sales = tmp[, list( usales=sum(t_sales_units,na.rm=T),
                                       upsales=sum(t_sales_units_rolled,na.rm=T),
