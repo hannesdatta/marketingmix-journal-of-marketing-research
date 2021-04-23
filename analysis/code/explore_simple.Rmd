@@ -36,6 +36,14 @@ vars[grepl('pr$|llen$|dst$|cop', vars)]
 
 ```
 
+## Model fit
+
+```{r}
+r2s = unlist(lapply(results_model, function(x) x$r2_within_dv))
+summary(r2s)
+```
+
+The mean R2 (within, on the dependent variable) is `r mean(r2s,na.rm=T)*100`.
 
 ## Example model specification for one brand
 

@@ -432,6 +432,80 @@ results_ec_main_noweights_sur <- lapply(results_with_sur_models, function(x) {
 rm(results_with_sur_models)
 rm(results_model)
 
+#### CURR WEIGHTS MODEL
+
+
+results_model <- results_ec_main_currweights
+
+
+estimated_markets <- rbindlist(lapply(results_model, function(x) x$paneldimension[,-c('date'),with=F][1]))
+estimated_markets[, ordered:=1:.N,by=c('market_id')]
+estimated_markets[, index:=1:.N]
+
+# ESTIMATE SUR
+split_by_market = split(results_model, estimated_markets$market_id)
+
+cat(paste0('Estimating SUR for ', length(split_by_market), ' markets...\n'))
+
+sur_res = parLapplyLB(cl, split_by_market, function(focal_models) {
+  mid=focal_models[[1]]$paneldimension$market_id[1]
+  cat(mid,fill=T)
+  
+  res=suppressWarnings(try(model_sur(focal_models), silent=T))
+  if(class(res)=='try-error') res=suppressWarnings(try(model_sur(focal_models, maxiter=1), silent=T))
+  
+  
+  list(market_id=mid, results=res)
+})
+
+#
+table(unlist(lapply(sur_res,function(x) class(x$results))))
+which(unlist(lapply(sur_res,function(x) class(x$results)))=='try-error')
+
+
+# WRITE RESULTS OF SUR TO MAIN RESULT SET
+for (i in seq(along=sur_res)) {
+  mid = unlist(lapply(sur_res, function(x) x$market_id))[i]
+  for (j in estimated_markets[market_id==mid]$ordered) {
+    ck=try(sur_res[[i]]$results$coefs[[j]],silent=T)
+    if (class(ck)!='try-error') {
+      results_model[[estimated_markets[market_id==mid]$index[j]]]$sur <- list(coefs=sur_res[[i]]$results$coefs[[j]],
+                                                                              varcovar=sur_res[[i]]$results$varcovar[[j]])
+    }
+  }
+}
+
+
+# calculation of elasticities [hm...]
+
+results_with_sur_models = parLapplyLB(cl, results_model, function(x) {
+  try(process_sur(x), silent=T)
+})
+#which(unlist(lapply(results_with_sur_models, class))=='try-error')
+
+
+
+# remove models
+results_ec_main_currweights_sur <- lapply(results_with_sur_models, function(x) {
+  x$model_matrix <- NULL
+  x$paneldimension <- NULL
+  x$dt <- NULL
+  x$elast_sur$country=x$elast$country
+  x$elast_sur$category=x$elast$category
+  x$elast_sur$brand=x$elast$brand
+  x$elast_sur$brand_id=x$elast$brand_id
+  
+  
+  x$elast <- x$elast_sur
+  
+  x
+})
+
+rm(results_with_sur_models)
+rm(results_model)
+
+
+### END
 
 # Function scans global environment for occurence of regular expression (`regex`), 
 # and saves all objects in `filename`.

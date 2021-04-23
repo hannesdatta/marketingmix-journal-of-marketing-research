@@ -127,11 +127,13 @@ lmerctrl = lmerControl(optimizer ="Nelder_Mead", check.conv.singular="ignore")
 
 names(elasticities)
 
-model_names = list('M1a) Linear error correction (sales, with SUR)' = 'ec_main_sur',
-                   'M1b) Linear error correction (sales, without SUR)' = 'ec_main',
-                   'M2a) Linear error correction (sales, with SUR, no sales weights)' = 'ec_main_noweights_sur',
-                   'M2b) Linear error correction (sales, without SUR)' = 'ec_main_noweights')#,
-                   
+model_names = list('M1a) Linear Error Correction (weights t-3...t-1, SUR)' = 'ec_main_sur',
+                   'M1b) Lin. EC (weights t-3...t-1, no SUR)' = 'ec_main',
+                   'M2a) Lin. EC (weights t-2...t, SUR)' = 'ec_main_currweights_sur',
+                   'M2b) Lin. EC (weights t-2...t, SUR)' = 'ec_main_currweights',
+                   'M3a) Lin. EC (no weights, SUR)' = 'ec_main_noweights_sur',
+                   'M3b) Lin. EC (no weights, no SUR)' = 'ec_main_noweights')#,
+
                    
                   # 'M2) Error correction (sales, without SUR)' = 'ec_main',
                   # 'M3) with lag competition' = 'ec_unrestrictedcompetition',
