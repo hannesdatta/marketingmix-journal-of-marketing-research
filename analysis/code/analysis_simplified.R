@@ -83,7 +83,7 @@ dir.create('../output')
     brand_panel[quarter==q, paste0('quarter', q):=1]
   }  
     
-  vars=c('rwpspr', 'rnwpr', 'llen', 'wpswdst', 'nwwdst', 'usales', 'lagusales', 'radv')#, 'adv')#, grep('comp[_]', colnames(brand_panel),value=T))
+  vars=c('rwpspr', 'rwcpspr', 'rnwpr', 'llen', 'wpswdst', 'wcpswdst', 'nwwdst', 'usales', 'lagusales', 'radv')#, 'adv')#, grep('comp[_]', colnames(brand_panel),value=T))
   for (var in vars) {
     brand_panel[, anyzero:=as.numeric(any(get(var)==0),na.rm=T),by=c('market_id', 'brand')]
     brand_panel[is.na(anyzero), anyzero:=0]
@@ -94,7 +94,7 @@ dir.create('../output')
   
   
   # competitive mmix
-  for (v in c('rwpspr', 'rnwpr', 'llen', 'wpswdst', 'nwwdst', 'radv')) { #}, 'lnadv')) {
+  for (v in c('rwpspr', 'rwcpspr', 'rnwpr', 'llen', 'wpswdst','wcpswdst', 'nwwdst', 'radv')) { #}, 'lnadv')) {
     setorder(brand_panel, market_id, category, country, brand, date)
     
     brand_panel[, rollmean_sales:=c(NA, NA, rollmean(usales, k = 3)), 
@@ -145,7 +145,7 @@ dir.create('../output')
   
   
   # Define copula terms
-  for (var in c('rwpspr', 'rnwpr', 'llen', 'wpswdst', 'nwwdst', 'radv')) {
+  for (var in c('rwpspr', 'rwcpspr', 'rnwpr', 'llen', 'wpswdst', 'wcpswdst', 'nwwdst', 'radv')) {
     brand_panel[, paste0('cop_', var):=make_copula(get(paste0(var))), by = c('market_id','brand')]
     brand_panel[, paste0('cop_d.1.', var):=make_copula(dshift(get(paste0(var)))), by = c('market_id','brand')]
   }
@@ -198,6 +198,13 @@ results_ec_main = parLapplyLB(cl, bids, function(bid)
 results_ec_main_noweights = parLapplyLB(cl, bids, function(bid)
   try(simple_ec(bid,
                 vars=c('rnwpr','llen','nwwdst'),
+                controls_diffs='^comp[_].*(rnwpr|llen|nwwdst)$',
+                controls_cop = '^cop[_](rnwpr|llen|nwwdst)$'), silent=T)
+)
+
+results_ec_main_currweights = parLapplyLB(cl, bids, function(bid)
+  try(simple_ec(bid,
+                vars=c('rwcpspr','llen','nwwdst'),
                 controls_diffs='^comp[_].*(rnwpr|llen|nwwdst)$',
                 controls_cop = '^cop[_](rnwpr|llen|nwwdst)$'), silent=T)
 )

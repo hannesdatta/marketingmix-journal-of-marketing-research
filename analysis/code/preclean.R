@@ -32,7 +32,7 @@ for (fn in ds) {
 	setorder(brand_panel, market_id, brand, date)
 	
 	# lag variables
-	for (.var in c('rwpspr', 'wpswdst','llen', 'usales')) {
+	for (.var in c('rwpspr', 'wpswdst','rwcpspr', 'wcpswdst','llen', 'usales')) {
 	  brand_panel[, paste0('lag', .var) := c(NA, get(.var)[-.N]), by = c('market_id', 'brand')]
 	}
 	
