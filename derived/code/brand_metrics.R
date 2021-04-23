@@ -455,7 +455,7 @@ for (selrule in names(selection)) {
   	         'wspr','wpspr','wcpspr','nwpr',
   	         'wsprd','wpsprd','wcpsprd','nwprd',
   	         'adv')
-  	       for (.l in .loop_vars) panel[, paste0('r',.l):=get(.l)/cpi]
+  	       for (.l in .loop_vars) paneldata[, paste0('r',.l):=get(.l)/cpi]
   	       
     	    # Investigate which part of the data set is complete and can be used for model estimation
     	    tmp <- split(paneldata, as.character(paneldata$brand))
