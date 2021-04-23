@@ -136,14 +136,19 @@ for (selrule in names(selection)) {
     	  }
     
     	# add rolling sum of unit sales in `n` periods, including the current one
-      tmp[, t_sales_units_rolled := run_sum(t_sales_units, n=3),by=idvars]
-      # lag, to exclude the current period
-      tmp[, t_sales_units_rolled := c(NA, t_sales_units_rolled[-.N]),by=idvars]
-      # set NAs to 0
-    	tmp[is.na(t_sales_units_rolled), t_sales_units_rolled := 0]
-    	# set to zero after last observed sale
-    	tmp[, ':=' (first_sale=min(date[t_sales_units>0]), last_sale=max(date[t_sales_units>0])),by = idvars]
+    	#tmp[, t_sales_units_rolled := run_sum(t_sales_units, n=3),by=idvars]
+    	tmp[, ':=' (tmp_sales_units_rolled = run_sum(t_sales_units, n=3),
+    	            first_sale=min(date[t_sales_units>0]), 
+    	            last_sale=max(date[t_sales_units>0])),by = idvars]
     	
+    	# weights INCLUDING current period
+    	tmp[, t_sales_units_rolled_incl := tmp_sales_units_rolled,by=idvars]
+    	tmp[is.na(t_sales_units_rolled_incl), t_sales_units_rolled_incl := 0]
+    	tmp[(date>last_sale)|!last_sale>0, t_sales_units_rolled_incl:=0]
+    	
+    	# weights EXCLUDING current period
+    	tmp[, t_sales_units_rolled := c(NA, tmp_sales_units_rolled[-.N]),by=idvars] # lag, to exclude the current period
+    	tmp[is.na(t_sales_units_rolled), t_sales_units_rolled := 0]# set NAs to 0
     	tmp[(date>last_sale)|!last_sale>0, t_sales_units_rolled:=0]
     	    
     	tmp[, t_noweights:=1]
@@ -151,7 +156,6 @@ for (selrule in names(selection)) {
     	
     	
     	aggkey=c(setdiff(idvars,c('model','brand_orig')),'date')
-    	
     	aggkey_agg=c(setdiff(idvars,c('brand', 'model','brand_orig')),'date')
     	
     	setkeyv(tmp, c(idvars, 'date'))
@@ -185,26 +189,33 @@ for (selrule in names(selection)) {
       
       merged_attr_sales = tmp[, list( usales=sum(t_sales_units,na.rm=T),
                                       upsales=sum(t_sales_units_rolled,na.rm=T),
+                                      ucpsales=sum(t_sales_units_rolled_incl,na.rm=T),
+                                      
                                       usales_sum_log = sum(ifelse(is.na(t_sales_units), 0, log(t_sales_units+1))),
                                       vsales = sum(t_value_sales,na.rm=T), 
   	                                   vsalesd = sum(t_value_sales_usd,na.rm=T),
   	                                         
   	                                         llen = length(unique(paste(brand_orig, model)[t_sales_units>0])),
-  	                                         wspr=weigh_by_w(t_price_filled, t_sales_units, na.rm=T, type = w_type),
-  	                                         wpspr=weigh_by_w(t_price_filled, t_sales_units_rolled, na.rm=T, type = w_type),
-  	                                         nwpr= weigh_by_w(t_price_filled, t_noweights,na.rm=T, type = w_type),
   	                                         
+                                            wspr=weigh_by_w(t_price_filled, t_sales_units, na.rm=T, type = w_type),
+  	                                         wpspr=weigh_by_w(t_price_filled, t_sales_units_rolled, na.rm=T, type = w_type),
+                                            wcpspr=weigh_by_w(t_price_filled, t_sales_units_rolled_incl, na.rm=T, type = w_type),
+                                            nwpr= weigh_by_w(t_price_filled, t_noweights,na.rm=T, type = w_type),
+        	                                         
   	                                         wsprd=weigh_by_w(t_price_usd_filled, t_sales_units, na.rm=T, type = w_type),
   	                                         wpsprd=weigh_by_w(t_price_usd_filled, t_sales_units_rolled, na.rm=T, type = w_type),
-  	                                         nwprd = weigh_by_w(t_price_usd_filled, t_noweights,na.rm=T, type = w_type),
-  	                                         
+                                            wcpsprd=weigh_by_w(t_price_usd_filled, t_sales_units_rolled_incl, na.rm=T, type = w_type),
+                                            nwprd = weigh_by_w(t_price_usd_filled, t_noweights,na.rm=T, type = w_type),
+        	                                         
   	                                         wswdst = weigh_by_w(t_wdist_filled,t_sales_units,na.rm=T, type = w_type),
   	                                         wpswdst = weigh_by_w(t_wdist_filled,t_sales_units_rolled,na.rm=T, type = w_type),
+                                            wcpswdst = weigh_by_w(t_wdist_filled,t_sales_units_rolled_incl,na.rm=T, type = w_type),
                                             nwwdst = weigh_by_w(t_wdist_filled, t_noweights, na.rm=T, type = w_type),
-  	                                         
+        	                                         
                                             adv = mean(adv, na.rm=T),
                                             wsadv = weigh_by_w(adv, t_sales_units, na.rm=T, type = w_type),
                                             wpsadv = weigh_by_w(adv, t_sales_units_rolled, na.rm=T, type = w_type),
+                                            wcpsadv = weigh_by_w(adv, t_sales_units_rolled_incl, na.rm=T, type = w_type),
                                       
   	                                         nov1 = length(unique(model[t_sales_units>0&novelty_sum%in%1])),
   	                                         nov3 = length(unique(model[t_sales_units>0&novelty_sum%in%1:3])),
@@ -217,10 +228,16 @@ for (selrule in names(selection)) {
   
   	# Add attributes
     attrdata=lapply(grep('^attr', colnames(tmp),value=T), function(var) {
-      w_type_overwrite = w_type
-      if (all(unlist(tmp[,var,with=F])%in%0:1)) w_type_overwrite='arithmetic'
-      rtmp=tmp[, list(outcomevar=weigh_by_w(get(var), t_sales_units_rolled, type = w_type_overwrite)), by = aggkey_iter]
+      #w_type_overwrite = w_type
+      #if (all(unlist(tmp[,var,with=F])%in%0:1)) w_type_overwrite='arithmetic'
+      w_type_overwrite = 'arithmetic'
+      rtmp=tmp[, list(outcomevar=weigh_by_w(get(var), t_sales_units_rolled, type = w_type_overwrite),
+                      outcomevar2=weigh_by_w(get(var), t_sales_units_rolled_incl, type = w_type_overwrite),
+                      outcomevar3=weigh_by_w(get(var), t_noweights, type = w_type_overwrite)), by = aggkey_iter]
       setnames(rtmp, 'outcomevar', var)
+      setnames(rtmp, 'outcomevar2', gsub('^attr', 'cpsattr', var))
+      setnames(rtmp, 'outcomevar3', gsub('^attr', 'nwattr', var))
+      
       rtmp
     })
     
@@ -434,17 +451,12 @@ for (selrule in names(selection)) {
   	        }
   	      
     	    # Correct monetary variables with a country's CPI
-    	    paneldata[, ':=' (rvsales = vsales/cpi, 
-    	                      rwspr = wspr/cpi, 
-    	                      rwpspr = wpspr/cpi,
-    	                      rnwpr = nwpr/cpi,
-    	                      rwsprd = wsprd/cpi, 
-    	                      rwpsprd = wpsprd/cpi,
-    	                      rnwprd = nwprd/cpi,
-    	                      rwsadv = wsadv/cpi,
-    	                      rwpsadv = wpsadv/cpi,
-    	                      radv = adv/cpi)]
-    	    
+  	       .loop_vars = c('vsales',
+  	         'wspr','wpspr','wcpspr','nwpr',
+  	         'wsprd','wpsprd','wcpsprd','nwprd',
+  	         'adv')
+  	       for (.l in .loop_vars) panel[, paste0('r',.l):=get(.l)/cpi]
+  	       
     	    # Investigate which part of the data set is complete and can be used for model estimation
     	    tmp <- split(paneldata, as.character(paneldata$brand))
     	    
