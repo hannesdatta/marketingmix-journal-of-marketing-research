@@ -176,7 +176,7 @@ void<-clusterEvalQ(cl, init())
 
 
 
-bids <- unique(brand_panel$brand_id) #[1:10]
+bids <- unique(brand_panel$brand_id)[1:50]
 length(bids)
 
 init()
@@ -252,25 +252,25 @@ results_ec_log = parLapplyLB(cl, bids, function(bid)
 ## Linear sales response models
 
 # Linear sales model corresponding to the main model
-results_salesresponse_linear = parLapplyLB(cl, bids, function(bid)
-  try(estimate_salesreponse(bid), silent=T)
+results_salesresponse_linear = parLapplyLB(cl, bids[1:10], function(bid)
+  try(estimate_salesresponse(bid), silent=T)
 )
 
 # No lagged dependent variable
 results_salesresponse_linear_noldv = parLapplyLB(cl, bids, function(bid)
-  try(estimate_salesreponse(bid, withlagdv=F), silent=T)
+  try(estimate_salesresponse(bid, withlagdv=F), silent=T)
 )
 
 # Only lagged dependent variable
 results_salesresponse_linear_onlyldv = parLapplyLB(cl, bids, function(bid)
-  try(estimate_salesreponse(bid, withlagdv=T, vars=NULL, controls=NULL), silent=T)
+  try(estimate_salesresponse(bid, withlagdv=T, vars=NULL, controls=NULL), silent=T)
 )
 
 ## Log-log sales response models
 
 # Log-log sales model corresponding to the main model
 results_salesresponse_loglog = parLapplyLB(cl, bids, function(bid)
-  try(estimate_salesreponse(bid,
+  try(estimate_salesresponse(bid,
                     vars='lnrwpspr','lnllen','lnwpswdst',
                     controls='(^comp[_].*(lnrwpspr|lnllen|lnwpswdst)$)|quarter[1-3]|^lnholiday|^lntrend|(^cop[_](rwpspr|llen|wpswdst)$)',
                     dv = 'lnusales'), silent=T)
@@ -279,7 +279,7 @@ results_salesresponse_loglog = parLapplyLB(cl, bids, function(bid)
 
 # No lagged dependent variable
 results_salesresponse_loglog_noldv = parLapplyLB(cl, bids, function(bid)
-  try(estimate_salesreponse(bid,
+  try(estimate_salesresponse(bid,
                     vars='lnrwpspr','lnllen','lnwpswdst',
                     controls='(^comp[_].*(lnrwpspr|lnllen|lnwpswdst)$)|quarter[1-3]|^lnholiday|^lntrend|(^cop[_](rwpspr|llen|wpswdst)$)',
                     dv = 'lnusales', withlagdv=F), silent=T)
@@ -287,7 +287,7 @@ results_salesresponse_loglog_noldv = parLapplyLB(cl, bids, function(bid)
 
 # No lagged dependent variable
 results_salesresponse_loglog_onlyldv = parLapplyLB(cl, bids, function(bid)
-  try(estimate_salesreponse(bid,
+  try(estimate_salesresponse(bid,
                     vars=NULL, controls = NULL, dv = 'lnusales', withlagdv=T), silent=T)
 )
 
@@ -319,7 +319,6 @@ results_ec_lntrend = parLapplyLB(cl, bids, function(bid)
 # SUR ON MAIN MODEL #
 #####################
 
-if(0) { #deactivate SUR for now
 do_sur <- function(results_model = results_ec_main) {
   #results_model <- results_ec_main
   
@@ -401,7 +400,6 @@ results_ec_main_sur <- do_sur(results_ec_main)
 results_ec_main_noweights_sur <- do_sur(results_ec_main_noweights)
 results_ec_main_currweights_sur <- do_sur(results_ec_main_currweights)
 
-}
 
 
 # Function scans global environment for occurence of regular expression (`regex`), 

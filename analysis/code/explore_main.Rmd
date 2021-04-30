@@ -11,29 +11,6 @@ library(stargazer)
 library(knitr)
 library(DT)
 
-if(0){
-load('../output/results_simplified.RData')
-
-mname= commandArgs(trailingOnly=T)[2]
-
-vifs_model = eval(parse(text=paste0('rbindlist(lapply(', mname, ', function(x) x$vif))')))
-# elasticities
-elast_model = eval(parse(text=paste0('rbindlist(lapply(', mname, ', function(x) x$elast))')))
-elast_model[, z:=elastlt/elastlt_se]
-zval_sig=qnorm(.95)
-
-results_model = eval(parse(text=paste0(mname)))
-
-
-# %-copula terms
-vars=unlist(lapply(results_model, function(x) return(names(x$model$coefficients))))
-vars <- data.table(vars)
-vars = vars[, list(.N),by=c('vars')]
-vars[grepl('pr$|llen$|dst$|cop', vars)]
-(297+323+223)/(1619+1618+1619)
-
-}
-
 ```
 
 ## Model fit
@@ -50,10 +27,9 @@ The mean R2 (within, on the dependent variable) is `r mean(r2s,na.rm=T)*100`.
 Let us first look at the model results for *one* example brand. I've generated this to illustrate the model configuration (i.e., covariates) and dependent variable.
 
 ```{r, results = 'asis', echo = FALSE, include= TRUE}
-ids = unlist(lapply(results_model, function(x) x$elast$brand_id[1]))
-#bid=1372
-id=ids[1]#which(ids==bid)
-
+#ids = unlist(lapply(results_model, function(x) x$elast$brand_id[1]))
+#id=ids[1]#which(ids==bid)
+id=1
 stargazer(results_model[[id]]$model, type='html')
 cat(paste0('Dependent variable: ', colnames(results_model[[id]]$model$model)[id]), fill =T)
 cat(paste0('Removed variables (due to ns.): ', paste0( results_model[[id]]$kicked_out_coefs, collapse=', ')), fill =T)

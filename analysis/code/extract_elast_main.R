@@ -9,7 +9,7 @@
 
 # Load packages
 library(data.table)
-library(marketingtools)
+#library(marketingtools)
 
 # Load results
 load(file = c('../output/results_main.RData'))
