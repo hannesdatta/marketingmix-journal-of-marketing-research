@@ -7,7 +7,7 @@ OUTPUT_DIR = ../output
 
 
 ###### BUILD COMMANDS ######
-all: simplified marketshare
+all: main
 #sales
 #marketshare  sales
 
@@ -15,7 +15,7 @@ pre: $(TEMP_DIR)/preclean.txt
 
 marketshare: $(OUTPUT_DIR)/elasticities_marketshare.txt $(OUTPUT_DIR)/audit_marketshare.html
 sales: $(OUTPUT_DIR)/elasticities_sales.txt $(OUTPUT_DIR)/audit_sales.html
-simplified: $(OUTPUT_DIR)/elasticities_simplified.txt $(TEMP_DIR)/explore_simplified.txt
+main: $(OUTPUT_DIR)/elasticities_main.txt $(TEMP_DIR)/explore_main.txt
 
 ###### Build parts ######
 
@@ -43,37 +43,19 @@ $(OUTPUT_DIR)/elasticities_marketshare.txt: extract_elast_marketshare.R $(OUTPUT
 $(OUTPUT_DIR)/audit_marketshare.html: $(OUTPUT_DIR)/results_marketshare.RData audit_marketshare.Rmd
 	R -e "rmarkdown::render('audit_marketshare.Rmd', output_file = '../output/audit_marketshare.html')"
 
-############################
-### Sales response model ###
-############################
+###################
+### Main models ###
+###################
 
 #### Model estimation
-$(OUTPUT_DIR)/results_sales.RData: analysis_sales.R $(TEMP_DIR)/preclean.txt proc_analysis_sales.R proc_analysis_marketshare.R proc_analysis_ardlbounds.R proc_analysis_ardl.R
-	R --vanilla --args "" < "analysis_sales.R"
-
-#### Produce overall statistics on estimated models (e.g., elasticities, carry-over parameters, sign. of copula terms)
-$(OUTPUT_DIR)/elasticities_sales.txt: extract_elast_sales.R $(OUTPUT_DIR)/results_sales.RData
-	R --vanilla --args "" < "extract_elast_sales.R"
-
-
-#### Model diagnostics
-$(OUTPUT_DIR)/audit_sales.html: $(OUTPUT_DIR)/results_sales.RData audit_sales.Rmd
-	R -e "rmarkdown::render('audit_sales.Rmd', output_file = '../output/audit_sales.html')"
-
-
-#########################
-### Simplified models ###
-#########################
-
-#### Model estimation
-$(OUTPUT_DIR)/results_simplified.RData: analysis_simplified.R $(TEMP_DIR)/preclean.txt proc_simplified.R
-	R --vanilla --args "" < "analysis_simplified.R"
+$(OUTPUT_DIR)/results_main.RData: analysis_main.R $(TEMP_DIR)/preclean.txt proc_analysis_main.R
+	R --vanilla --args "" < "analysis_main.R"
 
 #### 
-$(OUTPUT_DIR)/elasticities_simplified.txt: extract_elast_simplified.R $(OUTPUT_DIR)/results_simplified.RData
-	R --vanilla --args "" < "extract_elast_simplified.R"
+$(OUTPUT_DIR)/elasticities_main.txt: extract_elast_main.R $(OUTPUT_DIR)/results_main.RData
+	R --vanilla --args "" < "extract_elast_main.R"
 
-$(TEMP_DIR)/explore_simplified.txt: $(OUTPUT_DIR)/elasticities_simplified.txt run_explore_simplified.R explore_simple.Rmd
-	R --vanilla --args "" < "run_explore_simplified.R"
+$(TEMP_DIR)/explore_main.txt: $(OUTPUT_DIR)/elasticities_main.txt run_explore_main.R explore_main.Rmd
+	R --vanilla --args "" < "run_explore_main.R"
 
 

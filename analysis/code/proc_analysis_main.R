@@ -2,17 +2,16 @@ library(MASS)
 library(car)
 
 # Configure model type and calibrate lag structure
-simple_loglog <- function(id, vars = c('rwpspr','llen','wpswdst'),
+estimate_salesresponse <- function(id, vars = c('rwpspr','llen','wpswdst'),
                       controls='(^comp[_].*(rwpspr|llen|wpswdst)$)|quarter[1-3]|^holiday|^trend|(^cop[_](rwpspr|llen|wpswdst)$)', 
                       pval = .1,
                       kickout_ns_copula = T, withlagdv=T, dv = 'usales') {
   
-  #dv='lnusales'
+  
   dt=data.table(brand_panel[brand_id==id])
   setorder(dt, category,country,brand,date)
   dt[, ldv := c(NA,get(dv)[-.N]), by = c('category','country','brand')]
   dt[, ddv := get(dv)-c(NA,get(dv)[-.N]), by = c('category','country','brand')]
-  
   
   brands_in_market <- unique(brand_panel[market_id%in%unique(brand_panel[brand_id==id]$market_id)]$brand)
   
@@ -57,7 +56,6 @@ simple_loglog <- function(id, vars = c('rwpspr','llen','wpswdst'),
   
   
   # block holdouts
-  
   kfolds=10
   
   folds = split(1:nrow(dt), cut(1:nrow(dt), kfolds))
@@ -91,24 +89,41 @@ simple_loglog <- function(id, vars = c('rwpspr','llen','wpswdst'),
   
   # for linear model, need to multiply elasticities by mean X / mean sales.
   means = unlist(dt[, lapply(.SD, mean,na.rm=T), .SDcols=c(dv,vars)])
-  multipliers <- rep(1, length(vars))
-  if (!grepl('^ln|^log', dv)) multipliers <- sapply(vars, function(.v) means[.v]/means[dv])
-  names(multipliers)<-vars
+  medians = unlist(dt[, lapply(.SD, median,na.rm=T), .SDcols=c(dv,vars)])
+  multipliers_means <- rep(1, length(vars))
+  if (!grepl('^ln|^log', dv)) multipliers_means <- sapply(vars, function(.v) means[.v]/means[dv])
+  multipliers_medians <- rep(1, length(vars))
+  if (!grepl('^ln|^log', dv)) multipliers_medians <- sapply(vars, function(.v) medians[.v]/medians[dv])
+  
+  names(multipliers_means)<-vars
+  names(multipliers_medians)<-vars
+  
+ 
+  
   
   if (length(vars)>0) {
     elast2 = rbindlist(lapply(vars, function(v) {
-      st=deltaMethod(m2, paste0(multipliers[v],'*(', v, ')'))
+      st=deltaMethod(m2, paste0(multipliers_means[v],'*(', v, ')'))
+      st_median=deltaMethod(m2, paste0(multipliers_medians[v],'*(', v, ')'))
       
       if (v%in% names(m2$coefficients)) {
-        lt=try(deltaMethod(m2, paste0(multipliers[v],'*((', v, ')/(1-ldv))')), silent=T)
-        if ('try-error'%in%class(lt)) lt = deltaMethod(m2, paste0(multipliers[v],'*((', v, ')/(1-0))'))
+        lt=try(deltaMethod(m2, paste0(multipliers_means[v],'*((', v, ')/(1-ldv))')), silent=T)
+        lt_median=try(deltaMethod(m2, paste0(multipliers_medians[v],'*((', v, ')/(1-ldv))')), silent=T)
         
-        } #else {
-          #lt=deltaMethod(m2, paste0('(0)/(ldv)'))
-        #}
-      if ('ldv'%in%names(m2$coefficients)) lnlagcoef=m2$coefficients['ldv'] else lnlagcoef=NA
+        if ('try-error'%in%class(lt)) lt = deltaMethod(m2, paste0(multipliers_means[v],'*((', v, ')/(1-0))'))
+        if ('try-error'%in%class(lt_median)) lt_median = deltaMethod(m2, paste0(multipliers_medians[v],'*((', v, ')/(1-0))'))
+      }
+      
+      
+      if ('ldv'%in%names(m2$coefficients)) lnlagcoef = m2$coefficients['ldv'] else lnlagcoef = NA
+      
       data.frame(variable=v, elast = st$Estimate, elast_se=st$SE,
-                 elastlt = lt$Estimate, elastlt_se = lt$SE, beta = m2$coefficients[v], 
+                 elastlt = lt$Estimate, elastlt_se = lt$SE, 
+                 
+                 elastmedian = st_median$Estimate, elastmedian_se = st_median$SE,
+                 elastmedianlt = lt_median$Estimate, elastmedianlt_se = lt_median$SE,
+                 
+                 beta = m2$coefficients[v], 
                  carryover = lnlagcoef)
       
     }))
@@ -132,7 +147,7 @@ simple_loglog <- function(id, vars = c('rwpspr','llen','wpswdst'),
 }
 
 # Configure model type and calibrate lag structure
-simple_ec <- function(id, vars = c('rwpspr','llen','wpswdst'),
+estimate_ec <- function(id, vars = c('rwpspr','llen','wpswdst'),
                           controls_diffs='^comp[_].*(rwpspr|llen|wpswdst)$', 
                           controls_laglevels = '',
                           controls_curr = 'quarter[1-3]|^holiday|^trend',
@@ -140,8 +155,6 @@ simple_ec <- function(id, vars = c('rwpspr','llen','wpswdst'),
                           pval = .1,
                           kickout_ns_copula = T, dv = 'usales') {
   
-  # 1.0 Conduct bounds test
-  #dv='lnusales'
   dt=data.table(brand_panel[brand_id==id])
   setorder(dt, category,country,brand,date)
   dt[, ldv := c(NA,get(dv)[-.N]), by = c('category','country','brand')]
@@ -189,15 +202,9 @@ simple_ec <- function(id, vars = c('rwpspr','llen','wpswdst'),
   dt[, percentile_obs:=(1:.N)/.N]
   
   
-  #dt[, percentile_obs:=(percentile_obs-min(percentile_obs))]
-  #dt[, percentile_obs:=percentile_obs/max(percentile_obs)]
-  
   dt[, estim_set:=T]
   
   m = lm(my_form, data= dt) #, subset = estim_set==T)
-  
-  # compute means for elasticity computation
-  means = dt[, lapply(.SD, mean,na.rm=T), .SDcols=c(dv,vars)]
   
   #identifiers = unique(dt[,c('market_id', 'category','country', 'brand', 'brand_id' ),with=F], by=c('brand_id'))
   #setkey(identifiers, market_id, brand)

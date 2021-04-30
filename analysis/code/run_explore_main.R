@@ -2,7 +2,7 @@ rm(list = ls())
 library(knitr)
 library(data.table)
 
-load('../output/results_simplified.RData')
+load('../output/results_main.RData')
 
 unlink('../audit/*.html')
 
@@ -19,10 +19,10 @@ for (mname in models) {
     results_model <<- eval(parse(text=paste0(mname)))
     markdown_title <<- mname
     zval_sig=qnorm(.95)
-    rmarkdown::render('explore_simple.rmd', output_file=paste0('../audit/model_', mname, '.html'))
+    rmarkdown::render('explore_main.rmd', output_file=paste0('../audit/model_', mname, '.html'))
     }
 }
 
-sink('../temp/explore_simplified.txt')
+sink('../temp/explore_main.txt')
 cat('done.')
 sink()

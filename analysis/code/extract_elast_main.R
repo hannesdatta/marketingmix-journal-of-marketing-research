@@ -12,7 +12,7 @@ library(data.table)
 library(marketingtools)
 
 # Load results
-load(file = c('../output/results_simplified.RData'))
+load(file = c('../output/results_main.RData'))
 
 #unlink('../output/*.csv')
 
@@ -65,7 +65,7 @@ for (i in seq(along=out)) {
   
 }
 
-sink('../output/elasticities_simplified.txt')
+sink('../output/elasticities_main.txt')
 cat('Finished building extract_elast.R at:\n')
 print(Sys.time())
 for (i in seq(along=out)) {

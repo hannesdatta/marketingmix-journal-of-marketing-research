@@ -18,7 +18,6 @@
 # |___________________|_____|
 
 
-#if (1==1) quit()
 rm(list = ls())
 
 ### LOAD DATA SETS
@@ -34,8 +33,7 @@ init <- function() {
   library(marketingtools)
   library(car)
   source('proc_auxilary.R')
-  #source('c1c5b3af32343d042fcbc8e249ae9ff6/proc_unitroots.R')
-  source('proc_simplified.R')
+  source('proc_analysis_main.R')
 }
 
 init()
@@ -46,8 +44,7 @@ dir.create('../output')
 ## Load panel data
 	brand_panel=fread('../temp/preclean_main.csv')
 	brand_panel[, ':=' (date = as.Date(date))]
-#  brand_panel[, brand:=paste0('bid',.GRP), by = c('market_id','brand_id')]
-  
+
 # define markets to run analysis on 
 	markets <- brand_panel[, list(n_brands = length(unique(brand)),
 	                              n_obs = .N,
@@ -83,7 +80,7 @@ dir.create('../output')
     brand_panel[quarter==q, paste0('quarter', q):=1]
   }  
     
-  vars=c('rwpspr', 'rwcpspr', 'rnwpr', 'llen', 'wpswdst', 'wcpswdst', 'nwwdst', 'usales', 'lagusales', 'radv')#, 'adv')#, grep('comp[_]', colnames(brand_panel),value=T))
+  vars=c('rwpspr', 'rwcpspr', 'rnwpr', 'llen', 'wpswdst', 'wcpswdst', 'nwwdst', 'usales', 'lagusales', 'radv')#, 'adv')
   for (var in vars) {
     brand_panel[, anyzero:=as.numeric(any(get(var)==0),na.rm=T),by=c('market_id', 'brand')]
     brand_panel[is.na(anyzero), anyzero:=0]
@@ -106,11 +103,14 @@ dir.create('../output')
     brand_panel[, paste0('denominator_', v):=sum(rollmean_sales, na.rm=T), by = c('market_id', 'date')]
     
     brand_panel[, paste0('comp_', v):=(get(paste0('numerator_', v))-rollmean_sales*get(v))/(get(paste0('denominator_', v))-rollmean_sales)]
+    brand_panel[, paste0('comp_ln', v):=log(get(paste0('comp_', v)))]
     
     brand_panel[, paste0('numerator_', v):=NULL]
     brand_panel[, paste0('denominator_', v):=NULL]
     
     brand_panel[, paste0('dcomp_',v):=get(paste0('comp_', v))-c(NA, get(paste0('comp_', v))[-.N]), by = c('market_id', 'brand_id')]
+    brand_panel[, paste0('dcomp_ln',v):=get(paste0('comp_ln', v))-c(NA, get(paste0('comp_ln', v))[-.N]), by = c('market_id', 'brand_id')]
+    
     }
   
   
@@ -147,7 +147,6 @@ dir.create('../output')
   # Define copula terms
   for (var in c('rwpspr', 'rwcpspr', 'rnwpr', 'llen', 'wpswdst', 'wcpswdst', 'nwwdst', 'radv')) {
     brand_panel[, paste0('cop_', var):=make_copula(get(paste0(var))), by = c('market_id','brand')]
-    brand_panel[, paste0('cop_d.1.', var):=make_copula(dshift(get(paste0(var)))), by = c('market_id','brand')]
   }
   
   #brand_panel[, lngdp := log(gdppercapita)]
@@ -157,11 +156,6 @@ dir.create('../output')
   brand_panel <- brand_panel[!grepl('alloth',brand, ignore.case=T)]
 
 
-  brand_panel[, noadv:=all(adv==0),by=c('category','country','brand')]
-  
- # brand_panel[noadv==T, wsadv:=NA]
-  brand_panel[noadv==F,list(.N),by=c('category','country')]
-   
   list1= brand_panel[, list(.N),by=c('category','country', 'market_id')]
   #list2=brand_panel_raw[, list(.N),by=c('category','country', 'market_id')]
   #list2[!market_id%in%list1$market_id]
@@ -182,330 +176,233 @@ void<-clusterEvalQ(cl, init())
 
 
 
-bids <- unique(brand_panel$brand_id)#[1:50]
+bids <- unique(brand_panel$brand_id) #[1:10]
 length(bids)
 
 init()
 
 
 
-####### MAIN MODEL ######
+## MAIN MODEL
 
 results_ec_main = parLapplyLB(cl, bids, function(bid)
-  try(simple_ec(bid), silent=T)
+  try(estimate_ec(bid), silent=T)
 )
 
-results_ec_main_noweights = parLapplyLB(cl, bids, function(bid)
-  try(simple_ec(bid,
-                vars=c('rnwpr','llen','nwwdst'),
-                controls_diffs='^comp[_].*(rnwpr|llen|nwwdst)$',
-                controls_cop = '^cop[_](rnwpr|llen|nwwdst)$'), silent=T)
+## ADDING MARKETING MIX INSTRUMENTS ITERATIVELY
+
+results_ec_nommix = parLapplyLB(cl, bids, function(bid)
+  try(estimate_ec(bid,vars = NULL, 
+                controls_cop = NULL), silent=T)
 )
 
+
+results_ec_onlypr = parLapplyLB(cl, bids, function(bid)
+  try(estimate_ec(bid,vars = c('rwpspr'), 
+                controls_cop = '^cop[_](rwpspr)$'), silent=T)
+)
+
+results_ec_onlyllen = parLapplyLB(cl, bids, function(bid)
+  try(estimate_ec(bid,vars = c('llen'), 
+                controls_cop = '^cop[_](llen)$'), silent=T)
+)
+
+results_ec_onlydst = parLapplyLB(cl, bids, function(bid)
+  try(estimate_ec(bid,vars = c('wpswdst'), 
+                controls_cop = '^cop[_](wpswdst)$'), silent=T)
+)
+
+
+## WITH VARYING SALES WEIGHTS
+
+# weights t-2, t-1, t ("weights, including current sales")
 results_ec_main_currweights = parLapplyLB(cl, bids, function(bid)
-  try(simple_ec(bid,
+  try(estimate_ec(bid,
                 vars=c('rwcpspr','llen','nwwdst'),
                 controls_diffs='^comp[_].*(rnwpr|llen|nwwdst)$',
                 controls_cop = '^cop[_](rnwpr|llen|nwwdst)$'), silent=T)
 )
 
-#table(unlist(lapply(results_ec_main_noweights,class)))
-
-#out=rbindlist(lapply(results_ec_main_noweights, function(x) x$elast))
-
-#out[, list(lt_at_mean = mean(elastlt),
-#           lt_at_median = mean(elastmedianlt)), by = c('variable')]
-
-
-#out=rbindlist(lapply(results_ec_main, function(x) x$elast))
-#out[, list(lt_at_mean = mean(elastlt),
-#           lt_at_median = mean(elastmedianlt)), by = c('variable')]
-
-
-if(0){ 
-## LOG LOG MAIN MODEL ##
-results_loglog_main = parLapplyLB(cl, bids, function(bid)
-  try(simple_loglog(bid), silent=T)
+# no weights
+results_ec_main_noweights = parLapplyLB(cl, bids, function(bid)
+  try(estimate_ec(bid,
+                vars=c('rnwpr','llen','nwwdst'),
+                controls_diffs='^comp[_].*(rnwpr|llen|nwwdst)$',
+                controls_cop = '^cop[_](rnwpr|llen|nwwdst)$'), silent=T)
 )
 
-## LOG LOG MAIN MODEL - NO LAGGED DV ##
-results_loglog_noldv = parLapplyLB(cl, bids, function(bid)
-  try(simple_loglog(bid, withlagdv=F), silent=T)
+## MULTIPLICATIVE ERROR CORRECTION MODEL
+
+results_ec_log = parLapplyLB(cl, bids, function(bid)
+  try(estimate_ec(
+    bid,
+    dv = 'lnusales',
+    vars = c('lnrwpspr', 'lnllen', 'lnwpswdst'),
+    controls_diffs = '^comp[_].*(lnrwpspr|lnllen|lnwpswdst)$',
+    controls_laglevels = '',
+    controls_curr = 'quarter[1-3]|^lnholiday|^lntrend',
+    controls_cop = '^cop[_](rwpspr|llen|wpswdst)$', # copula terms of log versus levels is the same
+    pval = .1
+  ),
+  silent = T))
+
+
+### Sales response models
+
+## Linear sales response models
+
+# Linear sales model corresponding to the main model
+results_salesresponse_linear = parLapplyLB(cl, bids, function(bid)
+  try(estimate_salesreponse(bid), silent=T)
 )
 
-## LOG LOG MAIN MODEL - ONLY LAGGED DV
-results_loglog_onlyldv = parLapplyLB(cl, bids, function(bid)
-  try(simple_loglog(bid, withlagdv=T, vars=NULL, controls=NULL), silent=T)
+# No lagged dependent variable
+results_salesresponse_linear_noldv = parLapplyLB(cl, bids, function(bid)
+  try(estimate_salesreponse(bid, withlagdv=F), silent=T)
+)
+
+# Only lagged dependent variable
+results_salesresponse_linear_onlyldv = parLapplyLB(cl, bids, function(bid)
+  try(estimate_salesreponse(bid, withlagdv=T, vars=NULL, controls=NULL), silent=T)
+)
+
+## Log-log sales response models
+
+# Log-log sales model corresponding to the main model
+results_salesresponse_loglog = parLapplyLB(cl, bids, function(bid)
+  try(estimate_salesreponse(bid,
+                    vars='lnrwpspr','lnllen','lnwpswdst',
+                    controls='(^comp[_].*(lnrwpspr|lnllen|lnwpswdst)$)|quarter[1-3]|^lnholiday|^lntrend|(^cop[_](rwpspr|llen|wpswdst)$)',
+                    dv = 'lnusales'), silent=T)
 )
 
 
-####### ADDING MARKETING MIX INSTRUMENTS ITERATIVELY ######
-
-results_ec_nommix = parLapplyLB(cl, bids, function(bid)
-  try(simple_ec(bid,vars = NULL, 
-                controls_cop = NULL), silent=T)
+# No lagged dependent variable
+results_salesresponse_loglog_noldv = parLapplyLB(cl, bids, function(bid)
+  try(estimate_salesreponse(bid,
+                    vars='lnrwpspr','lnllen','lnwpswdst',
+                    controls='(^comp[_].*(lnrwpspr|lnllen|lnwpswdst)$)|quarter[1-3]|^lnholiday|^lntrend|(^cop[_](rwpspr|llen|wpswdst)$)',
+                    dv = 'lnusales', withlagdv=F), silent=T)
 )
 
-results_ec_onlypr = parLapplyLB(cl, bids, function(bid)
-  try(simple_ec(bid,vars = c('rwpspr'), 
-                controls_cop = '^cop[_](rwpspr)$'), silent=T)
+# No lagged dependent variable
+results_salesresponse_loglog_onlyldv = parLapplyLB(cl, bids, function(bid)
+  try(estimate_salesreponse(bid,
+                    vars=NULL, controls = NULL, dv = 'lnusales', withlagdv=T), silent=T)
 )
 
-results_ec_onlyllen = parLapplyLB(cl, bids, function(bid)
-  try(simple_ec(bid,vars = c('llen'), 
-                controls_cop = '^cop[_](llen)$'), silent=T)
-)
 
-results_ec_onlydst = parLapplyLB(cl, bids, function(bid)
-  try(simple_ec(bid,vars = c('wpswdst'), 
-                controls_cop = '^cop[_](wpswdst)$'), silent=T)
-)
-
+if(0){
 
 ####### WITH LAGGED COMPETITION VARIABLES ######
 
 results_ec_unrestrictedcompetition = parLapplyLB(cl, bids, function(bid)
-  try(simple_ec(bid, controls_laglevels = '^comp[_].*(pr|llen|dst)$'), silent=T)
+  try(estimate_ec(bid, controls_laglevels = '^comp[_].*(pr|llen|dst)$'), silent=T)
 )
 
 ####### WITHOUT ENDOGENEITY CONTROLS ######
 
 results_ec_noendogeneity = parLapplyLB(cl, bids, function(bid)
-  try(simple_ec(bid, controls_cop = NULL),silent=T)
+  try(estimate_ec(bid, controls_cop = NULL),silent=T)
 )
 
 ####### WITH LN TREND INSTEAD OF TREND ######
 
 results_ec_lntrend = parLapplyLB(cl, bids, function(bid)
-  try(simple_ec(bid, controls_curr = 'quarter[1-3]|lnholiday|^lntrend'),silent=T)
+  try(estimate_ec(bid, controls_curr = 'quarter[1-3]|lnholiday|^lntrend'),silent=T)
 )
+
+
+}
 
 #####################
 # SUR ON MAIN MODEL #
 #####################
-}
 
-## MAIN MODEL
-
-results_model <- results_ec_main
-
-
-estimated_markets <- rbindlist(lapply(results_model, function(x) x$paneldimension[,-c('date'),with=F][1]))
-estimated_markets[, ordered:=1:.N,by=c('market_id')]
-estimated_markets[, index:=1:.N]
-
-# ESTIMATE SUR
-split_by_market = split(results_model, estimated_markets$market_id)
-
-cat(paste0('Estimating SUR for ', length(split_by_market), ' markets...\n'))
-
-sur_res = parLapplyLB(cl, split_by_market, function(focal_models) {
-  mid=focal_models[[1]]$paneldimension$market_id[1]
-  cat(mid,fill=T)
-  
-  res=suppressWarnings(try(model_sur(focal_models), silent=T))
-  if(class(res)=='try-error') res=suppressWarnings(try(model_sur(focal_models, maxiter=1), silent=T))
+if(0) { #deactivate SUR for now
+do_sur <- function(results_model = results_ec_main) {
+  #results_model <- results_ec_main
   
   
-  list(market_id=mid, results=res)
-})
-
-#
-table(unlist(lapply(sur_res,function(x) class(x$results))))
-which(unlist(lapply(sur_res,function(x) class(x$results)))=='try-error')
-
-
-# WRITE RESULTS OF SUR TO MAIN RESULT SET
-for (i in seq(along=sur_res)) {
-  mid = unlist(lapply(sur_res, function(x) x$market_id))[i]
-  for (j in estimated_markets[market_id==mid]$ordered) {
-    ck=try(sur_res[[i]]$results$coefs[[j]],silent=T)
-    if (class(ck)!='try-error') {
-      results_model[[estimated_markets[market_id==mid]$index[j]]]$sur <- list(coefs=sur_res[[i]]$results$coefs[[j]],
-                                                                              varcovar=sur_res[[i]]$results$varcovar[[j]])
+  estimated_markets <- rbindlist(lapply(results_model, function(x) x$paneldimension[,-c('date'),with=F][1]))
+  estimated_markets[, ordered:=1:.N,by=c('market_id')]
+  estimated_markets[, index:=1:.N]
+  
+  # ESTIMATE SUR
+  split_by_market = split(results_model, estimated_markets$market_id)
+  
+  cat(paste0('Estimating SUR for ', length(split_by_market), ' markets...\n'))
+  
+  sur_res = parLapplyLB(cl, split_by_market, function(focal_models) {
+    mid=focal_models[[1]]$paneldimension$market_id[1]
+    cat(mid,fill=T)
+    
+    res=suppressWarnings(try(model_sur(focal_models), silent=T))
+    if(class(res)=='try-error') res=suppressWarnings(try(model_sur(focal_models, maxiter=1), silent=T))
+    
+    
+    list(market_id=mid, results=res)
+  })
+  
+  #
+  table(unlist(lapply(sur_res,function(x) class(x$results))))
+  which(unlist(lapply(sur_res,function(x) class(x$results)))=='try-error')
+  
+  
+  # WRITE RESULTS OF SUR TO MAIN RESULT SET
+  for (i in seq(along=sur_res)) {
+    mid = unlist(lapply(sur_res, function(x) x$market_id))[i]
+    for (j in estimated_markets[market_id==mid]$ordered) {
+      ck=try(sur_res[[i]]$results$coefs[[j]],silent=T)
+      if (class(ck)!='try-error') {
+        results_model[[estimated_markets[market_id==mid]$index[j]]]$sur <- list(coefs=sur_res[[i]]$results$coefs[[j]],
+                                                                                varcovar=sur_res[[i]]$results$varcovar[[j]])
+      }
     }
   }
+  
+  
+  # calculation of elasticities [hm...]
+  
+  results_with_sur_models = parLapplyLB(cl, results_model, function(x) {
+    try(process_sur(x), silent=T)
+  })
+  #which(unlist(lapply(results_with_sur_models, class))=='try-error')
+  
+  
+  
+  
+  # remove models
+  ret_model <- lapply(results_with_sur_models, function(x) {
+    x$model_matrix <- NULL
+    x$paneldimension <- NULL
+    x$dt <- NULL
+    x$elast_sur$country=x$elast$country
+    x$elast_sur$category=x$elast$category
+    x$elast_sur$brand=x$elast$brand
+    x$elast_sur$brand_id=x$elast$brand_id
+    
+    
+    x$elast <- x$elast_sur
+    
+    x
+  })
+  
+  
+  rm(results_with_sur_models)
+  rm(results_model)
+
+  return(ret_model)
 }
 
+## Execute SUR computation
 
-# calculation of elasticities [hm...]
+results_ec_main_sur <- do_sur(results_ec_main)
+results_ec_main_noweights_sur <- do_sur(results_ec_main_noweights)
+results_ec_main_currweights_sur <- do_sur(results_ec_main_currweights)
 
-results_with_sur_models = parLapplyLB(cl, results_model, function(x) {
-  try(process_sur(x), silent=T)
-})
-#which(unlist(lapply(results_with_sur_models, class))=='try-error')
-
-
-
-
-# remove models
-results_ec_main_sur <- lapply(results_with_sur_models, function(x) {
-  x$model_matrix <- NULL
-  x$paneldimension <- NULL
-  x$dt <- NULL
-  x$elast_sur$country=x$elast$country
-  x$elast_sur$category=x$elast$category
-  x$elast_sur$brand=x$elast$brand
-  x$elast_sur$brand_id=x$elast$brand_id
-  
-  
-  x$elast <- x$elast_sur
-  
-  x
-})
-
-
-
-rm(results_with_sur_models)
-rm(results_model)
-
-
-
-## NO WEIGHTS MODEL
-
-results_model <- results_ec_main_noweights
-
-
-estimated_markets <- rbindlist(lapply(results_model, function(x) x$paneldimension[,-c('date'),with=F][1]))
-estimated_markets[, ordered:=1:.N,by=c('market_id')]
-estimated_markets[, index:=1:.N]
-
-# ESTIMATE SUR
-split_by_market = split(results_model, estimated_markets$market_id)
-
-cat(paste0('Estimating SUR for ', length(split_by_market), ' markets...\n'))
-
-sur_res = parLapplyLB(cl, split_by_market, function(focal_models) {
-  mid=focal_models[[1]]$paneldimension$market_id[1]
-  cat(mid,fill=T)
-  
-  res=suppressWarnings(try(model_sur(focal_models), silent=T))
-  if(class(res)=='try-error') res=suppressWarnings(try(model_sur(focal_models, maxiter=1), silent=T))
-  
-  
-  list(market_id=mid, results=res)
-})
-
-#
-table(unlist(lapply(sur_res,function(x) class(x$results))))
-which(unlist(lapply(sur_res,function(x) class(x$results)))=='try-error')
-
-
-# WRITE RESULTS OF SUR TO MAIN RESULT SET
-for (i in seq(along=sur_res)) {
-  mid = unlist(lapply(sur_res, function(x) x$market_id))[i]
-  for (j in estimated_markets[market_id==mid]$ordered) {
-    ck=try(sur_res[[i]]$results$coefs[[j]],silent=T)
-    if (class(ck)!='try-error') {
-      results_model[[estimated_markets[market_id==mid]$index[j]]]$sur <- list(coefs=sur_res[[i]]$results$coefs[[j]],
-                                                                              varcovar=sur_res[[i]]$results$varcovar[[j]])
-    }
-  }
 }
 
-
-# calculation of elasticities [hm...]
-
-results_with_sur_models = parLapplyLB(cl, results_model, function(x) {
-  try(process_sur(x), silent=T)
-})
-#which(unlist(lapply(results_with_sur_models, class))=='try-error')
-
-
-
-# remove models
-results_ec_main_noweights_sur <- lapply(results_with_sur_models, function(x) {
-  x$model_matrix <- NULL
-  x$paneldimension <- NULL
-  x$dt <- NULL
-  x$elast_sur$country=x$elast$country
-  x$elast_sur$category=x$elast$category
-  x$elast_sur$brand=x$elast$brand
-  x$elast_sur$brand_id=x$elast$brand_id
-  
-  
-  x$elast <- x$elast_sur
-  
-  x
-})
-
-rm(results_with_sur_models)
-rm(results_model)
-
-#### CURR WEIGHTS MODEL
-
-
-results_model <- results_ec_main_currweights
-
-
-estimated_markets <- rbindlist(lapply(results_model, function(x) x$paneldimension[,-c('date'),with=F][1]))
-estimated_markets[, ordered:=1:.N,by=c('market_id')]
-estimated_markets[, index:=1:.N]
-
-# ESTIMATE SUR
-split_by_market = split(results_model, estimated_markets$market_id)
-
-cat(paste0('Estimating SUR for ', length(split_by_market), ' markets...\n'))
-
-sur_res = parLapplyLB(cl, split_by_market, function(focal_models) {
-  mid=focal_models[[1]]$paneldimension$market_id[1]
-  cat(mid,fill=T)
-  
-  res=suppressWarnings(try(model_sur(focal_models), silent=T))
-  if(class(res)=='try-error') res=suppressWarnings(try(model_sur(focal_models, maxiter=1), silent=T))
-  
-  
-  list(market_id=mid, results=res)
-})
-
-#
-table(unlist(lapply(sur_res,function(x) class(x$results))))
-which(unlist(lapply(sur_res,function(x) class(x$results)))=='try-error')
-
-
-# WRITE RESULTS OF SUR TO MAIN RESULT SET
-for (i in seq(along=sur_res)) {
-  mid = unlist(lapply(sur_res, function(x) x$market_id))[i]
-  for (j in estimated_markets[market_id==mid]$ordered) {
-    ck=try(sur_res[[i]]$results$coefs[[j]],silent=T)
-    if (class(ck)!='try-error') {
-      results_model[[estimated_markets[market_id==mid]$index[j]]]$sur <- list(coefs=sur_res[[i]]$results$coefs[[j]],
-                                                                              varcovar=sur_res[[i]]$results$varcovar[[j]])
-    }
-  }
-}
-
-
-# calculation of elasticities [hm...]
-
-results_with_sur_models = parLapplyLB(cl, results_model, function(x) {
-  try(process_sur(x), silent=T)
-})
-#which(unlist(lapply(results_with_sur_models, class))=='try-error')
-
-
-
-# remove models
-results_ec_main_currweights_sur <- lapply(results_with_sur_models, function(x) {
-  x$model_matrix <- NULL
-  x$paneldimension <- NULL
-  x$dt <- NULL
-  x$elast_sur$country=x$elast$country
-  x$elast_sur$category=x$elast$category
-  x$elast_sur$brand=x$elast$brand
-  x$elast_sur$brand_id=x$elast$brand_id
-  
-  
-  x$elast <- x$elast_sur
-  
-  x
-})
-
-rm(results_with_sur_models)
-rm(results_model)
-
-
-### END
 
 # Function scans global environment for occurence of regular expression (`regex`), 
 # and saves all objects in `filename`.
@@ -521,17 +418,17 @@ save_by_regex <- function(regex, filename) {
     }
 }
 
-save_by_regex('^results[_]', filename = '../output/results_simplified.RData')
+save_by_regex('^results[_]', filename = '../output/results_main.RData')
 
 
 ######################################
 # Robustness w/ advertising spending #
 ######################################
 
-if(0){
+brand_panel[, has_adv:=sum(radv>0)>=12,by=c('category','country','market_id','brand_id')]
   
 china_hk_selection = brand_panel[country%in%c('china','hong kong')&
-                                   noadv==F & date<ifelse(country=='china', '2012-09-01', '2014-12-01'), 
+                                   has_adv==T & date<ifelse(country=='china', '2012-09-01', '2014-12-01'), 
                                  list(obs= length(unique(date))),by=c('category','country', 'market_id', 'brand_id')]
 
 china_hk_selection = china_hk_selection[, selected:=obs>ifelse(category=='tablet',4*12,5*12)]
@@ -546,14 +443,14 @@ brand_panel[brand_id%in%china_hk, list(length(unique(brand))),by=c('category','c
 
 
 results_ec_chinahk_withadv = parLapplyLB(cl, china_hk, function(bid)
-  try(simple_ec(bid, vars = c('lnrwpspr','lnllen','lnwpswdst', 'lnradv'),
-                controls_diffs='^comp[_].*(pr|llen|dst|adv)$', 
-                controls_cop = '^cop[_]ln.*(pr|llen|dst|adv)$'),
+  try(estimate_ec(bid, vars = c('rwpspr','llen','wpswdst', 'radv'),
+                controls_diffs='^comp[_]*(rwpspr|llen|wpswdst|radv)$', 
+                controls_cop = '^cop[_]*(rwpspr|llen|wpswdst|radv)$'),
       silent = T)
 )
 
 results_ec_chinahk_withoutadv = parLapplyLB(cl, china_hk, function(bid)
-  try(simple_ec(bid),
+  try(estimate_ec(bid),
       silent = T)
 )
 
@@ -581,7 +478,7 @@ bids = unique(brand_panel$brand_id)
 length(bids)
 
 results_ec_first60 = parLapplyLB(cl, bids, function(bid)
-  try(simple_ec(bid), silent = T)
+  try(estimate_ec(bid), silent = T)
 )
 
 # Last X
@@ -597,8 +494,7 @@ length(bids)
 
 
 results_ec_last60 = parLapplyLB(cl, bids, function(bid)
-  try(simple_ec(bid), silent = T)
+  try(estimate_ec(bid), silent = T)
 )
 
-save_by_regex('^results[_]', filename = '../output/results_simplified.RData')
-}
+save_by_regex('^results[_]', filename = '../output/results_main.RData')
