@@ -40,6 +40,7 @@ init()
 
 
 dir.create('../output')
+#unlink('../output/')
 
 ## Load panel data
 	brand_panel=fread('../temp/preclean_main.csv')
@@ -94,25 +95,40 @@ dir.create('../output')
   for (v in c('rwpspr', 'rwcpspr', 'rnwpr', 'llen', 'wpswdst','wcpswdst', 'nwwdst', 'radv')) { #}, 'lnadv')) {
     setorder(brand_panel, market_id, category, country, brand, date)
     
-    brand_panel[, rollmean_sales:=c(NA, NA, rollmean(usales, k = 3)), 
+    # includes current period
+    brand_panel[, rollmean_salescp:=c(NA, NA, rollmean(usales, k = 3)), 
                 by = c('market_id','brand_id')]
-    brand_panel[, rollmean_sales:=ifelse(1:.N%in%1:2, rollmean_sales[3], rollmean_sales), 
+    brand_panel[, rollmean_salescp:=ifelse(1:.N%in%1:2, rollmean_salescp[3], rollmean_salescp), 
                 by = c('market_id','brand_id')]
     
+    # past-three period sales
+    brand_panel[, rollmean_sales:=c(NA, rollmean_salescp[-.N]), by = c('market_id','brand_id')]
+    
+    # including the current period
+    brand_panel[, paste0('numerator_', v):=sum(rollmean_salescp*get(v),na.rm=T), by = c('market_id', 'date')]
+    brand_panel[, paste0('denominator_', v):=sum(rollmean_salescp, na.rm=T), by = c('market_id', 'date')]
+    
+    brand_panel[, paste0('cpcomp_', v):=(get(paste0('numerator_', v))-rollmean_salescp*get(v))/(get(paste0('denominator_', v))-rollmean_salescp)]
+    brand_panel[, paste0('cpcomp_ln', v):=log(get(paste0('cpcomp_', v)))]
+    
+    brand_panel[, paste0('dcpcomp_',v):=get(paste0('cpcomp_', v))-c(NA, get(paste0('cpcomp_', v))[-.N]), by = c('market_id', 'brand_id')]
+    brand_panel[, paste0('dcpcomp_ln',v):=get(paste0('cpcomp_ln', v))-c(NA, get(paste0('cpcomp_ln', v))[-.N]), by = c('market_id', 'brand_id')]
+    
+    # excluding current period
     brand_panel[, paste0('numerator_', v):=sum(rollmean_sales*get(v),na.rm=T), by = c('market_id', 'date')]
     brand_panel[, paste0('denominator_', v):=sum(rollmean_sales, na.rm=T), by = c('market_id', 'date')]
     
     brand_panel[, paste0('comp_', v):=(get(paste0('numerator_', v))-rollmean_sales*get(v))/(get(paste0('denominator_', v))-rollmean_sales)]
     brand_panel[, paste0('comp_ln', v):=log(get(paste0('comp_', v)))]
     
-    brand_panel[, paste0('numerator_', v):=NULL]
-    brand_panel[, paste0('denominator_', v):=NULL]
     
     brand_panel[, paste0('dcomp_',v):=get(paste0('comp_', v))-c(NA, get(paste0('comp_', v))[-.N]), by = c('market_id', 'brand_id')]
     brand_panel[, paste0('dcomp_ln',v):=get(paste0('comp_ln', v))-c(NA, get(paste0('comp_ln', v))[-.N]), by = c('market_id', 'brand_id')]
     
+    brand_panel[, paste0('numerator_', v):=NULL]
+    brand_panel[, paste0('denominator_', v):=NULL]
+    
     }
-  
   
   length(unique(brand_panel[selected==T]$brand_id))
   length(unique(brand_panel[selected==T & timewindow==T &obs48==T]$brand_id))
@@ -189,6 +205,19 @@ results_ec_main = parLapplyLB(cl, bids, function(bid)
   try(estimate_ec(bid), silent=T)
 )
 
+results_ec_main_cpweights = parLapplyLB(cl, bids, function(bid)
+  try(estimate_ec(bid, controls_diff = '^cpcomp[_].*(rwpspr|llen|wpswdst)$'), silent=T)
+)
+
+
+if(0) {
+## MAIN MODEL w/ PRODUCT ATTRIBUTES
+
+results_ec_main_attributes = parLapplyLB(cl, bids, function(bid)
+  try(estimate_ec(bid,controls_curr = 'quarter[1-3]|^holiday|^trend|^attr'),silent=T)
+)
+
+
 ## ADDING MARKETING MIX INSTRUMENTS ITERATIVELY
 
 results_ec_nommix = parLapplyLB(cl, bids, function(bid)
@@ -219,16 +248,8 @@ results_ec_onlydst = parLapplyLB(cl, bids, function(bid)
 results_ec_main_currweights = parLapplyLB(cl, bids, function(bid)
   try(estimate_ec(bid,
                 vars=c('rwcpspr','llen','nwwdst'),
-                controls_diffs='^comp[_].*(rnwpr|llen|nwwdst)$',
-                controls_cop = '^cop[_](rnwpr|llen|nwwdst)$'), silent=T)
-)
-
-# no weights
-results_ec_main_noweights = parLapplyLB(cl, bids, function(bid)
-  try(estimate_ec(bid,
-                vars=c('rnwpr','llen','nwwdst'),
-                controls_diffs='^comp[_].*(rnwpr|llen|nwwdst)$',
-                controls_cop = '^cop[_](rnwpr|llen|nwwdst)$'), silent=T)
+                controls_diffs='^cpcomp[_].*(rwcpspr|llen|wcpswdst)$',
+                controls_cop = '^cop[_](rwcpspr|llen|wcpswdst)$'), silent=T)
 )
 
 ## MULTIPLICATIVE ERROR CORRECTION MODEL
@@ -315,13 +336,14 @@ results_ec_lntrend = parLapplyLB(cl, bids, function(bid)
 
 }
 
+
+}
 #####################
 # SUR ON MAIN MODEL #
 #####################
 
 do_sur <- function(results_model = results_ec_main) {
   #results_model <- results_ec_main
-  
   
   estimated_markets <- rbindlist(lapply(results_model, function(x) x$paneldimension[,-c('date'),with=F][1]))
   estimated_markets[, ordered:=1:.N,by=c('market_id')]
@@ -362,7 +384,7 @@ do_sur <- function(results_model = results_ec_main) {
   
   
   # calculation of elasticities [hm...]
-  
+  cat('Calculating elasticities', fill=T)
   results_with_sur_models = parLapplyLB(cl, results_model, function(x) {
     try(process_sur(x), silent=T)
   })
@@ -397,8 +419,10 @@ do_sur <- function(results_model = results_ec_main) {
 ## Execute SUR computation
 
 results_ec_main_sur <- do_sur(results_ec_main)
-results_ec_main_noweights_sur <- do_sur(results_ec_main_noweights)
-results_ec_main_currweights_sur <- do_sur(results_ec_main_currweights)
+results_ec_main_cpweights_sur <- do_sur(results_ec_main_cpweights)
+
+#results_ec_main_noweights_sur <- do_sur(results_ec_main_noweights)
+#results_ec_main_currweights_sur <- do_sur(results_ec_main_currweights)
 
 
 
@@ -422,7 +446,7 @@ save_by_regex('^results[_]', filename = '../output/results_main.RData')
 ######################################
 # Robustness w/ advertising spending #
 ######################################
-
+if(0) {
 brand_panel[, has_adv:=sum(radv>0)>=12,by=c('category','country','market_id','brand_id')]
   
 china_hk_selection = brand_panel[country%in%c('china','hong kong')&
@@ -496,3 +520,4 @@ results_ec_last60 = parLapplyLB(cl, bids, function(bid)
 )
 
 save_by_regex('^results[_]', filename = '../output/results_main.RData')
+}

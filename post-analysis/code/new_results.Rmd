@@ -79,13 +79,13 @@ zval = qnorm(1-sigvalue/2)
 # Data
 
 ```{r table1_countries, echo = FALSE}
-tmp=unique(elast, by='country')[, c('country','gdppercapitacurrent2010','gdpgrowth2010', 'ginicoef','survself', 'tradrat'),with=F]
+tmp=unique(elast, by='country')[, c('country','gdppercapitacurrent2010','gdpgrowth2010', 'ginicoef','pdi', 'uai','mas'),with=F]
 
 setorderv(tmp, c('country'))
 
 tmp=sanitize_table(tmp)
 
-kable(tmp, format='html', digits=c(0,0,2,2,2,2), format.args = list(big.mark = ",", format ='f'), initial.zero = FALSE, caption=tab('Development indicators for countries in sample^1^')) %>%
+kable(tmp, format='html', digits=c(0,0,2,2,2,2,2), format.args = list(big.mark = ",", format ='f'), initial.zero = FALSE, caption=tab('Development indicators for countries in sample^1^')) %>%
         kable_styling() %>% footnote(number=c('Countries shown in alphabethical order. Sources to be updated.'))
 ```
 

@@ -239,3 +239,6 @@ attr[_]typetop	Top loader: Indicator variable, equaling 1 if top loader; 0 other
 ^trend$	Trend	gsub
 ^laggedms$	Lagged market share	gsub
 difference_abs	Absolute difference	gsub
+^pdi$	Power distance	gsub
+^uai$	Uncertainty Avoidance	gsub
+^mas$	Masculinity	gsub
