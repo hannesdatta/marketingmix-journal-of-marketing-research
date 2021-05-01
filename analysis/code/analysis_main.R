@@ -192,7 +192,7 @@ void<-clusterEvalQ(cl, init())
 
 
 
-bids <- unique(brand_panel$brand_id) #[1:50]
+bids <- unique(brand_panel$brand_id)
 length(bids)
 
 init()
@@ -210,7 +210,6 @@ results_ec_main_cpweights = parLapplyLB(cl, bids, function(bid)
 )
 
 
-if(0) {
 ## MAIN MODEL w/ PRODUCT ATTRIBUTES
 
 results_ec_main_attributes = parLapplyLB(cl, bids, function(bid)
@@ -313,7 +312,6 @@ results_salesresponse_loglog_onlyldv = parLapplyLB(cl, bids, function(bid)
 )
 
 
-if(0){
 
 ####### WITH LAGGED COMPETITION VARIABLES ######
 
@@ -334,10 +332,6 @@ results_ec_lntrend = parLapplyLB(cl, bids, function(bid)
 )
 
 
-}
-
-
-}
 #####################
 # SUR ON MAIN MODEL #
 #####################
@@ -446,7 +440,7 @@ save_by_regex('^results[_]', filename = '../output/results_main.RData')
 ######################################
 # Robustness w/ advertising spending #
 ######################################
-if(0) {
+
 brand_panel[, has_adv:=sum(radv>0)>=12,by=c('category','country','market_id','brand_id')]
   
 china_hk_selection = brand_panel[country%in%c('china','hong kong')&
@@ -520,4 +514,3 @@ results_ec_last60 = parLapplyLB(cl, bids, function(bid)
 )
 
 save_by_regex('^results[_]', filename = '../output/results_main.RData')
-}
