@@ -30,7 +30,25 @@ categories = unique(elasticities$ec_main_sur$category)
 countries = unique(elasticities$ec_main_sur$country)
 
 
-
+replace_categories <- function(x) {
+  ret = rep('', length(x))
+  ret[grepl('washing',x)] <- 'Washing machines'
+  ret[grepl('tv_gen2_lcd',x)] <- 'LCD TVs'
+  ret[grepl('tv_gen2_ptv',x)] <- 'Plasma TVs'
+  ret[grepl('tv_gen3_lcd_only',x)] <- 'LCD TVs'
+  ret[grepl('tablets',x)] <- 'Tablets'
+  ret[grepl('phones_smart',x)] <- 'Smartphones'
+  ret[grepl('phones_mobile',x)] <- 'Mobile phones'
+  ret[grepl('microwave',x)] <- 'Microwaves'
+  ret[grepl('laptop',x)] <- 'Laptop computers'
+  ret[grepl('dvd',x)] <- 'DVD players and recorders'
+  ret[grepl('desktoppc',x)] <- 'Desktop computers'
+  ret[grepl('cooling',x)] <- 'Refrigerators'
+  ret[grepl('camera_slr',x)] <- 'SLR cameras'
+  ret[grepl('camera_compact',x)] <- 'Compact cameras'
+  
+  return(ret)
+}
 ######## FUNCTIONS #######
 
 rsq <- function(m) {
@@ -128,11 +146,14 @@ lmerctrl = lmerControl(optimizer ="Nelder_Mead", check.conv.singular="ignore")
 names(elasticities)
 
 model_names = list('M1a) Linear Error Correction (weights t-3...t-1, SUR)' = 'ec_main_sur',
-                   'M1b) Lin. EC (weights t-3...t-1, no SUR)' = 'ec_main',
-                   'M2a) Lin. EC (weights t-2...t, SUR)' = 'ec_main_currweights_sur',
-                   'M2b) Lin. EC (weights t-2...t, SUR)' = 'ec_main_currweights',
-                   'M3a) Lin. EC (no weights, SUR)' = 'ec_main_noweights_sur',
-                   'M3b) Lin. EC (no weights, no SUR)' = 'ec_main_noweights')#,
+                   'M1b) Lin. EC (weights t-3...t-1, no SUR)' = 'ec_main')#,
+                 #  'M2a) Lin. EC (weights t-2,...t, SUR)' = 'ec_main_currweights',
+                #   'M2b) Lin. EC (weights t-2,...t, SUR)' = 'ec_main_currweights_sur')
+                   
+                   #'M2a) Lin. EC (weights t-2...t, SUR)' = 'ec_main_currweights_sur',
+                   #'M2b) Lin. EC (weights t-2...t, SUR)' = 'ec_main_currweights',
+                   #'M3a) Lin. EC (no weights, SUR)' = 'ec_main_noweights_sur',
+                   #'M3b) Lin. EC (no weights, no SUR)' = 'ec_main_noweights')#,
 
                    
                   # 'M2) Error correction (sales, without SUR)' = 'ec_main',
@@ -148,7 +169,7 @@ potential_vars_raw = list(brandequity=list('!SBBE' = 'sbbe_round1_mc',
                                        'Log Marketshare' = 'ln_brand_ms_mc',
                                        'Marketshare' = 'brand_ms_mc'),
                           
-                      brandlocation = list('!Domestic market indicator' = 'local_to_market_mc',
+                      brandlocation = list('Domestic market indicator' = 'local_to_market_mc',
                                            '!JP, US, Swiss, GER, Sweden indicator' = "`brand_from_jp-us-ch-ge-sw_mc`",
                                            'Western brand indicator' = 'western_brand_mc'),
                       brandmmix = list('!Price (log index)' = 'ln_rwpspr_index_mc',
@@ -159,9 +180,16 @@ potential_vars_raw = list(brandequity=list('!SBBE' = 'sbbe_round1_mc',
                                        'Line length (index)' = 'llen_index_mc',
                                        'Price (std.)' = 'rwpspr_std_mc',
                                        'Distr. (std.)' = 'wpswdst_std_mc',
-                                       'Line length (std.)' = 'llen_std_mc'),
+                                       'Line length (std.)' = 'llen_std_mc',
+                                       'Innovativeness 12 (log index)' ='ln_nov12sh_index_mc',
+                                       'Innovativeness 12 (index)' = 'nov12sh_index_mc',
+                                       'Innovativeness 12 (std)' = 'nov12sh_std_mc',
+                                       '!Innovativeness 6 (log index)' ='ln_nov6sh_index_mc',
+                                       'Innovativeness 6 (index)' = 'nov126_index_mc',
+                                       'Innovativeness 6 (std)' = 'nov6sh_std_mc'),
                       
-                      brandother = list('!Log Brand novelty' = 'ln_brandnovelty6_mc',
+                      
+                      brandother = list('Log Brand novelty' = 'ln_brandnovelty6_mc',
                                         'Brand novelty' = 'brandnovelty6_mc'),#,
                                         #'Price positioning' = 'brand_prindex_mean_mc'),
                       
@@ -192,7 +220,7 @@ potential_vars_raw = list(brandequity=list('!SBBE' = 'sbbe_round1_mc',
                                           "Emerging market indicator" = "emerging",
                                           "Log Goods Market Efficiency (GCI 2010)" = "ln_gci_p06_goods_s_mc",
                                           "Log Infrastructure (GCI 2010)" = 'ln_gci_p02_infrastructure_s_mc',
-                                          "Log Market size (GCI 2010)" = 'ln_gci_p10_marketsize_s_mc',
+                                          "!Log Market size (GCI 2010)" = 'ln_gci_p10_marketsize_s_mc',
                                           
                                           
                                           'GDP growth (obs. avg)' = 'gdpgrowthyravg_mc',
@@ -216,13 +244,13 @@ potential_vars_raw = list(brandequity=list('!SBBE' = 'sbbe_round1_mc',
                                           
                                           ),
                       
-                      country_culture = list("!WVS: Traditional vs. rational" = "tradrat_mc",
-                                             "!WVS: Survival vs. Self-expression" = "survself_mc",
+                      country_culture = list("WVS: Traditional vs. rational" = "tradrat_mc",
+                                             "WVS: Survival vs. Self-expression" = "survself_mc",
                                              "Hofstede: Log Longterm orientation" = "ln_ltowvs_mc",
                                              "Hofstede: Log Individualism" = "ln_idv_mc",
-                                             "Hofstede: Log Uncertainty Avoidance" = "ln_uai_mc",
-                                             "Hofstede: Log Power distance" = "ln_pdi_mc",
-                                             "Hofstede: Log Masculinity" = "ln_mas_mc",
+                                             "!Hofstede: Log Uncertainty Avoidance" = "ln_uai_mc",
+                                             "!Hofstede: Log Power distance" = "ln_pdi_mc",
+                                             "!Hofstede: Log Masculinity" = "ln_mas_mc",
                                              "Hofstede: Longterm orientation" = "ltowvs_mc",
                                              "Hofstede: Individualism" = "idv_mc",
                                              "Hofstede: Uncertainty Avoidance" = "uai_mc",
@@ -381,32 +409,32 @@ ui <- fluidPage(
            
            
            tabPanel("Plotting", 
-                    selectInput("plot_vars", label = h5("Variables"),
-                                choices = list('Price' = 'pr',
-                                               'Line length' = 'llen',
-                                               'Distribution' = 'dst'), 
-                                selected = c('pr','llen','dst'), multiple=TRUE),
+                    #selectInput("plot_vars", label = h5("Variables"),
+                    #            choices = list('Price' = 'pr',
+                    #                           'Line length' = 'llen',
+                    #                           'Distribution' = 'dst'), 
+                    #            selected = c('pr','llen','dst'), multiple=TRUE),
                    selectInput("plot_brands", label = h5("Brands"),
                                choices = sapply(str_to_title(brands$brand), function(x) tolower(x), simplify=F), 
-                               selected = c('samsung', 'apple'), multiple=TRUE),
+                               selected = c('samsung'), multiple=FALSE),
                    selectInput("plot_categories", label = h5("Categories"),
                                choices = sapply(str_to_title(categories), function(x) tolower(x), simplify=F), 
                                selected =c('phones_smart'), multiple=FALSE),
-                   selectInput("plot_countries", label = h5("Countries"),
-                               choices = sapply(str_to_title(countries), function(x) tolower(x), simplify=F), 
-                               selected = countries, multiple=TRUE),
+                   #selectInput("plot_countries", label = h5("Countries"),
+                  #             choices = sapply(str_to_title(countries), function(x) tolower(x), simplify=F), 
+                  #             selected = countries, multiple=TRUE),
                    radioButtons("plot_predicted", label = h5("Use estimated or predicted elasticities?"),
                                 c("Estimated" = 'elastlt',
                                   "Predicted" = 'elastlt_pred'),
                                 selected = 'elastlt_pred'),
-                   selectInput("plot_stack_by", label = h5("Stacked bar chart by..."),
-                               choices = list('Countries'='country',
-                                              'Categories'='category'),
-                               selected = 'country', multiple=FALSE),
+                   #selectInput("plot_stack_by", label = h5("Stacked bar chart by..."),
+                  #             choices = list('Countries'='country',
+                  #                            'Categories'='category'),
+                  #             selected = 'country', multiple=FALSE),
                    selectInput("plot_stack_val", label = h5("Stacked bar chart with..."),
                                choices = list('Relative elasticities (in %)'='rel_val',
                                               'Absolute elasticities'='abs_val'),
-                               selected = 'rel_val', multiple=FALSE)
+                               selected = 'abs_val', multiple=FALSE)
                    
                    
                    
@@ -423,7 +451,7 @@ ui <- fluidPage(
                        # tabPanel("Model Summary", verbatimTextOutput("summary")),
                        tabPanel("Model results", htmlOutput("stargazer")),#, # Regression output
                        tabPanel("VIFs", htmlOutput("vif")),
-                       #tabPanel("Plots (stacked bar charts)", plotOutput('stacked')),
+                       tabPanel("Plots", plotOutput('stacked')),
                        #tabPanel("Plots (brand-specific bar plots)", plotOutput('plot')),
                        #tabPanel("Plots (scatter plots)", plotOutput('surface')),
                        
@@ -647,8 +675,10 @@ server <- function(input, output) {
     
     if (!is.null(input$plot_brands)) dt <- dt[brand%in%input$plot_brands]
     if (!is.null(input$plot_categories)) dt <- dt[category%in%input$plot_categories]
-    if (!is.null(input$plot_countries)) dt <- dt[country%in%input$plot_countries]
-    if (!is.null(input$plot_vars)) dt <- dt[variable%in%input$plot_vars]
+    
+    dt[, var:=get(input$plot_predicted)]
+    
+    
     
     ggplot(dt, aes(fill=brand, y = eval(parse(text=input$plot_predicted)), x = variable)) + geom_bar(position='dodge2',stat='identity') + 
       facet_wrap( ~ country) + theme_tufte() + ylab(input$plot_predicted) +
@@ -711,45 +741,68 @@ server <- function(input, output) {
     o=produce_model(input)
     dt = o$predictions
     
-    #if (!is.null(input$plot_brands)) dt <- dt[brand%in%input$plot_brands]
-    #if (!is.null(input$plot_categories)) dt <- dt[category%in%input$plot_categories]
+    if (!is.null(input$plot_brands)) dt <- dt[brand%in%input$plot_brands]
+    if (!is.null(input$plot_categories)) dt <- dt[category%in%input$plot_categories]
    # if (!is.null(input$plot_countries)) dt <- dt[country%in%input$plot_countries]
     #if (!is.null(input$plot_vars)) dt <- dt[variable%in%input$plot_vars]
     
     dt[, abs_val:=(get(input$plot_predicted))]
     dt[variable=='pr', abs_val:=-(get(input$plot_predicted))]
     
-    
     dt[, rel_val:=abs_val/sum(abs_val), by =c('category','country','brand')]
     
     # agglevel
-    
     tmp = dcast.data.table(dt, category+country+brand~variable, value.var=input$plot_stack_val)#'rel_share')
     
-    agglevel = input$plot_stack_by #c('country')
+    agglevel = 'country'# input$plot_stack_by #c('country')
     
     tmp2 = tmp[, lapply(.SD, mean,na.rm=T),by=c(agglevel), .SDcol=c('llen','pr','dst')]
     tmp2[, sum:=llen+pr+dst]
     
     tmp3 = melt(tmp2, id.vars=c(agglevel))
     levels(tmp3$variable)
-    tmp3[, variable:=factor(as.character(variable), levels=c('pr','dst','llen', 'sum'))]
+    tmp3[, variable:=factor(as.character(variable), levels=c('llen','pr','dst', 'sum'))]
     #levels(tmp3$variable) <- c('price','distribution','line length')
     levels(tmp3$variable)
+    
+    setkey(tmp3, country, variable)
+    setkey(dt, country, variable)
+    
+    tmp3[dt, printvar:=get(paste0('i.', input$plot_predicted))]
+    tmp3[, printvar2:=formatC(printvar, digits=3,
+                              flag="", format="f")]
+    
+    
+    tmp3$country<-str_to_title(tmp3$country) 
     
     if (input$plot_stack_val=='rel_val') levs=unlist(tmp3[variable=='llen',1])[order(tmp3[variable=='llen']$value)]
     if (input$plot_stack_val=='abs_val') levs=unlist(tmp3[variable=='sum',1])[order(tmp3[variable=='sum']$value)]
     
     tmp3[, paste0(agglevel):=factor(as.character(get(agglevel)), levels = levs)]
     
-    ggplot(tmp3[!variable%in%'sum'], aes(fill=variable, y=value, x=eval(parse(text=agglevel)))) + 
-      geom_bar(position="stack", stat="identity") +coord_flip() + xlab(agglevel) +
-      ylab(ifelse(input$plot_stack_by=='rel_val', 'relative elasticity', 'absolute elasticity'))  + labs(fill='elasticities',
-                                                                                                         caption = paste0('Plot generated for all brands, and sorted by ', ifelse(input$plot_stack_val=='rel_val', 'relative share of line length elasticities', 'sum of absolute elasticities'),'.'))
+    #
+    tmp[, variable_label:=as.character('')]
     
-
+    tmp3[grepl('llen', variable), variable_label:='Line length']
+    tmp3[grepl('pr', variable), variable_label:='Price']
+    tmp3[grepl('dst', variable), variable_label:='Distribution']
     
+    tmp3[, variable_label:=factor(variable_label, levels=rev(c('Line length','Price','Distribution')))]
+    #sorted_country =as.character(unique(tmp3$country)[order(tolower(unique(tmp3$country)),decreasing=T)])
+    #tmp3[, country:=factor(country,levels=(sorted_country))]
     
+    ggplot(tmp3[!variable%in%'sum'], aes(fill=variable_label, y=value, 
+                                         x=eval(parse(text=agglevel)),
+           label=printvar2)) + geom_bar(position="stack", stat="identity")  + scale_fill_grey(start = .6, end = .9) + coord_flip() +
+      theme_bw()+
+      xlab(str_to_title(agglevel)) + ylab('Magnitude of Marketing Elasticities') + 
+      geom_text(size = 3, position = position_stack(vjust = 0.5)) +
+      labs(fill='Elasticities', caption = paste0('Plot generated on the basis of ', 
+                                                 ifelse(input$plot_stack_val=='rel_val', 'relative elasticities', 'absolute elasticities'), ' for brand ', 
+                                                 str_to_title(input$plot_brands), ' (', tolower(replace_categories(input$plot_categories)), 
+                                                 ').\nCountries sorted in decreasing order of ', ifelse(input$plot_stack_val=='rel_val', 'line-length elasticities', 
+                                                                                                       'combined marketing effectiveness'),'.'))
+      
   })
   
   output$elasticities = DT::renderDataTable({

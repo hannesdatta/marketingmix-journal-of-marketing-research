@@ -205,9 +205,9 @@ results_ec_main = parLapplyLB(cl, bids, function(bid)
   try(estimate_ec(bid), silent=T)
 )
 
-results_ec_main_cpweights = parLapplyLB(cl, bids, function(bid)
-  try(estimate_ec(bid, controls_diff = '^cpcomp[_].*(rwpspr|llen|wpswdst)$'), silent=T)
-)
+#results_ec_main_cpweights = parLapplyLB(cl, bids, function(bid)
+#  try(estimate_ec(bid, controls_diff = '^cpcomp[_].*(rwpspr|llen|wpswdst)$'), silent=T)
+#)
 
 
 ## MAIN MODEL w/ PRODUCT ATTRIBUTES
@@ -413,7 +413,7 @@ do_sur <- function(results_model = results_ec_main) {
 ## Execute SUR computation
 
 results_ec_main_sur <- do_sur(results_ec_main)
-results_ec_main_cpweights_sur <- do_sur(results_ec_main_cpweights)
+results_ec_main_currweights_sur <- do_sur(results_ec_main_currweights)
 
 #results_ec_main_noweights_sur <- do_sur(results_ec_main_noweights)
 #results_ec_main_currweights_sur <- do_sur(results_ec_main_currweights)
