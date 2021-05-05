@@ -1,24 +1,20 @@
 ---
-title: "Parameter recovery w/ Copulas"
+title: "Parameter recovery in Error Correction models with Gaussian Copulas"
 author: "Hannes Datta"
-date: "2/4/2021"
+date: "5/5/2021"
 output: html_document
 ---
 
-```{r setup, include=TRUE}
-
+```{r setup, include=TRUE, warning = FALSE, message = FALSE}
 # Load required packages
 library(data.table)
 library(MASS)
 library(knitr)
 
-# Initialize random number
-set.seed(1234)
+# Set number of replications
+reps = 100
 
 sim_data <- function(rho = .5, lambda = .5, N = 120) {
-  # rho = .9
-  # lambda = .5
-  # N = 120
   
   # Simulate data
   data = data.table(date=1:N)
@@ -30,7 +26,7 @@ sim_data <- function(rho = .5, lambda = .5, N = 120) {
   data[, comp3:=runif(N)]
   data[, holiday:=runif(N)]
   
-  y_0 = 8
+  y_0 = 10
   
   data[, intercept:=1]
   data[, interceptdyn:=1]
@@ -160,23 +156,20 @@ return(rbindlist(list(v1,v2),fill=T))
 
 ```
 
-# Recovery with Error Correction
+# Generate data
 
 ```{r}
-
-reps = 100
 
 sims <- expand.grid(N=c(50,85,120), lambda = .5, rho = c(.3, .5, .7))
 
 data=lapply(split(sims, 1:nrow(sims)), function(sim) {
   set.seed(1234)
-  #print(sim)
   lapply(1:reps, function(...) sim_data(rho=sim$rho, lambda=sim$lambda, N=sim$N))
 })
 
 ```
 
-# Recovery
+# Estimate models
 
 ```{r}
 
@@ -191,7 +184,8 @@ for (i in 1:length(data)) {
 
 ```
 
-# Summarize
+# Summarize results of simulation
+
 ```{r, results= 'asis'} 
 
 comp <- rbindlist(estimated_coefficients)
@@ -266,20 +260,39 @@ setorder(tmp3, varorder)
 
 tmp3 <- tmp3[!grepl('star', variable)]
 tmp3[, varorder:=NULL]
-kable(tmp3, caption = 'parameter recovery for selected model')
-#write.table(tmp3, 'r')
-
+kable(tmp3, caption = 'Parameter recovery for selected model')
 
 ```
 
+## Summaries across simulations
+
+### Average bias
+
+```{r}
+
+tmp4 = dcast(tmp2[grepl('^dx|^lx', variable)], type+N+rho+lambda~variable,value.var='bias_without')
+tmp4[, measure:='01_without']
+
+tmp5 = dcast(tmp2[grepl('^dx|^lx', variable)], type+N+rho+lambda~variable,value.var='bias_with')
+tmp5[, measure:='02_with']
+
+tmp7 = dcast(melt(rbind(tmp4, tmp5), id.vars=c('type','N','rho','lambda','measure')), type+N+rho+lambda~measure+variable)
+
+kable(tmp7, caption = 'biases without and with endogeneity correction')
+```
+
+### Recovery rates
+
+
 ```{r, results = 'asis'}
-
-# table 2
-
 tmp4 = dcast(tmp2[grepl('^dx|^lx', variable)], type+N+rho+lambda~variable,value.var='recoveryrate_without')
-tmp5 = dcast(tmp2[grepl('^dx|^lx', variable)], type+N+rho+lambda~variable,value.var='recoveryrate_with')
-kable(tmp4, caption = 'recovery rates without endogeneity correction')
-kable(tmp5, caption = 'recovery rates with endogeneity correction')
+tmp4[, measure:='01_without']
 
+tmp5 = dcast(tmp2[grepl('^dx|^lx', variable)], type+N+rho+lambda~variable,value.var='recoveryrate_with')
+tmp5[, measure:='02_with']
+
+tmp6 = dcast(melt(rbind(tmp4, tmp5), id.vars=c('type','N','rho','lambda','measure')), type+N+rho+lambda~measure+variable)
+
+kable(tmp6, caption = 'Recovery rates without and with endogeneity correction')
 
 ```
