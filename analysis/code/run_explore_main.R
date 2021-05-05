@@ -2,9 +2,17 @@ rm(list = ls())
 library(knitr)
 library(data.table)
 
-load('../output/results_main.RData')
-
 unlink('../audit/*.html')
+
+# Load results
+files <- list.files('../output/', pattern = 'results.*[.]RData$', full.names=T)
+files <- grep('marketshare',files, invert=T, value=T)
+
+for (fn in files) {
+  cat(paste0('Loading ', fn, '...\n'))
+  load(file=fn)
+}
+
 
 models <- grep('results[_]', ls(), value = T)
 

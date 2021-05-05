@@ -12,7 +12,13 @@ library(data.table)
 #library(marketingtools)
 
 # Load results
-load(file = c('../output/results_main.RData'))
+files <- list.files('../output/', pattern = 'results.*[.]RData$', full.names=T)
+files <- grep('marketshare',files, invert=T, value=T)
+
+for (fn in files) {
+  cat(paste0('Loading ', fn, '...\n'))
+  load(file=fn)
+}
 
 #unlink('../output/*.csv')
 

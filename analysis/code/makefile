@@ -48,11 +48,11 @@ $(OUTPUT_DIR)/audit_marketshare.html: $(OUTPUT_DIR)/results_marketshare.RData au
 ###################
 
 #### Model estimation
-$(OUTPUT_DIR)/results_main.RData: analysis_main.R $(TEMP_DIR)/preclean.txt proc_analysis_main.R
+$(OUTPUT_DIR)/results_main.txt: analysis_main.R $(TEMP_DIR)/preclean.txt proc_analysis_main.R
 	R --vanilla --args "" < "analysis_main.R"
 
 #### 
-$(OUTPUT_DIR)/elasticities_main.txt: extract_elast_main.R $(OUTPUT_DIR)/results_main.RData
+$(OUTPUT_DIR)/elasticities_main.txt: extract_elast_main.R $(OUTPUT_DIR)/results_main.txt
 	R --vanilla --args "" < "extract_elast_main.R"
 
 $(TEMP_DIR)/explore_main.txt: $(OUTPUT_DIR)/elasticities_main.txt run_explore_main.R explore_main.Rmd

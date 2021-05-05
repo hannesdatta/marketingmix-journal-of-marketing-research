@@ -192,79 +192,63 @@ void<-clusterEvalQ(cl, init())
 
 
 
-bids <- unique(brand_panel$brand_id)
+bids <- unique(brand_panel$brand_id)[1:50]
 length(bids)
 
 init()
 
 
+estim_model <- function(model_name, fun, ...) {
+  
+  if (!file.exists(paste0('../output/', model_name, '.RData'))) {
+    cat(paste0('Estimating ', model_name, '...\n'))
+    results_model = parLapplyLB(cl, bids, function(bid)
+      try(eval(parse(text=paste0(fun, '(bid, ...)'))), silent=T)
+    )
+    eval(parse(text=paste0(model_name, "<<-results_model")))
+    
+    eval(parse(text=paste0('save(', model_name, ', file = \"../output/', model_name, '.RData\")')))
+    rm(results_model)
+  } else {
+    cat(paste0('Model ', model_name, ' already exists!\n'))
+  }
+}
+
 
 ## MAIN MODEL
-
-results_ec_main = parLapplyLB(cl, bids, function(bid)
-  try(estimate_ec(bid), silent=T)
-)
-
-#results_ec_main_cpweights = parLapplyLB(cl, bids, function(bid)
-#  try(estimate_ec(bid, controls_diff = '^cpcomp[_].*(rwpspr|llen|wpswdst)$'), silent=T)
-#)
-
+estim_model('results_ec_main', 'estimate_ec')
 
 ## MAIN MODEL w/ PRODUCT ATTRIBUTES
-
-results_ec_main_attributes = parLapplyLB(cl, bids, function(bid)
-  try(estimate_ec(bid,controls_curr = 'quarter[1-3]|^holiday|^trend|^attr'),silent=T)
-)
+estim_model('results_ec_main_attributes', 'estimate_ec', controls_curr = 'quarter[1-3]|^holiday|^trend|^attr')
 
 
 ## ADDING MARKETING MIX INSTRUMENTS ITERATIVELY
+estim_model('results_ec_nommix', 'estimate_ec', vars = NULL, controls_cop = NULL)
 
-results_ec_nommix = parLapplyLB(cl, bids, function(bid)
-  try(estimate_ec(bid,vars = NULL, 
-                controls_cop = NULL), silent=T)
-)
+estim_model('results_ec_onlypr', 'estimate_ec', vars = c('rwpspr'), controls_cop = '^cop[_](rwpspr)$')
 
+estim_model('results_ec_onlyllen', 'estimate_ec', vars = c('llen'), controls_cop = '^cop[_](llen)$')
 
-results_ec_onlypr = parLapplyLB(cl, bids, function(bid)
-  try(estimate_ec(bid,vars = c('rwpspr'), 
-                controls_cop = '^cop[_](rwpspr)$'), silent=T)
-)
-
-results_ec_onlyllen = parLapplyLB(cl, bids, function(bid)
-  try(estimate_ec(bid,vars = c('llen'), 
-                controls_cop = '^cop[_](llen)$'), silent=T)
-)
-
-results_ec_onlydst = parLapplyLB(cl, bids, function(bid)
-  try(estimate_ec(bid,vars = c('wpswdst'), 
-                controls_cop = '^cop[_](wpswdst)$'), silent=T)
-)
+estim_model('results_ec_onlydst', 'estimate_ec', vars = c('wpswdst'), controls_cop = '^cop[_](wpswdst)$')
 
 
 ## WITH VARYING SALES WEIGHTS
 
 # weights t-2, t-1, t ("weights, including current sales")
-results_ec_main_currweights = parLapplyLB(cl, bids, function(bid)
-  try(estimate_ec(bid,
-                vars=c('rwcpspr','llen','nwwdst'),
-                controls_diffs='^cpcomp[_].*(rwcpspr|llen|wcpswdst)$',
-                controls_cop = '^cop[_](rwcpspr|llen|wcpswdst)$'), silent=T)
-)
+
+estim_model('results_ec_main_currweights', 'estimate_ec', vars=c('rwcpspr','llen','nwwdst'),
+            controls_diffs='^cpcomp[_].*(rwcpspr|llen|wcpswdst)$',
+            controls_cop = '^cop[_](rwcpspr|llen|wcpswdst)$')
 
 ## MULTIPLICATIVE ERROR CORRECTION MODEL
 
-results_ec_log = parLapplyLB(cl, bids, function(bid)
-  try(estimate_ec(
-    bid,
-    dv = 'lnusales',
-    vars = c('lnrwpspr', 'lnllen', 'lnwpswdst'),
-    controls_diffs = '^comp[_].*(lnrwpspr|lnllen|lnwpswdst)$',
-    controls_laglevels = '',
-    controls_curr = 'quarter[1-3]|^lnholiday|^lntrend',
-    controls_cop = '^cop[_](rwpspr|llen|wpswdst)$', # copula terms of log versus levels is the same
-    pval = .1
-  ),
-  silent = T))
+estim_model('results_ec_log', 'estimate_ec', dv = 'lnusales',
+            vars = c('lnrwpspr', 'lnllen', 'lnwpswdst'),
+            controls_diffs = '^comp[_].*(lnrwpspr|lnllen|lnwpswdst)$',
+            controls_laglevels = '',
+            controls_curr = 'quarter[1-3]|^lnholiday|^lntrend',
+            controls_cop = '^cop[_](rwpspr|llen|wpswdst)$', # copula terms of log versus levels is the same
+            pval = .1)
 
 
 ### Sales response models
@@ -272,64 +256,40 @@ results_ec_log = parLapplyLB(cl, bids, function(bid)
 ## Linear sales response models
 
 # Linear sales model corresponding to the main model
-results_salesresponse_linear = parLapplyLB(cl, bids[1:10], function(bid)
-  try(estimate_salesresponse(bid), silent=T)
-)
+estim_model('results_salesresponse_linear', 'estimate_salesresponse')
 
 # No lagged dependent variable
-results_salesresponse_linear_noldv = parLapplyLB(cl, bids, function(bid)
-  try(estimate_salesresponse(bid, withlagdv=F), silent=T)
-)
+estim_model('results_salesresponse_linear_noldv', 'estimate_salesresponse', withlagdv=F)
 
 # Only lagged dependent variable
-results_salesresponse_linear_onlyldv = parLapplyLB(cl, bids, function(bid)
-  try(estimate_salesresponse(bid, withlagdv=T, vars=NULL, controls=NULL), silent=T)
-)
+estim_model('results_salesresponse_linear_onlyldv', 'estimate_salesresponse', withlagdv=T, vars=NULL, controls=NULL)
 
 ## Log-log sales response models
 
 # Log-log sales model corresponding to the main model
-results_salesresponse_loglog = parLapplyLB(cl, bids, function(bid)
-  try(estimate_salesresponse(bid,
-                    vars='lnrwpspr','lnllen','lnwpswdst',
-                    controls='(^comp[_].*(lnrwpspr|lnllen|lnwpswdst)$)|quarter[1-3]|^lnholiday|^lntrend|(^cop[_](rwpspr|llen|wpswdst)$)',
-                    dv = 'lnusales'), silent=T)
-)
 
+estim_model('results_salesresponse_loglog', 'estimate_salesresponse',vars='lnrwpspr','lnllen','lnwpswdst',
+            controls='(^comp[_].*(lnrwpspr|lnllen|lnwpswdst)$)|quarter[1-3]|^lnholiday|^lntrend|(^cop[_](rwpspr|llen|wpswdst)$)',
+            dv = 'lnusales')
 
 # No lagged dependent variable
-results_salesresponse_loglog_noldv = parLapplyLB(cl, bids, function(bid)
-  try(estimate_salesresponse(bid,
-                    vars='lnrwpspr','lnllen','lnwpswdst',
-                    controls='(^comp[_].*(lnrwpspr|lnllen|lnwpswdst)$)|quarter[1-3]|^lnholiday|^lntrend|(^cop[_](rwpspr|llen|wpswdst)$)',
-                    dv = 'lnusales', withlagdv=F), silent=T)
-)
+estim_model('results_salesresponse_loglog_noldv', 'estimate_salesresponse', vars='lnrwpspr','lnllen','lnwpswdst',
+            controls='(^comp[_].*(lnrwpspr|lnllen|lnwpswdst)$)|quarter[1-3]|^lnholiday|^lntrend|(^cop[_](rwpspr|llen|wpswdst)$)',
+            dv = 'lnusales', withlagdv=F)
 
-# No lagged dependent variable
-results_salesresponse_loglog_onlyldv = parLapplyLB(cl, bids, function(bid)
-  try(estimate_salesresponse(bid,
-                    vars=NULL, controls = NULL, dv = 'lnusales', withlagdv=T), silent=T)
-)
-
+# Only lagged dependent variable
+estim_model('results_salesresponse_loglog_onlyldv', 'estimate_salesresponse', vars=NULL, controls = NULL, dv = 'lnusales', withlagdv=T)
 
 
 ####### WITH LAGGED COMPETITION VARIABLES ######
-
-results_ec_unrestrictedcompetition = parLapplyLB(cl, bids, function(bid)
-  try(estimate_ec(bid, controls_laglevels = '^comp[_].*(pr|llen|dst)$'), silent=T)
-)
+estim_model('results_ec_unrestrictedcompetition', 'estimate_ec',controls_laglevels = '^comp[_].*(rwpspr|llen|wpswdst)$')
 
 ####### WITHOUT ENDOGENEITY CONTROLS ######
+estim_model('results_ec_noendogeneity', 'estimate_ec',controls_cop = NULL)
 
-results_ec_noendogeneity = parLapplyLB(cl, bids, function(bid)
-  try(estimate_ec(bid, controls_cop = NULL),silent=T)
-)
 
 ####### WITH LN TREND INSTEAD OF TREND ######
-
-results_ec_lntrend = parLapplyLB(cl, bids, function(bid)
-  try(estimate_ec(bid, controls_curr = 'quarter[1-3]|lnholiday|^lntrend'),silent=T)
-)
+estim_model('results_ec_lntrend', 'estimate_ec',controls_curr = 'quarter[1-3]|lnholiday|^lntrend')
 
 
 #####################
@@ -411,13 +371,18 @@ do_sur <- function(results_model = results_ec_main) {
 }
 
 ## Execute SUR computation
+# Load models
+if (!file.exists('../output/results_ec_main_sur.RData')) {
+  load('../output/results_ec_main.RData')
+  results_ec_main_sur <- do_sur(results_ec_main)
+  save(results_ec_main_sur, file = '../output/results_ec_main_sur.RData')
+}
 
-results_ec_main_sur <- do_sur(results_ec_main)
-results_ec_main_currweights_sur <- do_sur(results_ec_main_currweights)
-
-#results_ec_main_noweights_sur <- do_sur(results_ec_main_noweights)
-#results_ec_main_currweights_sur <- do_sur(results_ec_main_currweights)
-
+if (!file.exists('../output/results_ec_main_currweights.RData')) {
+  load('../output/results_ec_main_currweights.RData')
+  results_ec_main_sur <- do_sur(results_ec_main)
+  save(results_ec_main_sur, file = '../output/results_ec_main_currweights_sur.RData')
+}
 
 
 # Function scans global environment for occurence of regular expression (`regex`), 
@@ -434,7 +399,7 @@ save_by_regex <- function(regex, filename) {
     }
 }
 
-save_by_regex('^results[_]', filename = '../output/results_main.RData')
+#save_by_regex('^results[_]', filename = '../output/results_main.RData')
 
 
 ######################################
@@ -457,19 +422,17 @@ length(china_hk)
 table(sapply(china_hk, function(bid) use_ts(brand_panel[brand_id==bid]$adv)))
 brand_panel[brand_id%in%china_hk, list(length(unique(brand))),by=c('category','country')]
 
+old_bids = bids
 
-results_ec_chinahk_withadv = parLapplyLB(cl, china_hk, function(bid)
-  try(estimate_ec(bid, vars = c('rwpspr','llen','wpswdst', 'radv'),
-                controls_diffs='^comp[_]*(rwpspr|llen|wpswdst|radv)$', 
-                controls_cop = '^cop[_]*(rwpspr|llen|wpswdst|radv)$'),
-      silent = T)
-)
+bids = china_hk
+estim_model('results_ec_chinahk_withadv', 'estimate_ec', vars = c('rwpspr','llen','wpswdst', 'radv'),
+            controls_diffs='^comp[_]*(rwpspr|llen|wpswdst|radv)$', 
+            controls_cop = '^cop[_]*(rwpspr|llen|wpswdst|radv)$')
 
-results_ec_chinahk_withoutadv = parLapplyLB(cl, china_hk, function(bid)
-  try(estimate_ec(bid),
-      silent = T)
-)
 
+estim_model('results_ec_chinahk_withoutadv', 'estimate_ec')
+
+bids <- old_bids
 
 ###################################################
 # Robustness w/ first and last x% of observations #
@@ -493,9 +456,8 @@ clusterExport(cl,c('brand_panel'))
 bids = unique(brand_panel$brand_id)
 length(bids)
 
-results_ec_first60 = parLapplyLB(cl, bids, function(bid)
-  try(estimate_ec(bid), silent = T)
-)
+estim_model('results_ec_first60', 'estimate_ec')
+
 
 # Last X
 
@@ -508,9 +470,10 @@ clusterExport(cl,c('brand_panel'))
 bids = unique(brand_panel$brand_id)
 length(bids)
 
+estim_model('results_ec_last60', 'estimate_ec')
 
-results_ec_last60 = parLapplyLB(cl, bids, function(bid)
-  try(estimate_ec(bid), silent = T)
-)
 
-save_by_regex('^results[_]', filename = '../output/results_main.RData')
+# Done
+sink('../output/results_main.txt')
+cat('Done.')
+sink()
