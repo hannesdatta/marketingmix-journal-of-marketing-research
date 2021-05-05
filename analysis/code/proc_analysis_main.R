@@ -3,7 +3,7 @@ library(car)
 
 # Configure model type and calibrate lag structure
 estimate_salesresponse <- function(id, vars = c('rwpspr','llen','wpswdst'),
-                      controls='(^comp[_].*(rwpspr|llen|wpswdst)$)|quarter[1-3]|^holiday|^trend|(^cop[_](rwpspr|llen|wpswdst)$)', 
+                      controls='(^comp[_](rwpspr|llen|wpswdst)$)|quarter[1-3]|^holiday|^trend|(^cop[_](rwpspr|llen|wpswdst)$)', 
                       pval = .1,
                       kickout_ns_copula = T, withlagdv=T, dv = 'usales') {
   
@@ -148,7 +148,7 @@ estimate_salesresponse <- function(id, vars = c('rwpspr','llen','wpswdst'),
 
 # Configure model type and calibrate lag structure
 estimate_ec <- function(id, vars = c('rwpspr','llen','wpswdst'),
-                          controls_diffs='^comp[_].*(rwpspr|llen|wpswdst)$', 
+                          controls_diffs='^comp[_](rwpspr|llen|wpswdst)$', 
                           controls_laglevels = '',
                           controls_curr = 'quarter[1-3]|^holiday|^trend',
                           controls_cop = '^cop[_](rwpspr|llen|wpswdst)$', 

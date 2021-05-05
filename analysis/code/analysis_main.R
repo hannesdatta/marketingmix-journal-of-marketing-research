@@ -192,7 +192,7 @@ void<-clusterEvalQ(cl, init())
 
 
 
-bids <- unique(brand_panel$brand_id)
+bids <- unique(brand_panel$brand_id)#[1:50]
 length(bids)
 
 init()
@@ -218,9 +218,10 @@ estim_model <- function(model_name, fun, ...) {
 ## MAIN MODEL
 estim_model('results_ec_main', 'estimate_ec')
 
+
+
 ## MAIN MODEL w/ PRODUCT ATTRIBUTES
 estim_model('results_ec_main_attributes', 'estimate_ec', controls_curr = 'quarter[1-3]|^holiday|^trend|^attr')
-
 
 ## ADDING MARKETING MIX INSTRUMENTS ITERATIVELY
 estim_model('results_ec_nommix', 'estimate_ec', vars = NULL, controls_cop = NULL)
@@ -237,14 +238,14 @@ estim_model('results_ec_onlydst', 'estimate_ec', vars = c('wpswdst'), controls_c
 # weights t-2, t-1, t ("weights, including current sales")
 
 estim_model('results_ec_main_currweights', 'estimate_ec', vars=c('rwcpspr','llen','nwwdst'),
-            controls_diffs='^cpcomp[_].*(rwcpspr|llen|wcpswdst)$',
+            controls_diffs='^cpcomp[_](rwcpspr|llen|wcpswdst)$',
             controls_cop = '^cop[_](rwcpspr|llen|wcpswdst)$')
 
 ## MULTIPLICATIVE ERROR CORRECTION MODEL
 
 estim_model('results_ec_log', 'estimate_ec', dv = 'lnusales',
             vars = c('lnrwpspr', 'lnllen', 'lnwpswdst'),
-            controls_diffs = '^comp[_].*(lnrwpspr|lnllen|lnwpswdst)$',
+            controls_diffs = '^comp[_](lnrwpspr|lnllen|lnwpswdst)$',
             controls_laglevels = '',
             controls_curr = 'quarter[1-3]|^lnholiday|^lntrend',
             controls_cop = '^cop[_](rwpspr|llen|wpswdst)$', # copula terms of log versus levels is the same
@@ -269,12 +270,12 @@ estim_model('results_salesresponse_linear_onlyldv', 'estimate_salesresponse', wi
 # Log-log sales model corresponding to the main model
 
 estim_model('results_salesresponse_loglog', 'estimate_salesresponse',vars='lnrwpspr','lnllen','lnwpswdst',
-            controls='(^comp[_].*(lnrwpspr|lnllen|lnwpswdst)$)|quarter[1-3]|^lnholiday|^lntrend|(^cop[_](rwpspr|llen|wpswdst)$)',
+            controls='(^comp[_](lnrwpspr|lnllen|lnwpswdst)$)|quarter[1-3]|^lnholiday|^lntrend|(^cop[_](rwpspr|llen|wpswdst)$)',
             dv = 'lnusales')
 
 # No lagged dependent variable
 estim_model('results_salesresponse_loglog_noldv', 'estimate_salesresponse', vars='lnrwpspr','lnllen','lnwpswdst',
-            controls='(^comp[_].*(lnrwpspr|lnllen|lnwpswdst)$)|quarter[1-3]|^lnholiday|^lntrend|(^cop[_](rwpspr|llen|wpswdst)$)',
+            controls='(^comp[_](lnrwpspr|lnllen|lnwpswdst)$)|quarter[1-3]|^lnholiday|^lntrend|(^cop[_](rwpspr|llen|wpswdst)$)',
             dv = 'lnusales', withlagdv=F)
 
 # Only lagged dependent variable
@@ -282,7 +283,7 @@ estim_model('results_salesresponse_loglog_onlyldv', 'estimate_salesresponse', va
 
 
 ####### WITH LAGGED COMPETITION VARIABLES ######
-estim_model('results_ec_unrestrictedcompetition', 'estimate_ec',controls_laglevels = '^comp[_].*(rwpspr|llen|wpswdst)$')
+estim_model('results_ec_unrestrictedcompetition', 'estimate_ec',controls_laglevels = '^comp[_](rwpspr|llen|wpswdst)$')
 
 ####### WITHOUT ENDOGENEITY CONTROLS ######
 estim_model('results_ec_noendogeneity', 'estimate_ec',controls_cop = NULL)
@@ -378,13 +379,14 @@ if (!file.exists('../output/results_ec_main_sur.RData')) {
   save(results_ec_main_sur, file = '../output/results_ec_main_sur.RData')
 }
 
+if(0) {
 if (!file.exists('../output/results_ec_main_currweights.RData')) {
   load('../output/results_ec_main_currweights.RData')
   results_ec_main_sur <- do_sur(results_ec_main)
   save(results_ec_main_sur, file = '../output/results_ec_main_currweights_sur.RData')
 }
 
-
+}
 # Function scans global environment for occurence of regular expression (`regex`), 
 # and saves all objects in `filename`.
 save_by_regex <- function(regex, filename) {
@@ -426,8 +428,8 @@ old_bids = bids
 
 bids = china_hk
 estim_model('results_ec_chinahk_withadv', 'estimate_ec', vars = c('rwpspr','llen','wpswdst', 'radv'),
-            controls_diffs='^comp[_]*(rwpspr|llen|wpswdst|radv)$', 
-            controls_cop = '^cop[_]*(rwpspr|llen|wpswdst|radv)$')
+            controls_diffs='^comp[_](rwpspr|llen|wpswdst|radv)$', 
+            controls_cop = '^cop[_](rwpspr|llen|wpswdst|radv)$')
 
 
 estim_model('results_ec_chinahk_withoutadv', 'estimate_ec')
@@ -471,6 +473,7 @@ bids = unique(brand_panel$brand_id)
 length(bids)
 
 estim_model('results_ec_last60', 'estimate_ec')
+
 
 
 # Done
