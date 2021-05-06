@@ -28,7 +28,7 @@ for (.col in cols) eval(parse(text=paste0('brand_panel[mix, ', .col, '_index:=i.
 for (.col in cols) eval(parse(text=paste0('brand_panel[mix, ', .col, '_std:=i.', .col, '_std]')))
 
 # define metrics to vary only at the yearly level for brands
-vars <- grep('2010$|avg$', grep('wgi_|gdp|gini|trade', colnames(brand_panel),value=T), value=T, invert=T)
+vars <- grep('2010$|avg$', grep('wgi_|gdp|gini|trade|population', colnames(brand_panel),value=T), value=T, invert=T)
 
 tmp = unique(brand_panel, by = c('category','country','year'))[, lapply(.SD, mean,na.rm=T), by = c('category','country'), .SDcol=vars]
 tmp <- tmp[,unlist(lapply(tmp,function(x) all(is.na(x))))==F,with=F]

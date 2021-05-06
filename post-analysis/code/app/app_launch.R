@@ -92,13 +92,14 @@ all_mods <- function(models, mtype = 'lmer', clust = NULL, clust_type = 'HC1') {
       obs=unlist(lapply(list(pr,dst,llen),function(x) length(residuals(x))))
       aics = unlist(lapply(list(pr,dst,llen), function(x) AIC(x)))
       bics = unlist(lapply(list(pr,dst,llen), function(x) BIC(x)))
-      
+      logliks = unlist(lapply(list(pr, dst, llen), function(x) logLik(x)))
       
       if (!is.null(clust)) {
         pr <- coeftest(pr, vcov = vcovCL, cluster = clust, fix = T, type = clust_type)
         dst <- coeftest(dst, vcov = vcovCL, cluster = clust, fix = T, type = clust_type)
         llen <- coeftest(llen, vcov = vcovCL, cluster = clust, fix = T, type = clust_type)
         return(list(pr=pr,dst=dst, llen=llen, rsqs=rsqs, obs = obs, aic=aics, bic=bics,
+                    loglik = logliks,
                     predictions=preds))
         
       }
@@ -205,6 +206,7 @@ potential_vars_raw = list(brandequity=list('!SBBE' = 'sbbe_round1_mc',
                       country_econ = list('!Log GDP growth (obs. avg)' = 'ln_gdpgrowthyravg_mc',
                                           'Log GDP growth (avg)' = 'ln_gdpgrowthavg_mc',
                                           'Log GDP growth (2010)' = 'ln_gdpgrowth2010_mc',
+                                          
                                           "!Log Income Inequality (nearest to 2010)" = "ln_ginicoef_mc",
                                           
                                           '!Log GDP per capita (obs. avg)' = "ln_gdppercapitacurrentyravg_mc",
@@ -217,10 +219,14 @@ potential_vars_raw = list(brandequity=list('!SBBE' = 'sbbe_round1_mc',
                                           
                                           'Log HDI (2010)' = 'ln_hdi2010_mc',
                                           
+                                          "!Log population (obs. avg)" = 'ln_populationyravg_mc',
+                                          "Log population (avg)" = 'ln_populationavg_mc',
+                                          "Log population (in 2010)" = 'ln_population2010_mc',
+                                          
                                           "Emerging market indicator" = "emerging",
                                           "Log Goods Market Efficiency (GCI 2010)" = "ln_gci_p06_goods_s_mc",
                                           "Log Infrastructure (GCI 2010)" = 'ln_gci_p02_infrastructure_s_mc',
-                                          "!Log Market size (GCI 2010)" = 'ln_gci_p10_marketsize_s_mc',
+                                          "Log Market size (GCI 2010)" = 'ln_gci_p10_marketsize_s_mc',
                                           
                                           
                                           'GDP growth (obs. avg)' = 'gdpgrowthyravg_mc',
@@ -237,6 +243,10 @@ potential_vars_raw = list(brandequity=list('!SBBE' = 'sbbe_round1_mc',
                                           "Trade openess (in 2010)" = 'tradeopeness2010_mc',
                                           
                                           'HDI (2010)' = 'hdi2010_mc',
+                                          
+                                          "Population (obs. avg)" = 'populationyravg_mc',
+                                          "Population (avg)" = 'populationavg_mc',
+                                          "Population (in 2010)" = 'population2010_mc',
                                           
                                           "Goods Market Efficiency (GCI 2010)" = "gci_p06_goods_s_mc",
                                           "Infrastructure (GCI 2010)" = 'gci_p02_infrastructure_s_mc',
@@ -617,13 +627,14 @@ produce_model <- function(input) {
       
       aics = mods[[1]]$aic[m_ord]
       bics =mods[[1]]$bic[m_ord]
-      
+      logliks = mods[[1]]$loglik[m_ord]
+                       
       r2s = c('R-squared', sub('^(-)?0[.]', '\\1.', formatC(rsqs, digits=3, format='f', flag='#')))
       aic = c('AIC',sub('^(-)?0[.]', '\\1.', formatC(aics, digits=2, format='f', flag='#')))
       bic = c('BIC',sub('^(-)?0[.]', '\\1.', formatC(bics, digits=2, format='f', flag='#')))
       obs = c('Observations',obss)
-      
-      lbllist = list(r2s,aic, bic,obs)
+      loglik = c('LL',sub('^(-)?0[.]', '\\1.', formatC(logliks, digits=2, format='f', flag='#')))
+      lbllist = list(r2s,aic, bic, loglik, obs)
     } 
     
     
