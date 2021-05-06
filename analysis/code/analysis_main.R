@@ -81,7 +81,7 @@ dir.create('../output')
     brand_panel[quarter==q, paste0('quarter', q):=1]
   }  
     
-  vars=c('rwpspr', 'rwcpspr', 'rnwpr', 'llen', 'wpswdst', 'wcpswdst', 'nwwdst', 'usales', 'lagusales', 'radv')#, 'adv')
+  vars=c('rwpspr', 'rwcpspr', 'rnwpr', 'llen', 'wpswdst', 'wcpswdst', 'nwwdst', 'usales', 'lagusales', 'radv', 'nov6sh','nov12sh','nov3sh') #, 'adv')
   for (var in vars) {
     brand_panel[, anyzero:=as.numeric(any(get(var)==0),na.rm=T),by=c('market_id', 'brand')]
     brand_panel[is.na(anyzero), anyzero:=0]
@@ -92,7 +92,7 @@ dir.create('../output')
   
   
   # competitive mmix
-  for (v in c('rwpspr', 'rwcpspr', 'rnwpr', 'llen', 'wpswdst','wcpswdst', 'nwwdst', 'radv')) { #}, 'lnadv')) {
+  for (v in c('rwpspr', 'rwcpspr', 'rnwpr', 'llen', 'wpswdst','wcpswdst', 'nwwdst', 'radv', 'nov6sh','nov12sh','nov3sh')) { #}, 'lnadv')) {
     setorder(brand_panel, market_id, category, country, brand, date)
     
     # includes current period
@@ -161,7 +161,7 @@ dir.create('../output')
   
   
   # Define copula terms
-  for (var in c('rwpspr', 'rwcpspr', 'rnwpr', 'llen', 'wpswdst', 'wcpswdst', 'nwwdst', 'radv')) {
+  for (var in c('rwpspr', 'rwcpspr', 'rnwpr', 'llen', 'wpswdst', 'wcpswdst', 'nwwdst', 'radv', 'nov3sh','nov6sh','nov12sh')) {
     brand_panel[, paste0('cop_', var):=make_copula(get(paste0(var))), by = c('market_id','brand')]
   }
   
@@ -218,8 +218,13 @@ estim_model <- function(model_name, fun, ...) {
 ## MAIN MODEL
 estim_model('results_ec_main', 'estimate_ec')
 
-
-
+## MAIN MODEL W/ NOVELTY
+estim_model('results_ec_main_w_novelty', 'estimate_ec',vars = c('rwpspr','llen','wpswdst', 'nov6sh'),
+controls_diffs='^comp[_](rwpspr|llen|wpswdst|nov6sh)$', 
+controls_laglevels = '',
+controls_curr = 'quarter[1-3]|^holiday|^trend',
+controls_cop = '^cop[_](rwpspr|llen|wpswdst|nov6sh)$')
+  
 ## MAIN MODEL w/ PRODUCT ATTRIBUTES
 estim_model('results_ec_main_attributes', 'estimate_ec', controls_curr = 'quarter[1-3]|^holiday|^trend|^attr')
 
@@ -385,8 +390,14 @@ if (!file.exists('../output/results_ec_main_currweights.RData')) {
   results_ec_main_sur <- do_sur(results_ec_main)
   save(results_ec_main_sur, file = '../output/results_ec_main_currweights_sur.RData')
 }
-
 }
+
+if (!file.exists('../output/results_ec_main_w_novelty_sur.RData')) {
+  load('../output/results_ec_main_w_novelty.RData')
+  results_ec_main_w_novelty_sur <- do_sur(results_ec_main_w_novelty)
+  save(results_ec_main_w_novelty_sur, file = '../output/results_ec_main_w_novelty_sur.RData')
+} 
+
 # Function scans global environment for occurence of regular expression (`regex`), 
 # and saves all objects in `filename`.
 save_by_regex <- function(regex, filename) {

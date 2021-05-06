@@ -1,7 +1,7 @@
 
 
 # Bstrap LM
-load('input')
+load('input2')
 #load('input_lmer')
 
 input<-saved_input

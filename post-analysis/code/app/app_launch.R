@@ -1,4 +1,4 @@
-rm(list=ls())
+#rm(list=ls())
 # Load data
 library(lme4)
 library(bit64)
@@ -17,9 +17,8 @@ library(foreign)
 library(ggplot2)
 library(ggthemes)
 
-fns <- c('app_workspace.RData')
-
-for (fn in fns) if (file.exists(fn)) {cat(paste0('loading...', fn, '...\n')); load(fn)}
+fn <- c('app_workspace.RData')
+if (!exists('elasticities')) load(fn)
 
 
 brands <- elasticities$ec_main_sur[, list(Ncountries = length(unique(country)), Ncategory=length(unique(category))),by=c('brand')]
@@ -69,71 +68,57 @@ rsq <- function(m) {
 }
 
 
-all_mods <- function(models, mtype = 'lmer', clust = NULL, clust_type = 'HC1') {
-  lapply(models, function(forms) {
+rsqs=unlist(lapply(mods, function(x) lapply(x[c('pr','dst','llen')], rsq)))
+obss = unlist(lapply(mods, function(x) lapply(x[c('pr','dst','llen')], function(i) length(which(!is.na(residuals(i)))))))
+fits = lapply(mods[[1]][c('pr','dst','llen')], function(i) summary(i)$AICtab)
+aics = unlist(lapply(fits, function(x) x['AIC']))
+bics = unlist(lapply(fits, function(x) x['BIC']))
+logliks = unlist(lapply(mods[[1]][c('pr','dst','llen')], function(x) as.numeric(logLik(x))))
+
+
+all_mods <- function(formula, mtype = 'lmer', clust = NULL, clust_type = 'HC1') {
+  loop_vars = unique(elast$variable)
+  
+  results <- lapply(loop_vars, function(var) {
+    estim_data = elast[variable==var]
+    
     if (mtype=='lm')  {
+      m = lm(update.formula(elastlt~1, formula), data=estim_data, weights=w_elastlt)
+      avail=setdiff(1:nrow(estim_data), m$na.action)
+      pred=data.table(estim_data[, c('brand','brand_id','category','country', 'elastlt')][avail], variable=var, elast_lt_pred=predict(m))
       
-      pr = lm(update.formula(elastlt~1, forms$pr),
-              data=elast[grep('pr',variable)], weights=w_elastlt)
-      dst = lm(update.formula(elastlt~1, forms$dst),
-              data=elast[grep('dst',variable)], weights=w_elastlt)
-      llen = lm(update.formula(elastlt~1, forms$llen),
-              data=elast[grep('llen',variable)], weights=w_elastlt)
-      avail_pr=setdiff(1:nrow(elast[grep('pr',variable)]), pr$na.action)
-      avail_dst=setdiff(1:nrow(elast[grep('dst',variable)]), dst$na.action)
-      avail_llen=setdiff(1:nrow(elast[grep('llen',variable)]), llen$na.action)
+      r2= rsq(m)
+      loglik = logLik(m)
+      aic=AIC(m)
+      bic=BIC(m)
+      if (!is.null(clust)) m <- coeftest(m, vcov = vcovCL, cluster = clust, fix = T, type = clust_type)
       
-      pred_pr=data.table(elast[grepl('pr',variable), c('brand','brand_id','category','country', 'elastlt')][avail_pr], variable='pr', elast_lt_pred=predict(pr))
-      pred_llen=data.table(elast[grepl('llen',variable), c('brand','brand_id','category','country', 'elastlt')][avail_llen], variable='llen',elast_lt_pred=predict(llen))
-      pred_dst=data.table(elast[grepl('dst',variable), c('brand','brand_id','category','country', 'elastlt')][avail_dst], variable='dst', elast_lt_pred=predict(dst))
-      preds= rbind(pred_pr, pred_llen, pred_dst)
-      
-      rsqs=unlist(lapply(list(pr,dst,llen),rsq))
-      obs=unlist(lapply(list(pr,dst,llen),function(x) length(residuals(x))))
-      aics = unlist(lapply(list(pr,dst,llen), function(x) AIC(x)))
-      bics = unlist(lapply(list(pr,dst,llen), function(x) BIC(x)))
-      logliks = unlist(lapply(list(pr, dst, llen), function(x) logLik(x)))
-      
-      if (!is.null(clust)) {
-        pr <- coeftest(pr, vcov = vcovCL, cluster = clust, fix = T, type = clust_type)
-        dst <- coeftest(dst, vcov = vcovCL, cluster = clust, fix = T, type = clust_type)
-        llen <- coeftest(llen, vcov = vcovCL, cluster = clust, fix = T, type = clust_type)
-        return(list(pr=pr,dst=dst, llen=llen, rsqs=rsqs, obs = obs, aic=aics, bic=bics,
-                    loglik = logliks,
-                    predictions=preds))
-        
-      }
-      
-      return(list(pr=pr,dst=dst, llen=llen, rsqs=rsqs, obs = obs, aic=aics, bic=bics,
-                  predictions=preds))
-      
+      return(list(model=m, r2=r2, aic=aic, bic=bic, loglik=loglik, predictions=pred))
     }
+       
     
     if (mtype=='lmer') {
-     pr = lmer(update.formula(elastlt~1, forms$pr),
-                data=elast[grep('pr',variable)], weights=w_elastlt,
+     m = lmer(update.formula(elastlt~1, formula),
+                data=estim_data, weights=w_elastlt,
                 control = lmerctrl, REML=F)
-     dst = lmer(update.formula(elastlt~1, forms$dst),
-                data=elast[grep('dst',variable)], weights=w_elastlt,
-                control = lmerctrl, REML=F)
-     llen = lmer(update.formula(elastlt~1, forms$llen),
-                        data=elast[grep('llen',variable)], weights=w_elastlt,
-                        control = lmerctrl, REML=F)
      
-     avail_pr=rownames(elast[grep('pr',variable)])%in%rownames(pr@frame)
-     avail_dst=rownames(elast[grep('dst',variable)])%in%rownames(dst@frame)
-     avail_llen=rownames(elast[grep('llen',variable)])%in%rownames(llen@frame)
+     avail=rownames(estim_data)%in%rownames(m@frame)
      
+     pred=data.table(estim_data[, c('brand','brand_id','category','country', 'elastlt')][avail], variable=var, elast_lt_pred=predict(m))
      
-     pred_pr=data.table(elast[grepl('pr',variable), c('brand','brand_id','category','country', 'elastlt')][avail_pr], variable='pr', elast_lt_pred=predict(pr))
-     pred_llen=data.table(elast[grepl('llen',variable), c('brand','brand_id','category','country', 'elastlt')][avail_llen], variable='llen',elast_lt_pred=predict(llen))
-     pred_dst=data.table(elast[grepl('dst',variable), c('brand','brand_id','category','country', 'elastlt')][avail_dst], variable='dst' ,elast_lt_pred=predict(dst))
-     preds= rbind(pred_pr, pred_llen, pred_dst)
+     loglik = logLik(m)
+     aic = AIC(m)
+     bic = BIC(m)
+     r2 = rsq(m)
      
-    return(list(pr=pr, dst=dst, llen=llen,predictions=preds))
+     return(list(model=m, r2=r2, aic=aic, bic=bic, loglik=loglik, predictions=pred))
+    
     }
     
   })
+  
+  names(results) <- loop_vars
+  return(results)
 }
 
 
@@ -147,7 +132,11 @@ lmerctrl = lmerControl(optimizer ="Nelder_Mead", check.conv.singular="ignore")
 names(elasticities)
 
 model_names = list('M1a) Linear Error Correction (weights t-3...t-1, SUR)' = 'ec_main_sur',
-                   'M1b) Lin. EC (weights t-3...t-1, no SUR)' = 'ec_main')#,
+                   'M1b) Lin. EC (weights t-3...t-1, no SUR)' = 'ec_main',
+                   'M2b) Lin. EC w/ Novelty (weights t-3, ...t-1, no SUR)' = 'ec_main_w_novelty')
+
+
+
                  #  'M2a) Lin. EC (weights t-2,...t, SUR)' = 'ec_main_currweights',
                 #   'M2b) Lin. EC (weights t-2,...t, SUR)' = 'ec_main_currweights_sur')
                    
@@ -167,27 +156,20 @@ potential_vars_raw = list(brandequity=list('!SBBE' = 'sbbe_round1_mc',
                                        'Log Brand strength (BAV)' = 'ln_bav_brandstrength_mc',
                                        'Log Brand stature (BAV)' = 'ln_bav_brandstature_mc',
                                        'Log Brand energized diff. (BAV)' = 'ln_bav_energizeddifferentiation_mc',
-                                       'Log Marketshare' = 'ln_brand_ms_mc',
-                                       'Marketshare' = 'brand_ms_mc'),
+                                       'Log Marketshare' = 'ln_brand_ms_mc'),
+                                       #'Marketshare' = 'brand_ms_mc'),
                           
                       brandlocation = list('Domestic market indicator' = 'local_to_market_mc',
                                            '!JP, US, Swiss, GER, Sweden indicator' = "`brand_from_jp-us-ch-ge-sw_mc`",
                                            'Western brand indicator' = 'western_brand_mc'),
+                      
                       brandmmix = list('!Price (log index)' = 'ln_rwpspr_index_mc',
                                        '!Distr. (log index)' = 'ln_wpswdst_index_mc',
                                        '!Line length (log index)' = 'ln_llen_index_mc',
-                                       'Price (index)' = 'rwpspr_index_mc',
-                                       'Distr. (index)' = 'wpswdst_index_mc',
-                                       'Line length (index)' = 'llen_index_mc',
-                                       'Price (std.)' = 'rwpspr_std_mc',
-                                       'Distr. (std.)' = 'wpswdst_std_mc',
-                                       'Line length (std.)' = 'llen_std_mc',
-                                       'Innovativeness 12 (log index)' ='ln_nov12sh_index_mc',
-                                       'Innovativeness 12 (index)' = 'nov12sh_index_mc',
-                                       'Innovativeness 12 (std)' = 'nov12sh_std_mc',
                                        '!Innovativeness 6 (log index)' ='ln_nov6sh_index_mc',
-                                       'Innovativeness 6 (index)' = 'nov126_index_mc',
-                                       'Innovativeness 6 (std)' = 'nov6sh_std_mc'),
+                                        'Innovativeness 12 (log index)' ='ln_nov12sh_index_mc'),
+                                      
+                                        
                       
                       
                       brandother = list('Log Brand novelty' = 'ln_brandnovelty6_mc',
@@ -197,61 +179,45 @@ potential_vars_raw = list(brandequity=list('!SBBE' = 'sbbe_round1_mc',
                       category = list('!Log Market concentration' = "ln_market_herf_mc",
                                       '!Log Market growth' = "ln_market_growth_mc",
                                       '!Appliances (vs. electronics)' = 'appliance',
-                                      'Log Category innovativeness' = 'ln_catnovelty3_mc',
-                                      'Market concentration' = "market_herf_mc",
-                                      'Market growth' = "market_growth_mc",
-                                      'Category innovativeness' = 'catnovelty3_mc'
+                                      'Log Category innovativeness' = 'ln_catnovelty3_mc'
+                                      
                                         ),
                       
-                      country_econ = list('!Log GDP growth (obs. avg)' = 'ln_gdpgrowthyravg_mc',
-                                          'Log GDP growth (avg)' = 'ln_gdpgrowthavg_mc',
-                                          'Log GDP growth (2010)' = 'ln_gdpgrowth2010_mc',
+                      country_econ = list(
+                                          'Log GDP growth WB (obs. avg)' = 'ln_gdpgrowthyravg_mc',
+                                          #'Log GDP growth WB (avg)' = 'ln_gdpgrowthavg_mc',
+                                          'Log GDP growth WB (2010)' = 'ln_gdpgrowth2010_mc',
+                                          '!Log GDP growth PENN (obs. avg)' = 'ln_penn_growthrgdpeyravg_mc',
+                                          'Log GDP growth PENN (2010)' = 'ln_penn_growthrgdpe2010_mc',
                                           
                                           "!Log Income Inequality (nearest to 2010)" = "ln_ginicoef_mc",
                                           
-                                          '!Log GDP per capita (obs. avg)' = "ln_gdppercapitacurrentyravg_mc",
-                                          'Log GDP per capita (avg)' = "ln_gdppercapitacurrentavg_mc",
-                                          'Log GDP per capita (2010)' = "ln_gdppercapitacurrent2010_mc",
+                                          'Log GDP per capita WB (obs. avg)' = "ln_gdppercapitacurrentyravg_mc",
+                                          #'Log GDP per capita (avg)' = "ln_gdppercapitacurrentavg_mc",
+                                          'Log GDP per capita WB (2010)' = "ln_gdppercapitacurrent2010_mc",
                                           
+                                          '!Log GDP per capita PENN (obs. avg)' = 'ln_penn_percapitargdpeyravg_mc',
+                                          'Log GDP per capita PENN (2010)' = 'ln_penn_percapitargdpe2010_mc',
+                                            
                                           "Log Trade openess (obs. avg)" = 'ln_tradeopenessyravg_mc',
-                                          "Log Trade openess (avg)" = 'ln_tradeopenessavg_mc',
+                                          #"Log Trade openess (avg)" = 'ln_tradeopenessavg_mc',
                                           "Log Trade openess (in 2010)" = 'ln_tradeopeness2010_mc',
                                           
                                           'Log HDI (2010)' = 'ln_hdi2010_mc',
                                           
-                                          "!Log population (obs. avg)" = 'ln_populationyravg_mc',
-                                          "Log population (avg)" = 'ln_populationavg_mc',
-                                          "Log population (in 2010)" = 'ln_population2010_mc',
+                                          "Log population WB (obs. avg)" = 'ln_populationyravg_mc',
+                                          #"Log population WB (avg)" = 'ln_populationavg_mc',
+                                          "Log population WB (in 2010)" = 'ln_population2010_mc',
+                                          
+                                          "!Log population PENN (obs. avg)" = 'ln_penn_popyravg_mc',
+                                         # "Log population PENN (avg)" = 'ln_populationavg_mc',
+                                          "Log population PENN (in 2010)" = 'ln_penn_pop2010_mc',
+                                          
                                           
                                           "Emerging market indicator" = "emerging",
                                           "Log Goods Market Efficiency (GCI 2010)" = "ln_gci_p06_goods_s_mc",
                                           "Log Infrastructure (GCI 2010)" = 'ln_gci_p02_infrastructure_s_mc',
-                                          "Log Market size (GCI 2010)" = 'ln_gci_p10_marketsize_s_mc',
-                                          
-                                          
-                                          'GDP growth (obs. avg)' = 'gdpgrowthyravg_mc',
-                                          'GDP growth (avg)' = 'gdpgrowthavg_mc',
-                                          'GDP growth (2010)' = 'gdpgrowth2010_mc',
-                                          "Income Inequality (nearest to 2010)" = "ginicoef_mc",
-                                          
-                                          'GDP per capita (obs. avg)' = "gdppercapitacurrentyravg_mc",
-                                          'GDP per capita (avg)' = "gdppercapitacurrentavg_mc",
-                                          'GDP per capita (2010)' = "gdppercapitacurrent2010_mc",
-                                          
-                                          "Trade openess (obs. avg)" = 'tradeopenessyravg_mc',
-                                          "Trade openess (avg)" = 'tradeopenessavg_mc',
-                                          "Trade openess (in 2010)" = 'tradeopeness2010_mc',
-                                          
-                                          'HDI (2010)' = 'hdi2010_mc',
-                                          
-                                          "Population (obs. avg)" = 'populationyravg_mc',
-                                          "Population (avg)" = 'populationavg_mc',
-                                          "Population (in 2010)" = 'population2010_mc',
-                                          
-                                          "Goods Market Efficiency (GCI 2010)" = "gci_p06_goods_s_mc",
-                                          "Infrastructure (GCI 2010)" = 'gci_p02_infrastructure_s_mc',
-                                          "Market size (GCI 2010)" = 'gci_p10_marketsize_s_mc'
-                                          
+                                          "Log Market size (GCI 2010)" = 'ln_gci_p10_marketsize_s_mc'
                                           ),
                       
                       country_culture = list("WVS: Traditional vs. rational" = "tradrat_mc",
@@ -562,6 +528,14 @@ result_storage <<- NULL
 data_storage <<- NULL
 
 
+model_order = list('Line length' = 'llen',
+                   'Price' = 'rwpspr',
+                   'Distribution' = 'wpswdst',
+                   'Innovativeness' = 'nov6sh',
+                   'Innovativeness'  ='nov12sh',
+                   'Innovativeness' = 'nov3sh')
+
+
 produce_model <- function(input) {
   
   my_hash <- function(input, ...) digest(paste0(paste0(names(input), collapse='_'), '|', paste0(sapply(unlist(input), function(x) if(x=='') return('[ ]') else return(x)), collapse='_')),...)
@@ -580,16 +554,14 @@ produce_model <- function(input) {
     
     elast <<- get_sample(input, dv = input$dv)
     
-   
-    
-    mods = all_mods(list(list(pr=mspec$formula, dst=mspec$formula, llen=mspec$formula)),
+    mods = all_mods(formula = mspec$formula,
                     mtype=mspec$modeltype,
                     clust=mspec$cluster, clust_type = mspec$clustering_type)
     
-    mods2 = lapply(seq(along=c('pr','dst','llen')), function(i) {
+    mods2 = lapply(mods, function(m) {
       
-      outt = try(summary(mods[[1]][[i]])$coefficients, silent=T)
-      if (class(outt)=='try-error') outt = mods[[1]][[i]]
+      outt = try(summary(m$model)$coefficients, silent=T)
+      if (class(outt)=='try-error') outt = m$model
       
       outt[,3]= outt[,1]/outt[,2]
       
@@ -601,49 +573,24 @@ produce_model <- function(input) {
     
     lbllist = NULL
     
-    m_ord = c(3,1,2)
+    m_ord = match(model_order, names(mods2))
+    m_ord = m_ord[!is.na(m_ord)]
+    m_names = names(model_order)[match(names(mods)[m_ord], model_order)]
     
-    if (mspec$modeltype=='lmer') {
-      rsqs=unlist(lapply(mods, function(x) lapply(x[c('pr','dst','llen')], rsq)))
-      obss = unlist(lapply(mods, function(x) lapply(x[c('pr','dst','llen')], function(i) length(which(!is.na(residuals(i)))))))
-      fits = lapply(mods[[1]][c('pr','dst','llen')], function(i) summary(i)$AICtab)
-      aics = unlist(lapply(fits, function(x) x['AIC']))
-      bics = unlist(lapply(fits, function(x) x['BIC']))
-      logliks = unlist(lapply(mods[[1]][c('pr','dst','llen')], function(x) as.numeric(logLik(x))))
-      
-      r2s = c('R-squared', sub('^(-)?0[.]', '\\1.', formatC(rsqs[m_ord], digits=3, format='f', flag='#')))
-      aic = c('AIC',sub('^(-)?0[.]', '\\1.', formatC(aics[m_ord], digits=2, format='f', flag='#')))
-      bic = c('BIC',sub('^(-)?0[.]', '\\1.', formatC(bics[m_ord], digits=2, format='f', flag='#')))
-      loglik = c('LL',sub('^(-)?0[.]', '\\1.', formatC(logliks[m_ord], digits=2, format='f', flag='#')))
-      obs = c('Observations',obss[m_ord])
-      
-      lbllist = list(r2s,aic, bic,loglik, obs)
-    } 
-    
-    if (mspec$modeltype=='lm') {
-      rsqs=mods[[1]]$rsqs[m_ord]
-      
-      obss = mods[[1]]$obs[m_ord]
-      
-      aics = mods[[1]]$aic[m_ord]
-      bics =mods[[1]]$bic[m_ord]
-      logliks = mods[[1]]$loglik[m_ord]
-                       
-      r2s = c('R-squared', sub('^(-)?0[.]', '\\1.', formatC(rsqs, digits=3, format='f', flag='#')))
-      aic = c('AIC',sub('^(-)?0[.]', '\\1.', formatC(aics, digits=2, format='f', flag='#')))
-      bic = c('BIC',sub('^(-)?0[.]', '\\1.', formatC(bics, digits=2, format='f', flag='#')))
-      obs = c('Observations',obss)
-      loglik = c('LL',sub('^(-)?0[.]', '\\1.', formatC(logliks, digits=2, format='f', flag='#')))
-      lbllist = list(r2s,aic, bic, loglik, obs)
-    } 
+    r2s = c('R-squared', sub('^(-)?0[.]', '\\1.', formatC(unlist(lapply(mods[m_ord], function(x) x$r2)), digits=3, format='f', flag='#')))
+    aic = c('AIC', sub('^(-)?0[.]', '\\1.', formatC(unlist(lapply(mods[m_ord], function(x) x$aic)), digits=2, format='f', flag='#')))
+    bic = c('BIC', sub('^(-)?0[.]', '\\1.', formatC(unlist(lapply(mods[m_ord], function(x) x$bic)), digits=2, format='f', flag='#')))
+    obs = c('Observations', formatC(unlist(lapply(mods[m_ord], function(x) nrow(x$predictions)))))
+    loglik = c('LL', sub('^(-)?0[.]', '\\1.', formatC(unlist(lapply(mods[m_ord], function(x) x$loglik)), digits=2, format='f', flag='#')))
+    lbllist = list(r2s,aic, bic, loglik, obs)
     
     
     outp=paste0(paste0(capture.output({stargazer(mods2[m_ord], type='html', add.lines=lbllist,
-                                                 column.labels = rep(c('price','distribution','line length')[m_ord], length(mods2)))}), collapse=''),
+                                                 column.labels = m_names)}), collapse=''),
                 '<br><br>', mspec$formula, "<br><br>", paste0(as.character(mspec$cluster), collapse=''), '<br><br>', mspec$modeltype)
     
-    if (mspec$modeltype=='lmer') outp = paste0(outp, '<br><br>', paste0({lapply(mods[[1]][m_ord], function(x) {
-      test= capture.output({summary(x)})
+    if (mspec$modeltype=='lmer') outp = paste0(outp, '<br><br>', paste0({lapply(mods[m_ord], function(x) {
+      test= capture.output({summary(x$model)})
       # select
       start=grep('Random effects', test, ignore.case=T)
       end=grep('Fixed effect', test, ignore.case=T)
@@ -651,13 +598,14 @@ produce_model <- function(input) {
       
     })}, collapse='<br>'))
     
-    setcolorder(mods[[1]]$predictions, c('category','country','brand','brand_id','variable','elastlt','elast_lt_pred'))
-    setnames(mods[[1]]$predictions, 'elast_lt_pred','elastlt_pred')
+    preds = rbindlist(lapply(mods, function(x) x$predictions))
+    setcolorder(preds, c('category','country','brand','brand_id','variable','elastlt','elast_lt_pred'))
+    setnames(preds, 'elast_lt_pred','elastlt_pred')
     
-    dstorage<<- mods[[1]]$predictions
+    dstorage<<- preds
     result_storage[[hash]]$results <<- paste0(outp, '<br>from memory<br>')
     
-    data_storage[[hash]]$predictions <<- mods[[1]]$predictions
+    data_storage[[hash]]$predictions <<- preds
     
     #rm(me)
   }
@@ -758,7 +706,7 @@ server <- function(input, output) {
     #if (!is.null(input$plot_vars)) dt <- dt[variable%in%input$plot_vars]
     
     dt[, abs_val:=(get(input$plot_predicted))]
-    dt[variable=='pr', abs_val:=-(get(input$plot_predicted))]
+    dt[grepl('pr$', variable), abs_val:=-(get(input$plot_predicted))]
     
     dt[, rel_val:=abs_val/sum(abs_val), by =c('category','country','brand')]
     
@@ -767,12 +715,16 @@ server <- function(input, output) {
     
     agglevel = 'country'# input$plot_stack_by #c('country')
     
-    tmp2 = tmp[, lapply(.SD, mean,na.rm=T),by=c(agglevel), .SDcol=c('llen','pr','dst')]
-    tmp2[, sum:=llen+pr+dst]
+    
+    chosen_vars = unlist(model_order[model_order%in%colnames(tmp)])
+    
+    tmp2 = tmp[, lapply(.SD, mean,na.rm=T),by=c(agglevel), .SDcol=chosen_vars]
+    
+    eval(parse(text=paste0('tmp2[, sum:=', paste0(chosen_vars,collapse='+'),']')))
     
     tmp3 = melt(tmp2, id.vars=c(agglevel))
-    levels(tmp3$variable)
-    tmp3[, variable:=factor(as.character(variable), levels=c('llen','pr','dst', 'sum'))]
+    #levels(tmp3$variable)
+   # tmp3[, variable:=factor(as.character(variable), levels=c('llen','pr','dst', 'sum'))]
     #levels(tmp3$variable) <- c('price','distribution','line length')
     levels(tmp3$variable)
     
@@ -794,11 +746,13 @@ server <- function(input, output) {
     #
     tmp[, variable_label:=as.character('')]
     
-    tmp3[grepl('llen', variable), variable_label:='Line length']
-    tmp3[grepl('pr', variable), variable_label:='Price']
-    tmp3[grepl('dst', variable), variable_label:='Distribution']
+    tmp3[, variable_label:=names(model_order)[match(variable, unlist(model_order))]]
     
-    tmp3[, variable_label:=factor(variable_label, levels=rev(c('Line length','Price','Distribution')))]
+    tmp3[, variable_label:=factor(variable_label, levels=rev(unique(names(model_order))))]
+    
+    
+    
+    
     #sorted_country =as.character(unique(tmp3$country)[order(tolower(unique(tmp3$country)),decreasing=T)])
     #tmp3[, country:=factor(country,levels=(sorted_country))]
     

@@ -105,7 +105,7 @@ $(TEMP_DIR)/audit_advertising.txt: audit_advertising.R #(TEMP_DIR)/advertising.c
 
 ###### COVARIATES ######
 
-$(OUTPUT_DIR)/covariates.txt: $(OUTPUT_DIR)/hdi.csv $(OUTPUT_DIR)/wgi.csv $(OUTPUT_DIR)/gini.csv $(OUTPUT_DIR)/dev_indicators.csv $(OUTPUT_DIR)/ruleoflaw.csv $(OUTPUT_DIR)/worldvalue.csv $(OUTPUT_DIR)/bav.csv $(OUTPUT_DIR)/gci.csv covars.R
+$(OUTPUT_DIR)/covariates.txt: $(OUTPUT_DIR)/hdi.csv $(OUTPUT_DIR)/wgi.csv $(OUTPUT_DIR)/gini.csv $(OUTPUT_DIR)/dev_indicators.csv $(OUTPUT_DIR)/ruleoflaw.csv $(OUTPUT_DIR)/worldvalue.csv $(OUTPUT_DIR)/bav.csv $(OUTPUT_DIR)/gci.csv $(OUTPUT_DIR)/penn_indicators.csv covars.R
 	R --vanilla --args "" < "covars.R"
 
 # Prepare HDI data
@@ -119,6 +119,10 @@ $(OUTPUT_DIR)/gini.csv: covar_gini.R
 # Prepare remaining Development Indicators
 $(OUTPUT_DIR)/dev_indicators.csv: covar_devindicators.R ../../../../data/dev_indicators/development_data.xlsx
 	R --vanilla --args "" < "covar_devindicators.R"
+
+# Prepare Penn World Tables
+$(OUTPUT_DIR)/penn_indicators.csv: covar_pennworldtables.R ../../../../data/penn_worldtables/pwt90.csv
+	R --vanilla --args "" < "covar_pennworldtables.R"
 
 # Prepare BAV data
 $(OUTPUT_DIR)/bav.csv: covar_bav.R

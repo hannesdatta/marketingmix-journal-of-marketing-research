@@ -69,6 +69,25 @@ for (fn in fns) {
   setnames(tmp, paste0(colnames(tmp), 'avg'))
   brand_panel <- merge(brand_panel, tmp, by.x = c('country'), by.y=c('countryavg'), all.x=T)
   
+  #########################
+  # PENN STATE INDICATORS #
+  #########################
+  
+  penn_indicators <- fread('../output/penn_indicators.csv')
+  setnames(penn_indicators, paste0('penn_',colnames(penn_indicators)))
+  
+  brand_panel <- merge(brand_panel, penn_indicators, by.x = c('year', 'country'), by.y = c('penn_year','penn_country'), all.x=T)
+  
+  # set 2010 values
+  tmp=copy(penn_indicators[penn_year==2010])[, penn_year:=NULL]
+  setnames(tmp, paste0(colnames(tmp), '2010'))
+  brand_panel <- merge(brand_panel, tmp, by.x = c('country'), by.y=c('penn_country2010'), all.x=T)
+  
+  # set mean values
+  tmp=copy(penn_indicators)[, lapply(.SD, mean, na.rm=T), by = c('penn_country'), .SDcols=setdiff(colnames(penn_indicators), c('year','penn_country'))]
+  setnames(tmp, paste0(colnames(tmp), 'avg'))
+  brand_panel <- merge(brand_panel, tmp, by.x = c('country'), by.y=c('penn_countryavg'), all.x=T)
+  
   #######
   # WGI #
   #######
