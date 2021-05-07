@@ -17,11 +17,11 @@ all: $(OUTPUT_DIR)/final_analysis.Rmd
 
 ###### Build parts ######
 
-app/app_workspace.RData: ../../derived/output/covariates.txt app_prep.R $(OUTPUT_DIR)/panel_covariates.txt ../externals/preclean_main.csv proc_auxilary.R proc_rename.R
+app/app_workspace.RData ../output/predictions_kfold.csv ../output/predictions_within.csv: ../../derived/output/covariates.txt app_prep.R $(OUTPUT_DIR)/panel_covariates.txt ../externals/preclean_main.csv proc_auxilary.R proc_rename.R
 	R --vanilla < app_prep.R
 	
 $(OUTPUT_DIR)/panel_covariates.txt: panel_covariates.R ../externals/preclean_main.csv
 	R --vanilla < panel_covariates.R
 
-app/tables.html: new_results.Rmd app/app_workspace.RData proc_auxilary.R proc_rename.R
+app/tables.html: new_results.Rmd app/app_workspace.RData ../output/predictions_kfold.csv ../output/predictions_within.csv proc_auxilary.R proc_rename.R
 	R -e "rmarkdown::render('new_results.Rmd', output_file = 'app/tables.html')"

@@ -15,7 +15,7 @@ for (lib in libs_to_load) eval(parse(text=paste('library(', lib, ')')))
 options(xtable.comment = FALSE)
 options(knitr.kable.NA = '')
 
-# Load data
+# Load data set
   brand_panel=fread('../../analysis/temp/preclean_main.csv')
   brand_panel[, ':=' (date = as.Date(date))]
   
@@ -23,17 +23,18 @@ options(knitr.kable.NA = '')
   source('proc_auxilary.R')
   source('proc_rename.R')
 
+# Load results
   load('app/app_workspace.RData')
+  
+  predictions <- fread('../output/predictions_within.csv')
+  predictions_kfold = fread('../output/predictions_kfold.csv')
   
   elast <- elasticities$ec_main_sur 
   #elast <- elasticities$ec_main_w_novelty_sur 
   
-  #elast=elast[!grepl('allothers', brand,ignore.case=T)] #|super|amazon
   elast[, list(.N),by=c('category','country','brand')]
     
   # set order of variables to appear in figures and tables
-  # ordered_vars =  c('lnllen', 'lnrwpspr', 'lnwpswdst')
-  
   ordered_vars =  c('llen', 'rwpspr', 'wpswdst', 'nov6sh')
   ordered_vars = ordered_vars[which(ordered_vars%in%elast$variable)]
   
@@ -82,7 +83,7 @@ zval = qnorm(1-sigvalue/2)
 # Data
 
 ```{r table1_countries, echo = FALSE}
-tmp=unique(elast, by='country')[, c('country','gdppercapitacurrent2010','gdpgrowth2010', 'ginicoef','pdi', 'uai','mas'),with=F]
+tmp=unique(elast, by='country')[, c('country','penn_percapitargdpe2010','penn_growthrgdpe2010', 'ginicoef','pdi', 'uai','mas'),with=F]
 
 setorderv(tmp, c('country'))
 
@@ -167,7 +168,7 @@ for (iter in iters) {
 
 
 
-```{r elast_by_cc, echo=F,results='asis', include=TRUE}
+```{r elast_by_cc, echo=F,results='asis', include=TRUE, warnings = FALSE}
 
 qval=qnorm(1-sigvalue/2)
 
@@ -617,15 +618,16 @@ for (u in unitlist) {
 ord=c('ec_main', 
       'ec_nommix', 'ec_onlyllen', 'ec_onlypr','ec_onlydst',
       'ec_main_attributes',
-      'ec_log', 'ec_lntrend',
+      'ec_lntrend',
       'ec_noendogeneity',
       'ec_main_w_novelty',
       'ec_unrestrictedcompetition',
+      'ec_log',
       #'ec_main_currweights',
       #'ec_log',
       'salesresponse_linear',
       'salesresponse_linear_noldv',
-      'salesresponse_lienar_onlyldv',
+      'salesresponse_linear_onlyldv',
       'salesresponse_loglog',
       'salesresponse_loglog_noldv',
       'salesresponse_loglog_onlyldv')
@@ -690,40 +692,49 @@ r2s=predictions[type%in%sel_ord, list(#R2_diff = cor(dlnusales, dlnusales_hat, u
   setnames(tmp2, 'MAPE_lev', 'MeAPE')
   
   #setnames(tmp2, 'type', 'Model type')
-  print(kable(tmp2, format= 'html', caption =lbl, digits = 3) %>% kable_styling()%>% footnote(number=paste0('R2 (MeAPE) is computed as the average squared correlation (average median percentage error) between predicted and observed sales, across the ', nrow(unique(elast, by =c('category','brand','country'))), ' estimated models.'))) 
+  print(kable(tmp2, format= 'html', caption =lbl, digits = 3) %>% kable_styling()%>% footnote(number=paste0('R2 (MeAPE) is computed as the average squared correlation (average median percentage error) between predicted and observed sales, across the ', nrow(unique(predictions, by =c('category','brand','country'))), ' estimated models.'))) 
 
 ```
 
 ```{r holdoutrsq, results='asis', echo = FALSE, include= FALSE}
-if(0){
 
-ord=ord #('ec_main', 
-#ec_main_
-      #'ec_nommix', 'ec_onlyllen', 'ec_onlypr','ec_onlydst',
-       #grep('unreXstricted',unique(predictions$type),value=T),
-       #'ec_lntrend','ec_noendogeneity',
-  #     'loglog_main',
-  #    'loglog_noldv', 'loglog_onlyldv')
+ord=ord 
 
 
-sel_ord = unique(unlist(sapply(paste0(ord,'$|', ord,'_holdout'), grep, x= unique(predictions$type),value=T,simplify=F)))
-
-tmppred = predictions_kfold[type%in%sel_ord]
+tmppred = predictions_kfold[type%in%ord]
 
 setorder(tmppred, type, category,country,brand,kfold,date)
+tmppred[, type:=as.factor(type)]
 
-#tmppred[grepl('log',type,ignore.case=T), dlnusales:=lnusales-lnlagusales]
-tmppred[grepl('log',type,ignore.case=T), dlnusales_hat:=lnusales_hat-lnlagusales]
+tmppred[, ':=' (common_dv=as.numeric(NA),
+                    common_dv_hat = as.numeric(NA))]
+
+table(tmppred$type)
+
+tmppred[grepl('^ec', type)&grepl('log',type), ':=' (common_dv = exp(lnusales),
+                                                        common_dv_hat = exp(ldv+ddv_hat))]
 
 
-tmp = tmppred[, list(R2 = cor(dlnusales, dlnusales_hat, use='pairwise')^2,
-                         MSE = mean((dlnusales-dlnusales_hat)^2,na.rm=T)),
+tmppred[grepl('^ec', type)&!grepl('log',type), ':=' (common_dv = usales,
+                                                        common_dv_hat = ldv + ddv_hat)]
+
+tmppred[grepl('^salesresponse', type)&grepl('log',type), ':=' (common_dv = exp(lnusales),
+                                                        common_dv_hat = exp(dv_hat))]
+tmppred[grepl('^salesresponse', type)&!grepl('log',type), ':=' (common_dv = usales,
+                                                        common_dv_hat = dv_hat)]
+
+# measures defined for all models?
+summary(tmppred$common_dv)
+
+tmp = tmppred[, list(R2 = cor(common_dv, common_dv_hat, use='pairwise')^2,
+                         RMSE = sqrt(mean((common_dv-common_dv_hat)^2,na.rm=T)),
+                     MAPE = median(abs((common_dv-common_dv_hat)/common_dv),na.rm=T)),
                   by=c('type','category','country','brand','kfold','estim_set')]
 
 # ADD TRAINING AND PREDICTION TO SET
 # correct predictions
-
-tmp2=tmp[type%in%sel_ord, lapply(.SD, mean), by = c('type', 'estim_set'), .SDcols=grep("R2|mse", colnames(tmp),value=T, ignore.case=T)]
+sel_ord=ord
+tmp2=tmp[type%in%sel_ord, lapply(.SD, mean), by = c('type', 'estim_set'), .SDcols=grep("R2|mse|mape", colnames(tmp),value=T, ignore.case=T)]
 tmp2[, type2:=factor(ifelse(estim_set==T, 'training','holdout'), levels=c('training','holdout'))]
 tmp3 = dcast(melt(tmp2, id.vars=c('type','type2', 'estim_set')), type~variable+type2)
 
@@ -739,33 +750,71 @@ lbl = 'Model selection (hold-out sample)'
  # setnames(tmp2, 'MSE_lev', 'MSE')
   
   setnames(tmp4, 'type', 'Model type')
-  print(kable(tmp4, format= 'html', caption =lbl, digits = 3) %>% add_header_above(list(' '=1, 'R-squared' =2, 'MSE'=2)))
+  print(kable(tmp4, format= 'html', caption =lbl, digits = 3) %>% add_header_above(list(' '=1, 'R-squared' =2, 'RMSE'=2, 'MeAPE' = 2)))
   
-}
+  
+
 
 ```
 
 
-```{r,echo=FALSE, include=FALSE}
+```{r,echo=FALSE, include=TRUE}
 
-if(0){
 
-r2=predictions_kfold[estim_set==F&type=='ec_main', list(r2=cor(dlnusales, dlnusales_hat, use='pairwise')^2), by = c('category','country','brand')]
+r2=tmppred[estim_set==F&type=='ec_main', list(r2=cor(common_dv, common_dv_hat, use='pairwise')^2), by = c('category','country','brand')]
 
 setorder(r2, r2)
 
 
-r2x=predictions_kfold[estim_set==F&type=='ec_main'& brand =='samsung' & category=='phones_smart'&country=='china']
+r2x=tmppred[estim_set==F&type=='ec_main'& brand =='samsung' & category=='phones_smart'&country=='china']
 
 
 r2x[,date:=as.Date(date)]
 
 # selection
-with(r2x, plot(date, lnlagusales + dlnusales_hat, lty=1,lwd=2,type='c', main = 'Predicted versus fitted values (in log levels)', xlab = 'Date',ylab='Log unit sales'))
-with(r2x, lines(date, lnlagusales+dlnusales, lty=2, type = 'c'))
+#with(r2x, plot(date, common_dv, lty=1,lwd=2,type='c', main = 'Predicted versus fitted values', xlab = 'Date',ylab='Unit sales'))
+#with(r2x, lines(date, common_dv_hat, lty=2, type = 'c'))
+
+library(ggplot2)
+ggplot() + geom_line(data=r2x, aes(date, common_dv)) +
+  geom_line(data=r2x, linetype = 2, aes(date, common_dv_hat)) + scale_x_date(date_labels = "%b-%Y") + ylab('Unit sales') + xlab('Date')
+
+```
+
+```{r,echo=FALSE, include=TRUE}
 
 
-}
+r2=predictions[type=='ec_main', list(r2=cor(common_dv, common_dv_hat, use='pairwise')^2), by = c('category','country','brand')]
+
+setorder(r2, r2)
+
+
+r2x=predictions[type=='ec_main'& brand =='samsung' & category=='phones_smart'&country=='china']
+
+
+r2x[,date:=as.Date(date)]
+
+# selection
+#with(r2x, plot(date, common_dv, lty=1,lwd=2,type='c', main = 'Predicted versus fitted values', xlab = 'Date',ylab='Unit sales'))
+#with(r2x, lines(date, common_dv_hat, lty=2, type = 'c'))
+
+
+r2x <- r2x[complete.cases(r2x[, c('common_dv','common_dv_hat'),with=F]),]
+
+#dates = seq(from=min(r2x$date), to=max(r2x$date), by = "month")
+
+#df <- data.frame(dates, y)  
+
+# use the format you need in your plot using scale_x_date
+library(ggplot2)
+ggplot() + geom_line(data=r2x, aes(date, common_dv)) +
+  geom_line(data=r2x, linetype = 2, aes(date, common_dv_hat)) + scale_x_date(date_labels = "%b-%Y") + ylab('Unit sales') + xlab('Date')
+
+#  geom_line(data = prescription2, aes(x = dates, y = Difference), color = "red") +
+
+#+
+#sgeom_vline(xintercept = as.Date("01-01-2012",  format = "%d-%m-%Y"), linetype = 'dotted', color = 'blue')
+
 ```
 
 

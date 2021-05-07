@@ -6,6 +6,7 @@ _percneg$	%-neg.	grepl
 _percns$	%-n.s.	grepl
 _N$	N	grepl
 _mean$	Mean elasticity	grepl
+^radv$	Advertising	grepl
 ^t$	t-value	grepl
 ^p$	p-value	grepl
 ^lnradv$	Advertising	grepl
@@ -19,6 +20,7 @@ Full[ ]model_training	Full model	grepl
 Holdout[ ]model_training	Holdout training	grepl
 Holdout[ ]model_validation	Holdout validation	grepl
 ec[_]main$	Main model	grepl
+ec_main_w_novelty	With innovation/novelty	grepl
 ec[_]log$	Error correction model in logs	grepl
 ec[_]main_attributes	With product attributes	grepl
 ec[_]nommix	Without marketing mix	grepl
@@ -29,9 +31,12 @@ ec[_]onlydst	With only distribution	grepl
 ec[_]unrestrictedcompetition	With long-term competitive effects	grepl
 ec[_]lntrend	With log trend	grepl
 ec[_]noendogeneity	Without endogeneity correction	grepl
-loglog[_]main	Log-log specification	grepl
+loglog$	Log-log specification	grepl
 loglog[_]onlyldv	Log-log specification, only with lagged dependent variable	grepl
 loglog[_]noldv	Log-log specification without lagged dependent variable	grepl
+linear[_]onlyldv	Linear specification, only with lagged dependent variable	grepl
+linear[_]noldv	Linear specification without lagged dependent variable	grepl
+linear$	Linear specification	grepl
 australia	Australia	grepl
 singapore	Singapore	grepl
 japan	Japan	grepl
