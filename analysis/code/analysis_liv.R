@@ -217,6 +217,8 @@ dir.create('../output')
   
   df <- df[complete.cases(df),]
   
+  df_untransformed <- copy(df)
+  
   # Rescale for better convergence
   rescale_values <- sapply(grep('intercept', colnames(df), value=T, invert=T), function(x) max(abs(drop(unlist(df[, get(x)])))))
   #rescale_values <- sapply(grep('intercept', colnames(df), value=T, invert=T), function(x) 1)
@@ -297,18 +299,18 @@ dir.create('../output')
         betas[9] * df$trend + betas[10] * df$quarter1 + betas[11] * df$quarter2 + betas[12] * df$quarter3 +
         betas[13] * df$holiday + 
         gamma[1] * .lambda[1] - gamma[1] * df$lagllen +
-        gamma[2] * df$rwpspr - gamma[2] * df$lagrwpspr +
-        gamma[3] * df$wpswdst - gamma[3] * df$lagwpswdst 
-      #gamma[2] * .lambda[2] - gamma[2] * df$lagrwpspr +
-      #  gamma[3] * .lambda[3] - gamma[3] * df$lagwpswdst 
+        #gamma[2] * df$rwpspr - gamma[2] * df$lagrwpspr +
+        #gamma[3] * df$wpswdst - gamma[3] * df$lagwpswdst 
+        gamma[2] * .lambda[2] - gamma[2] * df$lagrwpspr +
+        gamma[3] * .lambda[3] - gamma[3] * df$lagwpswdst 
       
       
-      #.tmp = cbind(df$dusales-y_pred, cbind(df$llen, df$rwpspr, df$wpswdst) - matrix(rep(.lambda,length(y_pred)),ncol=length(endogenous_variables), byrow=T))
-      .tmp = cbind(df$dusales-y_pred, (cbind(df$llen, df$rwpspr, df$wpswdst) - matrix(rep(.lambda,length(y_pred)),ncol=length(endogenous_variables), byrow=T))[,1])
+      .tmp = cbind(df$dusales-y_pred, cbind(df$llen, df$rwpspr, df$wpswdst) - matrix(rep(.lambda,length(y_pred)),ncol=length(endogenous_variables), byrow=T))
+      #.tmp = cbind(df$dusales-y_pred, (cbind(df$llen, df$rwpspr, df$wpswdst) - matrix(rep(.lambda,length(y_pred)),ncol=length(endogenous_variables), byrow=T))[,1])
       
       
-      #dmvnorm(.tmp, mean=rep(0, each=length(endogenous_variables)+1), sigma=sigma, log=T)
-      dmvnorm(.tmp, mean=rep(0, each=2), sigma=sigma[1:2,1:2], log=T)
+      dmvnorm(.tmp, mean=rep(0, each=length(endogenous_variables)+1), sigma=sigma, log=T)
+      #dmvnorm(.tmp, mean=rep(0, each=2), sigma=sigma[1:2,1:2], log=T)
       
     })
     
@@ -326,7 +328,7 @@ dir.create('../output')
     if (no_liv==F) {
       if (return_llik==T) {
         return(llik_lse) } else {
-          return(list(neg_llik=llik_lse, sigma=sigma, lambdas=lambdas, prob=prob, gamma=gamma))
+          return(list(neg_llik=llik_lse, sigma=sigma, lambdas=lambdas, prob=prob, gamma=gamma, betas=betas))
         }
     }
     
@@ -375,6 +377,42 @@ dir.create('../output')
   cbind(nlminb$par,nlminb0$par, c(m$coefficients, NA))
   
   
+  # unscaled
+  m_unscaled<- lm(I(dusales) ~ 1 + 
+                    dcomp_llen + dcomp_rwpspr + dcomp_wpswdst + lagusales + lagllen + lagrwpspr + lagwpswdst +
+                    trend + quarter1 + quarter2 + quarter3 + holiday + I(llen-lagllen) + I(rwpspr-lagrwpspr) + I(wpswdst-lagwpswdst), data = df_untransformed) #+ cop_llen + cop_rwpspr + cop_wpswdst
+  summary(m_unscaled)
+  
+  ## unscaled
+  # retr coef
+  retr_coef=m_unscaled$coefficients[grep('I[(]', names(m_unscaled$coefficients))]
+  retr_coef
+  # retr elast
+  retr_elast=m_unscaled$coefficients[grep('I[(]', names(m$coefficients))]*c(mean(df_untransformed$llen), mean(df_untransformed$rwpspr), mean(df_untransformed$wpswdst))/mean(df_untransformed$lagusales)
+  retr_elast
+  
+  ## scaled
+  # retr coef
+  gamma =  m$coefficients[grep('I[(]', names(m$coefficients))]
+  gamma
+  
+  retransform =  (rescale_values[grepl('dusales', names(rescale_values))] * gamma) / rescale_values[c('llen','rwpspr','wpswdst')]
+  
+  retransform
+  
+  # assert values can be correctly recovered
+  stopifnot(all(abs(retransform-retr_coef)<.001))
+  
+  # compare elasticities
+  
+  retransform*c(mean(df_untransformed$llen), mean(df_untransformed$rwpspr), mean(df_untransformed$wpswdst))/mean(df_untransformed$lagusales)
+  # all good!
+  
+  
+  
+  # Extend to LIV
+  ## Recover true parametwers
+  
   
   
   
@@ -397,14 +435,15 @@ dir.create('../output')
     objective = llik, levels= 2, no_liv=F, control = list(iter.max = 1000, eval.max = 1000)
   )
   
-  cbind(nlminb$par,nlminb0$par, c(m$coefficients, NA), c(nlminb_full$par[23:35], nlminb_full$par[20:22]),c(nlminb_liv$par[23:35], nlminb_liv$par[20:22]))
+  cbind(nlminb$par,nlminb0$par, c(m$coefficients, NA), c(nlminb_full$par[23:35], nlminb_full$par[20:22], NA),c(nlminb_liv$par[23:35], nlminb_liv$par[20:22], NA))
   
+  # lichte schommelingen
   
   # Retrieve final values (mapped to names)
-  res <- llik(nlminb$par, return_llik=F, levels=levels)
+  res <- llik(nlminb_liv$par, return_llik=F, levels=levels)
   
-  nlminb$par
-  m$coefficients
+ # nlminb$par
+ # m$coefficients
   
   
   
@@ -417,244 +456,28 @@ dir.create('../output')
   mean_dst = mean(df$wpswdst*rescale_values['wpswdst'])
   mean_sales = mean(df$lagusales*rescale_values['lagusales'])
   
+  # was:
+  retr_elast
+  
+  # now is:
   (gamma_transformed * c(mean_llen, mean_pr, mean_dst))/mean_sales
   
+  # what about LT elasticities?
   
-  # elast from linear model
-  m$coefficients[grepl('I[(](llen|rwpspr|wpswdst)', names(m$coefficients))] * c(mean_llen, mean_pr, mean_dst) / mean_sales
+  # was:
+  step1=m_unscaled$coefficients[grepl('^lagllen|^lagrwpspr|^lagwpswdst', names(m_unscaled$coefficients))]/-(m_unscaled$coefficients[names(m_unscaled$coefficients)=='lagusales'])
+  (step1 * c(mean_llen, mean_pr, mean_dst))/mean_sales
   
+  # now is:
+  gamma = res$beta[c('lagllen','lagrwpspr','lagwpswdst')]  #/-res$beta['lagusales']
   
-  
-  # also compare (without endogeneity?)
-  
-  # what about SEs?
-  
-  
-  
-  
-  # retransform values by rescale value
+  gamma_transformed = (rescale_values[grepl('dusales', names(rescale_values))] * gamma) / rescale_values[c('lagllen','lagrwpspr','lagwpswdst')]
+  lagusales_transformed = (rescale_values[grepl('dusales', names(rescale_values))] * res$beta['lagusales']) / rescale_values[c('lagusales')]
   
   
-  set.seed(1234)
+  step1=gamma_transformed/-lagusales_transformed
+  (step1 * c(mean_llen, mean_pr, mean_dst))/mean_sales
   
-  llik(pars)
-  
-  # scaling required to spped up estimation
-  
-  nlminb  = nlminb(
-    start = pars,
-    objective = llik, levels= 3, control = list(iter.max = 1000, eval.max = 1000)
-  )
-  
-  # gamma?
-  res=llik(nlminb$par, return_llik=F, levels=2)
-  
-  (rescale_values[grepl('dusales', names(rescale_values))] * res$gamma) / rescale_values[grepl('^(rwpspr|llen|wpswdst)$', names(rescale_values))]
-  
-  # rescaling
-  
-  
-  # normality test
-  shapiro.test(df$llen)
-  shapiro.test(df$rwpspr)
-  shapiro.test(df$wpswdst)
-  
-  
-  
-  
-  
-  # best fit?
-  
-  
-  # 
-  
-  m<- lm(I(dusales) ~ 1 + I(llen-lagllen) + I(rwpspr-lagrwpspr) + I(wpswdst-lagwpswdst) +
-           dcomp_llen + dcomp_rwpspr + dcomp_wpswdst + lagusales + lagllen + lagrwpspr + lagwpswdst +
-           trend + I(quarter1) + quarter2 + quarter3 + holiday , data = df) #+ cop_llen + cop_rwpspr + cop_wpswdst
-  summary(m)
-  
-  
-  mean(df$dusales)
-  mean(df$rwpspr)
-  
-  1.85 * (.4405551/.01193864) # 68!
-  
-  1.85 * (.4405551/.01193864) # 68!
-  
-  1.333e+02 * (139.0254/760.1626)
-  
-  
-  
-  
-  levels=2
-  endog=3
-  pars = c(rep(0, levels*endog),
-           rep(0, (levels-1)*endog),
-           diag(1+endog)[upper.tri(diag(1+endog),diag=T)],
-           # 1,0,1,0,0,1,0,0,0,1,
-           m$coefficients[grepl('I[(]', names(m$coefficients))],#0,0,0,
-           m$coefficients[!grepl('I[(]', names(m$coefficients))])
-  nlminb  = nlminb(
-    start = pars,
-    objective = llik, levels= 2, control = list(iter.max = 1000, eval.max = 1000)
-  )
-  
-  # gamma?
-  llik(nlminb$par, return_llik=F, levels=2)
-  
-  # calculate actual elasticities
-  # scaling
-  
-  
-  
-  
-  #s    rnorm(23+13) #rep(0,23+13)
-  llik(pars, levels=3)
-  
-  # build in endogeneity
-  
-  
-  
-  
-    if (length(c(vars,control_vars$diff))==0) vars_delta=NULL
-    if (length(c(vars,control_vars$lags))==0) vars_lags=NULL
-    
-    if (is.null(controls_cop)) {
-      vars_cop = NULL 
-    } else {
-      if (nchar(controls_cop)==0) {
-        vars_cop=NULL
-      } else {
-        vars_cop = grep(controls_cop, colnames(dt), value=T)
-        vars_cop = vars_cop[unlist(lapply(dt[, vars_cop, with=F], use_ts))]
-      }
-    }
-    #if (is.null(controls_cop)) vars_cop=NULL
-    
-    
-    for (v in vars_lags) dt[, (v):=c(NA, get(gsub('^lag','',v))[-.N])]
-    
-    my_form = update.formula(ddv~1, as.formula(paste0('.~.+1+', paste0(c(vars_delta, vars_cop, 'ldv', switch(length(vars_lags)>0, paste0('I(-', vars_lags,')')), vars_curr), collapse='+'))))
-    
-    dt[, percentile_obs:=(1:.N)/.N]
-    
-    
-    dt[, estim_set:=T]
-    
-    m = lm(my_form, data= dt) #, subset = estim_set==T)
-    
-    #identifiers = unique(dt[,c('market_id', 'category','country', 'brand', 'brand_id' ),with=F], by=c('brand_id'))
-    #setkey(identifiers, market_id, brand)
-    
-    # kickout coefs with NA values (e.g., attributes that are not identified)
-    kickoutcoef = NULL
-    if (any(is.na(m$coefficients))) kickoutcoef = c(kickoutcoef, names(m$coefficients[is.na(m$coefficients)]))
-    
-    # kickout ns. copulas
-    if (!is.null(vars_cop) & kickout_ns_copula == T) {
-      tmpres = data.table(variable=rownames(summary(m)$coefficients), summary(m)$coefficients)[grepl(controls_cop, variable)]
-      setnames(tmpres, c('variable','est','se','t','p'))
-      tmpres = tmpres[p>pval]
-      
-      if (nrow(tmpres)>0) kickoutcoef = c(kickoutcoef, tmpres$variable)
-    }
-    
-    if (length(kickoutcoef>0)) {
-      my_form =update.formula(my_form, as.formula(paste0('.~.-', paste0(kickoutcoef, collapse='-'))))
-      m2 = lm(my_form, data= dt, subset = estim_set==T)
-    } else {m2=m}
-    
-    
-    # block holdouts
-    
-    kfolds=10
-    
-    folds = split(1:nrow(dt), cut(1:nrow(dt), kfolds))
-    iter<-0
-    preds_new=rbindlist(lapply(folds, function(pset) {
-      iter<<-iter+1
-      obs<<-setdiff(1:nrow(dt), c(pset)) #, max(pset)+1))
-      newpset = seq(from=min(pset)+1, to=max(pset)-1)
-      m3=update(m2, .~.,subset=obs)
-      
-      combobs = union(newpset, obs)
-      combobs = combobs[order(combobs)]
-      res=data.table(dt[combobs, c('date', 'ddv','ldv',dv),with=F], kfold=iter,ddv_hat=predict(m3, newdata=dt[combobs,]))
-      res[, estim_set:=combobs%in%obs]
-      return(res)
-    }))
-    
-    pred_new3 = merge(dt[, c('category','country','brand','date'),with=F],
-                      preds_new,
-                      by=c('date'),all.x=F)
-    
-    
-    # within-predictions   
-    predictions = cbind(dt[, c('category','country','brand','date', 'estim_set', dv, 'ldv','ddv'),with=F],
-                        ddv_hat=predict(m2, newdata=dt))
-    predictions[, paste0(dv,'_hat') := ldv + ddv_hat]
-    
-    
-    
-    if (!is.null(m2$na.action)) identifiers = dt[-m2$na.action,c('market_id', 'category','country', 'brand', 'brand_id' , 'date'),with=F]
-    if (is.null(m2$na.action)) identifiers = dt[,c('market_id', 'category','country', 'brand', 'brand_id' , 'date'),with=F]
-    
-    setkey(identifiers, market_id, date, brand)
-    
-    # for linear model, need to multiply elasticities by mean X / mean sales.
-    means = unlist(dt[, lapply(.SD, mean,na.rm=T), .SDcols=c(dv,vars)])
-    medians = unlist(dt[, lapply(.SD, median,na.rm=T), .SDcols=c(dv,vars)])
-    multipliers_means <- rep(1, length(vars))
-    if (!grepl('^ln|^log', dv)) multipliers_means <- sapply(vars, function(.v) means[.v]/means[dv])
-    multipliers_medians <- rep(1, length(vars))
-    if (!grepl('^ln|^log', dv)) multipliers_medians <- sapply(vars, function(.v) medians[.v]/medians[dv])
-    
-    names(multipliers_means)<-vars
-    names(multipliers_medians)<-vars
-    
-    if (length(vars)>0) {
-      elast2 = rbindlist(lapply(vars, function(v) {
-        st=deltaMethod(m2, paste0(multipliers_means[v],'*(d', v, ')'))
-        
-        if (paste0('I(-lag', v, ')') %in% names(m2$coefficients)) {
-          lt=deltaMethod(m2, paste0(multipliers_means[v],'*((`I(-lag', v, ')`)/(ldv))')) } else {
-            lt=deltaMethod(m2, paste0(multipliers_means[v],'*((0)/(ldv))'))
-          }
-        # at the median
-        st_median=deltaMethod(m2, paste0(multipliers_medians[v],'*(d', v, ')'))
-        
-        if (paste0('I(-lag', v, ')') %in% names(m2$coefficients)) {
-          lt_median=deltaMethod(m2, paste0(multipliers_medians[v],'*((`I(-lag', v, ')`)/(ldv))')) } else {
-            lt_median=deltaMethod(m2, paste0(multipliers_medians[v],'*((0)/(ldv))'))
-          }
-        
-        data.frame(variable=v, elast = st$Estimate, elast_se=st$SE,
-                   elastlt = lt$Estimate, elastlt_se = lt$SE, 
-                   
-                   elastmedian = st_median$Estimate, elastmedian_se = st_median$SE,
-                   elastmedianlt = lt_median$Estimate, elastmedianlt_se = lt_median$SE,
-                   beta = m2$coefficients[paste0('d',v)], 
-                   carryover = m2$coefficients['ldv'])
-        
-      }))
-      
-      uniq_identifiers = copy(identifiers)[1][, date:=NULL]
-      elast2=cbind(uniq_identifiers,elast2)
-      .v=vif(m2)
-      vif2=cbind(uniq_identifiers, data.table(variable=names(.v), vif=.v))
-    } else {
-      elast2=NULL
-      vif2=NULL
-    }
-    
-    return(list(elast=elast2, model=m2, vif=vif2,
-                paneldimension = identifiers,
-                model_matrix = m2$model,
-                dt=dt,
-                orig_results = m$coefficients, kicked_out_coefs = kickoutcoef,
-                predictions=predictions, predictions_kfold = pred_new3, #,#predictions_kfold=pred_new3, 
-                r2_within_dv= summary(m2)$r.squared))
-    
-  }
+  # behoorlijk verandering! more face valid?
   
   
