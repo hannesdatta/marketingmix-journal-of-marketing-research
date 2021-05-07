@@ -18,7 +18,9 @@ tradrat$	Secular-rational culture	grepl
 Full[ ]model_training	Full model	grepl
 Holdout[ ]model_training	Holdout training	grepl
 Holdout[ ]model_validation	Holdout validation	grepl
-ec[_]main	Main model	grepl
+ec[_]main$	Main model	grepl
+ec[_]log$	Error correction model in logs	grepl
+ec[_]main_attributes	With product attributes	grepl
 ec[_]nommix	Without marketing mix	grepl
 ec[_]onlydst	With only distribution	grepl
 ec[_]onlypr	With only price	grepl
@@ -248,3 +250,6 @@ distr[_]ratio[_]to[_]sales	Distribution to sales ratio	gsub
 llen[_]index	Line length expenditure index	gsub
 dst[_]index	Distribution expenditure index	gsub
 ^gdp$	GDP	gsub
+salesresponse[_]linear$	Linear sales response model	grepl
+salesresponse[_]linear[_]noldv	Linear sales response model without lagged dependent variable	grepl
+

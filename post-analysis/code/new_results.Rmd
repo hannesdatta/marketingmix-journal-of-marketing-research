@@ -26,6 +26,7 @@ options(knitr.kable.NA = '')
   load('app/app_workspace.RData')
   
   elast <- elasticities$ec_main_sur 
+  #elast <- elasticities$ec_main_w_novelty_sur 
   
   #elast=elast[!grepl('allothers', brand,ignore.case=T)] #|super|amazon
   elast[, list(.N),by=c('category','country','brand')]
@@ -33,7 +34,7 @@ options(knitr.kable.NA = '')
   # set order of variables to appear in figures and tables
   # ordered_vars =  c('lnllen', 'lnrwpspr', 'lnwpswdst')
   
-  ordered_vars =  c('llen', 'rwpspr', 'wpswdst')
+  ordered_vars =  c('llen', 'rwpspr', 'wpswdst', 'nov6sh')
   ordered_vars = ordered_vars[which(ordered_vars%in%elast$variable)]
   
   names(ordered_vars) <- paste0(unlist(sanitize_table(data.frame(gsub('^ln', '', ordered_vars)))), ' elasticity')
@@ -211,34 +212,35 @@ for (byvar in c('country')) {
 tmp=elast[!is.na(elastlt), list(N=.N,
                                   elast = sum(elastlt*w_elastlt)/sum(w_elastlt)),
                                    by=c('variable', 'country')]
-tmp2 = dcast(tmp,country~variable,value.var='elast')
+tmp2 = dcast.data.table(tmp,country~variable,value.var='elast')
 
 tmp2[, llen_ratio_to_sales := llen/-rwpspr]
 tmp2[, distr_ratio_to_sales := wpswdst/-rwpspr]
 
 # get population
-weights <- unique(elast[, c('country','gdppercapitacurrent2010',
-                        'population2010'),with=F],by=c('country'))
-weights[, gdp:=gdppercapitacurrent2010 * population2010]
+weights <- unique(elast[, c('country','penn_rgdpe2010',
+                        'penn_pop2010'),with=F],by=c('country'))
+#weights[, gdp:=gdppercapitacurrent2010 * population2010]
 
 tmp3 <- merge(tmp2, weights, by=c('country'),all.x=T)
 
-tmp3[, weights:=gdp/sum(gdp)]
+tmp3[, weights:=penn_rgdpe2010/sum(penn_rgdpe2010)]
 
 tmp3[, avg_llen:=sum(llen_ratio_to_sales*weights)]
 tmp3[, avg_dst:=sum(distr_ratio_to_sales*weights)]
 
-tmp3[, llen_index:=llen_ratio_to_sales/avg_llen]
-tmp3[, dst_index:=distr_ratio_to_sales/avg_dst]
+tmp3[, llen_index:=100*llen_ratio_to_sales/avg_llen]
+tmp3[, dst_index:=100*distr_ratio_to_sales/avg_dst]
 
 tmp3[, weights:=NULL]
 tmp3[, ':=' (avg_llen=NULL, avg_dst=NULL)]
 tmp3[, ':=' (gdp2010prices2010=NULL, avg_dst=NULL)]
 tmp3[, ':=' (gdppercapitacurrent2010=NULL, population2010=NULL)]
-tmp3[, gdp:=gdp/1E9]
+#tmp3[, gdp:=gdp/1E9]
+tmp3[, ':=' (penn_rgdpe2010=NULL, penn_pop2010=NULL)]
+#'Weights' = 1,
 
-
-print(kable(sanitize_table(tmp3), digits=3, caption = tab(paste0('Awesome title'), prefix=''), format='html', initial.zero = FALSE) %>% add_header_above(list(' '=1, 'Average Elasticities' = 3, 'Expenditure ratios'=2, 'Weights' = 1, 'Expenditure index' = 2)) %>% kable_styling() %>% footnote(number='Average elasticities are weighted by inverse standard errors of the brand- and category-specific effects. Expenditure ratios are calculated in line with Farley and Lehmann (1994, p. 119). Weights are equal to a country\'s GDP (in bn. USD; GDP per capita x population size in 2010, our sample\'s midpoint). Expenditure indexes are equal to expenditure ratios divided by GDP-weighted averages.'))
+print(kable(sanitize_table(tmp3), digits=c(0,3,3,3, 3,3, 1,1), caption = tab(paste0('Allocation of Marketing Expenditures'), prefix=''), format='html', initial.zero = FALSE) %>% add_header_above(list(' '=1, 'Average Elasticities' = 3, 'Expenditure ratios'=2,  'Expenditure index' = 2)) %>% kable_styling() %>% footnote(number='Average elasticities are weighted by inverse standard errors of the brand- and category-specific effects. Expenditure ratios are calculated in line with Farley and Lehmann (1994, p. 119). Weights are equal to a country\'s GDP (expenditure-side real GDP at chained PPPs in 2010, our sample\'s midpoint). Expenditure indexes are equal to expenditure ratios divided by GDP-weighted averages x 100.'))
   
 
 ```
@@ -612,15 +614,21 @@ for (u in unitlist) {
 
 ```{r withinR2, results='asis', echo = FALSE, include = TRUE}
 
-
 ord=c('ec_main', 
       'ec_nommix', 'ec_onlyllen', 'ec_onlypr','ec_onlydst',
+      'ec_main_attributes',
+      'ec_log', 'ec_lntrend',
+      'ec_noendogeneity',
+      'ec_main_w_novelty',
+      'ec_unrestrictedcompetition',
       #'ec_main_currweights',
       #'ec_log',
       'salesresponse_linear',
-      'salesresponse_linear_noldv')
-      #'salesresponse_loglog',
-      #'salesresponse_loglog_noldv')
+      'salesresponse_linear_noldv',
+      'salesresponse_lienar_onlyldv',
+      'salesresponse_loglog',
+      'salesresponse_loglog_noldv',
+      'salesresponse_loglog_onlyldv')
 
 sel_ord = ord
 
@@ -632,7 +640,7 @@ sel_ord = ord
 estim_size = predictions[, list(N=length(which(estim_set==T))),by=c('type', 'category','country','brand')]
 setkey(estim_size, category,country,brand,type)
 
-predictions <- predictions[type%in%sel_ord]
+#predictions <- predictions[]
 
 predictions[, ':=' (common_dv=as.numeric(NA),
                     common_dv_hat = as.numeric(NA))]
@@ -653,13 +661,13 @@ table(predictions$type)
 
 
 # how to compare?
-r2s=predictions[, list(#R2_diff = cor(dlnusales, dlnusales_hat, use='pairwise')^2,
+r2s=predictions[type%in%sel_ord, list(#R2_diff = cor(dlnusales, dlnusales_hat, use='pairwise')^2,
                        R2_lev = cor(common_dv, common_dv_hat, use='pairwise')^2,
                        #cor_diff = cor(dlnusales, dlnusales_hat, use='pairwise'),
                      # cor_lev = cor(lnusales, lnusales_hat, use='pairwise'),
                       # MSE_diff = mean((dlnusales_hat-dlnusales)^2,na.rm=T),
                        MSE_lev = mean((common_dv_hat-common_dv)^2,na.rm=T),
-                     MAPE_lev = mean(abs((common_dv-common_dv_hat)/common_dv),na.rm=T),
+                     MAPE_lev = median(abs((common_dv-common_dv_hat)/common_dv),na.rm=T),
                      N=.N),
              by = c('type','category','country','brand')]
 
@@ -677,26 +685,25 @@ r2s=predictions[, list(#R2_diff = cor(dlnusales, dlnusales_hat, use='pairwise')^
   tmp[, ord:=NULL]
   lbl = 'Model selection (within model fit)'
   tmp2=tmp
-  #tmp2 = sanitize_table(tmp)
-  #setnames(tmp2, 'R2_lev', 'R2')
-  #setnames(tmp2, 'MSE_lev', 'MSE')
+  tmp2 = sanitize_table(tmp)
+  setnames(tmp2, 'R2_lev', 'R2')
+  setnames(tmp2, 'MAPE_lev', 'MeAPE')
   
   #setnames(tmp2, 'type', 'Model type')
-  print(kable(tmp2, format= 'html', caption =lbl, digits = 3) %>% kable_styling())
-  
+  print(kable(tmp2, format= 'html', caption =lbl, digits = 3) %>% kable_styling()%>% footnote(number=paste0('R2 (MeAPE) is computed as the average squared correlation (average median percentage error) between predicted and observed sales, across the ', nrow(unique(elast, by =c('category','brand','country'))), ' estimated models.'))) 
 
 ```
 
 ```{r holdoutrsq, results='asis', echo = FALSE, include= FALSE}
 if(0){
 
-ord=c('ec_main', 
+ord=ord #('ec_main', 
+#ec_main_
       #'ec_nommix', 'ec_onlyllen', 'ec_onlypr','ec_onlydst',
        #grep('unreXstricted',unique(predictions$type),value=T),
        #'ec_lntrend','ec_noendogeneity',
-       'loglog_main',
-      'loglog_noldv', 'loglog_onlyldv')
-
+  #     'loglog_main',
+  #    'loglog_noldv', 'loglog_onlyldv')
 
 
 sel_ord = unique(unlist(sapply(paste0(ord,'$|', ord,'_holdout'), grep, x= unique(predictions$type),value=T,simplify=F)))
@@ -768,6 +775,7 @@ qval=qnorm(1-sigvalue/2)
 
 CV = lapply(c('category','country'), function(byvar) {
 
+ 
 tmp=elast[!is.na(elastlt), list(N=.N,
                                   elast = sum(elastlt*w_elastlt)/sum(w_elastlt)),
                                    by=c('variable', byvar)]
@@ -783,6 +791,11 @@ tmp=dcast(cv2, variable~byvar, value.var='CV')
   cat("<P style='page-break-before: always'>")
   print(kable(tmp, digits=3, caption = tab(paste0('Coefficient of variation (CV) by Category and Country')), format='html', initial.zero = FALSE) %>% kable_styling() %>% footnote(number='Computed on the basis of weighted elasticities'))
   
+# pooled
+  
+tmp=elast[!is.na(elastlt), list(CV = sd(elastlt)/mean(elastlt)), by = c('variable')]
+print(kable(tmp))
+
 
 
 

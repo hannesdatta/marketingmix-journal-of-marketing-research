@@ -67,15 +67,6 @@ rsq <- function(m) {
   return(cor(y,pred)^2)
 }
 
-
-rsqs=unlist(lapply(mods, function(x) lapply(x[c('pr','dst','llen')], rsq)))
-obss = unlist(lapply(mods, function(x) lapply(x[c('pr','dst','llen')], function(i) length(which(!is.na(residuals(i)))))))
-fits = lapply(mods[[1]][c('pr','dst','llen')], function(i) summary(i)$AICtab)
-aics = unlist(lapply(fits, function(x) x['AIC']))
-bics = unlist(lapply(fits, function(x) x['BIC']))
-logliks = unlist(lapply(mods[[1]][c('pr','dst','llen')], function(x) as.numeric(logLik(x))))
-
-
 all_mods <- function(formula, mtype = 'lmer', clust = NULL, clust_type = 'HC1') {
   loop_vars = unique(elast$variable)
   
@@ -132,8 +123,9 @@ lmerctrl = lmerControl(optimizer ="Nelder_Mead", check.conv.singular="ignore")
 names(elasticities)
 
 model_names = list('M1a) Linear Error Correction (weights t-3...t-1, SUR)' = 'ec_main_sur',
-                   'M1b) Lin. EC (weights t-3...t-1, no SUR)' = 'ec_main',
-                   'M2b) Lin. EC w/ Novelty (weights t-3, ...t-1, no SUR)' = 'ec_main_w_novelty')
+                   #'M1b) Lin. EC (weights t-3...t-1, no SUR)' = 'ec_main',
+                   'M2a) Lin. EC w/ Novelty (weights t-3, ...t-1, SUR)' = 'ec_main_w_novelty_sur')
+                   #'M2b) Lin. EC w/ Novelty (weights t-3, ...t-1, no SUR)' = 'ec_main_w_novelty')
 
 
 
