@@ -13,7 +13,7 @@ library(digest)
 library(xlsx)
 library(stringr)
 library(foreign)
-
+library(kableExtra)
 library(ggplot2)
 library(ggthemes)
 
@@ -376,12 +376,7 @@ ui <- fluidPage(
                        choices = (trimming), selected = trimming[4], multiple=FALSE)),
            
            
-           tabPanel("Plotting", 
-                    #selectInput("plot_vars", label = h5("Variables"),
-                    #            choices = list('Price' = 'pr',
-                    #                           'Line length' = 'llen',
-                    #                           'Distribution' = 'dst'), 
-                    #            selected = c('pr','llen','dst'), multiple=TRUE),
+           tabPanel("Plots/Tables", 
                    selectInput("plot_brands", label = h5("Brands"),
                                choices = sapply(str_to_title(brands$brand), function(x) tolower(x), simplify=F), 
                                selected = c('samsung'), multiple=FALSE),
@@ -399,10 +394,16 @@ ui <- fluidPage(
                   #             choices = list('Countries'='country',
                   #                            'Categories'='category'),
                   #             selected = 'country', multiple=FALSE),
-                   selectInput("plot_stack_val", label = h5("Stacked bar chart with..."),
+                   selectInput("plot_stack_val", label = h5("Stacked bar chart with (only for plot)..."),
                                choices = list('Relative elasticities (in %)'='rel_val',
                                               'Absolute elasticities'='abs_val'),
-                               selected = 'abs_val', multiple=FALSE)
+                               selected = 'abs_val', multiple=FALSE),
+                  selectInput("plot_vars", label = h5("Marketing mix instrument (only for allocation table)"),
+                              choices = list('Price' = 'pr',
+                                             'Line length' = 'llen',
+                                             'Distribution' = 'dst'), 
+                              selected = c('llen','dst'), multiple=FALSE),
+                  
                    
                    
                    
@@ -419,7 +420,10 @@ ui <- fluidPage(
                        # tabPanel("Model Summary", verbatimTextOutput("summary")),
                        tabPanel("Model results", htmlOutput("stargazer")),#, # Regression output
                        tabPanel("VIFs", htmlOutput("vif")),
-                       tabPanel("Plots", plotOutput('stacked')),
+                       tabPanel("Plot (elasticities)", plotOutput('stacked')),
+                       tabPanel("Table (allocation)", htmlOutput('allocation')),
+                       tabPanel("Plot (allocation)", plotOutput('allocationplot')),
+                       
                        #tabPanel("Plots (brand-specific bar plots)", plotOutput('plot')),
                        #tabPanel("Plots (scatter plots)", plotOutput('surface')),
                        
@@ -620,6 +624,101 @@ server <- function(input, output) {
     return(o$printed_model)
   })
 
+  output$allocation = renderText({
+    # assemble form 
+    
+    
+    
+    o=produce_model(input)
+    dt = o$predictions
+    
+    if (!is.null(input$plot_brands)) dt <- dt[brand%in%input$plot_brands]
+    if (!is.null(input$plot_categories)) dt <- dt[category%in%input$plot_categories]
+    #if (!is.null(input$plot_countries)) dt <- dt[country%in%input$plot_countries]
+    if (!is.null(input$plot_vars)) dt <- dt[grepl(input$plot_vars, variable)]
+    
+    # Load other stuff
+    # mean unit sales
+    setkey(dt, category, country, brand)
+    
+    tmp = unique(elast[,c('avgsales','brand','category','country'),with=F], by = c('category','country','brand'))
+    
+    dt <- merge(dt, tmp, by = c('category','country','brand'),all.x=T)
+    dt[, avgsales:=avgsales]
+    dt[, relelast:=100*abs(get(input$plot_predicted))/sum(abs(get(input$plot_predicted)))]
+    dt[, relsales:=100*avgsales/sum(avgsales)]
+    dt[, elast_x_size:=abs(get(input$plot_predicted))*avgsales]
+    dt[, optimal:=100*elast_x_size/sum(elast_x_size)]
+    
+    
+    tmp = dt[, c('country',input$plot_predicted, 'avgsales', 'relelast','relsales','optimal'),with=F]
+    tmp[, country:=str_to_title(country)]
+    setorder(tmp, country)
+    
+    setnames(tmp, c('Country','Marketing elasticity', 'Unit sales', 'Marketing elasticity (%)', 'Unit sales (%)', 'Optimal (%)'))
+    varname = ''
+    if (input$plot_vars=='dst') varname = 'distribution'
+    if (input$plot_vars=='pr') varname = 'price'
+    if (input$plot_vars=='llen') varname = 'line length'
+    
+    ret=kable(tmp, digits=c(0,3,0,1,1,1), 
+          caption = paste0('Alternative Allocations of Marketing Mix Budget for ', str_to_title(varname), ' Elasticities'),
+          format='html',
+          initial.zero = FALSE) %>% 
+      add_header_above(list(' '=3, 'Allocation proportional to' =3)) %>% kable_styling() %>% footnote(number = paste0('Countries shown in alphabetical order. ', ifelse(grepl('pred', input$plot_predicted), 'Predicted', 'Estimated'), ' elasticities shown for ', str_to_title(input$plot_brands), ' (', str_to_title(replace_categories(input$plot_categories)), '). Unit sales are a brand\'s average unit sales in the data. The optimal allocation is based on marketing mix elasticities x unit sales.'))
+    
+    
+    
+    return(ret)
+  })
+  
+  output$allocationplot = renderPlot({
+    # assemble form 
+    
+    
+    
+    o=produce_model(input)
+    dt = o$predictions
+    
+    if (!is.null(input$plot_brands)) dt <- dt[brand%in%input$plot_brands]
+    if (!is.null(input$plot_categories)) dt <- dt[category%in%input$plot_categories]
+    #if (!is.null(input$plot_countries)) dt <- dt[country%in%input$plot_countries]
+    if (!is.null(input$plot_vars)) dt <- dt[grepl(input$plot_vars, variable)]
+    
+    # Load other stuff
+    # mean unit sales
+    setkey(dt, category, country, brand)
+    
+    tmp = unique(elast[,c('avgsales','brand','category','country'),with=F], by = c('category','country','brand'))
+    
+    dt <- merge(dt, tmp, by = c('category','country','brand'),all.x=T)
+    dt[, avgsales:=avgsales]
+    dt[, relelast:=100*abs(get(input$plot_predicted))/sum(abs(get(input$plot_predicted)))]
+    dt[, relsales:=100*avgsales/sum(avgsales)]
+    dt[, elast_x_size:=abs(get(input$plot_predicted))*avgsales]
+    dt[, optimal:=100*elast_x_size/sum(elast_x_size)]
+    
+    
+    tmp = dt[, c('country',input$plot_predicted, 'avgsales', 'relelast','relsales','optimal'),with=F]
+    tmp[, country:=str_to_title(country)]
+    setorder(tmp, country)
+    
+    setnames(tmp, c('Country','Marketing elasticity', 'Unit sales', 'Marketing elasticity (%)', 'Unit sales (%)', 'Optimal (%)'))
+    varname = ''
+    if (input$plot_vars=='dst') varname = 'distribution'
+    if (input$plot_vars=='pr') varname = 'price'
+    if (input$plot_vars=='llen') varname = 'line length'
+    
+    tmp2 = melt(tmp, id.vars=c('Country'))
+    
+    ggplot(tmp2[grepl('[%]',variable)], aes(x=Country, y = value, fill=variable)) + geom_bar(stat='identity', position=position_dodge()) + ylab('%-allocation') +
+      labs(fill='Allocation by') +scale_fill_grey(start = .6, end = .9) +
+      theme_bw()+ theme(legend.position="bottom") + 
+      labs(caption=paste0('Countries shown in alphabetical order. ', ifelse(grepl('pred', input$plot_predicted), 'Predicted', 'Estimated'), ' elasticities shown for ', str_to_title(input$plot_brands), ' (', str_to_title(replace_categories(input$plot_categories)), ').\nUnit sales are a brand\'s average unit sales in the data.\nThe optimal allocation is based on marketing mix elasticities x unit sales.')) +
+    ggtitle(paste0('Alternative Allocations of Marketing Mix Budget for ', str_to_title(varname), ' Elasticities'))
+    
+   # return(ret)
+  })
   output$plot <- renderPlot({
     o=produce_model(input)
     dt = o$predictions

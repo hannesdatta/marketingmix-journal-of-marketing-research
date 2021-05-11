@@ -27,6 +27,11 @@ setkey(brand_panel, category, country, brand)
 for (.col in cols) eval(parse(text=paste0('brand_panel[mix, ', .col, '_index:=i.', .col, '_index]')))
 for (.col in cols) eval(parse(text=paste0('brand_panel[mix, ', .col, '_std:=i.', .col, '_std]')))
 
+# Average sales
+brand_panel[, ':=' (avgsales=mean(usales,na.rm=T),
+                             sumsales=sum(usales, na.rm=T)),by=c('category','country','brand')]
+
+
 # define metrics to vary only at the yearly level for brands
 vars <- grep('2010$|avg$', grep('wgi_|gdp|gini|trade|population|penn[_]', colnames(brand_panel),value=T), value=T, invert=T)
 

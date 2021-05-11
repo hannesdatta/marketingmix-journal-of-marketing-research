@@ -203,16 +203,16 @@ attr[_]digitalzoom	Digital zoom: Indicator variable, equaling 1 if available, 0 
 attr[_]megapixels	Megapixels	gsub
 attr[_]bluerayyes	Blueray: Indicator variable, equaling 1 if available, 0 otherwise	gsub
 attr[_]recorderyes	Recording function: Indicator variable, equaling 1 if available, 0 otherwise	gsub
-attr[_]raminmb	RAM (in MB)	gsub
-attr[_]cpumhz	CPU (in Mhz)	gsub
-attr[_]hdd	Hard disk size	gsub
+attr[_]raminmb	RAM (in megabytes)	gsub
+attr[_]cpumhz	CPU (in megahertz)	gsub
+attr[_]hdd	Hard disk size (in gigabytes)	gsub
 attr[_]typelcdtvw[_]oled	without LEDs: Indicator variable, equaling 1 for LCD TVs without LEDs, 0 otherwise	gsub
 attr[_]screensize[_]recodesmth40inch	Screensize: Indicator variable, equaling 1 if screensize < 40 inch, 0 otherwise (baseline: unknown screensizes)	gsub
 attr[_]screensize[_]recodegreqth40inch	Screensize: Indicator variable, equaling 1 if screensize >= 40 inch, 0 otherwise (baseline: unknown screensizes)	gsub
 attr[_]3dyes	3D: Indicator variable, equaling 1 if available, 0 otherwise	gsub
-attr[_]raminmb	RAM (in MB)	gsub
-attr[_]cpumhz	CPU (in Mhz)	gsub
-attr[_]weightkg	Weight (in kg)	gsub
+attr[_]raminmb	RAM (in megabytes)	gsub
+attr[_]cpumhz	CPU (in megahertz)	gsub
+attr[_]weightkg	Weight (in kilograms)	gsub
 attr[_]touchscreenyes	Touchscreen: Indicator variable, equaling 1 if available, 0 otherwise	gsub
 attr[_]camerayes	Webcam: Indicator variable, equaling 1 if available, 0 otherwise	gsub
 attr[_]capacity	Capacity (in liters)	gsub
@@ -230,9 +230,9 @@ attr[_]numdoors	Number of doors	gsub
 attr[_]touchscreenyes	Touchscreen: Indicator variable, equaling 1 if available, 0 otherwise	gsub
 attr[_]screensize	Screensize (in inch)	gsub
 attr[_]wifiyes	Wifi: Indicator variable, equaling 1 if available, 0 otherwise	gsub
-attr[_]memoryingb	Memory (in GB)	gsub
-attr[_]raminmb	RAM (in MB)	gsub
-attr[_]weightkg	Weight (in kg)	gsub
+attr[_]memoryingb	Memory (in gigabytes)	gsub
+attr[_]raminmb	RAM (in megabytes)	gsub
+attr[_]weightkg	Weight (in kilograms)	gsub
 attr[_]screensize	Screensize (in inch)	gsub
 attr[_]capacity	Capacity (in liters)	gsub
 attr[_]functioncombination	Functionality: Indicator variable, equaling 1 if washing machine comes with extra functionality; 0 if washing only	gsub

@@ -78,6 +78,16 @@ covars = c("(Intercept)",
 sigvalue = .1
 zval = qnorm(1-sigvalue/2)
 
+
+# correlatino power distance & individualism
+
+countries <- unique(brand_panel, by = c('country'))
+cor(countries$pdi, countries$idv)
+
+elasticities$ec_main_sur[, list(cor(elastlt, elastmedianlt,use='pairwise')),by=c('variable')]
+
+
+
 ```
 
 # Data
@@ -154,6 +164,40 @@ out = lapply(list(st=c('elast', 'z_elast', 'w_elast'), lt = c('elastlt','z_elast
   })
   
 iters = list(lt=c('lt', 'Long-term')) #st=c('st', 'Short-term'), 
+for (iter in iters) {
+
+  print(kable(sanitize_table(out[[iter[1]]]), digits=3, format='html', format.args = list(big.mark = ","),
+        caption=tab(paste0(iter[2], ' elasticities by marketing-mix instrument^1^'),prefix='')) %>% kable_styling() %>% 
+        footnote(number=c(paste0('Table reports ', tolower(iter[2]), ' elasticities. The number of observations differs slightly across marketing-mix instruments because some brands in some markets (category/country combinations) do not have variation in these variables.'), estimnote)))
+  #cat("<P style='page-break-before: always'>")
+
+  }
+
+```
+
+```{r elasts_full_median, echo=F,results='asis'}
+
+elast[!is.na(elastmedianlt), z_elastmedianlt:=elastmedianlt/elastmedianlt_se, by = c('variable')]
+elast[!is.na(elastmedianlt), w_elastmedianlt:=1/elastmedianlt_se, by = c('variable')]
+
+
+out = lapply(list(ltmean=c('elastlt', 'z_elastlt', 'w_elastlt'), ltmedian = c('elastmedianlt','z_elastmedianlt','w_elastmedianlt')), function(obj) {
+  tmp = elast[!is.na(get(obj[1]))][, ':=' (val=get(obj[1]), val_z=get(obj[2]), val_w=get(obj[3]))]
+  tmp=tmp[, list(Neffects=.N, 
+   						  ftmelast = sum(val*val_w)/sum(val_w),
+   						  median_elast = median(val), 
+  						  interval90 = paste0('[',paste(sprintf("%.3f",quantile(val, c(.05,.95))),collapse=', '),']')),
+  												#  perc_positive = length(which(val_z>=(zval)))/.N, 
+  												#  perc_null = length(which(abs(val_z)<zval))/.N, 
+  												#  perc_negative = length(which(val_z<=(-zval)))/.N), 
+  												by=c('variable')]
+  tmp=tmp[match(ordered_vars, variable)]
+  setnames(tmp, 'variable', 'mmixinstr')
+  return(tmp)
+  })
+  
+iters = list(lt=c('ltmean', 'Long-term (at the mean)'),
+             ltmedians=c('ltmedian', 'Long-term (at the median)')) #st=c('st', 'Short-term'), 
 for (iter in iters) {
 
   print(kable(sanitize_table(out[[iter[1]]]), digits=3, format='html', format.args = list(big.mark = ","),
@@ -616,21 +660,23 @@ for (u in unitlist) {
 ```{r withinR2, results='asis', echo = FALSE, include = TRUE}
 
 ord=c('ec_main', 
-      'ec_nommix', 'ec_onlyllen', 'ec_onlypr','ec_onlydst',
-      'ec_main_attributes',
-      'ec_lntrend',
-      'ec_noendogeneity',
-      'ec_main_w_novelty',
-      'ec_unrestrictedcompetition',
-      'ec_log',
+      'ec_nommix', 'ec_onlyllen', 'ec_onlypr','ec_onlydst')
+
+#,
+#      'ec_main_attributes',
+      #'ec_lntrend',
+      #'ec_noendogeneity',
+      #'ec_main_w_novelty',
+      #'ec_unrestrictedcompetition',
+      #'ec_log',
       #'ec_main_currweights',
       #'ec_log',
-      'salesresponse_linear',
-      'salesresponse_linear_noldv',
-      'salesresponse_linear_onlyldv',
-      'salesresponse_loglog',
-      'salesresponse_loglog_noldv',
-      'salesresponse_loglog_onlyldv')
+      #'salesresponse_linear',
+      #'salesresponse_linear_noldv',
+      #'salesresponse_linear_onlyldv',
+      #'salesresponse_loglog',
+      #'salesresponse_loglog_noldv',
+      #'salesresponse_loglog_onlyldv')
 
 sel_ord = ord
 
@@ -662,22 +708,26 @@ predictions[grepl('^salesresponse', type)&!grepl('log',type), ':=' (common_dv = 
 table(predictions$type)
 
 
+#r2s[type=='ec_main'&brand=='hp'&category=='laptop'&country=='hong kong']
+
+
 # how to compare?
 r2s=predictions[type%in%sel_ord, list(#R2_diff = cor(dlnusales, dlnusales_hat, use='pairwise')^2,
                        R2_lev = cor(common_dv, common_dv_hat, use='pairwise')^2,
                        #cor_diff = cor(dlnusales, dlnusales_hat, use='pairwise'),
                      # cor_lev = cor(lnusales, lnusales_hat, use='pairwise'),
                       # MSE_diff = mean((dlnusales_hat-dlnusales)^2,na.rm=T),
-                       MSE_lev = mean((common_dv_hat-common_dv)^2,na.rm=T),
-                     MAPE_lev = median(abs((common_dv-common_dv_hat)/common_dv),na.rm=T),
-                     N=.N),
+                       RMSE_lev = sqrt(mean((common_dv_hat-common_dv)^2,na.rm=T)),
+                     MeAPE_lev = median(abs((common_dv-common_dv_hat)/common_dv),na.rm=T),
+                     SMAPE_lev = mean((abs(common_dv_hat-common_dv))/(.5*(abs(common_dv)+abs(common_dv_hat))),na.rm=T),
+                     N=length(which(!is.na(common_dv_hat)))),
              by = c('type','category','country','brand')]
 
  setkey(r2s, category, country, brand, type)
   r2s[estim_size, N:=i.N]
   
 
-  tmp = r2s[, lapply(.SD, mean,na.rm=T), by = c('type'), .SDcols=grep("(R2|MAPE).*lev$",colnames(r2s),value=T)]
+  tmp = r2s[, lapply(.SD, mean,na.rm=T), by = c('type'), .SDcols=grep("(R2|RMSE|MeAPE|SMAPE).*lev$",colnames(r2s),value=T)]
   
   # --> investigate
   
@@ -689,16 +739,25 @@ r2s=predictions[type%in%sel_ord, list(#R2_diff = cor(dlnusales, dlnusales_hat, u
   tmp2=tmp
   tmp2 = sanitize_table(tmp)
   setnames(tmp2, 'R2_lev', 'R2')
-  setnames(tmp2, 'MAPE_lev', 'MeAPE')
+  setnames(tmp2, 'RMSE_lev', 'RMSE')
+  setnames(tmp2, 'MeAPE_lev', 'MeAPE')
+  setnames(tmp2, 'SMAPE_lev', 'SMAPE')
+  
   
   #setnames(tmp2, 'type', 'Model type')
-  print(kable(tmp2, format= 'html', caption =lbl, digits = 3) %>% kable_styling()%>% footnote(number=paste0('R2 (MeAPE) is computed as the average squared correlation (average median percentage error) between predicted and observed sales, across the ', nrow(unique(predictions, by =c('category','brand','country'))), ' estimated models.'))) 
+  print(kable(tmp2, format= 'html', caption =lbl, digits = 5) %>% kable_styling()%>% footnote(number=paste0('Fit metrics computed across the ', nrow(unique(predictions, by =c('category','brand','country'))), ' estimated models, using predicted and observed sales in levels. R2 is the average squared correlation. RMSE is average root mean squared error. MeAPE is the median absolute percentage error. SMAPE is the symmetric mean absolute percentage error (Armstrong and Collopy 1992).')))
 
 ```
 
-```{r holdoutrsq, results='asis', echo = FALSE, include= FALSE}
+```{r holdoutrsq, results='asis', echo = FALSE, include= TRUE}
 
-ord=ord 
+
+ord=c('ec_main', 
+      'ec_main_attributes',
+      'ec_lntrend',
+      'ec_unrestrictedcompetition',
+      'salesresponse_linear',
+      'salesresponse_linear_noldv')
 
 
 tmppred = predictions_kfold[type%in%ord]
@@ -728,8 +787,11 @@ summary(tmppred$common_dv)
 
 tmp = tmppred[, list(R2 = cor(common_dv, common_dv_hat, use='pairwise')^2,
                          RMSE = sqrt(mean((common_dv-common_dv_hat)^2,na.rm=T)),
-                     MAPE = median(abs((common_dv-common_dv_hat)/common_dv),na.rm=T)),
+                     MeAPE = median(abs((common_dv-common_dv_hat)/common_dv),na.rm=T),
+                     SMAPE_lev = mean((abs(common_dv_hat-common_dv))/(.5*(abs(common_dv)+abs(common_dv_hat))),na.rm=T),
+                     N=length(which(!is.na(common_dv_hat)))),
                   by=c('type','category','country','brand','kfold','estim_set')]
+
 
 # ADD TRAINING AND PREDICTION TO SET
 # correct predictions
@@ -750,15 +812,14 @@ lbl = 'Model selection (hold-out sample)'
  # setnames(tmp2, 'MSE_lev', 'MSE')
   
   setnames(tmp4, 'type', 'Model type')
-  print(kable(tmp4, format= 'html', caption =lbl, digits = 3) %>% add_header_above(list(' '=1, 'R-squared' =2, 'RMSE'=2, 'MeAPE' = 2)))
+  print(kable(tmp4, format= 'html', caption =lbl, digits = 3) %>% add_header_above(list(' '=1, 'R-squared' =2, 'RMSE'=2, 'SMAPE'=2)))
   
   
-
 
 ```
 
 
-```{r,echo=FALSE, include=TRUE}
+```{r,echo=FALSE, include=FALSE}
 
 
 r2=tmppred[estim_set==F&type=='ec_main', list(r2=cor(common_dv, common_dv_hat, use='pairwise')^2), by = c('category','country','brand')]
@@ -781,9 +842,9 @@ ggplot() + geom_line(data=r2x, aes(date, common_dv)) +
 
 ```
 
-```{r,echo=FALSE, include=TRUE}
+```{r,echo=FALSE, include=FALSE}
 
-
+if(0){
 r2=predictions[type=='ec_main', list(r2=cor(common_dv, common_dv_hat, use='pairwise')^2), by = c('category','country','brand')]
 
 setorder(r2, r2)
@@ -815,6 +876,7 @@ ggplot() + geom_line(data=r2x, aes(date, common_dv)) +
 #+
 #sgeom_vline(xintercept = as.Date("01-01-2012",  format = "%d-%m-%Y"), linetype = 'dotted', color = 'blue')
 
+}
 ```
 
 

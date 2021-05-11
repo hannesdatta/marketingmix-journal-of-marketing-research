@@ -49,6 +49,9 @@ predictions <- rbindlist(lapply(seq(along=files), function(f) {
   
 }), fill = T)
 
+fwrite(predictions, '../output/predictions_within.csv')
+rm(predictions)
+
 files = list.files('../externals/', pattern = '^predictions-kfold[_].*[.]csv$', full.names=T)
 names(files) = gsub('[.]csv$', '', gsub('.*predictions-kfold[_]results[_]', '', files))
 
@@ -56,9 +59,14 @@ predictions_kfold <- rbindlist(lapply(seq(along=files), function(f) {
   pr <- fread(files[f])
   pr[, type:=names(files)[f]]
   setcolorder(pr, 'type')
+  #to_factor = c('date|category|country|brand|type')
+  #for (.v in grep(to_factor, colnames(pr),value=T)) pr[, (.v):=as.factor(get(.v))]
   return(pr)
   
 }), fill = T)
+
+fwrite(predictions_kfold, '../output/predictions_kfold.csv')
+rm(predictions_kfold)
 
 merge_covar <- function(dt){
   fns <- list.files('../output/',pattern='covariates.*csv', full.names = T)
@@ -82,13 +90,19 @@ merge_covar <- function(dt){
 }
 
 
-elasticities=lapply(elast_list, merge_covar)
+elasticities <- elast_list
 
+# merge covariates
+elast_w_covariates = c('ec_main', 'ec_main_sur','ec_main_w_novelty', 'ec_main_w_novelty_sur')
 
+elasticities2=lapply(elast_list[elast_w_covariates], merge_covar)
 
+elasticities[elast_w_covariates] <- elasticities2[elast_w_covariates]
+
+# carry over brand IDs to market share data set
 setkey(elasticities$ec_main_sur, category,country,brand)
 setkey(elasticities$marketshare, category,country,brand)
 elasticities$marketshare[elasticities$ec_main_sur, brand_id:=i.brand_id]
 
 
-save(elasticities, predictions, predictions_kfold, file= 'app/app_workspace.RData')
+save(elasticities, file= 'app/app_workspace.RData')

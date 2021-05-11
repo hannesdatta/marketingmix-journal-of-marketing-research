@@ -68,10 +68,9 @@ rsq <- function(m) {
 
 ## Estimate model
 
-formulas = list(. ~ 1 + sbbe_round1_mc+`brand_from_jp-us-ch-ge-sw_mc`+ln_rwpspr_index_mc+ln_wpswdst_index_mc+ln_llen_index_mc+ln_nov6sh_index_mc+ln_market_herf_mc+ln_market_growth_mc+appliance,
-. ~ 1 + sbbe_round1_mc+`brand_from_jp-us-ch-ge-sw_mc`+ln_rwpspr_index_mc+ln_wpswdst_index_mc+ln_llen_index_mc+ln_nov6sh_index_mc+ln_market_herf_mc+ln_market_growth_mc+appliance+ln_gdpgrowthyravg_mc+ln_ginicoef_mc+ln_gdppercapitacurrentyravg_mc+ln_gci_p10_marketsize_s_mc,
-. ~ 1 + sbbe_round1_mc+`brand_from_jp-us-ch-ge-sw_mc`+ln_rwpspr_index_mc+ln_wpswdst_index_mc+ln_llen_index_mc+ln_nov6sh_index_mc+ln_market_herf_mc+ln_market_growth_mc+appliance+ln_uai_mc+ln_pdi_mc+ln_mas_mc,
-. ~ 1 + sbbe_round1_mc+`brand_from_jp-us-ch-ge-sw_mc`+ln_rwpspr_index_mc+ln_wpswdst_index_mc+ln_llen_index_mc+ln_nov6sh_index_mc+ln_market_herf_mc+ln_market_growth_mc+appliance+ln_gdpgrowthyravg_mc+ln_ginicoef_mc+ln_gdppercapitacurrentyravg_mc+ln_gci_p10_marketsize_s_mc+ln_uai_mc+ln_pdi_mc+ln_mas_mc)
+
+
+formulas = list(. ~ 1 + sbbe_round1_mc+`brand_from_jp-us-ch-ge-sw_mc`+ln_rwpspr_index_mc+ln_wpswdst_index_mc+ln_llen_index_mc+ln_nov6sh_index_mc+ln_market_herf_mc+ln_market_growth_mc+appliance+ln_penn_growthrgdpeyravg_mc+ln_ginicoef_mc+ln_penn_percapitargdpeyravg_mc+ln_penn_popyravg_mc+ln_uai_mc+ln_pdi_mc+ln_mas_mc)
 
 clust = ~brand + category + country
 
@@ -98,5 +97,6 @@ lapply(formulas, function(form) {
   k=unlist(lapply(list(pr, dst, llen), function(x) length(grep('elastlt|weights',colnames(x$model),value=T, invert=T))+2))
   ret = rbind(obs, k, aics,bics,  logliks) #, rsqs) #, rsqs2)
   colnames(ret) <- c('pr','dst','llen')
-  return(ret)
+  return(list(fit=ret, models = list(llen, pr, dst)))
 })
+
