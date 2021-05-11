@@ -18,13 +18,15 @@ brand_panel <- merge(brand_panel, tmp2, by=c('category','country'))
 
 # average mmix
 cols = c('rwpspr', 'rwpsprd', 'llen', 'wpswdst', 'nov6sh', 'nov12sh')
-mix =brand_panel[, lapply(.SD, mean, na.rm=T), by = c('category','country','brand'), .SDcols=cols]
+mix = brand_panel[, lapply(.SD, mean, na.rm=T), by = c('category','country','brand'), .SDcols=c(cols,'usales')]
+for (.col in cols) mix[, paste0(.col, '_windex'):=get(.col)/(sum(usales*get(.col))/sum(usales)), by = c('category','country')]
 for (.col in cols) mix[, paste0(.col, '_index'):=get(.col)/mean(get(.col)), by = c('category','country')]
 for (.col in cols) mix[, paste0(.col, '_std'):=(get(.col)-mean(get(.col)))/sd(get(.col)), by = c('category','country')]
 
 setkey(mix, category, country, brand)
 setkey(brand_panel, category, country, brand)
 for (.col in cols) eval(parse(text=paste0('brand_panel[mix, ', .col, '_index:=i.', .col, '_index]')))
+for (.col in cols) eval(parse(text=paste0('brand_panel[mix, ', .col, '_windex:=i.', .col, '_windex]')))
 for (.col in cols) eval(parse(text=paste0('brand_panel[mix, ', .col, '_std:=i.', .col, '_std]')))
 
 # Average sales
@@ -32,12 +34,19 @@ brand_panel[, ':=' (avgsales=mean(usales,na.rm=T),
                              sumsales=sum(usales, na.rm=T)),by=c('category','country','brand')]
 
 
-# define metrics to vary only at the yearly level for brands
+# define country-level metrics to vary only at the yearly level for brands
 vars <- grep('2010$|avg$', grep('wgi_|gdp|gini|trade|population|penn[_]', colnames(brand_panel),value=T), value=T, invert=T)
+vars <- vars[!grepl('growthrgdp', vars)]
 
+# retrieve yearly estimates for categories/countries (e.g., some categories are available earlier, some later)
 tmp = unique(brand_panel, by = c('category','country','year'))[, lapply(.SD, mean,na.rm=T), by = c('category','country'), .SDcol=vars]
+
 tmp <- tmp[,unlist(lapply(tmp,function(x) all(is.na(x))))==F,with=F]
 for (.v in vars) if (.v %in% colnames(tmp)) setnames(tmp, .v, paste0(.v,'yravg'))
+
+# calculate geometric growth rates for PENN variables
+#for (.v in grep('penn[_](rgdpe', colnames(brand_panel),value=T)
+
 
 year_averages <- copy(tmp)
 

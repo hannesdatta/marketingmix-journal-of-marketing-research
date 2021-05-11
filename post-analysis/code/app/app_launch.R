@@ -159,10 +159,14 @@ potential_vars_raw = list(brandequity=list('!SBBE' = 'sbbe_round1_mc',
                                        '!Distr. (log index)' = 'ln_wpswdst_index_mc',
                                        '!Line length (log index)' = 'ln_llen_index_mc',
                                        '!Innovativeness 6 (log index)' ='ln_nov6sh_index_mc',
-                                        'Innovativeness 12 (log index)' ='ln_nov12sh_index_mc'),
+                                        'Innovativeness 12 (log index)' ='ln_nov12sh_index_mc',
+                                       'Price (log weighted index)' = 'ln_rwpspr_windex_mc',
+                                       'Distr. (log weighted index)' = 'ln_wpswdst_windex_mc',
+                                       'Line length (log weighted index)' = 'ln_llen_windex_mc',
+                                       'Innovativeness 6 (log weighted index)' ='ln_nov6sh_windex_mc',
+                                       'Innovativeness 12 (log weighted index)' ='ln_nov12sh_windex_mc'),
                                       
                                         
-                      
                       
                       brandother = list('Log Brand novelty' = 'ln_brandnovelty6_mc',
                                         'Brand novelty' = 'brandnovelty6_mc'),#,
@@ -394,11 +398,11 @@ ui <- fluidPage(
                   #             choices = list('Countries'='country',
                   #                            'Categories'='category'),
                   #             selected = 'country', multiple=FALSE),
-                   selectInput("plot_stack_val", label = h5("Stacked bar chart with (only for plot)..."),
+                   selectInput("plot_stack_val", label = h5("Stacked bar chart with (only for elasticity plot)..."),
                                choices = list('Relative elasticities (in %)'='rel_val',
                                               'Absolute elasticities'='abs_val'),
                                selected = 'abs_val', multiple=FALSE),
-                  selectInput("plot_vars", label = h5("Marketing mix instrument (only for allocation table)"),
+                  selectInput("plot_vars", label = h5("Marketing mix instrument (only for allocation table/plot)"),
                               choices = list('Price' = 'pr',
                                              'Line length' = 'llen',
                                              'Distribution' = 'dst'), 
@@ -420,7 +424,7 @@ ui <- fluidPage(
                        # tabPanel("Model Summary", verbatimTextOutput("summary")),
                        tabPanel("Model results", htmlOutput("stargazer")),#, # Regression output
                        tabPanel("VIFs", htmlOutput("vif")),
-                       tabPanel("Plot (elasticities)", plotOutput('stacked')),
+                       tabPanel("Plot (brand elasticities)", plotOutput('stacked')),
                        tabPanel("Table (allocation)", htmlOutput('allocation')),
                        tabPanel("Plot (allocation)", plotOutput('allocationplot')),
                        
