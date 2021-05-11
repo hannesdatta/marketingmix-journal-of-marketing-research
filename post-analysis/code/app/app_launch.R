@@ -155,15 +155,15 @@ potential_vars_raw = list(brandequity=list('!SBBE' = 'sbbe_round1_mc',
                                            '!JP, US, Swiss, GER, Sweden indicator' = "`brand_from_jp-us-ch-ge-sw_mc`",
                                            'Western brand indicator' = 'western_brand_mc'),
                       
-                      brandmmix = list('!Price (log index)' = 'ln_rwpspr_index_mc',
-                                       '!Distr. (log index)' = 'ln_wpswdst_index_mc',
-                                       '!Line length (log index)' = 'ln_llen_index_mc',
-                                       '!Innovativeness 6 (log index)' ='ln_nov6sh_index_mc',
+                      brandmmix = list('Price (log index)' = 'ln_rwpspr_index_mc',
+                                       'Distr. (log index)' = 'ln_wpswdst_index_mc',
+                                       'Line length (log index)' = 'ln_llen_index_mc',
+                                       'Innovativeness 6 (log index)' ='ln_nov6sh_index_mc',
                                         'Innovativeness 12 (log index)' ='ln_nov12sh_index_mc',
-                                       'Price (log weighted index)' = 'ln_rwpspr_windex_mc',
-                                       'Distr. (log weighted index)' = 'ln_wpswdst_windex_mc',
-                                       'Line length (log weighted index)' = 'ln_llen_windex_mc',
-                                       'Innovativeness 6 (log weighted index)' ='ln_nov6sh_windex_mc',
+                                       '!Price (log weighted index)' = 'ln_rwpspr_windex_mc',
+                                       '!Distr. (log weighted index)' = 'ln_wpswdst_windex_mc',
+                                       '!Line length (log weighted index)' = 'ln_llen_windex_mc',
+                                       '!Innovativeness 6 (log weighted index)' ='ln_nov6sh_windex_mc',
                                        'Innovativeness 12 (log weighted index)' ='ln_nov12sh_windex_mc'),
                                       
                                         
@@ -174,6 +174,9 @@ potential_vars_raw = list(brandequity=list('!SBBE' = 'sbbe_round1_mc',
                       
                       category = list('!Log Market concentration' = "ln_market_herf_mc",
                                       '!Log Market growth' = "ln_market_growth_mc",
+                                      'Log Market growth 100' = "ln_market_growth100_mc",
+                                      'Log Market growth neg' = "market_growthneg_mc",
+                                      
                                       '!Appliances (vs. electronics)' = 'appliance',
                                       'Log Category innovativeness' = 'ln_catnovelty3_mc'
                                       
@@ -185,6 +188,15 @@ potential_vars_raw = list(brandequity=list('!SBBE' = 'sbbe_round1_mc',
                                           'Log GDP growth WB (2010)' = 'ln_gdpgrowth2010_mc',
                                           '!Log GDP growth PENN (obs. avg)' = 'ln_penn_growthrgdpeyravg_mc',
                                           'Log GDP growth PENN (2010)' = 'ln_penn_growthrgdpe2010_mc',
+                                          
+                                          'Log GDP growth NEW PENN (obs avg.)' = 'ln_penn_rgdpeggrowth_mc',
+                                          'Log GDP per cap. growth NEW PENN (obs avg.)' = 'ln_penn_percapitargdpeggrowth_mc',
+                                          'Log GDP growth NEW PENN (obs avg. x100)' = 'ln_penn_rgdpeggrowth100_mc',
+                                          'Log GDP per cap. growth NEW PENN (obs avg. x 100)' = 'ln_penn_percapitargdpeggrowth100_mc',
+                                          'Log GDP growth NEW PENN (obs avg. neg)' = 'ln_penn_rgdpeggrowthneg_mc',
+                                          'Log GDP per cap. growth NEW PENN (obs avg. neg)' = 'penn_percapitargdpeggrowthneg_mc',
+                                          
+                                          
                                           
                                           "!Log Income Inequality (nearest to 2010)" = "ln_ginicoef_mc",
                                           

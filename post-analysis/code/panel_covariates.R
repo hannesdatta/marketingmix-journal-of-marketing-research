@@ -4,7 +4,7 @@ library(data.table)
 # Load data
 brand_panel=fread('../externals/preclean_main.csv')
 brand_panel[, ':=' (date = as.Date(date))]
-
+brand_panel = brand_panel[selected==T&timewindow==T&obs48==T]
 
 # find attributes
 unlink(list.files('../output/', pattern='^covariates.*', full.names = T))
@@ -33,20 +33,51 @@ for (.col in cols) eval(parse(text=paste0('brand_panel[mix, ', .col, '_std:=i.',
 brand_panel[, ':=' (avgsales=mean(usales,na.rm=T),
                              sumsales=sum(usales, na.rm=T)),by=c('category','country','brand')]
 
+brand_panel[, market_growth100:=market_growth*100]
+brand_panel[, market_growthneg:=100*(market_growth-1)]
+
 
 # define country-level metrics to vary only at the yearly level for brands
-vars <- grep('2010$|avg$', grep('wgi_|gdp|gini|trade|population|penn[_]', colnames(brand_panel),value=T), value=T, invert=T)
-vars <- vars[!grepl('growthrgdp', vars)]
+vars <- grep('2010$', grep('wgi_|gdp|gini|trade|population|penn[_]', colnames(brand_panel),value=T), value=T, invert=T)
+#vars <- vars[!grepl('growthrgdp', vars)]
 
 # retrieve yearly estimates for categories/countries (e.g., some categories are available earlier, some later)
-tmp = unique(brand_panel, by = c('category','country','year'))[, lapply(.SD, mean,na.rm=T), by = c('category','country'), .SDcol=vars]
+#
+tmp = unique(brand_panel, by = c('category','country','year'))
 
-tmp <- tmp[,unlist(lapply(tmp,function(x) all(is.na(x))))==F,with=F]
-for (.v in vars) if (.v %in% colnames(tmp)) setnames(tmp, .v, paste0(.v,'yravg'))
+tmp_means = tmp[, lapply(.SD, mean,na.rm=T), by = c('category','country'), .SDcol=vars]
+tmp_means <- tmp_means[,unlist(lapply(tmp_means,function(x) all(is.na(x))))==F,with=F]
+for (.v in vars) if (.v %in% colnames(tmp_means)) setnames(tmp_means, .v, paste0(.v,'yravg'))
+
+
+
+# calculate growth rates
+growthvars=grep('^(penn[_]|penn[_]percapita)(rgdpe|rgdpo)$', colnames(tmp),value=T)
+tmp_growth = lapply(growthvars, function(.v) {
+  tmp2 = tmp[, list(tmp_last=get(.v)[which(year==max(year))],
+              tmp_first=get(.v)[which(year==min(year))],
+              nyears = max(year)-min(year)+1), by = c('category','country')]
+  tmp2[, paste0(.v, 'ggrowth'):=(tmp_last/tmp_first)^(1/(nyears-1))]
+  tmp2[, paste0(.v, 'ggrowth100'):=100 * ((tmp_last/tmp_first)^(1/(nyears-1)))]
+  tmp2[, paste0(.v, 'ggrowthneg'):= 100 * ((tmp_last/tmp_first)^(1/(nyears-1))-1)]
+  
+  
+  tmp2[, ':=' (tmp_last=NULL, tmp_first=NULL, nyears=NULL)]
+  setkey(tmp2, category, country)
+  tmp2
+})
+merge.all <- function(x,y, ...) {merge(x,y, all.x=T,all.y=T,...)}
+tmp_growth_final= Reduce(merge.all, tmp_growth)
+
+tmp <- merge(tmp_means, tmp_growth_final, by = c('category','country'), all.x=T)
+
+
+
+#tmp = unique(brand_panel[selected==T&timewindow==T&obs48==T], by = c('category','country','year'))[, lapply(.SD, mean,na.rm=T), by = c('category','country'), .SDcol=vars]
+
 
 # calculate geometric growth rates for PENN variables
-#for (.v in grep('penn[_](rgdpe', colnames(brand_panel),value=T)
-
+#
 
 year_averages <- copy(tmp)
 
