@@ -16,6 +16,18 @@ setnames(tmp2, c('category','country','catvolatility_range_mean', 'catvolatility
 
 brand_panel <- merge(brand_panel, tmp2, by=c('category','country'))
 
+# growth
+tmp1=brand_panel[, list(N=.N, avgsales=mean(usales,na.rm=T)), by = c('category','country','brand','year')]
+tmp1[, maxyear:=max(year), by = c('category','country','brand')]
+tmp1[, lagavgsales:=c(NA,avgsales[-.N]), by = c('category','country','brand')]
+
+tmp1[, growth:=(avgsales-lagavgsales)/lagavgsales+1]
+
+tmp2=tmp1[, list(avgbrandgrowth=mean(growth[year>=maxyear-2],na.rm=T)), by = c('category','country', 'brand')]
+
+brand_panel <- merge(brand_panel, tmp2, by=c('category','country', 'brand'))
+
+
 # average mmix
 cols = c('rwpspr', 'rwpsprd', 'llen', 'wpswdst', 'nov6sh', 'nov12sh')
 mix = brand_panel[, lapply(.SD, mean, na.rm=T), by = c('category','country','brand'), .SDcols=c(cols,'usales')]
@@ -38,15 +50,16 @@ brand_panel[, market_growthneg:=100*(market_growth-1)]
 
 
 # define country-level metrics to vary only at the yearly level for brands
-vars <- grep('2010$', grep('wgi_|gdp|gini|trade|population|penn[_]', colnames(brand_panel),value=T), value=T, invert=T)
+vars <- grep('2010$|avg$', grep('wgi_|gdp|gini|trade|population|penn[_]', colnames(brand_panel),value=T), value=T, invert=T)
 #vars <- vars[!grepl('growthrgdp', vars)]
 
 # retrieve yearly estimates for categories/countries (e.g., some categories are available earlier, some later)
 #
-tmp = unique(brand_panel, by = c('category','country','year'))
+tmp = unique(brand_panel, by = c('category','country', 'year'))
 
 tmp_means = tmp[, lapply(.SD, mean,na.rm=T), by = c('category','country'), .SDcol=vars]
 tmp_means <- tmp_means[,unlist(lapply(tmp_means,function(x) all(is.na(x))))==F,with=F]
+colnames(tmp_means)
 for (.v in vars) if (.v %in% colnames(tmp_means)) setnames(tmp_means, .v, paste0(.v,'yravg'))
 
 
@@ -60,7 +73,6 @@ tmp_growth = lapply(growthvars, function(.v) {
   tmp2[, paste0(.v, 'ggrowth'):=(tmp_last/tmp_first)^(1/(nyears-1))]
   tmp2[, paste0(.v, 'ggrowth100'):=100 * ((tmp_last/tmp_first)^(1/(nyears-1)))]
   tmp2[, paste0(.v, 'ggrowthneg'):= 100 * ((tmp_last/tmp_first)^(1/(nyears-1))-1)]
-  
   
   tmp2[, ':=' (tmp_last=NULL, tmp_first=NULL, nyears=NULL)]
   setkey(tmp2, category, country)

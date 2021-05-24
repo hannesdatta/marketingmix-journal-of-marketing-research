@@ -153,7 +153,8 @@ potential_vars_raw = list(brandequity=list('!SBBE' = 'sbbe_round1_mc',
                           
                       brandlocation = list('Domestic market indicator' = 'local_to_market_mc',
                                            '!JP, US, Swiss, GER, Sweden indicator' = "`brand_from_jp-us-ch-ge-sw_mc`",
-                                           'Western brand indicator' = 'western_brand_mc'),
+                                           'Western brand indicator' = 'western_brand_mc',
+                                           'International brand active in more than 1 country' = 'internat_brand'),
                       
                       brandmmix = list('Price (log index)' = 'ln_rwpspr_index_mc',
                                        'Distr. (log index)' = 'ln_wpswdst_index_mc',
@@ -173,7 +174,9 @@ potential_vars_raw = list(brandequity=list('!SBBE' = 'sbbe_round1_mc',
                                         #'Price positioning' = 'brand_prindex_mean_mc'),
                       
                       category = list('!Log Market concentration' = "ln_market_herf_mc",
-                                      '!Log Market growth' = "ln_market_growth_mc",
+                                      'Log Market growth' = "ln_market_growth_mc",
+                                      '!Log market growth new' = 'ln_market_meangrowth_mc',
+                                      
                                       'Log Market growth 100' = "ln_market_growth100_mc",
                                       'Log Market growth neg' = "market_growthneg_mc",
                                       
@@ -187,7 +190,7 @@ potential_vars_raw = list(brandequity=list('!SBBE' = 'sbbe_round1_mc',
                                           #'Log GDP growth WB (avg)' = 'ln_gdpgrowthavg_mc',
                                           'Log GDP growth WB (2010)' = 'ln_gdpgrowth2010_mc',
                                           '!Log GDP growth PENN (obs. avg)' = 'ln_penn_growthrgdpeyravg_mc',
-                                          'Log GDP growth PENN (2010)' = 'ln_penn_growthrgdpe2010_mc',
+                                          #'Log GDP growth PENN (2010)' = 'ln_penn_growthrgdpe2010_mc',
                                           
                                           'Log GDP growth NEW PENN (obs avg.)' = 'ln_penn_rgdpeggrowth_mc',
                                           'Log GDP per cap. growth NEW PENN (obs avg.)' = 'ln_penn_percapitargdpeggrowth_mc',
@@ -395,7 +398,7 @@ ui <- fluidPage(
            tabPanel("Plots/Tables", 
                    selectInput("plot_brands", label = h5("Brands"),
                                choices = sapply(str_to_title(brands$brand), function(x) tolower(x), simplify=F), 
-                               selected = c('samsung'), multiple=FALSE),
+                               selected = c('apple'), multiple=FALSE),
                    selectInput("plot_categories", label = h5("Categories"),
                                choices = sapply(str_to_title(categories), function(x) tolower(x), simplify=F), 
                                selected =c('phones_smart'), multiple=FALSE),
@@ -453,7 +456,9 @@ ui <- fluidPage(
                                 br(),
                                 downloadButton("downloadElast", "Download estimated and predicted elasticities (CSV file)"),
                                 br(),
-                                downloadButton("downloadElastXLS", "Download estimated and predicted elasticities (Excel file)"))
+                                downloadButton("downloadElastXLS", "Download estimated and predicted elasticities (Excel file)"),
+                                br(),
+                                downloadButton("downloadPlots", "Download (stacked) brand plot (png file)") )
                               #br(),
                                 #downloadButton("downloadregdata", "Download data for second-stage regressions (csv file)"))#,
                      #  tabPanel("Correlations", htmlOutput("correl"))#, # Regression output
@@ -531,6 +536,8 @@ get_sample <- function(input, dv = 'elastlt') {
     tmp[percentile>(1-perc_extract), elastlt:=perc_high]
     
   }
+  
+  tmp[, internat_brand:=ifelse(ncountries>1,1,0)]
   return(tmp)
 }
 
@@ -657,31 +664,37 @@ server <- function(input, output) {
     # mean unit sales
     setkey(dt, category, country, brand)
     
-    tmp = unique(elast[,c('avgsales','brand','category','country'),with=F], by = c('category','country','brand'))
+    
+    tmp = unique(elast[,c('avgsales','avgbrandgrowth', 'brand','category','country'),with=F], by = c('category','country','brand'))
     
     dt <- merge(dt, tmp, by = c('category','country','brand'),all.x=T)
-    dt[, avgsales:=avgsales]
+    
+    # constant
+    set.seed(1234)
+    const = runif(1,1,4)
+    dt[, avgsales:=avgsales*const]
+    
     dt[, relelast:=100*abs(get(input$plot_predicted))/sum(abs(get(input$plot_predicted)))]
     dt[, relsales:=100*avgsales/sum(avgsales)]
-    dt[, elast_x_size:=abs(get(input$plot_predicted))*avgsales]
+    dt[, elast_x_size:=abs(get(input$plot_predicted))*avgsales*avgbrandgrowth]
     dt[, optimal:=100*elast_x_size/sum(elast_x_size)]
     
     
-    tmp = dt[, c('country',input$plot_predicted, 'avgsales', 'relelast','relsales','optimal'),with=F]
+    tmp = dt[, c('country','avgsales', input$plot_predicted,  'avgbrandgrowth', 'relsales','relelast', 'optimal'),with=F]
     tmp[, country:=str_to_title(country)]
     setorder(tmp, country)
     
-    setnames(tmp, c('Country','Marketing elasticity', 'Unit sales', 'Marketing elasticity (%)', 'Unit sales (%)', 'Optimal (%)'))
+    setnames(tmp, c('Country', 'Unit sales', 'Marketing elasticity', 'Expected growth', 'Unit sales (%)','Marketing elasticity (%)',  'Optimal (%)'))
     varname = ''
     if (input$plot_vars=='dst') varname = 'distribution'
     if (input$plot_vars=='pr') varname = 'price'
     if (input$plot_vars=='llen') varname = 'line length'
     
-    ret=kable(tmp, digits=c(0,3,0,1,1,1), 
+    ret=kable(tmp, digits=c(0,0,3,3,1,1,1), 
           caption = paste0('Alternative Allocations of Marketing Mix Budget for ', str_to_title(varname), ' Elasticities'),
           format='html',
           initial.zero = FALSE) %>% 
-      add_header_above(list(' '=3, 'Allocation proportional to' =3)) %>% kable_styling() %>% footnote(number = paste0('Countries shown in alphabetical order. ', ifelse(grepl('pred', input$plot_predicted), 'Predicted', 'Estimated'), ' elasticities shown for ', str_to_title(input$plot_brands), ' (', str_to_title(replace_categories(input$plot_categories)), '). Unit sales are a brand\'s average unit sales in the data. The optimal allocation is based on marketing mix elasticities x unit sales.'))
+      add_header_above(list(' '=4, 'Allocation proportional to' =3)) %>% kable_styling() %>% footnote(number = paste0('Countries shown in alphabetical order. ', ifelse(grepl('pred', input$plot_predicted), 'Predicted', 'Estimated'), ' elasticities shown for ', str_to_title(input$plot_brands), ' (', str_to_title(replace_categories(input$plot_categories)), '). Unit sales are a brand\'s average unit sales in the data. The optimal allocation is based on marketing mix elasticities x unit sales.'))
     
     
     
@@ -731,7 +744,8 @@ server <- function(input, output) {
       labs(fill='Allocation by') +scale_fill_grey(start = .6, end = .9) +
       theme_bw()+ theme(legend.position="bottom") + 
       labs(caption=paste0('Countries shown in alphabetical order. ', ifelse(grepl('pred', input$plot_predicted), 'Predicted', 'Estimated'), ' elasticities shown for ', str_to_title(input$plot_brands), ' (', str_to_title(replace_categories(input$plot_categories)), ').\nUnit sales are a brand\'s average unit sales in the data.\nThe optimal allocation is based on marketing mix elasticities x unit sales.')) +
-    ggtitle(paste0('Alternative Allocations of Marketing Mix Budget for ', str_to_title(varname), ' Elasticities'))
+    ggtitle(paste0('Alternative Allocations of Marketing Mix Budget for ', str_to_title(varname), ' Elasticities')) +
+      theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
     
    # return(ret)
   })
@@ -803,13 +817,14 @@ server <- function(input, output) {
     
   })
     
-  output$stacked <- renderPlot({
+  make_stacked <- function() {
+    
     o=produce_model(input)
     dt = o$predictions
     
     if (!is.null(input$plot_brands)) dt <- dt[brand%in%input$plot_brands]
     if (!is.null(input$plot_categories)) dt <- dt[category%in%input$plot_categories]
-   # if (!is.null(input$plot_countries)) dt <- dt[country%in%input$plot_countries]
+    # if (!is.null(input$plot_countries)) dt <- dt[country%in%input$plot_countries]
     #if (!is.null(input$plot_vars)) dt <- dt[variable%in%input$plot_vars]
     
     dt[, abs_val:=(get(input$plot_predicted))]
@@ -831,7 +846,7 @@ server <- function(input, output) {
     
     tmp3 = melt(tmp2, id.vars=c(agglevel))
     #levels(tmp3$variable)
-   # tmp3[, variable:=factor(as.character(variable), levels=c('llen','pr','dst', 'sum'))]
+    # tmp3[, variable:=factor(as.character(variable), levels=c('llen','pr','dst', 'sum'))]
     #levels(tmp3$variable) <- c('price','distribution','line length')
     levels(tmp3$variable)
     
@@ -839,8 +854,14 @@ server <- function(input, output) {
     setkey(dt, country, variable)
     
     tmp3[dt, printvar:=get(paste0('i.', input$plot_predicted))]
-    tmp3[, printvar2:=formatC(printvar, digits=3,
-                              flag="", format="f")]
+    
+    format_number <- function(x) {
+      sub('^(-)?0[.]', '\\1.', formatC(x, digits=3,
+              flag="", format="f"))
+    }
+    
+    
+    tmp3[, printvar2:=format_number(printvar)]
     
     
     tmp3$country<-str_to_title(tmp3$country) 
@@ -861,20 +882,32 @@ server <- function(input, output) {
     
     
     #sorted_country =as.character(unique(tmp3$country)[order(tolower(unique(tmp3$country)),decreasing=T)])
-    #tmp3[, country:=factor(country,levels=(sorted_country))]
+    tmp3[, sortval:=value[variable=='sum'], by=c('country')]
     
-    ggplot(tmp3[!variable%in%'sum'], aes(fill=variable_label, y=value, 
+    
+    sorted_country =as.character(unique(tmp3[order(tmp3$sortval)]$country))
+    
+    tmp3[, country:=factor(country,levels=(sorted_country))]
+    
+    
+    return(ggplot(tmp3[!variable%in%'sum'], aes(fill=variable_label, y=value, 
                                          x=eval(parse(text=agglevel)),
-           label=printvar2)) + geom_bar(position="stack", stat="identity")  + scale_fill_grey(start = .6, end = .9) + coord_flip() +
+                                         label=printvar2)) + geom_bar(position="stack", stat="identity")  + scale_fill_grey(start = .6, end = .9) + coord_flip() +
       theme_bw()+
       xlab(str_to_title(agglevel)) + ylab('Magnitude of Marketing Elasticities') + 
       geom_text(size = 3, position = position_stack(vjust = 0.5)) +
+      theme(legend.position = 'bottom')+ guides(fill = guide_legend(reverse = TRUE)) +
       labs(fill='Elasticities', caption = paste0('Plot generated on the basis of ', 
                                                  ifelse(input$plot_stack_val=='rel_val', 'relative elasticities', 'absolute elasticities'), ' for brand ', 
                                                  str_to_title(input$plot_brands), ' (', tolower(replace_categories(input$plot_categories)), 
-                                                 ').\nCountries sorted in decreasing order of ', ifelse(input$plot_stack_val=='rel_val', 'line-length elasticities', 
-                                                                                                       'combined marketing effectiveness'),'.'))
-      
+                                                 ').\nCountries shown in alphabetical order.'))+
+        theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())) 
+    
+  }
+  
+  output$stacked <- renderPlot({
+    
+    make_stacked()
   })
   
   output$elasticities = DT::renderDataTable({
@@ -971,6 +1004,7 @@ server <- function(input, output) {
     }
   )
  
+  
   output$downloadElastXLS <- downloadHandler(
     filename = function() {
       paste('elasticities.xlsx')
@@ -992,6 +1026,16 @@ server <- function(input, output) {
       tmp = elast[, c('category','country','brand','brand_id',mspec$variables),with=F]
       if (!grepl('[.]csv$',file, ignore.case=T)) file=paste(file, '.csv')
       fwrite(tmp, file=file, row.names=F)
+    }
+  )
+  
+  output$downloadPlots <- downloadHandler(
+    filename = "plot.png",
+    
+    content = function(file) {
+      png(file, res=400, units='in', height=5, width=8)
+      print(make_stacked())
+      dev.off()
     }
   )
   

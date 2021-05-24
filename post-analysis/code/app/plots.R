@@ -48,11 +48,43 @@ tmp[percentile>(1-perc_extract), elastlt:=perc_high]
 
 elast <- copy(tmp)
 
+#### CORRELATION MEAN / MEDIAN
+
+elast[, list(cor=cor(elastlt, elastmedianlt, use='pairwise')),by=c('variable')]
+
+countries <- unique(elast, by = c('country'))
+nrow(countries)
+
+
+# logged
+vars=c('ln_penn_growthrgdpeyravg_mc','ln_ginicoef_mc', 'ln_penn_percapitargdpeyravg_mc',
+  'ln_penn_popyravg_mc', 'ln_uai_mc', 'ln_pdi_mc', 'ln_mas_mc')
+
+
+
+cor(unique(elast, by = c('category','country','brand'))[, c('emerging',vars),with=F], use='pairwise')
+
+#unlogged
+vars=c('penn_growthrgdpeyravg_mc','ginicoef_mc', 'penn_percapitargdpeyravg_mc',
+       'penn_popyravg_mc', 'uai_mc', 'pdi_mc', 'mas_mc')
+
+
+
+cor(unique(elast, by = c('category','country','brand'))[, c('emerging',vars),with=F], use='pairwise')
+
+
+# N=14
+vars=c('penn_growthrgdpe2010','ginicoef_mc', 'penn_percapitargdpe2010',
+       'penn_pop2010', 'uai_mc', 'pdi_mc', 'mas_mc')
+
+cor(unique(countries, by = c('category','country','brand'))[, c('emerging',vars),with=F], use='pairwise')
+
+
 #### INVESTIGATE ELASTICITIES
 
 hist(elast[variable=='llen']$elastlt)
 hist(elast[variable=='rwpspr']$elastlt)
-hist(elast[variable=='wpswdst']$elastlt)
+hist(elast[variable=='wpswdst']$elastlt,breaks=100)
 
 elast[, sig := elastlt/elastlt_se]
 
@@ -119,9 +151,9 @@ lapply(formulas, function(form) {
 })
 
 
-
-
-#### PLOTS
+################################################
+#### PLOT POOLED ACROSS ALL COUNTRIES      #####
+################################################
 
 dt <- copy(elast[, c('category','country','brand', 'variable','elastlt','elastlt_se'),with=F])
 
@@ -133,12 +165,19 @@ tmp = dt[, list(w_elast=sum(elastlt*w_elastlt)/sum(w_elastlt)),by=c('country', '
 tmp[, abs_val:=w_elast]
 tmp[grepl('pr$', variable), abs_val:=-w_elast]
 
-tmp[, rel_val:=abs_val/sum(abs_val), by =c('country')]
 
 tmp[, sum:=sum(abs_val),by=c('country')]
 
+tmp[, rel_val:=abs_val/sum]
+
 tmp[, printvar:=formatC(w_elast, digits=3,
                           flag="", format="f")]
+
+#tmp[, printvar_rel:=round(rel_val*100,0)]
+
+tmp[, printvar_rel:=paste0(formatC(round(signif(rel_val,3)*100,0), digits=0,
+                        flag="", format="f"),'%')]
+
 
 tmp[, country:=str_to_title(country)]
 
@@ -159,36 +198,136 @@ tmp[, country_plot:=factor(as.character(country), levels=rev(order_country$count
 setorder(order_country, sum)
 tmp[, country_plot2:=factor(as.character(country), levels=order_country$country)]
 
+png('../../output/relative_elasticities.png', res=400, units='in', height=5, width=8)
+
 ggplot(tmp, aes(fill=variable_label, y=abs_val, 
                                      x=country_plot,
                                      label=printvar)) + geom_bar(position="stack", stat="identity")  +
   scale_fill_grey(start = .6, end = .9) + coord_flip() +
-  theme_bw() + ggtitle('Relative Contribution of Marketing Mix Effects Across Countries') + 
+  theme_bw() + #+ ggtitle('Relative Contribution of Marketing Mix Effects Across Countries') + 
   xlab('Country') + ylab('Magnitude of Marketing Elasticities') + 
   geom_text(size = 3, position = position_stack(vjust = 0.5)) +
-  labs(fill='Elasticities', caption = '')
+  labs(fill='Elasticities', caption = '')+ theme(legend.position = 'bottom')+ guides(fill = guide_legend(reverse = TRUE)) +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+
+dev.off()
 
 
+# V2
+
+png('../../output/relative_elasticities2.png', res=400, units='in', height=5, width=8)
+
+tmp[, printvar_sum:=paste0('(', formatC(sum, digits=3,
+                                   flag="", format="f"),')')]
+tmp[!variable=='wpswdst', printvar_sum:='']
 
 ggplot(tmp, aes(fill=variable_label, y=abs_val, 
                 x=country_plot2,
-                label=printvar)) + geom_bar(position="stack", stat="identity")  +
+                label=printvar_rel)) + geom_bar(position="stack", stat="identity")  +
   scale_fill_grey(start = .6, end = .9) + coord_flip() +
-  theme_bw() + ggtitle('Relative Contribution of Marketing Mix Effects Across Countries') + 
+  theme_bw() + #+ ggtitle('Relative Contribution of Marketing Mix Effects Across Countries') + 
   xlab('Country') + ylab('Magnitude of Marketing Elasticities') + 
-  geom_text(size = 3, position = position_stack(vjust = 0.5)) +
-  labs(fill='Elasticities', caption = '')
+  geom_text(size = 3, position = position_stack(vjust = 0.5)) + ylim(c(0,2))+
+  #geom_text(size = 3, position = position_stack(vjust = 1), aes(y=abs_val, fill=variable_label, label=printvar_sum, hjust=-.3), angle=0)+
+  labs(fill='Elasticities', caption = '')+ theme(legend.position = 'bottom')+ guides(fill = guide_legend(reverse = TRUE))+
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+
+dev.off()
 
 
 
+#############################
+#### PLOT HOLDOUT SAMPLE ####
+#############################
 
-paste0('Plot generated on the basis of'))
+predictions <- fread('../../output/predictions_within.csv')
+predictions_kfold = fread('../../output/predictions_kfold.csv')
+
+
+predictions_kfold = predictions_kfold[type=='ec_main']
+
+#predictions_kfold[kfold==10]
+
+set.seed(1234)
+
+newpred = predictions_kfold[, list(usales=usales[1],
+                                   holdout_pred = ldv[1] + ddv_hat[estim_set==F]),by=c('category','country','brand', 'date')]
+
+
+newpred[, cc := .GRP, by = c('country', 'category')]
+
+
+newpred[, rnum := runif(1), by = c('cc','brand')]
+
+newpred[, selected_brand:=rnum==min(rnum), by= c('cc')]
+
+newpred[, selected:=FALSE]
+newpred[country=='australia'&grepl('smart', category), selected:=T]
+newpred[country=='china'&grepl('camera_compact', category), selected:=T]
+newpred[country=='hong kong'&grepl('desktop', category), selected:=T]
+newpred[country=='india'&grepl('gen2', category), selected:=T]
+newpred[country=='indonesia'&grepl('laptop', category), selected:=T]
+newpred[country=='japan'&grepl('mobile', category), selected:=T]
+newpred[country=='malaysia'&grepl('micro', category), selected:=T]
+newpred[country=='new zealand'&grepl('gen3', category), selected:=T]
+newpred[country=='philippines'&grepl('cooling', category), selected:=T]
+newpred[country=='singapore'&grepl('slr', category), selected:=T]
+newpred[country=='south korea'&grepl('gen1', category), selected:=T]
+newpred[country=='taiwan'&grepl('tablet', category), selected:=T]
+newpred[country=='thailand'&grepl('dvd', category), selected:=T]
+newpred[country=='vietnam'&grepl('washing', category), selected:=T]
+
+
   
-  
-  ', 
-                                             ifelse(input$plot_stack_val=='rel_val', 'relative elasticities', 'absolute elasticities'), ' for brand ', 
-                                             str_to_title(input$plot_brands), ' (', tolower(replace_categories(input$plot_categories)), 
-                                             ').\nCountries sorted in decreasing order of ', ifelse(input$plot_stack_val=='rel_val', 'line-length elasticities', 
-                                                                                                    'combined marketing effectiveness'),'.'))
+retained <- newpred[selected_brand==T&selected==T]
+retained[, date:=as.Date(date)]
+#retained[estim_set==T, ddv_hat:=NA]
+#ggplot(retained[cc==1],aes(y = usales,x = date,color = type)) + 
+#  geom_line() +
+#  ggtitle("Merged datasets")
 
-})
+
+library(ggplot2)
+
+
+library(gridExtra)
+library(grid)
+
+
+
+replace_categories <- function(x) {
+  ret = rep('', length(x))
+  ret[grepl('washing',x)] <- 'Washing machines'
+  ret[grepl('tv_gen1',x)] <- 'CRT TVs'
+  ret[grepl('tv_gen2_ptv',x)] <- 'Plasma TVs'
+  ret[grepl('tv_gen3_lcd_only',x)] <- 'LCD TVs'
+  ret[grepl('tablets',x)] <- 'Tablets'
+  ret[grepl('phones_smart',x)] <- 'Smartphones'
+  ret[grepl('phones_mobile',x)] <- 'Mobile phones'
+  ret[grepl('microwave',x)] <- 'Microwaves'
+  ret[grepl('laptop',x)] <- 'Laptop computers'
+  ret[grepl('dvd',x)] <- 'DVD players and recorders'
+  ret[grepl('desktoppc',x)] <- 'Desktop computers'
+  ret[grepl('cooling',x)] <- 'Refrigerators'
+  ret[grepl('camera_slr',x)] <- 'SLR cameras'
+  ret[grepl('camera_compact',x)] <- 'Compact cameras'
+  
+  return(ret)
+}
+
+setorderv(retained, c('country', 'category', 'brand', 'date'), order=1L)
+
+plots<-lapply(unique(retained$cc)[1:14], function(csel) ggplot() + geom_line(data=retained[cc==csel], aes(date, usales)) +
+  geom_line(data=retained[cc==csel], linetype = 2, aes(date, holdout_pred)) +
+  scale_x_date(date_labels = "%Y") + ylab('Unit sales') + xlab('Date') + 
+    ggtitle(paste0(str_to_title(unique(retained[cc==csel]$country))),
+  subtitle=replace_categories(unique(retained[cc==csel]$category)))+
+    theme(plot.title = element_text(size = 12),
+          plot.subtitle = element_text(size=9)))
+
+png('../../output/fit_plot.png', res=400, units='in', height=6, width=12)
+
+grid.arrange(grobs=plots,
+             ncol = 5, nrow = 3)
+dev.off()
+

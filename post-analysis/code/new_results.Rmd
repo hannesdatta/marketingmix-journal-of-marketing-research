@@ -93,13 +93,13 @@ elasticities$ec_main_sur[, list(cor(elastlt, elastmedianlt,use='pairwise')),by=c
 # Data
 
 ```{r table1_countries, echo = FALSE}
-tmp=unique(elast, by='country')[, c('country','penn_percapitargdpe2010','penn_growthrgdpe2010', 'ginicoef','pdi', 'uai','mas'),with=F]
+tmp=unique(elast, by='country')[, c('country','penn_pop2010', 'penn_percapitargdpe2010','penn_growthrgdpe2010', 'ginicoef','pdi', 'uai','mas'),with=F]
 
 setorderv(tmp, c('country'))
 
 tmp=sanitize_table(tmp)
 
-kable(tmp, format='html', digits=c(0,0,2,2,2,2,2), format.args = list(big.mark = ",", format ='f'), initial.zero = FALSE, caption=tab('Development indicators for countries in sample^1^')) %>%
+kable(tmp, format='html', digits=c(0,2, 0,2,2,2,2,2), format.args = list(big.mark = ",", format ='f'), initial.zero = FALSE, caption=tab('Development indicators for countries in sample^1^')) %>%
         kable_styling() %>% footnote(number=c('Countries shown in alphabethical order. Sources to be updated.'))
 ```
 
@@ -153,10 +153,10 @@ out = lapply(list(st=c('elast', 'z_elast', 'w_elast'), lt = c('elastlt','z_elast
   tmp=tmp[, list(Neffects=.N, 
    						  ftmelast = sum(val*val_w)/sum(val_w),
    						  median_elast = median(val), 
-  						  interval90 = paste0('[',paste(sprintf("%.3f",quantile(val, c(.05,.95))),collapse=', '),']')),
-  												#  perc_positive = length(which(val_z>=(zval)))/.N, 
-  												#  perc_null = length(which(abs(val_z)<zval))/.N, 
-  												#  perc_negative = length(which(val_z<=(-zval)))/.N), 
+  						  interval90 = paste0('[',paste(sprintf("%.3f",quantile(val, c(.05,.95))),collapse=', '),']'),
+  												  perc_positive = length(which(val_z>=(zval)))/.N, 
+  												  perc_null = length(which(abs(val_z)<zval))/.N, 
+  												  perc_negative = length(which(val_z<=(-zval)))/.N), 
   												by=c('variable')]
   tmp=tmp[match(ordered_vars, variable)]
   setnames(tmp, 'variable', 'mmixinstr')
@@ -187,9 +187,9 @@ out = lapply(list(ltmean=c('elastlt', 'z_elastlt', 'w_elastlt'), ltmedian = c('e
    						  ftmelast = sum(val*val_w)/sum(val_w),
    						  median_elast = median(val), 
   						  interval90 = paste0('[',paste(sprintf("%.3f",quantile(val, c(.05,.95))),collapse=', '),']')),
-  												#  perc_positive = length(which(val_z>=(zval)))/.N, 
-  												#  perc_null = length(which(abs(val_z)<zval))/.N, 
-  												#  perc_negative = length(which(val_z<=(-zval)))/.N), 
+  												  #perc_positive = length(which(val_z>=(zval)))/.N, 
+  												  #perc_null = length(which(abs(val_z)<zval))/.N, 
+  												  #perc_negative = length(which(val_z<=(-zval)))/.N), 
   												by=c('variable')]
   tmp=tmp[match(ordered_vars, variable)]
   setnames(tmp, 'variable', 'mmixinstr')
@@ -214,19 +214,39 @@ for (iter in iters) {
 
 ```{r elast_by_cc, echo=F,results='asis', include=TRUE, warnings = FALSE}
 
-qval=qnorm(1-sigvalue/2)
+round_percent <- function(x) { 
+    x <- x/sum(x)*100  # Standardize result
+    res <- floor(x)    # Find integer bits
+    rsum <- sum(res)   # Find out how much we are missing
+    if(rsum<100) { 
+        # Distribute points based on remainders and a random tie breaker
+        o <- order(x%%1, sample(length(x)), decreasing=TRUE) 
+        res[o[1:(100-rsum)]] <- res[o[1:(100-rsum)]]+1
+    } 
+    res 
+}
 
-for (byvar in c('country')) {
+qval=qnorm(1-sigvalue/2)
+elast[, novar:='pooled']
+
+for (byvar in c('country', 'category', 'novar')) {
   tmp=elast[!is.na(elastlt), list(N=.N,
                                   elast = sum(elastlt*w_elastlt)/sum(w_elastlt),
                                   sig = signstars(sum(elastlt/elastlt_se,na.rm=T)/sqrt(.N)),
-                                  percpos = round(100*length(which(abs(elastlt/elast_se)>=qval&elastlt>0))/.N,0),
-                                  percneg = round(100*length(which(abs(elastlt/elast_se)>=qval&elastlt<0))/.N,0),
-                                  percns = round(100*length(which(abs(elastlt/elast_se)<qval))/.N,0)),
+                                  percpos = 100*length(which(abs(elastlt/elast_se)>=qval&elastlt>0))/.N,
+                                  percneg = 100*length(which(abs(elastlt/elast_se)>=qval&elastlt<0))/.N,
+                                  percns = 100*length(which(abs(elastlt/elast_se)<qval))/.N),
                                   by=c('variable', byvar)]
+  
   tmp[, lbl := paste0(sprintf("%.3f",elast), ' ', sig)]
-  				
-  tmp2 = melt(tmp, id.vars=c('variable','country'))
+  
+  tmp2 = melt(tmp, id.vars=c('variable',byvar))
+  tmp2[grepl('^perc', variable.1), value:=round_percent(as.numeric(value)),by=c('variable', byvar)]
+  
+  
+  
+  #round
+  
   setnames(tmp2, 'variable.1', 'par')
   keeppars=c('N', 'lbl','percpos','percneg','percns')
   tmp2 <- tmp2[par%in%keeppars]
@@ -244,6 +264,9 @@ for (byvar in c('country')) {
   
   tmp=sanitize_table(tmp)
   #setorderv(tmp, colnames(tmp)[1])
+  tmp[, varorder:=tolower(get(colnames(tmp)[1]))]
+  setorder(tmp, varorder)
+  tmp[, varorder:=NULL]
   
   cat("<P style='page-break-before: always'>")
   {print(kable(tmp, digits=3, caption = tab(paste0('Long-term elasticities (means by ', byvar, ')^1^'), prefix=''), format='html', initial.zero = FALSE) %>% add_header_above(list(' '=1, 'Line length' =5, 'Price'=5, 'Distribution' = 5)) %>% kable_styling() %>% footnote(number=paste0(estimnote, ' Reported by ', ifelse(byvar=='country', 'countries', 'categories'), ' in alphabetical order.'))) 
@@ -491,13 +514,15 @@ for (byvar in c('category')) {
   tmp=elast[!is.na(elastlt), list(N=.N,
                                   elast = sum(elastlt*w_elastlt)/sum(w_elastlt),
                                   sig = signstars(sum(elastlt/elastlt_se,na.rm=T)/sqrt(.N)),
-                                  percpos = round(100*length(which(abs(elastlt/elast_se)>=qval&elastlt>0))/.N,0),
-                                  percneg = round(100*length(which(abs(elastlt/elast_se)>=qval&elastlt<0))/.N,0),
-                                  percns = round(100*length(which(abs(elastlt/elast_se)<qval))/.N,0)),
+                                  percpos = 100*length(which(abs(elastlt/elast_se)>=qval&elastlt>0))/.N,
+                                  percneg = 100*length(which(abs(elastlt/elast_se)>=qval&elastlt<0))/.N,
+                                  percns = 100*length(which(abs(elastlt/elast_se)<qval))/.N),
                                   by=c('variable', byvar)]
   tmp[, lbl := paste0(sprintf("%.3f",elast), ' ', sig)]
   				
   tmp2 = melt(tmp, id.vars=c('variable',byvar))
+  tmp2[grepl('^perc', variable.1), value:=round_percent(as.numeric(value)),by=c('variable', byvar)]
+  
   setnames(tmp2, 'variable.1', 'par')
   keeppars=c('N', 'lbl','percpos','percneg','percns')
   tmp2 <- tmp2[par%in%keeppars]
@@ -528,8 +553,26 @@ for (byvar in c('category')) {
 
 ```{r elasticities_comparison, echo=FALSE, message=FALSE, warning=FALSE, results='asis'}
   
+elasticities$ec_at_median = copy(elasticities$ec_main_sur)
+elasticities$ec_at_median[, elastlt:=elastmedianlt]
+elasticities$ec_at_median[, elastlt_se:=elastmedianlt_se]
+
 
 unitlist = list(
+   list(
+    units = c(
+      'Estimated without product attributes (main model)' = 'ec_main_sur',
+      'Estimated with product attributes' = 'ec_main_attributes'
+    ),
+    title =  'Differences With And Without Product Attributes^1^'
+  ),
+   list(
+    units = c(
+      'Elasticities calculated at the mean (main model)' = 'ec_main_sur',
+      'Elasticities calculated at the median' = 'ec_at_median'
+    ),
+    title =  'Differences Mean/Median^1^'
+  ),
   list(
     units = c(
       'Advertising not included (focal model)' = 'ec_chinahk_withoutadv',
@@ -543,13 +586,6 @@ unitlist = list(
       'Estimated on split data set (late)' = 'ec_last60'
     ),
     title =  'Differences in Long-Term Elasticities Over Time^1^'
-  ),
-  list(
-    units = c(
-      'Estimated without product attributes (main model)' = 'ec_main_sur',
-      'Estimated with product attributes' = 'ec_main_attributes'
-    ),
-    title =  'Differences With And Without Product Attributes^1^'
   )#,
  # list(
   #  units = c(
@@ -660,8 +696,12 @@ for (u in unitlist) {
 ```{r withinR2, results='asis', echo = FALSE, include = TRUE}
 
 ord=c('ec_main', 
-      'ec_nommix', 'ec_onlyllen', 'ec_onlypr','ec_onlydst')
-
+      'ec_nommix', 'ec_onlyllen', 'ec_onlypr','ec_onlydst',
+      'ec_main_attributes',
+      'ec_lntrend',
+      'ec_unrestrictedcompetition',
+      'salesresponse_linear',
+      'salesresponse_linear_noldv')
 #,
 #      'ec_main_attributes',
       #'ec_lntrend',
@@ -751,13 +791,12 @@ r2s=predictions[type%in%sel_ord, list(#R2_diff = cor(dlnusales, dlnusales_hat, u
 
 ```{r holdoutrsq, results='asis', echo = FALSE, include= TRUE}
 
-
-ord=c('ec_main', 
-      'ec_main_attributes',
-      'ec_lntrend',
-      'ec_unrestrictedcompetition',
-      'salesresponse_linear',
-      'salesresponse_linear_noldv')
+#ord=c('ec_main', 
+#      'ec_main_attributes',
+#      'ec_lntrend',
+ #     'ec_unrestrictedcompetition',
+ #     'salesresponse_linear',
+ #     'salesresponse_linear_noldv')
 
 
 tmppred = predictions_kfold[type%in%ord]
@@ -904,7 +943,7 @@ tmp=dcast(cv2, variable~byvar, value.var='CV')
   
 # pooled
   
-tmp=elast[!is.na(elastlt), list(CV = sd(elastlt)/mean(elastlt)), by = c('variable')]
+tmp=elast[!is.na(elastlt), list(N=.N,CV = sd(elastlt)/mean(elastlt)), by = c('variable')]
 print(kable(tmp))
 
 
