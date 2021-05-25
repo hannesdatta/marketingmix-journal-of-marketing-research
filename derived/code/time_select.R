@@ -177,18 +177,25 @@ for (seldat in names(all_datasets)) {
 	brand_panel[growth, ':=' (catvolatility_range=i.catvolatility_range, catvolatility_sd=i.catvolatility_sd)]
 	
 	# remove incomplete years
-	growth = growth[months_with_sales==12]
+	growth = growth[months_with_sales==12][, list(sales=sum(sales,na.rm=T)),by=c('market_id','category','country','year')]
+	
 	growth[, year_to_year_growth := sales/c(NA, sales[-.N]), by = c('market_id')]
 	tmp=growth[, list(sales_first=sum(sales[year==min(year)]),
 	                  sales_last=sum(sales[year==max(year)]),
 	                  nyears = max(year)-min(year)+1,
-	                  sd_growth=sd(year_to_year_growth, na.rm=T)), by = c('market_id', 'category', 'country')]
-	tmp[, growth := (sales_last/sales_first)^(1/nyears)]
+	                  sd_growth=sd(year_to_year_growth, na.rm=T),
+	                  mean_growth=mean(year_to_year_growth,na.rm=T)), by = c('market_id', 'category', 'country')]
+	tmp[, growthn := (sales_last/sales_first)^(1/nyears)]
+	tmp[, growth := (sales_last/sales_first)^(1/(nyears-1))]
+	
 	setorder(tmp, growth)
 	
 	setkey(tmp, market_id)
 	setkey(brand_panel, market_id)
-	brand_panel[tmp, ':=' (market_growth = i.growth, market_sdgrowth = i.sd_growth)]
+	brand_panel[tmp, ':=' (market_growth = i.growth, 
+	                       market_growthn = i.growthn,
+	                       market_sdgrowth = i.sd_growth,
+	                       market_meangrowth= i.mean_growth)]
 	
 	# calculate (for the complete sample) market shares and price indices
 	overall_metrics = brand_panel[, list(sumunits=sum(usales, na.rm=T),
