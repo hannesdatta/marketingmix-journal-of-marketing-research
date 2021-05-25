@@ -81,6 +81,20 @@ kable(tmp)
 
 ```
 
+
+
+## Copula terms
+
+
+```{r. echo = FALSE}
+coefs_model[grepl('cop[_]', variable)]
+
+nrow(coefs_model[grepl('cop[_]', variable)])/nrow(coefs_model[grepl('^d(llen|rwpspr|wpswdst)', variable)])
+# share of retained copula's
+
+
+```
+
 ## Summary of VIFs
 
 ### by covariate

@@ -135,6 +135,10 @@ dir.create('../output')
   nrow(brand_panel[selected==T])
   nrow(brand_panel[selected==T & timewindow==T &obs48==T])
   
+  nrow(brand_panel[selected==T & timewindow==T &obs48==T])/nrow(brand_panel[selected==T])
+  
+  
+  
   brand_panel[, list(.N),by=c('category','country','brand')] # [!grepl('alloth',brand)]
   brand_panel[, list(.N),by=c('category','country','brand')][!grepl('alloth',brand)]
   brand_panel[selected==T & timewindow == T & obs48 == T, list(.N),by=c('category','country','brand')][!grepl('alloth',brand)]
@@ -147,6 +151,8 @@ dir.create('../output')
   
  # (rem_obs)/keep_obs
   
+  # share of observations/unit sales in data (reported for paper)
+  sum(brand_panel[selected==T & timewindow==T &obs48==T]$usales, na.rm=T)/sum(brand_panel$usales,na.rm=T)
   
   
 #  , list(.N),by=c('category','country','brand')][!grepl('alloth',brand)][, list(.N, avgN=mean(N)),by=c('category')]
@@ -164,6 +170,14 @@ dir.create('../output')
   for (var in c('rwpspr', 'rwcpspr', 'rnwpr', 'llen', 'wpswdst', 'wcpswdst', 'nwwdst', 'radv', 'nov3sh','nov6sh','nov12sh')) {
     brand_panel[, paste0('cop_', var):=make_copula(get(paste0(var))), by = c('market_id','brand')]
   }
+  
+  # share of normality
+  norm_tests <- rbindlist(lapply(c('rwpspr','llen','wpswdst'), function(.v) brand_panel[selected==T&timewindow==T&obs48==T&!is.na(get(.v))&!grepl('allother',brand), list(shapiro_p_val=shapiro.test(get(.v))$p), by = c('category','country','brand')][,variable:=.v]))
+  norm_tests[, list(length(which(shapiro_p_val<=.1))/.N),by=c('variable')]
+  norm_tests[, list(length(which(shapiro_p_val<=.1))/.N)]
+  
+  
+  
   
   #brand_panel[, lngdp := log(gdppercapita)]
   brand_panel[, lnholiday := log(npublicholidays+1)]

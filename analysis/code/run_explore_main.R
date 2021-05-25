@@ -22,6 +22,7 @@ for (mname in models) {
   
   vifs_model <<- eval(parse(text=paste0('rbindlist(lapply(', mname, ', function(x) x$vif))')))
   elast_model <<- eval(parse(text=paste0('rbindlist(lapply(', mname, ', function(x) x$elast))')))
+  coefs_model <<- eval(parse(text=paste0('rbindlist(lapply(', mname, ', function(x) cbind(unique(x$elast[, c(\'category\',\'country\',\'brand\'),with=F],by=c(\'brand\')), variable=names(x$model$coefficients), coef=x$model$coefficients)))')))
   if (nrow(elast_model)>0) {
     elast_model[, z:=elastlt/elastlt_se]
     results_model <<- eval(parse(text=paste0(mname)))

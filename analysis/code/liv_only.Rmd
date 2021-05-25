@@ -13,7 +13,7 @@ library(parallel)
 library(stats4)
 library(optimx)
 library(REndo)
-max_reps = 100
+max_reps = 10
 n_cpu = 10
 
 ```
