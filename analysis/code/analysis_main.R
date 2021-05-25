@@ -153,11 +153,7 @@ dir.create('../output')
   
   # share of observations/unit sales in data (reported for paper)
   sum(brand_panel[selected==T & timewindow==T &obs48==T]$usales, na.rm=T)/sum(brand_panel$usales,na.rm=T)
-  
-  
-#  , list(.N),by=c('category','country','brand')][!grepl('alloth',brand)][, list(.N, avgN=mean(N)),by=c('category')]
-  
-  
+
   brand_panel <- brand_panel[selected==T & timewindow==T &obs48==T] # at least 48 obs for estimation
   
   length(unique(brand_panel[selected==T]$brand_id))
@@ -206,22 +202,22 @@ void<-clusterEvalQ(cl, init())
 
 
 
-bids <- unique(brand_panel$brand_id)#[1:50]
+bids <- unique(brand_panel$brand_id)
 length(bids)
 
 init()
 
 
-estim_model <- function(model_name, fun, ...) {
+estim_model <- function(model_name, fun, prototype = F, ...) {
   
-  if (!file.exists(paste0('../output/', model_name, '.RData'))) {
+  if (!file.exists(paste0('../output/', model_name, '.RData'))|prototype==T) {
     cat(paste0('Estimating ', model_name, '...\n'))
     results_model = parLapplyLB(cl, bids, function(bid)
       try(eval(parse(text=paste0(fun, '(bid, ...)'))), silent=T)
     )
     eval(parse(text=paste0(model_name, "<<-results_model")))
     
-    eval(parse(text=paste0('save(', model_name, ', file = \"../output/', model_name, '.RData\")')))
+    if (!prototype) eval(parse(text=paste0('save(', model_name, ', file = \"../output/', model_name, '.RData\")')))
     rm(results_model)
   } else {
     cat(paste0('Model ', model_name, ' already exists!\n'))
@@ -250,6 +246,38 @@ estim_model('results_ec_onlypr', 'estimate_ec', vars = c('rwpspr'), controls_cop
 estim_model('results_ec_onlyllen', 'estimate_ec', vars = c('llen'), controls_cop = '^cop[_](llen)$')
 
 estim_model('results_ec_onlydst', 'estimate_ec', vars = c('wpswdst'), controls_cop = '^cop[_](wpswdst)$')
+
+
+## ADDING FOCAL & COMPETITIVE MARKETING MIX INSTRUMENTS ITERATIVELY
+estim_model('results_ec_noocmmix', 'estimate_ec', vars = NULL, controls_cop = NULL, controls_diff = NULL)
+
+estim_model('results_ec_onlyocpr', 'estimate_ec', vars = c('rwpspr'), controls_cop = '^cop[_](rwpspr)$',
+            controls_diff = '^comp[_](rwpspr)$')
+
+estim_model('results_ec_onlyocllen', 'estimate_ec', vars = c('llen'), controls_cop = '^cop[_](llen)$',
+            controls_diff = '^comp[_](llen)$')
+
+estim_model('results_ec_onlyocdst', 'estimate_ec', vars = c('wpswdst'), controls_cop = '^cop[_](wpswdst)$',
+            controls_diff = '^comp[_](wpswdst)$')
+
+## REMOVING FOCAL MARKETING MIX INSTRUMENTS ITERATIVELY
+estim_model('results_ec_rempr', 'estimate_ec', vars = c('llen','wpswdst'), 
+            controls_cop = '^cop[_](llen|wpswdst)$')
+
+estim_model('results_ec_remllen', 'estimate_ec', vars = c('rwpspr','wpswdst'), 
+            controls_cop = '^cop[_](rwpspr|wpswdst)$')
+
+estim_model('results_ec_remdst', 'estimate_ec', vars = c('rwpspr','llen'), 
+            controls_cop = '^cop[_](rwpspr|llen)$')
+
+estim_model('results_ec_remocpr', 'estimate_ec', vars = c('llen','wpswdst'), controls_diffs='^comp[_](llen|wpswdst)$', 
+            controls_cop = '^cop[_](llen|wpswdst)$')
+
+estim_model('results_ec_remocllen', 'estimate_ec', vars = c('rwpspr','wpswdst'), controls_diffs='^comp[_](rwpspr|wpswdst)$', 
+            controls_cop = '^cop[_](rwpspr|wpswdst)$')
+
+estim_model('results_ec_remocdst', 'estimate_ec', vars = c('rwpspr','llen'), controls_diffs='^comp[_](rwpspr|llen)$', 
+            controls_cop = '^cop[_](rwpspr|llen)$')
 
 
 ## WITH VARYING SALES WEIGHTS
