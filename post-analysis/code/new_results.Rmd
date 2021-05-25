@@ -561,32 +561,44 @@ elasticities$ec_at_median[, elastlt_se:=elastmedianlt_se]
 unitlist = list(
    list(
     units = c(
-      'Estimated without product attributes (main model)' = 'ec_main_sur',
-      'Estimated with product attributes' = 'ec_main_attributes'
-    ),
-    title =  'Differences With And Without Product Attributes^1^'
-  ),
-   list(
-    units = c(
-      'Elasticities calculated at the mean (main model)' = 'ec_main_sur',
-      'Elasticities calculated at the median' = 'ec_at_median'
-    ),
-    title =  'Differences Mean/Median^1^'
-  ),
-  list(
-    units = c(
       'Advertising not included (focal model)' = 'ec_chinahk_withoutadv',
       'Advertising included' = 'ec_chinahk_withadv'
     ),
     title = 'Differences in Long-Term Elasticities in Models With and Without Advertising Spending^1^'
   ),
+  
+  list(
+    units = c(
+      'Estimated without product attributes (main model)' = 'ec_main_sur',
+      'Estimated with product attributes' = 'ec_main_attributes'
+    ),
+    title =  'Differences With And Without Product Attributes^1^'
+  ),
+  
+     list(
+    units = c(
+      'Without Long-Run Competitive Effects (main model)' = 'ec_main_sur',
+      'With Long-Run Competitive Effects' = 'ec_unrestrictedcompetition'
+    ),
+    title =  'Differences With And Without Long-Run Competitive Effects^1^'
+  ),
+  
   list(
     units = c(
       'Estimated on split data set (early)' = 'ec_first60',
       'Estimated on split data set (late)' = 'ec_last60'
     ),
     title =  'Differences in Long-Term Elasticities Over Time^1^'
-  )#,
+  ),
+  
+   list(
+    units = c(
+      'Elasticities calculated at the mean (main model)' = 'ec_main_sur',
+      'Elasticities calculated at the median' = 'ec_at_median'
+    ),
+    title =  'Differences Mean/Median^1^'
+  )
+  #,
  # list(
   #  units = c(
  #     'Error correction model' = 'ec_main_sur',
@@ -695,28 +707,13 @@ for (u in unitlist) {
 
 ```{r withinR2, results='asis', echo = FALSE, include = TRUE}
 
-ord=c('ec_main', 
+ord=c(
       'ec_nommix', 'ec_onlyllen', 'ec_onlypr','ec_onlydst',
-      'ec_main_attributes',
+      'ec_main', 
       'ec_lntrend',
-      'ec_unrestrictedcompetition',
-      'salesresponse_linear',
-      'salesresponse_linear_noldv')
-#,
-#      'ec_main_attributes',
-      #'ec_lntrend',
-      #'ec_noendogeneity',
-      #'ec_main_w_novelty',
-      #'ec_unrestrictedcompetition',
-      #'ec_log',
-      #'ec_main_currweights',
-      #'ec_log',
-      #'salesresponse_linear',
-      #'salesresponse_linear_noldv',
-      #'salesresponse_linear_onlyldv',
-      #'salesresponse_loglog',
-      #'salesresponse_loglog_noldv',
-      #'salesresponse_loglog_onlyldv')
+      'salesresponse_linear_noldv',
+      'salesresponse_linear'
+      )
 
 sel_ord = ord
 
@@ -785,7 +782,7 @@ r2s=predictions[type%in%sel_ord, list(#R2_diff = cor(dlnusales, dlnusales_hat, u
   
   
   #setnames(tmp2, 'type', 'Model type')
-  print(kable(tmp2, format= 'html', caption =lbl, digits = 5) %>% kable_styling()%>% footnote(number=paste0('Fit metrics computed across the ', nrow(unique(predictions, by =c('category','brand','country'))), ' estimated models, using predicted and observed sales in levels. R2 is the average squared correlation. RMSE is average root mean squared error. MeAPE is the median absolute percentage error. SMAPE is the symmetric mean absolute percentage error (Armstrong and Collopy 1992).')))
+  print(kable(tmp2, format= 'html', caption =lbl, digits = 3) %>% kable_styling()%>% footnote(number=paste0('Fit metrics computed across the ', nrow(unique(predictions, by =c('category','brand','country'))), ' estimated models, using predicted and observed sales in levels. R2 is the average squared correlation. RMSE is average root mean squared error. MeAPE is the median absolute percentage error. SMAPE is the symmetric mean absolute percentage error (Armstrong and Collopy 1992).')))
 
 ```
 
