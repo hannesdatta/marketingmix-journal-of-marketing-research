@@ -28,7 +28,7 @@ for (mname in models) {
     results_model <<- eval(parse(text=paste0(mname)))
     markdown_title <<- mname
     zval_sig=qnorm(.95)
-    if (!grepl('nommix', mname)) rmarkdown::render('explore_main.rmd', output_file=paste0('../audit/model_', mname, '.html'))
+    if (!grepl('nommix|noendogeneity', mname)) rmarkdown::render('explore_main.rmd', output_file=paste0('../audit/model_', mname, '.html'))
     }
 }
 

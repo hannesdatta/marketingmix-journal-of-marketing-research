@@ -208,8 +208,8 @@ length(bids)
 init()
 
 
-estim_model <- function(model_name, fun, prototype = F, ...) {
-  
+estim_model <- function(model_name, fun, ...) {
+  prototype=F
   if (!file.exists(paste0('../output/', model_name, '.RData'))|prototype==T) {
     cat(paste0('Estimating ', model_name, '...\n'))
     results_model = parLapplyLB(cl, bids, function(bid)
