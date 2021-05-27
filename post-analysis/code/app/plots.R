@@ -421,3 +421,87 @@ dev.off()
 }
 
 
+################
+# correlations #
+################
+
+
+
+# adapted from: http://www.sthda.com/english/wiki/elegant-correlation-table-using-xtable-r-package
+
+library(Hmisc)
+
+# x is a matrix containing the data
+# method : correlation method. "pearson"" or "spearman"" is supported
+# removeTriangle : remove upper or lower triangle
+# results :  if "html" or "latex"
+# the results will be displayed in html or latex format
+corstars <-function(x, method=c("pearson", "spearman"), removeTriangle=c("upper", "lower"),
+                    result=c("none", "html", "latex"), ndec = 2){
+  
+  #Compute correlation matrix
+  require(Hmisc)
+  x <- as.matrix(x)
+  correlation_matrix<-rcorr(x, type=method[1])
+  R <- correlation_matrix$r # Matrix of correlation coeficients
+  p <- correlation_matrix$P # Matrix of p-value 
+  
+  ## Define notions for significance levels; spacing is important.
+  mystars <- ifelse(p < .01, "*** ", ifelse(p < .05, "**  ", ifelse(p < .1, "*   ", "   ")))
+  
+  ## trunctuate the correlation matrix to three decimals
+  R <- format(round(cbind(rep(-1.11, ncol(x)), R), ndec))[,-1]
+  
+  ## build a new matrix that includes the correlations with their apropriate stars
+  Rnew <- matrix(paste(R, mystars, sep=""), ncol=ncol(x))
+  diag(Rnew) <- paste(diag(R), " ", sep="")
+  rownames(Rnew) <- colnames(x)
+  colnames(Rnew) <- paste(colnames(x), "", sep="")
+  
+  Rnew <- as.matrix(Rnew)
+  Rnew <- as.data.frame(Rnew)
+  
+  ## remove last column and return the correlation matrix
+  #Rnew <- cbind(Rnew[1:length(Rnew)-1])
+  
+  if (result[1]=="none") return(Rnew)
+  else{
+    if(result[1]=="html") print(xtable(Rnew), type="html")
+    else print(xtable(Rnew), type="latex") 
+  }
+  
+} 
+
+#################
+
+
+###########
+# TABLE 7 #
+###########
+
+# Correlations for equity (standardized within category)
+
+rowvars = c('sbbe_round1_mc','brand_from_jp-us-ch-ge-sw_mc',
+            'ln_llen_windex_mc', 'ln_rwpspr_windex_mc' ,
+            'ln_wpswdst_windex_mc',
+             'ln_nov6sh_windex_mc',
+            'ln_market_herf_mc', 'ln_market_meangrowth_mc',
+              'appliance',
+            'ln_penn_popyravg_mc', 'ln_penn_percapitargdpeyravg_mc',
+            'ln_penn_growthrgdpeyravg_mc', 'ln_ginicoef_mc',
+             'ln_pdi_mc' ,'ln_uai_mc','ln_mas_mc')
+
+
+tmp = unique(elast, by = c('category','country','brand'))[, c(rowvars),with=F]
+tmp = tmp[complete.cases(tmp)]
+
+tmpcor=cor(as.matrix(tmp))
+
+options(width=600)
+sink('../../output/correlations_secondstage.txt')
+print(corstars(as.matrix(tmp), method="pearson", removeTriangle='none', ndec=3))
+cat(paste0('\nNumber of observations: ', nrow(as.matrix(tmp)), '\n'))
+sink()
+
+write.table(tmpcor, '../../output/correlations_secondstage.csv', row.names=T)
+

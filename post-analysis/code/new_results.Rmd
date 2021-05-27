@@ -561,8 +561,8 @@ elasticities$ec_at_median[, elastlt_se:=elastmedianlt_se]
 unitlist = list(
    list(
     units = c(
-      'Advertising not included (focal model)' = 'ec_chinahk_withoutadv',
-      'Advertising included' = 'ec_chinahk_withadv'
+      'Advertising not included (focal model)' = 'ec_chinahk_withoutadv_sur',
+      'Advertising included' = 'ec_chinahk_withadv_sur'
     ),
     title = 'Differences in Long-Term Elasticities in Models With and Without Advertising Spending^1^'
   ),
@@ -570,7 +570,7 @@ unitlist = list(
   list(
     units = c(
       'Estimated without product attributes (main model)' = 'ec_main_sur',
-      'Estimated with product attributes' = 'ec_main_attributes'
+      'Estimated with product attributes' = 'ec_main_attributes_sur'
     ),
     title =  'Differences With And Without Product Attributes^1^'
   ),
@@ -578,36 +578,18 @@ unitlist = list(
      list(
     units = c(
       'Without Long-Run Competitive Effects (main model)' = 'ec_main_sur',
-      'With Long-Run Competitive Effects' = 'ec_unrestrictedcompetition'
+      'With Long-Run Competitive Effects' = 'ec_unrestrictedcompetition_sur'
     ),
     title =  'Differences With And Without Long-Run Competitive Effects^1^'
   ),
   
   list(
     units = c(
-      'Estimated on split data set (early)' = 'ec_first60',
-      'Estimated on split data set (late)' = 'ec_last60'
+      'Estimated on split data set (early)' = 'ec_first60_sur',
+      'Estimated on split data set (late)' = 'ec_last60_sur'
     ),
     title =  'Differences in Long-Term Elasticities Over Time^1^'
-  ),
-  
-   list(
-    units = c(
-      'Elasticities calculated at the mean (main model)' = 'ec_main_sur',
-      'Elasticities calculated at the median' = 'ec_at_median'
-    ),
-    title =  'Differences Mean/Median^1^'
-  )
-  #,
- # list(
-  #  units = c(
- #     'Error correction model' = 'ec_main_sur',
-  #    'Market share attraction model' = 'marketshare'
- #   ),
- #   title =  'Differences in Long-Term Elasticities Between Model Specifications^1^'
- # )
-)
-
+  ))
 
 for (u in unitlist) {
   units = u$units
@@ -709,15 +691,16 @@ for (u in unitlist) {
 
 ord=c(
       'ec_nommix', 'ec_onlyllen', 'ec_onlypr','ec_onlydst',
+      'ec_noocmmix', 'ec_onlyocllen', 'ec_onlyocpr','ec_onlyocdst',
       'ec_main', 
       'ec_lntrend',
       'salesresponse_linear_noldv',
-      'salesresponse_linear'
+      'salesresponse_linear'#,
+     # 'salesresponse_loglog_noldv',
+     # 'salesresponse_loglog'
       )
 
 sel_ord = ord
-
-#sel_ord = unique(unlist(sapply(paste0(ord,'$|', ord,'_holdout'), grep, x= unique(predictions$type),value=T,simplify=F)))
 
 
 #predictions
@@ -740,6 +723,7 @@ predictions[grepl('^salesresponse', type)&grepl('log',type), ':=' (common_dv = e
                                                         common_dv_hat = exp(dv_hat))]
 predictions[grepl('^salesresponse', type)&!grepl('log',type), ':=' (common_dv = usales,
                                                         common_dv_hat = dv_hat)]
+
 
 
 table(predictions$type)
@@ -826,7 +810,7 @@ tmp = tmppred[, list(R2 = cor(common_dv, common_dv_hat, use='pairwise')^2,
                      MeAPE = median(abs((common_dv-common_dv_hat)/common_dv),na.rm=T),
                      SMAPE_lev = mean((abs(common_dv_hat-common_dv))/(.5*(abs(common_dv)+abs(common_dv_hat))),na.rm=T),
                      N=length(which(!is.na(common_dv_hat)))),
-                  by=c('type','category','country','brand','kfold','estim_set')]
+                  by=c('type','category','country','brand','kfold', 'estim_set')]
 
 
 # ADD TRAINING AND PREDICTION TO SET

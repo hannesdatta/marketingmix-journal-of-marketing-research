@@ -123,8 +123,8 @@ lmerctrl = lmerControl(optimizer ="Nelder_Mead", check.conv.singular="ignore")
 names(elasticities)
 
 model_names = list('M1a) Linear Error Correction (weights t-3...t-1, SUR)' = 'ec_main_sur',
-                   #'M1b) Lin. EC (weights t-3...t-1, no SUR)' = 'ec_main',
-                   'M2a) Lin. EC w/ Novelty (weights t-3, ...t-1, SUR)' = 'ec_main_w_novelty_sur')
+                   'M1b) Lin. EC (weights t-3...t-1, no SUR)' = 'ec_main')#,
+                   #'M2a) Lin. EC w/ Novelty (weights t-3, ...t-1, SUR)' = 'ec_main_w_novelty_sur')
                    #'M2b) Lin. EC w/ Novelty (weights t-3, ...t-1, no SUR)' = 'ec_main_w_novelty')
 
 
