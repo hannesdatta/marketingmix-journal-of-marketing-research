@@ -280,6 +280,51 @@ estim_model('results_ec_remocdst', 'estimate_ec', vars = c('rwpspr','llen'), con
             controls_cop = '^cop[_](rwpspr|llen)$')
 
 
+
+# do not use copula's
+## REMOVING FOCAL MARKETING MIX INSTRUMENTS ITERATIVELY
+estim_model('results_ec_main_nc', 'estimate_ec', controls_cop = NULL)
+
+estim_model('results_ec_noocmmixnc', 'estimate_ec', vars = NULL, controls_cop = NULL, controls_diff = NULL)
+estim_model('results_ec_nommixnc', 'estimate_ec', vars = NULL, controls_cop = NULL)
+
+estim_model('results_ec_remprnc', 'estimate_ec', vars = c('llen','wpswdst'), 
+            controls_cop =NULL)
+
+estim_model('results_ec_remllennc', 'estimate_ec', vars = c('rwpspr','wpswdst'), 
+            controls_cop = NULL)
+
+estim_model('results_ec_remdstnc', 'estimate_ec', vars = c('rwpspr','llen'), 
+            controls_cop = NULL)
+
+estim_model('results_ec_remocprnc', 'estimate_ec', vars = c('llen','wpswdst'), controls_diffs='^comp[_](llen|wpswdst)$', 
+            controls_cop = NULL)
+
+estim_model('results_ec_remocllennc', 'estimate_ec', vars = c('rwpspr','wpswdst'), controls_diffs='^comp[_](rwpspr|wpswdst)$', 
+            controls_cop = NULL)
+
+estim_model('results_ec_remocdstnc', 'estimate_ec', vars = c('rwpspr','llen'), controls_diffs='^comp[_](rwpspr|llen)$', 
+            controls_cop = NULL)
+
+
+estim_model('results_ec_onlyprnc', 'estimate_ec', vars = c('rwpspr'), controls_cop = NULL)
+
+estim_model('results_ec_onlyllennc', 'estimate_ec', vars = c('llen'), controls_cop = NULL)
+
+estim_model('results_ec_onlydstnc', 'estimate_ec', vars = c('wpswdst'), controls_cop = NULL)
+
+
+
+estim_model('results_ec_onlyocprnc', 'estimate_ec', vars = c('rwpspr'), controls_cop = NULL,
+            controls_diff = '^comp[_](rwpspr)$')
+
+estim_model('results_ec_onlyocllennc', 'estimate_ec', vars = c('llen'), controls_cop = NULL,
+            controls_diff = '^comp[_](llen)$')
+
+estim_model('results_ec_onlyocdstnc', 'estimate_ec', vars = c('wpswdst'), controls_cop = NULL,
+            controls_diff = '^comp[_](wpswdst)$')
+
+
 ## WITH VARYING SALES WEIGHTS
 
 # weights t-2, t-1, t ("weights, including current sales")
@@ -426,12 +471,17 @@ if (!file.exists('../output/results_ec_main_sur.RData')) {
   save(results_ec_main_sur, file = '../output/results_ec_main_sur.RData')
 }
 
-if(0) {
-if (!file.exists('../output/results_ec_main_currweights.RData')) {
-  load('../output/results_ec_main_currweights.RData')
-  results_ec_main_sur <- do_sur(results_ec_main)
-  save(results_ec_main_sur, file = '../output/results_ec_main_currweights_sur.RData')
-}
+surs <- c(#'results_ec_chinahk_withadv', 'results_ec_chinahk_withoutadv',
+          #'results_ec_first60', 'results_ec_last60',
+          'results_ec_main_attributes', 'results_ec_unrestrictedcompetition')
+
+for (s in surs) {
+  cat(paste0('Calculating SUR for ', s), fill=T)
+  if (!file.exists(paste0('../output/', s, '_sur.RData'))) {
+    load(paste0('../output/', s, '.RData'))
+    eval(parse(text=paste0(s, '_sur <- do_sur(', s, ')')))
+    eval(parse(text=paste0('save(', s, '_sur, file = \'../output/', s, '_sur.RData\')'))) 
+  }
 }
 
 if (!file.exists('../output/results_ec_main_w_novelty_sur.RData')) {
@@ -487,6 +537,18 @@ estim_model('results_ec_chinahk_withadv', 'estimate_ec', vars = c('rwpspr','llen
 
 estim_model('results_ec_chinahk_withoutadv', 'estimate_ec')
 
+
+surs <- c('results_ec_chinahk_withadv', 'results_ec_chinahk_withoutadv')
+
+for (s in surs) {
+  cat(paste0('Calculating SUR for ', s), fill=T)
+  if (!file.exists(paste0('../output/', s, '_sur.RData'))) {
+    load(paste0('../output/', s, '.RData'))
+    eval(parse(text=paste0(s, '_sur <- do_sur(', s, ')')))
+    eval(parse(text=paste0('save(', s, '_sur, file = \'../output/', s, '_sur.RData\')'))) 
+  }
+}
+
 bids <- old_bids
 
 ###################################################
@@ -512,7 +574,10 @@ bids = unique(brand_panel$brand_id)
 length(bids)
 
 estim_model('results_ec_first60', 'estimate_ec')
+if (!exists('results_ec_first60')) load('../output/results_ec_first60.RData')
 
+results_ec_first60_sur <- do_sur(results_ec_first60)
+save(results_ec_first60_sur, file = '../output/results_ec_first60_sur.RData')
 
 # Last X
 
@@ -526,7 +591,10 @@ bids = unique(brand_panel$brand_id)
 length(bids)
 
 estim_model('results_ec_last60', 'estimate_ec')
+if (!exists('results_ec_last60')) load('../output/results_ec_last60.RData')
 
+results_ec_last60_sur <- do_sur(results_ec_last60)
+save(results_ec_last60_sur, file = '../output/results_ec_last60_sur.RData')
 
 
 # Done

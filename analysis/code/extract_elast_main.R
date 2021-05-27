@@ -15,11 +15,6 @@ library(data.table)
 files <- list.files('../output/', pattern = 'results.*[.]RData$', full.names=T)
 files <- grep('marketshare',files, invert=T, value=T)
 
-for (fn in files) {
-  cat(paste0('Loading ', fn, '...\n'))
-  load(file=fn)
-}
-
 #unlink('../output/*.csv')
 
 # load panel data
@@ -27,11 +22,18 @@ brand_panel=fread('../temp/preclean_main.csv')
 brand_panel[, ':=' (date = as.Date(date))]
 
 # Extract model names from .RData file
-lscall=ls(envir=.GlobalEnv)
-models <- setdiff(c(grep('results[_]', lscall, value=T)),'results_brands')
+out = lapply(files, function(fn) {
 
-# Extract elasticities
-out = lapply(models, function(model_name) {
+  cat(paste0('Loading ', fn, '...\n'))
+  print(ls())
+  load(file=fn)
+  print(ls())
+  
+  lscall=ls() #envir=.GlobalEnv)
+  models <- setdiff(c(grep('results[_]', lscall, value=T)),'results_brands')
+  model_name = models[1]
+  
+  # Extract elasticities
   print(model_name)
   results_brands=eval(parse(text=model_name))
 
@@ -57,9 +59,13 @@ out = lapply(models, function(model_name) {
   
   #markets=data.table(market_id=analysis_markets)[, ':=' (i=1:.N, available=!checks=='try-error')]
   
+  rm(results_brands)
+  
+  eval(parse(text=paste0('rm(', model_name, ')')))
+  
   
   return(list(model = model_name, checks=checks, elast=elast, predictions=preds,
-predictions_kfold = predsk))
+  predictions_kfold = predsk))
   })
 
 results <- out
