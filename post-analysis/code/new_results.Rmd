@@ -692,6 +692,8 @@ for (u in unitlist) {
 ord=c(
       'ec_nommix', 'ec_onlyllen', 'ec_onlypr','ec_onlydst',
       'ec_noocmmix', 'ec_onlyocllen', 'ec_onlyocpr','ec_onlyocdst',
+      'ec_main_nc', 'ec_noocmmixnc', 'ec_onlyocllennc', 'ec_onlyocprnc', 'ec_onlyocdstnc',
+      
       'ec_main', 
       'ec_lntrend',
       'salesresponse_linear_noldv',
