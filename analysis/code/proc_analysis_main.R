@@ -371,7 +371,7 @@ process_sur <- function(mod) {
   elast_sur = rbindlist(lapply(vars, function(v) {
     dvar= grep(paste0('d',v), names(coefs),value=T)
     lvar= grep(paste0('lag',v), names(coefs),value=T)
-    lagu= grep(paste0('ld'), names(coefs),value=T)
+    lagu= grep(paste0('ldv'), names(coefs),value=T)
     
     st=deltaMethod(coefs, paste0(multipliers_means[v],'*(', dvar, ')'),  vcov.=vcov)
     lt=deltaMethod(coefs, paste0(multipliers_means[v],'*((`', lvar, '`)/(', lagu, '))'),  vcov.=vcov)

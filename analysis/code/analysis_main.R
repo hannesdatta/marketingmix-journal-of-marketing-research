@@ -416,6 +416,7 @@ do_sur <- function(results_model = results_ec_main) {
   table(unlist(lapply(sur_res,function(x) class(x$results))))
   which(unlist(lapply(sur_res,function(x) class(x$results)))=='try-error')
   
+  cat(paste0('Wrangling data...',fill=T))
   
   # WRITE RESULTS OF SUR TO MAIN RESULT SET
   for (i in seq(along=sur_res)) {
@@ -437,9 +438,7 @@ do_sur <- function(results_model = results_ec_main) {
   })
   #which(unlist(lapply(results_with_sur_models, class))=='try-error')
   
-  
-  
-  
+
   # remove models
   ret_model <- lapply(results_with_sur_models, function(x) {
     x$model_matrix <- NULL
@@ -480,6 +479,7 @@ for (s in surs) {
   if (!file.exists(paste0('../output/', s, '_sur.RData'))) {
     load(paste0('../output/', s, '.RData'))
     eval(parse(text=paste0(s, '_sur <- do_sur(', s, ')')))
+    cat('starting to save...', fill=T)
     eval(parse(text=paste0('save(', s, '_sur, file = \'../output/', s, '_sur.RData\')'))) 
   }
 }
@@ -576,9 +576,10 @@ length(bids)
 estim_model('results_ec_first60', 'estimate_ec')
 if (!exists('results_ec_first60')) load('../output/results_ec_first60.RData')
 
-results_ec_first60_sur <- do_sur(results_ec_first60)
-save(results_ec_first60_sur, file = '../output/results_ec_first60_sur.RData')
-
+if (!file.exists('../output/results_ec_first60_sur.RData')) {
+  results_ec_first60_sur <- do_sur(results_ec_first60)
+  save(results_ec_first60_sur, file = '../output/results_ec_first60_sur.RData')
+}
 # Last X
 
 brand_panel = save_brandpanel
@@ -593,9 +594,11 @@ length(bids)
 estim_model('results_ec_last60', 'estimate_ec')
 if (!exists('results_ec_last60')) load('../output/results_ec_last60.RData')
 
-results_ec_last60_sur <- do_sur(results_ec_last60)
-save(results_ec_last60_sur, file = '../output/results_ec_last60_sur.RData')
-
+if (!file.exists('../output/results_ec_last60_sur.RData')) {
+  
+  results_ec_last60_sur <- do_sur(results_ec_last60)
+  save(results_ec_last60_sur, file = '../output/results_ec_last60_sur.RData')
+}
 
 # Done
 sink('../output/results_main.txt')
