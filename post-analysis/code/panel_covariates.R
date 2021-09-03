@@ -6,6 +6,15 @@ brand_panel=fread('../externals/preclean_main.csv')
 brand_panel[, ':=' (date = as.Date(date))]
 brand_panel = brand_panel[selected==T&timewindow==T&obs48==T]
 
+
+# videocon is from india, not from ger
+brand_panel[brand=='videocon']$`brand_from_jp-us-ch-ge-sw`=0
+# YOshii is from Japan
+brand_panel[grepl('yoshii', brand)]$`brand_from_jp-us-ch-ge-sw`=1
+# Simpson is from Australia
+brand_panel[grepl('simpson', brand)]$`brand_from_jp-us-ch-ge-sw`=0
+
+
 # find attributes
 unlink(list.files('../output/', pattern='^covariates.*', full.names = T))
 dir.create('../output')

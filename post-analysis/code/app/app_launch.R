@@ -32,7 +32,7 @@ countries = unique(elasticities$ec_main_sur$country)
 replace_categories <- function(x) {
   ret = rep('', length(x))
   ret[grepl('washing',x)] <- 'Washing machines'
-  ret[grepl('tv_gen2_lcd',x)] <- 'LCD TVs'
+  ret[grepl('tv_gen1_crtv',x)] <- 'CRT TVs'
   ret[grepl('tv_gen2_ptv',x)] <- 'Plasma TVs'
   ret[grepl('tv_gen3_lcd_only',x)] <- 'LCD TVs'
   ret[grepl('tablets',x)] <- 'Tablets'
@@ -152,8 +152,8 @@ potential_vars_raw = list(brandequity=list('!SBBE' = 'sbbe_round1_mc',
                                        #'Marketshare' = 'brand_ms_mc'),
                           
                       brandlocation = list('Domestic market indicator' = 'local_to_market_mc',
-                                           '!JP, US, Swiss, GER, Sweden indicator' = "`brand_from_jp-us-ch-ge-sw_mc`",
-                                           'Western brand indicator' = 'western_brand_mc',
+                                           '!JP, US, Swiss, GER, Sweden indicator' = "`brand_from_jp-us-ch-ge-sw`",
+                                           'Western brand indicator' = 'western_brand',
                                            'International brand active in more than 1 country' = 'internat_brand'),
                       
                       brandmmix = list('Price (log index)' = 'ln_rwpspr_index_mc',
@@ -382,7 +382,9 @@ ui <- fluidPage(
                                       'OLS' = 'lm'), selected= 'lm', multiple=F),
              selectInput("dv", label = h5("Dependent variable (second stage)"),
                          choices = list('LT elasticity at the mean'= 'elastlt',
-                                        'LT elasticity at the median' = 'elastmedianlt'), selected= 'elastlt', multiple=F),
+                                        'LT elasticity at the median' = 'elastmedianlt',
+                                        'ST elasticity at the mean' = 'elast',
+                                        'ST elasticity at the median' = 'elastmedian'), selected= 'elastlt', multiple=F),
              
              selectInput("randomeffects", label = h5("List of random effects (for RE model), or clustering (in case of OLS)"),
                        choices = list('Brand'= 'brand', 'Category'='category',
@@ -402,9 +404,14 @@ ui <- fluidPage(
                    selectInput("plot_categories", label = h5("Categories"),
                                choices = sapply(str_to_title(categories), function(x) tolower(x), simplify=F), 
                                selected =c('phones_smart'), multiple=FALSE),
-                   #selectInput("plot_countries", label = h5("Countries"),
-                  #             choices = sapply(str_to_title(countries), function(x) tolower(x), simplify=F), 
-                  #             selected = countries, multiple=TRUE),
+                   selectInput("plot_countries", label = h5("Countries"),
+                               choices = sapply(str_to_title(countries), function(x) tolower(x), simplify=F), 
+                               selected = c('china'), multiple=FALSE),
+                   radioButtons("show_by", label = h5("Show by selection"),
+                                c("Selected category (show by country)" = 'country',
+                                  "Selected country (show by category)" = 'category'),
+                                selected = 'country'),
+                   
                    radioButtons("plot_predicted", label = h5("Use estimated or predicted elasticities?"),
                                 c("Estimated" = 'elastlt',
                                   "Predicted" = 'elastlt_pred'),
@@ -537,6 +544,21 @@ get_sample <- function(input, dv = 'elastlt') {
     
   }
   
+  # videocon is from india, not from ger
+  tmp[brand=='videocon']$`brand_from_jp-us-ch-ge-sw`=0
+  # YOshii is from Japan
+  tmp[grepl('yoshii', brand)]$`brand_from_jp-us-ch-ge-sw`=1
+  # Simpson is from Australia
+  tmp[grepl('simpson', brand)]$`brand_from_jp-us-ch-ge-sw`=0
+  
+  # videocon is from india, not from ger
+  tmp[brand=='videocon']$western_brand = 0
+  # YOshii is from Japan
+  tmp[grepl('yoshii', brand)]$western_brand=0
+  # Simpson is from Australia
+  tmp[grepl('simpson', brand)]$western_brand=1
+  
+  
   tmp[, internat_brand:=ifelse(ncountries>1,1,0)]
   return(tmp)
 }
@@ -656,8 +678,11 @@ server <- function(input, output) {
     dt = o$predictions
     
     if (!is.null(input$plot_brands)) dt <- dt[brand%in%input$plot_brands]
-    if (!is.null(input$plot_categories)) dt <- dt[category%in%input$plot_categories]
-    #if (!is.null(input$plot_countries)) dt <- dt[country%in%input$plot_countries]
+    
+    
+    if (input$show_by=='country') if (!is.null(input$plot_categories)) dt <- dt[category%in%input$plot_categories]
+    if (input$show_by=='category') if (!is.null(input$plot_countries)) dt <- dt[country%in%input$plot_countries]
+    
     if (!is.null(input$plot_vars)) dt <- dt[grepl(input$plot_vars, variable)]
     
     # Load other stuff
@@ -680,11 +705,14 @@ server <- function(input, output) {
     dt[, optimal:=100*elast_x_size/sum(elast_x_size)]
     
     
-    tmp = dt[, c('country','avgsales', input$plot_predicted,  'avgbrandgrowth', 'relsales','relelast', 'optimal'),with=F]
-    tmp[, country:=str_to_title(country)]
-    setorder(tmp, country)
+    tmp = dt[, c(input$show_by, 'avgsales', input$plot_predicted,  'avgbrandgrowth', 'relsales','relelast', 'optimal'),with=F]
     
-    setnames(tmp, c('Country', 'Unit sales', 'Marketing elasticity', 'Expected growth', 'Unit sales (%)','Marketing elasticity (%)',  'Optimal (%)'))
+    if (input$show_by=='category') tmp[, (input$show_by):=replace_categories(get(input$show_by))]
+    if (input$show_by=='country') tmp[, (input$show_by):=str_to_title(get(input$show_by))]
+    
+    setorderv(tmp, input$show_by)
+    
+    setnames(tmp, c(str_to_title(input$show_by), 'Unit sales', 'Marketing elasticity', 'Expected growth', 'Unit sales (%)','Marketing elasticity (%)',  'Optimal (%)'))
     varname = ''
     if (input$plot_vars=='dst') varname = 'distribution'
     if (input$plot_vars=='pr') varname = 'price'
@@ -694,7 +722,7 @@ server <- function(input, output) {
           caption = paste0('Alternative Allocations of Marketing Mix Budget for ', str_to_title(varname), ' Elasticities'),
           format='html',
           initial.zero = FALSE) %>% 
-      add_header_above(list(' '=4, 'Allocation proportional to' =3)) %>% kable_styling() %>% footnote(number = paste0('Countries shown in alphabetical order. ', ifelse(grepl('pred', input$plot_predicted), 'Predicted', 'Estimated'), ' elasticities shown for ', str_to_title(input$plot_brands), ' (', str_to_title(replace_categories(input$plot_categories)), '). Unit sales are a brand\'s average unit sales in the data. The optimal allocation is based on marketing mix elasticities x unit sales.'))
+      add_header_above(list(' '=4, 'Allocation proportional to' =3)) %>% kable_styling() %>% footnote(number = paste0(gsub('y$', 'ies', str_to_title(input$show_by)), ' shown in alphabetical order. ', ifelse(grepl('pred', input$plot_predicted), 'Predicted', 'Estimated'), ' elasticities shown for ', str_to_title(input$plot_brands), ' (', ifelse(input$show_by=='country', str_to_title(replace_categories(input$plot_categories)), str_to_title(input$plot_countries)), '). Unit sales are a brand\'s average unit sales in the data. The optimal allocation is based on marketing mix elasticities x unit sales.'))
     
     
     
