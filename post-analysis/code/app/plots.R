@@ -37,8 +37,6 @@ tmp[, w_elastlt:=1/elastlt_se, by = c('variable')]
 
 tmp <- tmp[!is.na(elastlt), percentile:=ecdf(elastlt)(elastlt), by = c('variable')]
 
-perc_extract = as.numeric(gsub('.*[_]','', input$trimming))/100
-
 # winsorizing
 perc_extract = .01
 tmp[, perc_low := quantile(elastlt, probs = perc_extract), by = c('variable')]
@@ -48,6 +46,13 @@ tmp[percentile<perc_extract, elastlt:=perc_low]
 tmp[percentile>(1-perc_extract), elastlt:=perc_high]
 
 elast <- copy(tmp)
+
+# videocon is from india, not from ger
+elast[brand=='videocon']$`brand_from_jp-us-ch-ge-sw`=0
+# YOshii is from Japan
+elast[grepl('yoshii', brand)]$`brand_from_jp-us-ch-ge-sw`=1
+# Simpson is from Australia
+elast[grepl('simpson', brand)]$`brand_from_jp-us-ch-ge-sw`=0
 
 #### CORRELATION MEAN / MEDIAN
 
@@ -481,7 +486,7 @@ corstars <-function(x, method=c("pearson", "spearman"), removeTriangle=c("upper"
 
 # Correlations for equity (standardized within category)
 
-rowvars = c('sbbe_round1_mc','brand_from_jp-us-ch-ge-sw_mc',
+rowvars = c('sbbe_round1_mc','brand_from_jp-us-ch-ge-sw',
             'ln_llen_windex_mc', 'ln_rwpspr_windex_mc' ,
             'ln_wpswdst_windex_mc',
              'ln_nov6sh_windex_mc',
