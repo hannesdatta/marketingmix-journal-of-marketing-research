@@ -345,7 +345,8 @@ out = lapply(list(st=c('elast', 'z_elast', 'w_elast'), lt = c('elastlt','z_elast
   return(tmp)
   })
   
-iters = list(lt=c('lt', 'Long-term')) #st=c('st', 'Short-term'), 
+iters = list(lt=c('lt', 'Long-term'), st=c('st', 'Short-term'))
+
 for (iter in iters) {
 
   print(kable(sanitize_table(out[[iter[1]]]), digits=3, format='html', format.args = list(big.mark = ","),
@@ -453,13 +454,18 @@ round_percent <- function(x) {
 qval=qnorm(1-sigvalue/2)
 elast[, novar:='pooled']
 
+out = lapply(list(st=c('elast', 'elast_se'), lt = c('elastlt','elastlt_se')), function(obj) {
+  
+  tmp_elast = elast[!is.na(get(obj[1]))][, ':=' (val=get(obj[1]), val_se=get(obj[2]))]
+  tmp_elast[, val_w := 1/val_se]
+  
 for (byvar in c('country', 'category', 'novar')) {
-  tmp=elast[!is.na(elastlt), list(N=.N,
-                                  elast = sum(elastlt*w_elastlt)/sum(w_elastlt),
-                                  sig = signstars(sum(elastlt/elastlt_se,na.rm=T)/sqrt(.N)),
-                                  percpos = 100*length(which(abs(elastlt/elast_se)>=qval&elastlt>0))/.N,
-                                  percneg = 100*length(which(abs(elastlt/elast_se)>=qval&elastlt<0))/.N,
-                                  percns = 100*length(which(abs(elastlt/elast_se)<qval))/.N),
+  tmp=tmp_elast[, list(N=.N,
+                                  elast = sum(val*val_w)/sum(val_w),
+                                  sig = signstars(sum(val/val_se,na.rm=T)/sqrt(.N)),
+                                  percpos = 100*length(which(abs(val/val_se)>=qval&val>0))/.N,
+                                  percneg = 100*length(which(abs(val/val_se)>=qval&val<0))/.N,
+                                  percns = 100*length(which(abs(val/val_se)<qval))/.N),
                                   by=c('variable', byvar)]
   
   tmp[, lbl := paste0(sprintf("%.3f",elast), ' ', sig)]
@@ -493,9 +499,13 @@ for (byvar in c('country', 'category', 'novar')) {
   tmp[, varorder:=NULL]
   
   cat("<P style='page-break-before: always'>")
-  {print(kable(tmp, digits=3, caption = tab(paste0('Long-term elasticities (means by ', byvar, ')^1^'), prefix=''), format='html', initial.zero = FALSE) %>% add_header_above(list(' '=1, 'Line length' =5, 'Price'=5, 'Distribution' = 5)) %>% kable_styling() %>% footnote(number=paste0(estimnote, ' Reported by ', ifelse(byvar=='country', 'countries', 'categories'), ' in alphabetical order.'))) 
+  
+  type_of_elast = 'Long-term'
+  if (obj[1]=='elast') type_of_elast = 'Short-term'
+  {print(kable(tmp, digits=3, caption = tab(paste0(type_of_elast, ' elasticities (means by ', byvar, ')^1^'), prefix=''), format='html', initial.zero = FALSE) %>% add_header_above(list(' '=1, 'Line length' =5, 'Price'=5, 'Distribution' = 5)) %>% kable_styling() %>% footnote(number=paste0(estimnote, ' Reported by ', ifelse(byvar=='country', 'countries', 'categories'), ' in alphabetical order.'))) 
   }
-}
+}})
+
 
 ```	
 
