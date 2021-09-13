@@ -1,111 +1,97 @@
 ---
-title: "GfK Singapore - Results"
+title: "Cross-National Differences in Market Response: Line-Length, Price, and Distribution Elasticities in Fourteen Indo-Pacific Rim Economies"
 output:
   html_document: default
 date: "`r format(Sys.time(), '%d %B %Y')`"
 ---
 
 ```{r setup, include=FALSE}
+# knitr options
 knitr::opts_chunk$set(echo = TRUE)
-
-libs_to_load <- c('data.table', 'stargazer', 'knitr', 'xtable', 'car', 'kableExtra', 'stringi', 'ggplot2', 'ggpubr', 'plyr', 'gridExtra', 'grid', 'lme4', 'sjstats', 'ggthemes') #'blme' 
-
-for (lib in libs_to_load) eval(parse(text=paste('library(', lib, ')')))
-
 options(xtable.comment = FALSE)
 options(knitr.kable.NA = '')
 
+# load packages
+library(data.table)
+library(stargazer)
+library(knitr)
+library(xtable)
+library(car)
+library(kableExtra)
+library(stringi)
+library(ggplot2)
+library(lmtest)
+library(sandwich)
+library(gridExtra)
+library(ggthemes)
+
 # Load data set
-  brand_panel=fread('../../analysis/temp/preclean_main.csv')
-  brand_panel[, ':=' (date = as.Date(date))]
-  
+brand_panel=fread('../../analysis/temp/preclean_main.csv')
+brand_panel[, ':=' (date = as.Date(date))]
+
 # Load auxilary functions
-  source('proc_auxilary.R')
-  source('proc_rename.R')
+source('proc_auxilary.R')
+source('proc_rename.R')
 
 # Load results
-  load('app/app_workspace.RData')
-  
-  predictions <- fread('../output/predictions_within.csv')
-  predictions_kfold = fread('../output/predictions_kfold.csv')
-  
-  elast <- elasticities$ec_main_sur 
-  #elast <- elasticities$ec_main_w_novelty_sur 
-  
-  elast[, list(.N),by=c('category','country','brand')]
-    
-  # set order of variables to appear in figures and tables
-  ordered_vars =  c('llen', 'rwpspr', 'wpswdst', 'nov6sh')
-  ordered_vars = ordered_vars[which(ordered_vars%in%elast$variable)]
-  
-  names(ordered_vars) <- paste0(unlist(sanitize_table(data.frame(gsub('^ln', '', ordered_vars)))), ' elasticity')
-  
-  lmerctrl = lmerControl(optimizer ="Nelder_Mead", check.conv.singular="ignore")
+load('app/app_workspace.RData')
 
+#predictions <- fread('../output/predictions_within.csv')
+#predictions_kfold = fread('../output/predictions_kfold.csv')
 
-winsor_p=.01
+# Select final result set  
+elast <- elasticities$ec_main_sur 
 
+# set order of variables to appear in figures and tables
+ordered_vars =  c('llen', 'rwpspr', 'wpswdst')
+ordered_vars = ordered_vars[which(ordered_vars%in%elast$variable)]
+
+names(ordered_vars) <- paste0(unlist(sanitize_table(data.frame(gsub('^ln', '', ordered_vars)))), ' elasticity')
+
+# Notes for tables
 notes_sig = 'Significance levels: \\* *p*<.1, \\*\\* *p*<.05, \\*\\*\\* *p*<.01 (two-sided).'
-  
-for (dframe in grep('^elast$', ls(),value=T)) {
-  print(dframe)
-  for (.var in c('elast', 'elastlt')) {
-    eval(parse(text=paste0(dframe,"[!is.na(get(.var)), paste0('w_', .var) := 1/get(paste0(.var, '_se'))]")))
-    # rescale
-    eval(parse(text=paste0(dframe,"[!is.na(get(.var)), paste0('w_', .var) := get(paste0('w_', .var))/max(get(paste0('w_', .var)))]")))
-    eval(parse(text=paste0(dframe,"[!is.na(get(.var)), paste0('z_', .var) := get(.var)/get(paste0(.var, '_se'))]")))
-  }
-}  
-
 estimnote = paste0('Elasticities are weighted by inverse standard errors.')
-estimnoteshort= 'weighted by inverse standard errors'
 
-
-notes_base = paste0("^1^ Regression of long-term elasticities on explanatory variables and three random effects, for brands, categories, and countries, respectively. Estimated using a linear mixed-effects model. ", estimnote, " Continuous variables have been mean-centred. Standard errors in parentheses.")
-
-notes_loglik = 'Log-likelihood ratio tests computed relative to preceding models.'
-
-# order of covariates in models
-covars = c("(Intercept)", 
-           "emerging", "gdppercap_rev","gci_rev","hdi_rev",
-           "sbbe_std_mc",
-           "I(sbbe_std_mc * emerging)",
-           "I(sbbe_std_mc * gdppercap_rev)",
-           "I(sbbe_std_mc * gci_rev)",
-           "I(sbbe_std_mc * hdi_rev)",
-           "ln_herf_mc", "ln_market_growth_mc", "appliance", "ln_gini_mc", "local_to_market", "international", "mean_ms_mc")
-
+# Significance levels
 sigvalue = .1
 zval = qnorm(1-sigvalue/2)
 
-
-# correlatino power distance & individualism
-
-countries <- unique(brand_panel, by = c('country'))
-cor(countries$pdi, countries$idv)
-
-elasticities$ec_main_sur[, list(cor(elastlt, elastmedianlt,use='pairwise')),by=c('variable')]
-
+# Compute weights and z-values for estimated short- and long-term elasticities
+for (.var in c('elast', 'elastlt')) {
+    elast[!is.na(get(.var)), paste0('w_', .var) := 1/get(paste0(.var, '_se'))]
+    # rescale
+    elast[!is.na(get(.var)), paste0('w_', .var) := get(paste0('w_', .var))/max(get(paste0('w_', .var)))]
+    elast[!is.na(get(.var)), paste0('z_', .var) := get(.var)/get(paste0(.var, '_se'))]
+  }
 
 
 ```
 
-# Reviewer request
+# Additional requests/stats for the paper
 
-P. 24: For the point about δ12,1 that you make in the paper, could this be because larger countries may have longer product lines with more line length fluctuations; thus making it easier to estimate the line length elasticity? It sounds like an endogeneity argument for which you correct. 
+## Correlations power distance & individualism
+```{r, echo = FALSE}
+countries <- unique(brand_panel, by = c('country'))
+cor(countries$pdi, countries$idv)
+```
 
-Along the same lines, are there more price cuts among richer countries that may explain what you report for δ11,2? The finding that richer countries are more price sensitive is hard to wrap your head around (I do see your argument here, which is plausible). Please clarify.
+## Correlation between long-term elasticity at the mean and at the median
 
-```{r}
+```{r, echo = FALSE}
+elast[, list(correlation=cor(elastlt, elastmedianlt,use='pairwise')),by=c('variable')]
+```
+
+## Compute correlations between country factors and levels/coefficient of variation for price and line length
+
+```{r, results = 'asis', echo = FALSE}
 # filter on data that we use in the second stage
-
 tmp = brand_panel[brand_id%in%elast$brand_id, list(llen = mean(llen), 
                          llen_sd = sd(llen)/mean(llen),
                          price = mean(rwpsprd),
                          price_sd = sd(rwpsprd),
                          penn_pop=mean(penn_pop),
                          penn_growthrgdpe = mean(penn_growthrgdpe),
-                         penn_rgdpe=mean(penn_rgdpe)), by = c('country','category','brand' )]
+                         penn_rgdpe=mean(penn_rgdpe)), by = c('country','category','brand')]
 
 tmp[,llen_coefvar := llen_sd/llen]
 tmp[,price_coefvar := price_sd/price]
@@ -116,155 +102,16 @@ outc=tmp[, lapply(.SD, mean, na.rm=T), by = c('country'), .SDcols = c('llen','ll
                                                                       'price','price_coefvar',
                                                                       'penn_pop','penn_gdppercap','penn_growthrgdpe')]
 
-correlation_matrix <- function(df, 
-                               type = "pearson",
-                               digits = 3, 
-                               decimal.mark = ".",
-                               use = "all", 
-                               show_significance = TRUE, 
-                               replace_diagonal = FALSE, 
-                               replacement = ""){
-  
-  # check arguments
-  stopifnot({
-    is.numeric(digits)
-    digits >= 0
-    use %in% c("all", "upper", "lower")
-    is.logical(replace_diagonal)
-    is.logical(show_significance)
-    is.character(replacement)
-  })
-  # we need the Hmisc package for this
-  require(Hmisc)
-  
-  # retain only numeric and boolean columns
-  isNumericOrBoolean = vapply(df, function(x) is.numeric(x) | is.logical(x), logical(1))
-  if (sum(!isNumericOrBoolean) > 0) {
-    cat('Dropping non-numeric/-boolean column(s):', paste(names(isNumericOrBoolean)[!isNumericOrBoolean], collapse = ', '), '\n\n')
-  }
-  df = df[isNumericOrBoolean]
-  
-  # transform input data frame to matrix
-  x <- as.matrix(df)
-  
-  # run correlation analysis using Hmisc package
-  correlation_matrix <- Hmisc::rcorr(x, type = )
-  R <- correlation_matrix$r # Matrix of correlation coeficients
-  p <- correlation_matrix$P # Matrix of p-value 
-  
-  # transform correlations to specific character format
-  Rformatted = formatC(R, format = 'f', digits = digits, decimal.mark = decimal.mark)
-  
-  # if there are any negative numbers, we want to put a space before the positives to align all
-  if (sum(R < 0) > 0) {
-    Rformatted = ifelse(R > 0, paste0(' ', Rformatted), Rformatted)
-  }
-  
-  # add significance levels if desired
-  if (show_significance) {
-    # define notions for significance levels; spacing is important.
-    stars <- ifelse(is.na(p), "   ", ifelse(p < .01, "***", ifelse(p < .05, "** ", ifelse(p < .10, "*  ", "   "))))
-    Rformatted = paste0(Rformatted, stars)
-  }
-  # build a new matrix that includes the formatted correlations and their significance stars
-  Rnew <- matrix(Rformatted, ncol = ncol(x))
-  rownames(Rnew) <- colnames(x)
-  colnames(Rnew) <- paste(colnames(x), "", sep =" ")
-  
-  # replace undesired values
-  if (use == 'upper') {
-    Rnew[lower.tri(Rnew, diag = replace_diagonal)] <- replacement
-  } else if (use == 'lower') {
-    Rnew[upper.tri(Rnew, diag = replace_diagonal)] <- replacement
-  } else if (replace_diagonal) {
-    diag(Rnew) <- replacement
-  }
-  
-  return(Rnew)
-}
-
-correlation_matrix(data.frame(outc[,-1,with=F]))
-Hmisc:::rcorr(as.matrix(outc[,-1,with=F]))
-
-cor.test(outc$penn_gdppercap, outc$price_coefvar)
-
-
-
-# Regression
-if(0){
-m1<-lm(llen~1+pop, data = tmp)
-m2<-lm(llen_coefvar~1+pop, data = tmp)
-m3<-lm(price~1+gdppercap, data = tmp)
-m4<-lm(price_coefvar~1+gdppercap, data = tmp)
-
-stargazer(m1, m2, m3, m4, type='text')
-}
-# w/ all controls
-tmp2 <- merge(tmp, unique(elast, by = c('category','country','brand')), by = c('category','country','brand'), all.x=T, all.y=F)
-
- 
-
- 
-m1<-lm(llen~1+ln_penn_popyravg_mc+ln_penn_percapitargdpeyravg_mc+ln_market_meangrowth_mc+sbbe_round1_mc+`brand_from_jp-us-ch-ge-sw`+ln_rwpspr_windex_mc+ln_wpswdst_windex_mc+ln_nov6sh_windex_mc+ln_market_herf_mc+appliance+ln_ginicoef_mc+ln_penn_growthrgdpeyravg_mc+ln_uai_mc+ln_pdi_mc+ln_mas_mc, data = tmp2)
-
-m2<-lm(llen_coefvar~1+ln_penn_popyravg_mc+ln_penn_percapitargdpeyravg_mc+sbbe_round1_mc+`brand_from_jp-us-ch-ge-sw`+ln_rwpspr_windex_mc+ln_wpswdst_windex_mc+ln_llen_windex_mc+ln_nov6sh_windex_mc+ln_market_herf_mc+ln_market_meangrowth_mc+appliance+ln_ginicoef_mc+ln_penn_growthrgdpeyravg_mc+ln_uai_mc+ln_pdi_mc+ln_mas_mc, data = tmp2)
-
-m3<-lm(price~1+ln_penn_percapitargdpeyravg_mc+sbbe_round1_mc+`brand_from_jp-us-ch-ge-sw`+ln_wpswdst_windex_mc+ln_llen_windex_mc+ln_nov6sh_windex_mc+ln_market_herf_mc+ln_market_meangrowth_mc+appliance+ln_penn_growthrgdpeyravg_mc+ln_ginicoef_mc+ln_penn_popyravg_mc+ln_uai_mc+ln_pdi_mc+ln_mas_mc, data = tmp2)
-
-m4<-lm(price_coefvar~1+ln_penn_percapitargdpeyravg_mc+sbbe_round1_mc+`brand_from_jp-us-ch-ge-sw`+ln_rwpspr_windex_mc+ln_wpswdst_windex_mc+ln_llen_windex_mc+ln_nov6sh_windex_mc+ln_market_herf_mc+ln_market_meangrowth_mc+appliance+ln_penn_growthrgdpeyravg_mc+ln_ginicoef_mc+ln_penn_popyravg_mc+ln_uai_mc+ln_pdi_mc+ln_mas_mc, data = tmp2)
-
-stargazer(m1, m2, m3, m4, type='text')
-
+kable(corstars(data.frame(outc[,-1,with=F])), type= 'html')
 
 
 ```
 
 
-__Differences between short- and long-term elasticities__
 
-```{r}
+# Main tables
 
-elast[, percst := (elast-elastlt)/elastlt]
-# same sign?
-
-elast[, same_sign := sign(elast)==sign(elastlt)]
-table(elast$same_sign)
-
-elast[same_sign==FALSE]
-
-elast[, list(N=.N, elast = mean(elast), elastlt = mean(elastlt), percst = mean(percst)), by = c('variable')]
-elast[, list(N=.N, elast = mean(elast), elastlt = mean(elastlt), percst = mean(percst), percst_1 = (1+mean(percst)))]
-
-
-# Maybe first average
-out = lapply(list(st=c('elast', 'z_elast', 'w_elast'), lt = c('elastlt','z_elastlt','w_elastlt')), function(obj) {
-  tmp = elast[!is.na(get(obj[1]))][, ':=' (val=get(obj[1]), val_z=get(obj[2]), val_w=get(obj[3]))]
-  tmp=tmp[, list(Neffects=.N, 
-   						  ftmelast = sum(val*val_w)/sum(val_w),
-   						  median_elast = median(val), 
-  						  interval90 = paste0('[',paste(sprintf("%.3f",quantile(val, c(.05,.95))),collapse=', '),']'),
-  												  perc_positive = length(which(val_z>=(zval)))/.N, 
-  												  perc_null = length(which(abs(val_z)<zval))/.N, 
-  												  perc_negative = length(which(val_z<=(-zval)))/.N), 
-  												by=c('variable')]
-  tmp=tmp[match(ordered_vars, variable)]
-  setnames(tmp, 'variable', 'mmixinstr')
-  return(tmp)
-  })
-
-# after averaging: out$st$ftmelast/out$lt$ftmelast
-
-elast[, list(cor(elast, elastlt)), by = c('variable')]
-
-
-
-
-```
-
-
-# Data
-
-```{r table1_countries, echo = FALSE}
+```{r table1_countries, echo=FALSE, warning=FALSE}
 tmp=unique(elast, by='country')[, c('country','penn_popavg', 'penn_percapitargdpeavg', 'penn_growthrgdpeavg', 'ginicoef','pdi', 'uai','mas'),with=F]
 
 setorderv(tmp, c('country'))
@@ -275,9 +122,7 @@ kable(tmp, format='html', digits=c(0,2, 0,2 ,2,0,0,0), format.args = list(big.ma
         kable_styling() %>% footnote(number=c('Countries shown in alphabethical order. Sources to be updated.'))
 ```
 
-<P style='page-break-before: always'>
-
-```{r table2_category_overview, echo = FALSE}
+```{r table2_category_overview, echo=FALSE, warning=FALSE}
 tmp=data.table(elast)
 tmp[, ncountries:=length(unique(country)),by=c('category')]
 
@@ -292,7 +137,7 @@ tmp[, category:=tolower(category)]
 tmp=sanitize_table(tmp)
 setnames(tmp, 'Top 5 brands', 'Top 5 brands^2^')
 
-tmp[, sort_category:=tolower(`Category`)]
+tmp[, sort_category:=tolower(get('Category'))]
 setorder(tmp, sort_category)
 tmp[, sort_category:=NULL]
 
@@ -301,13 +146,11 @@ kable(tmp, format='html', caption=tab('Category overview^1^')) %>%
 
 ```
 
-<P style='page-break-before: always'>
 # Results
 
 ```{r continue_with_selection, echo=FALSE}
 elast_all=data.table(elast)
 elast=elast[!is.na(country_of_origin)&!country_of_origin==''&!tolower(brand)%in%c('unbranded')]
-#elast[,list(.N),by=c('category','country','brand')]
 
 excluded_brands=setdiff(unique(elast_all$brand), unique(elast$brand))
 excluded_brands<-unique(gsub('Allothers.*', 'Composite brands (allothers)', excluded_brands))
@@ -317,90 +160,9 @@ excluded_brands<-unique(gsub('Allothers.*', 'Composite brands (allothers)', excl
 
 Reported for a sample of `r length(unique(elast$brand))` unique brands (excluding `r paste0(my_capitalize(excluded_brands), collapse=', ')`).
 
+      
 
-```{r correctsign, echo=F,results='asis'}
-
-elast[, cor_z_val:=ifelse(grepl('pr',variable),-1,1)]
-elast[,list(correct_sign=length(which(z_elastlt*cor_z_val>=zval))/.N,
-           ns=length(which(abs(z_elastlt)<zval))/.N,
-           incorrect_sign=length(which(z_elastlt*cor_z_val<=(-zval)))/.N)]
-```
-                     
-
-```{r elasts_full, echo=F,results='asis'}
-         
-
-out = lapply(list(st=c('elast', 'z_elast', 'w_elast'), lt = c('elastlt','z_elastlt','w_elastlt')), function(obj) {
-  tmp = elast[!is.na(get(obj[1]))][, ':=' (val=get(obj[1]), val_z=get(obj[2]), val_w=get(obj[3]))]
-  tmp=tmp[, list(Neffects=.N, 
-   						  ftmelast = sum(val*val_w)/sum(val_w),
-   						  median_elast = median(val), 
-  						  interval90 = paste0('[',paste(sprintf("%.3f",quantile(val, c(.05,.95))),collapse=', '),']'),
-  												  perc_positive = length(which(val_z>=(zval)))/.N, 
-  												  perc_null = length(which(abs(val_z)<zval))/.N, 
-  												  perc_negative = length(which(val_z<=(-zval)))/.N), 
-  												by=c('variable')]
-  tmp=tmp[match(ordered_vars, variable)]
-  setnames(tmp, 'variable', 'mmixinstr')
-  return(tmp)
-  })
-  
-iters = list(lt=c('lt', 'Long-term'), st=c('st', 'Short-term'))
-
-for (iter in iters) {
-
-  print(kable(sanitize_table(out[[iter[1]]]), digits=3, format='html', format.args = list(big.mark = ","),
-        caption=tab(paste0(iter[2], ' elasticities by marketing-mix instrument^1^'),prefix='')) %>% kable_styling() %>% 
-        footnote(number=c(paste0('Table reports ', tolower(iter[2]), ' elasticities. The number of observations differs slightly across marketing-mix instruments because some brands in some markets (category/country combinations) do not have variation in these variables.'), estimnote)))
-  #cat("<P style='page-break-before: always'>")
-
-  }
-
-```
-
-Verify mean price elasticities on only positive coefficients
-
-```{r}
- tmp = elast[!is.na(elastlt)][, ':=' (val=elastlt, val_z=z_elastlt, val_w=w_elastlt)]
-tmp[, theoreticalsign := 0]
-tmp[elastlt<0&grepl('pr', variable), theoreticalsign:=1]
-tmp[elastlt>0&!grepl('pr', variable), theoreticalsign:=1]
-
-  tmp=tmp[theoreticalsign==1, list(Neffects=.N, 
-   						  ftmelast = sum(val*val_w)/sum(val_w),
-   						  median_elast = median(val), 
-  						  interval90 = paste0('[',paste(sprintf("%.3f",quantile(val, c(.05,.95))),collapse=', '),']'),
-  												  perc_positive = length(which(val_z>=(zval)))/.N, 
-  												  perc_null = length(which(abs(val_z)<zval))/.N, 
-  												  perc_negative = length(which(val_z<=(-zval)))/.N), 
-  												by=c('variable')]
-  tmp=tmp[match(ordered_vars, variable)]
-  tmp
-```
-```{r}
-# Correlation short & long-term
-
-tmp = elast[!is.na(elastlt)][, ':=' (val=elastlt, val_z=z_elastlt, val_w=w_elastlt)]
-tmpx=melt(elast[, c('category','country','brand','variable','elastlt','elast'),with=F])
-setnames(tmpx, 'variable.1', 'type')
-tmp2 = dcast(tmpx, category+country+brand~variable+type)
-
-tmp[grepl('llen',variable), cor(elast, elastlt)]
-tmp[grepl('pr',variable), cor(elast, elastlt)]
-tmp[grepl('dst',variable), cor(elast, elastlt)]
-
-# magntitude
-tmp[, diff:=elast-elastlt]
-tmp[, perc_change:= 100*diff/abs(elastlt)]
-
-tmp[, list(mean(perc_change)),by=c('variable')]
-
-
-
-```
-
-
-```{r elasts_full_median, echo=F,results='asis'}
+```{r elasts_full_median, echo=F,results='asis', warning=FALSE}
 
 elast[!is.na(elastmedianlt), z_elastmedianlt:=elastmedianlt/elastmedianlt_se, by = c('variable')]
 elast[!is.na(elastmedianlt), w_elastmedianlt:=1/elastmedianlt_se, by = c('variable')]
@@ -412,9 +174,6 @@ out = lapply(list(ltmean=c('elastlt', 'z_elastlt', 'w_elastlt'), ltmedian = c('e
    						  ftmelast = sum(val*val_w)/sum(val_w),
    						  median_elast = median(val), 
   						  interval90 = paste0('[',paste(sprintf("%.3f",quantile(val, c(.05,.95))),collapse=', '),']')),
-  												  #perc_positive = length(which(val_z>=(zval)))/.N, 
-  												  #perc_null = length(which(abs(val_z)<zval))/.N, 
-  												  #perc_negative = length(which(val_z<=(-zval)))/.N), 
   												by=c('variable')]
   tmp=tmp[match(ordered_vars, variable)]
   setnames(tmp, 'variable', 'mmixinstr')
@@ -437,21 +196,8 @@ for (iter in iters) {
 
 
 
-```{r elast_by_cc, echo=F,results='asis', include=TRUE, warnings = FALSE}
+```{r elast_by_cc, echo=F,results='asis', include=TRUE, warning = FALSE}
 
-round_percent <- function(x) { 
-    x <- x/sum(x)*100  # Standardize result
-    res <- floor(x)    # Find integer bits
-    rsum <- sum(res)   # Find out how much we are missing
-    if(rsum<100) { 
-        # Distribute points based on remainders and a random tie breaker
-        o <- order(x%%1, sample(length(x)), decreasing=TRUE) 
-        res[o[1:(100-rsum)]] <- res[o[1:(100-rsum)]]+1
-    } 
-    res 
-}
-
-qval=qnorm(1-sigvalue/2)
 elast[, novar:='pooled']
 
 out = lapply(list(st=c('elast', 'elast_se'), lt = c('elastlt','elastlt_se')), function(obj) {
@@ -463,17 +209,15 @@ for (byvar in c('country', 'category', 'novar')) {
   tmp=tmp_elast[, list(N=.N,
                                   elast = sum(val*val_w)/sum(val_w),
                                   sig = signstars(sum(val/val_se,na.rm=T)/sqrt(.N)),
-                                  percpos = 100*length(which(abs(val/val_se)>=qval&val>0))/.N,
-                                  percneg = 100*length(which(abs(val/val_se)>=qval&val<0))/.N,
-                                  percns = 100*length(which(abs(val/val_se)<qval))/.N),
+                                  percpos = 100*length(which(abs(val/val_se)>=zval&val>0))/.N,
+                                  percneg = 100*length(which(abs(val/val_se)>=zval&val<0))/.N,
+                                  percns = 100*length(which(abs(val/val_se)<zval))/.N),
                                   by=c('variable', byvar)]
   
   tmp[, lbl := paste0(sprintf("%.3f",elast), ' ', sig)]
   
   tmp2 = melt(tmp, id.vars=c('variable',byvar))
   tmp2[grepl('^perc', variable.1), value:=round_percent(as.numeric(value)),by=c('variable', byvar)]
-  
-  
   
   #round
   
@@ -509,44 +253,71 @@ for (byvar in c('country', 'category', 'novar')) {
 
 ```	
 
-```{r dorfmann steiner, echo=F,results='asis', include=TRUE}
+# Regression results
 
-tmp=elast[!is.na(elastlt), list(N=.N,
-                                  elast = sum(elastlt*w_elastlt)/sum(w_elastlt)),
-                                   by=c('variable', 'country')]
-tmp2 = dcast.data.table(tmp,country~variable,value.var='elast')
+```{r, results = 'asis', echo = FALSE}
 
-tmp2[, llen_ratio_to_sales := llen/-rwpspr]
-tmp2[, distr_ratio_to_sales := wpswdst/-rwpspr]
+model_formula <- . ~ 1 + sbbe_round1_mc+`brand_from_jp-us-ch-ge-sw`+ln_rwpspr_windex_mc+ln_wpswdst_windex_mc+ln_llen_windex_mc+ln_nov6sh_windex_mc+ln_market_herf_mc+ln_market_meangrowth_mc+appliance+ln_penn_growthrgdpeyravg_mc+ln_ginicoef_mc+ln_penn_percapitargdpeyravg_mc+ln_penn_popyravg_mc+ln_uai_mc+ln_pdi_mc+ln_mas_mc
 
-# get population
-weights <- unique(elast[, c('country','penn_rgdpe2010',
-                        'penn_pop2010'),with=F],by=c('country'))
-#weights[, gdp:=gdppercapitacurrent2010 * population2010]
+tmp = data.table(elast)
 
-tmp3 <- merge(tmp2, weights, by=c('country'),all.x=T)
+# videocon is from india, not from ger
+tmp[brand=='videocon']$`brand_from_jp-us-ch-ge-sw`=0
+# YOshii is from Japan
+tmp[grepl('yoshii', brand)]$`brand_from_jp-us-ch-ge-sw`=1
+# Simpson is from Australia
+tmp[grepl('simpson', brand)]$`brand_from_jp-us-ch-ge-sw`=0
 
-tmp3[, weights:=penn_rgdpe2010/sum(penn_rgdpe2010)]
+# videocon is from india, not from ger
+tmp[brand=='videocon']$western_brand = 0
+# YOshii is from Japan
+tmp[grepl('yoshii', brand)]$western_brand=0
+# Simpson is from Australia
+tmp[grepl('simpson', brand)]$western_brand=1
 
-tmp3[, avg_llen:=sum(llen_ratio_to_sales*weights)]
-tmp3[, avg_dst:=sum(distr_ratio_to_sales*weights)]
 
-tmp3[, llen_index:=100*llen_ratio_to_sales/avg_llen]
-tmp3[, dst_index:=100*distr_ratio_to_sales/avg_dst]
+tmp[, internat_brand:=ifelse(ncountries>1,1,0)]
 
-tmp3[, weights:=NULL]
-tmp3[, ':=' (avg_llen=NULL, avg_dst=NULL)]
-tmp3[, ':=' (gdp2010prices2010=NULL, avg_dst=NULL)]
-tmp3[, ':=' (gdppercapitacurrent2010=NULL, population2010=NULL)]
-#tmp3[, gdp:=gdp/1E9]
-tmp3[, ':=' (penn_rgdpe2010=NULL, penn_pop2010=NULL)]
-#'Weights' = 1,
+dv_name='elastlt'
+tmp[, ':=' (dv = get(dv_name), dv_se = get(paste0(dv_name,'_se')), w_dv = 1/get(paste0(dv_name,'_se')))]
 
-print(kable(sanitize_table(tmp3), digits=c(0,3,3,3, 3,3, 1,1), caption = tab(paste0('Allocation of Marketing Expenditures'), prefix=''), format='html', initial.zero = FALSE) %>% add_header_above(list(' '=1, 'Average Elasticities' = 3, 'Expenditure ratios'=2,  'Expenditure index' = 2)) %>% kable_styling() %>% footnote(number='Average elasticities are weighted by inverse standard errors of the brand- and category-specific effects. Expenditure ratios are calculated in line with Farley and Lehmann (1994, p. 119). Weights are equal to a country\'s GDP (expenditure-side real GDP at chained PPPs in 2010, our sample\'s midpoint). Expenditure indexes are equal to expenditure ratios divided by GDP-weighted averages x 100.'))
+# winsorizations
+tmp[!is.na(dv), percentile:=ecdf(dv)(dv), by = c('variable')]
+perc_extract = 0.01
+
+tmp[, perc_low := quantile(dv, probs = perc_extract), by = c('variable')]
+tmp[, perc_high := quantile(dv, probs = 1-perc_extract), by = c('variable')]
+    
+tmp[percentile<perc_extract, dv:=perc_low]
+tmp[percentile>(1-perc_extract), dv:=perc_high]
   
 
+model_results <- lapply(ordered_vars, function(var) {
+  estim_data = tmp[grepl(var, variable)]
+  m<-lm(update.formula(dv~1, model_formula), data = estim_data, weights = w_elastlt)
+ 
+  # predictions
+  avail=setdiff(1:nrow(estim_data), m$na.action)
+  pred=data.table(estim_data[, c('brand','brand_id','category','country', 'dv')][avail], variable=var, dv_pred=predict(m))
+     
+  
+  r2= rsq(m)
+  loglik = logLik(m)
+  aic=AIC(m)
+  bic=BIC(m)
+  m <- coeftest(m, vcov = vcovCL, cluster = ~ brand + category + country, fix = T, type = 'HC1')
+  
+  return(list(model=m, r2=r2, aic=aic, bic=bic, loglik=loglik, predictions=pred))
+})   
+
+
+stargazer(lapply(model_results, function(x) x$model), type= 'html')
+
 ```
-<P style='page-break-before: always'>
+
+# Allocation tables
+
+# Figures
 
 
 ```{r reset, echo=FALSE,results='asis'}
@@ -930,6 +701,7 @@ for (u in unitlist) {
 
 ```{r withinR2, results='asis', echo = FALSE, include = TRUE}
 
+if(0) {
 ord=c(
       'ec_nommix', 'ec_onlyllen', 'ec_onlypr','ec_onlydst',
       'ec_noocmmix', 'ec_onlyocllen', 'ec_onlyocpr','ec_onlyocdst',
@@ -1010,11 +782,11 @@ r2s=predictions[type%in%sel_ord, list(#R2_diff = cor(dlnusales, dlnusales_hat, u
   
   #setnames(tmp2, 'type', 'Model type')
   print(kable(tmp2, format= 'html', caption =lbl, digits = 5) %>% kable_styling()%>% footnote(number=paste0('Fit metrics computed across the ', nrow(unique(predictions, by =c('category','brand','country'))), ' estimated models, using predicted and observed sales in levels. R2 is the average squared correlation. RMSE is average root mean squared error. MeAPE is the median absolute percentage error. SMAPE is the symmetric mean absolute percentage error (Armstrong and Collopy 1992).')))
-
+}
 ```
 
 ```{r holdoutrsq, results='asis', echo = FALSE, include= TRUE}
-
+if(0){
 #ord=c('ec_main', 
 #      'ec_main_attributes',
 #      'ec_lntrend',
@@ -1077,13 +849,13 @@ lbl = 'Model selection (hold-out sample)'
   setnames(tmp4, 'type', 'Model type')
   print(kable(tmp4, format= 'html', caption =lbl, digits = 5) %>% add_header_above(list(' '=1, 'R-squared' =2, 'RMSE'=2, 'SMAPE'=2)))
   
-  
+}
 
 ```
 
 
 ```{r,echo=FALSE, include=FALSE}
-
+if(0){
 
 r2=tmppred[estim_set==F&type=='ec_main', list(r2=cor(common_dv, common_dv_hat, use='pairwise')^2), by = c('category','country','brand')]
 
@@ -1102,7 +874,7 @@ r2x[,date:=as.Date(date)]
 library(ggplot2)
 ggplot() + geom_line(data=r2x, aes(date, common_dv)) +
   geom_line(data=r2x, linetype = 2, aes(date, common_dv_hat)) + scale_x_date(date_labels = "%b-%Y") + ylab('Unit sales') + xlab('Date')
-
+}
 ```
 
 ```{r,echo=FALSE, include=FALSE}
