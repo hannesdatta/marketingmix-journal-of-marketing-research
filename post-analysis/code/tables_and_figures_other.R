@@ -1,360 +1,257 @@
 rm(list=ls())
+
 # Load data
 library(lme4)
 library(bit64)
 library(data.table)
-library(stargazer)
-library(shiny)
-library(sandwich)
-library(lmtest)
 library(car)
-library(knitr)
-library(digest)
-library(xlsx)
-library(stringr)
-library(foreign)
+library(stargazer)
+library(sandwich)
 
-library(ggplot2)
-library(ggthemes)
+load('../output/workspace.RData')
+brand_panel <- fread('../externals/preclean_main.csv')
 
-fns <- c('app/app_workspace.RData')
 
-load(fns)
+# Correlations between Hofstede Dimensions
+# ========================================
 
-model = 'ec_main_sur'
-dv='elastlt'
+hofstede <- unique(brand_panel[, c('country', 'pdi', 'idv')], by = c('country'))
+cor(hofstede$pdi, hofstede$idv)
 
+# Number of markets on which we estimate models
+# ================================================
 
+nrow(brand_panel[selected==T&timewindow==T&obs48, list(.N),by=c('category','country')])
 
-### UNIT SALES COVERAGE
+# For information on excluded categories, see
+# \derived\output\brand_selection_main.txt
 
+# Zooming in on the tablet category in Hong Kong
+# ====================================================
 
-# compute total unit sales coverage
-alls=sum(brand_panel$usales,na.rm=T)
-cov=sum(brand_panel[selected==T&timewindow==T&obs48]$usales,na.rm=T)
-cov/alls # --> report in paper
+load('../../derived/temp/categorized.RData')
 
+length(unique(datlist_final$tablets[country=='HONG KONG']$brand))
+# --> more than 100
 
-brand_panel[selected==T&timewindow==T&obs48, list(.N),by=c('brand','category','country')][!grepl('allothers',brand)]
+brands_by_marketshare = datlist_final$tablets[country=='HONG KONG'][, list(sales=sum(sales_units)),by = c('brand')]
+setorderv(brands_by_marketshare, 'sales', order = -1L)
+brands_by_marketshare[, marketshare := sales/sum(sales)]
+sum(brands_by_marketshare$marketshare[1:2])
+# > 80% for the top x brands
 
-brand_panel[selected==T&timewindow==T&obs48, list(.N),by=c('brand','category','country')][!grepl('allothers',brand)]
-brand_panel[selected==T&timewindow==T&obs48, list(.N),by=c('brand')][!grepl('allothers',brand)] # -> uniq brands
+# Number of included brands & %-unit sales coverage
+# ====================================================
 
+# unit sales coverage
+included_sales = sum(brand_panel[selected==T&timewindow==T&obs48, list(sales=sum(usales)),by=c('brand','category','country')]$sales)
+total_sales = sum(brand_panel$usales)
 
+included_sales/total_sales
 
+# number of brands
+nrow(brand_panel[selected==T&timewindow==T&obs48, list(.N),by=c('brand','category','country')][!grepl('allothers',brand)])
 
+# cross-check: number of brands for estimation
+nrow(elast[, list(.N),by= c('category','country','brand')])
 
+# number of unique brands
+uniq_brands = unique(brand_panel[selected==T&timewindow==T&obs48, list(.N),by=c('brand','category','country')][!grepl('allothers',brand)]$brand)
+uniq_brands = uniq_brands[order(uniq_brands)]
+length(uniq_brands)
 
-## other
+# Number of SKUs in raw data
+# ==========================
 
+skus=rbindlist(lapply(datlist_final, function(x) x[, list(1),by=c('catname','country','brand','model')][, list(number_of_skus=.N),by=c('catname','country','brand')]))
+skus[, list(number_of_skus_in_category = sum(number_of_skus)), by = c('catname','country')]
+# --> >1000
 
-length(unique(brand_panel[selected==T]$brand_id))
-length(unique(brand_panel[selected==T & timewindow==T &obs48==T]$brand_id))
-nrow(brand_panel[selected==T])
-nrow(brand_panel[selected==T & timewindow==T &obs48==T])
+# Assessing multi-collinearity 
+# ===================================================
 
-nrow(brand_panel[selected==T & timewindow==T &obs48==T])/nrow(brand_panel[selected==T])
+tmp = elast[variable == 'rwpspr' & !country_of_origin=='']
+tmp[, random_regressor := runif(.N)]
 
+model_formula <- random_regressor ~ 1 + sbbe_round1_mc+`brand_from_jp-us-ch-ge-sw`+ln_rwpspr_windex_mc+ln_wpswdst_windex_mc+ln_llen_windex_mc+ln_nov6sh_windex_mc+ln_market_herf_mc+ln_market_meangrowth_mc+appliance+ln_penn_growthrgdpeyravg_mc+ln_ginicoef_mc+ln_penn_percapitargdpeyravg_mc+ln_penn_popyravg_mc+ln_uai_mc+ln_pdi_mc+ln_mas_mc
 
+m <- lm(update(random_regressor~., model_formula), data=tmp)
 
-brand_panel[, list(.N),by=c('category','country','brand')] # [!grepl('alloth',brand)]
-brand_panel[, list(.N),by=c('category','country','brand')][!grepl('alloth',brand)]
-brand_panel[selected==T & timewindow == T & obs48 == T, list(.N),by=c('category','country','brand')][!grepl('alloth',brand)]
-# we lose:
-brand_panel[selected==T & timewindow == T & obs48 == F, list(.N),by=c('category','country','brand')][!grepl('alloth',brand)]
-brand_panel[selected==T & timewindow == T & obs48 == F, list(.N),by=c('category','country','brand')][!grepl('alloth',brand)][, list(.N, avgN=mean(N)),by=c('category')]
+vifs=data.frame(vif(m))
+colnames(vifs) <- c('VIF')
 
-rem_obs=nrow(brand_panel[selected==T & timewindow == F & obs48 == T])
-keep_obs=nrow(brand_panel[selected==T & timewindow == T & obs48 == T])
+max(vifs$VIF)
 
+# --> 5.36
 
+# Shapiro-Wilk Tests for Non-Normality of Marketing-Mix Regressors
+# ================================================================
 
+norm_tests <- rbindlist(lapply(c('rwpspr','llen','wpswdst'), function(.v) brand_panel[selected==T&timewindow==T&obs48==T&!is.na(get(.v))&!grepl('allother',brand), list(shapiro_p_val=shapiro.test(get(.v))$p), by = c('category','country','brand')][,variable:=.v]))
+norm_tests[, list(non_normal_share = length(which(shapiro_p_val<=.1))/.N),by=c('variable')]
+norm_tests[, list(non_normal_share = length(which(shapiro_p_val<=.1))/.N)]
 
+# Share of retained copula terms
+# ==============================
 
-# share of observations/unit sales in data (reported for paper)
-sum(brand_panel[selected==T & timewindow==T &obs48==T]$usales, na.rm=T)/sum(brand_panel$usales,na.rm=T)
+load('../../analysis/output/results_ec_main.RData')
 
-brand_panel <- brand_panel[selected==T & timewindow==T &obs48==T] # at least 48 obs for estimation
+variables <- unlist(lapply(results_ec_main, function(x) grep('cop[_]|d(rwpspr|llen|wpswdst)', names(x$model$coefficients), value=T)))
 
-length(unique(brand_panel[selected==T]$brand_id))
+copula_terms = grep('cop[_]', variables, value = T)
+non_copula_terms = grep('^d', variables, value = T)
 
-brand_panel[, list(.N),by=c('brand','category','country')][!grepl('allother',brand)]
-brand_panel[, list(.N),by=c('brand','category','country')][!grepl('allother',brand)][, list(.N),by=c('brand')] # --> uniq brand
+length(copula_terms)/length(non_copula_terms)
 
+# Nested model F-tests
+# ==============================
 
-# get elasticities
-
-tmp = copy(elasticities[[model]][selection_obs48==T&selection_brands==T])
-
-# define DV
-tmp[, elastlt:=get(dv)]
-tmp[, elastlt_se:=get(paste0(dv,'_se'))]
-tmp[, w_elastlt:=1/elastlt_se, by = c('variable')]
-
-tmp <- tmp[!is.na(elastlt), percentile:=ecdf(elastlt)(elastlt), by = c('variable')]
-
-# winsorizing
-perc_extract = .01
-tmp[, perc_low := quantile(elastlt, probs = perc_extract), by = c('variable')]
-tmp[, perc_high := quantile(elastlt, probs = 1-perc_extract), by = c('variable')]
-  
-tmp[percentile<perc_extract, elastlt:=perc_low]
-tmp[percentile>(1-perc_extract), elastlt:=perc_high]
-
-elast <- copy(tmp)
-
-# videocon is from india, not from ger
-elast[brand=='videocon']$`brand_from_jp-us-ch-ge-sw`=0
-# YOshii is from Japan
-elast[grepl('yoshii', brand)]$`brand_from_jp-us-ch-ge-sw`=1
-# Simpson is from Australia
-elast[grepl('simpson', brand)]$`brand_from_jp-us-ch-ge-sw`=0
-
-#### CORRELATION MEAN / MEDIAN
-
-elast[, list(cor=cor(elastlt, elastmedianlt, use='pairwise')),by=c('variable')]
-
-countries <- unique(elast, by = c('country'))
-nrow(countries)
-
-
-# logged
-vars=c('ln_penn_growthrgdpeyravg_mc','ln_ginicoef_mc', 'ln_penn_percapitargdpeyravg_mc',
-  'ln_penn_popyravg_mc', 'ln_uai_mc', 'ln_pdi_mc', 'ln_mas_mc')
-
-
-
-cor(unique(elast, by = c('category','country','brand'))[, c('emerging',vars),with=F], use='pairwise')
-
-#unlogged
-vars=c('penn_growthrgdpeyravg_mc','ginicoef_mc', 'penn_percapitargdpeyravg_mc',
-       'penn_popyravg_mc', 'uai_mc', 'pdi_mc', 'mas_mc')
-
-
-
-cor(unique(elast, by = c('category','country','brand'))[, c('emerging',vars),with=F], use='pairwise')
-
-
-# N=14
-vars=c('penn_growthrgdpe2010','ginicoef_mc', 'penn_percapitargdpe2010',
-       'penn_pop2010', 'uai_mc', 'pdi_mc', 'mas_mc')
-
-cor(unique(countries, by = c('category','country','brand'))[, c('emerging',vars),with=F], use='pairwise')
-
-# How much Y&R coverage?
-sum(elast[, list(any(!is.na(bav_brandstrength))), by = c('brand')]$V1)
-
-
-
-
-
-#### INVESTIGATE ELASTICITIES
-
-hist(elast[variable=='llen']$elastlt)
-hist(elast[variable=='rwpspr']$elastlt)
-hist(elast[variable=='wpswdst']$elastlt,breaks=100)
-
-elast[, sig := elastlt/elastlt_se]
-
-elast[, list(pos = length(which(abs(sig)>1.645&elastlt>0))/.N,
-             neg = length(which(abs(sig)>1.645&elastlt<0))/.N,
-             ns = length(which(abs(sig)<=1.645))/.N), by = c('variable')]
-
-summary(elast[variable=='llen']$elastlt)
-summary(elast[variable=='rwpspr']$elastlt)
-summary(elast[variable=='wpswdst']$elastlt)
-
-######## FUNCTIONS #######
-
-rsq2 <- function(m) {
-  resid=resid(m)
-  pred=predict(m)
-  y=pred+resid
-  tss=sum((y-mean(y))^2)
-  rss=sum(resid^2)
-  rsq=1-(rss/tss)
-  return(rsq)
-}
-
-rsq <- function(m) {
-  resid=resid(m)
-  pred=predict(m)
-  y=pred+resid
-  return(cor(y,pred)^2)
-}
-
-## Estimate model
-
-formulas = list(. ~ 1 + sbbe_round1_mc+`brand_from_jp-us-ch-ge-sw_mc`+ln_rwpspr_index_mc+ln_wpswdst_index_mc+ln_llen_index_mc+ln_nov6sh_index_mc+ln_market_herf_mc+ln_market_growth_mc+appliance,
-. ~ 1 + sbbe_round1_mc+`brand_from_jp-us-ch-ge-sw_mc`+ln_rwpspr_index_mc+ln_wpswdst_index_mc+ln_llen_index_mc+ln_nov6sh_index_mc+ln_market_herf_mc+ln_market_growth_mc+appliance+ln_gdpgrowthyravg_mc+ln_ginicoef_mc+ln_gdppercapitacurrentyravg_mc+ln_gci_p10_marketsize_s_mc,
-. ~ 1 + sbbe_round1_mc+`brand_from_jp-us-ch-ge-sw_mc`+ln_rwpspr_index_mc+ln_wpswdst_index_mc+ln_llen_index_mc+ln_nov6sh_index_mc+ln_market_herf_mc+ln_market_growth_mc+appliance+ln_uai_mc+ln_pdi_mc+ln_mas_mc,
-. ~ 1 + sbbe_round1_mc+`brand_from_jp-us-ch-ge-sw_mc`+ln_rwpspr_index_mc+ln_wpswdst_index_mc+ln_llen_index_mc+ln_nov6sh_index_mc+ln_market_herf_mc+ln_market_growth_mc+appliance+ln_gdpgrowthyravg_mc+ln_ginicoef_mc+ln_gdppercapitacurrentyravg_mc+ln_gci_p10_marketsize_s_mc+ln_uai_mc+ln_pdi_mc+ln_mas_mc)
-
-clust = ~brand + category + country
-
-lapply(formulas, function(form) {
-  pr = lm(update.formula(elastlt~1, form),
-                data=elast[grep('pr',variable)], weights=w_elastlt)
-  
-  dst = lm(update.formula(elastlt~1, form),
-                data=elast[grep('dst',variable)], weights=w_elastlt)
-  llen = lm(update.formula(elastlt~1, form),
-          data=elast[grep('llen',variable)], weights=w_elastlt)
-  
-  avail_pr=setdiff(1:nrow(elast[grep('pr',variable)]), pr$na.action)
-  avail_dst=setdiff(1:nrow(elast[grep('dst',variable)]), dst$na.action)
-  avail_llen=setdiff(1:nrow(elast[grep('llen',variable)]), llen$na.action)
+# Load models
+  models <- c('ec_main_nc', 'ec_noocmmixnc', 
+              'ec_main', 'ec_remocprnc', 'ec_remocllennc', 'ec_remocdstnc', 
+              'ec_remprnc', 'ec_remllennc', 'ec_remdstnc', 
+              'ec_onlyocllennc', 'ec_onlyocdstnc',
+              'ec_onlyocprnc')
   
   
-  rsqs=unlist(lapply(list(pr,dst,llen),rsq))
-  rsqs2=unlist(lapply(list(pr,dst,llen),rsq2))
-  obs=unlist(lapply(list(pr,dst,llen),function(x) length(residuals(x))))
-  aics = unlist(lapply(list(pr,dst,llen), function(x) AIC(x)))
-  bics = unlist(lapply(list(pr,dst,llen), function(x) BIC(x)))
-  logliks = unlist(lapply(list(pr,dst,llen), function(x) logLik(x)))
-  k=unlist(lapply(list(pr, dst, llen), function(x) length(grep('elastlt|weights',colnames(x$model),value=T, invert=T))+2))
-  ret = rbind(obs, k, aics,bics,  logliks) #, rsqs) #, rsqs2)
-  colnames(ret) <- c('pr','dst','llen')
-  return(ret)
-})
+  for (fn in models) load(paste0('../../analysis/output/', 'results_', fn, '.RData'))
 
+# Retrieve necessary information from estimated models
+  out = rbindlist(lapply(models, function(mod) { 
+    
+    res=rbindlist(lapply(eval(parse(text=paste0('results_', mod))), function(x) data.table(x$dt[, c('brand','category','country'),with=F][1],
+                                                                                           SSR=sum(x$model$residuals^2),
+                                                                                           df = x$model$df.residual,
+                                                                                           N = length(x$model$residuals),
+                                                                                           sigma = summary(x$model)$sigma)))
+    res[, model := mod]
+    res
+  }))
 
-################################################
-#### PLOT POOLED ACROSS ALL COUNTRIES      #####
-################################################
+# Aggregate over model types
+  test_stats = out[, list(N_models = .N, SSR=sum(SSR), df=sum(df), N=sum(N)),by=c('model')]
 
-dt <- copy(elast[, c('category','country','brand', 'variable','elastlt','elastlt_se'),with=F])
+# Check number of estimated models
+  stopifnot(all(test_stats$N_models==1619))
 
-# first aggregate
-dt[, w_elastlt:=1/elastlt_se]
+# Test significance
 
-tmp = dt[, list(w_elast=sum(elastlt*w_elastlt)/sum(w_elastlt)),by=c('country', 'variable')]
-
-tmp[, abs_val:=w_elast]
-tmp[grepl('pr$', variable), abs_val:=-w_elast]
-
-
-tmp[, sum:=sum(abs_val),by=c('country')]
-
-tmp[, rel_val:=abs_val/sum]
-
-tmp[, printvar:=formatC(w_elast, digits=3,
-                          flag="", format="f")]
-
-#tmp[, printvar_rel:=round(rel_val*100,0)]
-
-tmp[, printvar_rel:=paste0(formatC(round(signif(rel_val,3)*100,0), digits=0,
-                        flag="", format="f"),'%')]
-
-
-tmp[, country:=str_to_title(country)]
-
-tmp[, variable_label:=as.character('')]
-tmp[grepl('pr', variable), variable_label:=as.character('Price')]
-tmp[grepl('llen', variable), variable_label:=as.character('Line length')]
-tmp[grepl('dst', variable), variable_label:=as.character('Distribution')]
-
-tmp[, variable_label:=factor(variable_label, levels=rev(c('Line length','Price','Distribution')))]
-
-order_country = unique(tmp[, c('country','sum'),with=F],by=c('country'))
-
-setorder(order_country, country)
-
-tmp[, country_plot:=factor(as.character(country), levels=rev(order_country$country))]
-
-
-setorder(order_country, sum)
-tmp[, country_plot2:=factor(as.character(country), levels=order_country$country)]
-
-png('../../output/relative_elasticities.png', res=400, units='in', height=5, width=8)
-
-ggplot(tmp, aes(fill=variable_label, y=abs_val, 
-                                     x=country_plot,
-                                     label=printvar)) + geom_bar(position="stack", stat="identity")  +
-  scale_fill_grey(start = .6, end = .9) + coord_flip() +
-  theme_bw() + #+ ggtitle('Relative Contribution of Marketing Mix Effects Across Countries') + 
-  xlab('Country') + ylab('Magnitude of Marketing Elasticities') + 
-  geom_text(size = 3, position = position_stack(vjust = 0.5)) +
-  labs(fill='Elasticities', caption = '')+ theme(legend.position = 'bottom')+ guides(fill = guide_legend(reverse = TRUE)) +
-  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
-
-dev.off()
-
-
-# V2
-
-png('../../output/relative_elasticities2.png', res=400, units='in', height=5, width=8)
-
-tmp[, printvar_sum:=paste0('(', formatC(sum, digits=3,
-                                   flag="", format="f"),')')]
-tmp[!variable=='wpswdst', printvar_sum:='']
-
-ggplot(tmp, aes(fill=variable_label, y=abs_val, 
-                x=country_plot2,
-                label=printvar_rel)) + geom_bar(position="stack", stat="identity")  +
-  scale_fill_grey(start = .6, end = .9) + coord_flip() +
-  theme_bw() + #+ ggtitle('Relative Contribution of Marketing Mix Effects Across Countries') + 
-  xlab('Country') + ylab('Magnitude of Marketing Elasticities') + 
-  geom_text(size = 3, position = position_stack(vjust = 0.5)) + ylim(c(0,2))+
-  #geom_text(size = 3, position = position_stack(vjust = 1), aes(y=abs_val, fill=variable_label, label=printvar_sum, hjust=-.3), angle=0)+
-  labs(fill='Elasticities', caption = '')+ theme(legend.position = 'bottom')+ guides(fill = guide_legend(reverse = TRUE))+
-  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
-
-dev.off()
-
-
-################
-# correlations #
-################
-
-
-
-# adapted from: http://www.sthda.com/english/wiki/elegant-correlation-table-using-xtable-r-package
-
-library(Hmisc)
-
-# x is a matrix containing the data
-# method : correlation method. "pearson"" or "spearman"" is supported
-# removeTriangle : remove upper or lower triangle
-# results :  if "html" or "latex"
-# the results will be displayed in html or latex format
-corstars <-function(x, method=c("pearson", "spearman"), removeTriangle=c("upper", "lower"),
-                    result=c("none", "html", "latex"), ndec = 2){
-  
-  #Compute correlation matrix
-  require(Hmisc)
-  x <- as.matrix(x)
-  correlation_matrix<-rcorr(x, type=method[1])
-  R <- correlation_matrix$r # Matrix of correlation coeficients
-  p <- correlation_matrix$P # Matrix of p-value 
-  
-  ## Define notions for significance levels; spacing is important.
-  mystars <- ifelse(p < .01, "*** ", ifelse(p < .05, "**  ", ifelse(p < .1, "*   ", "   ")))
-  
-  ## trunctuate the correlation matrix to three decimals
-  R <- format(round(cbind(rep(-1.11, ncol(x)), R), ndec))[,-1]
-  
-  ## build a new matrix that includes the correlations with their apropriate stars
-  Rnew <- matrix(paste(R, mystars, sep=""), ncol=ncol(x))
-  diag(Rnew) <- paste(diag(R), " ", sep="")
-  rownames(Rnew) <- colnames(x)
-  colnames(Rnew) <- paste(colnames(x), "", sep="")
-  
-  Rnew <- as.matrix(Rnew)
-  Rnew <- as.data.frame(Rnew)
-  
-  ## remove last column and return the correlation matrix
-  #Rnew <- cbind(Rnew[1:length(Rnew)-1])
-  
-  if (result[1]=="none") return(Rnew)
-  else{
-    if(result[1]=="html") print(xtable(Rnew), type="html")
-    else print(xtable(Rnew), type="latex") 
+  # https://influentialpoints.com/notes/n8rttst.htm
+  f_test <- function(full, restricted) {
+    
+    cat(paste0('\nExtra-sum-of-squares test (F-test) for: \n'))
+    cat(paste0('  Restricted model: ', restricted),fill=T)
+    cat(paste0('  Full model: ', full, '\n\n\n'))
+    
+    SSR_diff = test_stats[model==restricted]$SSR-test_stats[model==full]$SSR
+    df_diff = test_stats[model==restricted]$df-test_stats[model==full]$df
+    
+    denominator = test_stats[model=='ec_main']$SSR/test_stats[model==full]$df
+    test_statistic = (SSR_diff/df_diff)/denominator
+    
+    df1 = df_diff
+    df2 = test_stats[model==full]$df
+    p=pf(test_statistic,df1,df2)
+    
+    if(p > .5) p = 1-p
+    
+    cat(paste0('  Test statistic (F): ', formatC(test_statistic, digits=3)),fill=T)
+    cat(paste0('  F(', df1, ', ', df2, ') = ', formatC(p, digits=3), ' (p-value)'),fill=T)
+    
   }
-  
-} 
 
-#################
+
+  print(test_stats)
+  cat('\n\n\n')
+  cat('1) Significance of *removing* focal and competitive marketing-mix [all models without Copula terms]', fill=T)
+  f_test(full = 'ec_main_nc', restricted = c('ec_remocllennc'))
+  f_test(full = 'ec_main_nc', restricted = c('ec_remocprnc'))
+  f_test(full = 'ec_main_nc', restricted = c('ec_remocdstnc'))
+  
+  cat('\n\n\n')
+  cat('2) Significance of *adding* focal and competitive marketing-mix to a model WITHOUT marketing mix instruments [all without Copula terms]', fill=T)
+  f_test(full = 'ec_onlyocllennc', restricted = c('ec_noocmmixnc'))
+  f_test(full = 'ec_onlyocprnc', restricted = c('ec_noocmmixnc'))
+  f_test(full = 'ec_onlyocdstnc', restricted = c('ec_noocmmixnc'))
+  
+  cat('\n\n\n')
+  
+
+
+# Comparison of elasticities at the mean vs. median
+# =================================================
+
+iterator = list(mean = c('elastlt','elastlt_se'),
+                median = c('elastmedianlt', 'elastmedianlt_se'))
+
+lapply(iterator, function(iter) {
+  tmp = elast[!is.na(get(iter[1]))&!grepl('super|amazon', brand)]
+  
+  tmp[, tmp_w := 1/get(iter[2]), by = c('variable')]
+  
+  tmp[, list(Neffects=.N, 
+                   weighted_elast = round(sum(get(iter[1])*tmp_w)/sum(tmp_w),3)),
+            by=c('variable')]
+  })
+
+
+# Coefficient of variation
+# =================================================
+
+elast[!is.na(elastlt) & !grepl('super|amazon', brand), list(N=.N,CV = round(sd(elastlt)/mean(elastlt),3)), by = c('variable')]
+
+# Re-estimation of main model and alternative configurations
+# ==========================================================
+
+# Model specification
+  model_formulas <- list(main_model  = . ~ 1 + sbbe_round1_mc+`brand_from_jp-us-ch-ge-sw`+ln_rwpspr_windex_mc+ln_wpswdst_windex_mc+ln_llen_windex_mc+ln_nov6sh_windex_mc+ln_market_herf_mc+ln_market_meangrowth_mc+appliance+ln_penn_growthrgdpeyravg_mc+ln_ginicoef_mc+ln_penn_percapitargdpeyravg_mc+ln_penn_popyravg_mc+ln_uai_mc+ln_pdi_mc+ln_mas_mc,
+                        emerging_market  = . ~ 1 + sbbe_round1_mc+`brand_from_jp-us-ch-ge-sw`+ln_rwpspr_windex_mc+ln_wpswdst_windex_mc+ln_llen_windex_mc+ln_nov6sh_windex_mc+ln_market_herf_mc+ln_market_meangrowth_mc+appliance+emerging,
+                        western_brand  = . ~ 1 + sbbe_round1_mc+western_brand+ln_rwpspr_windex_mc+ln_wpswdst_windex_mc+ln_llen_windex_mc+ln_nov6sh_windex_mc+ln_market_herf_mc+ln_market_meangrowth_mc+appliance+ln_penn_growthrgdpeyravg_mc+ln_ginicoef_mc+ln_penn_percapitargdpeyravg_mc+ln_penn_popyravg_mc+ln_uai_mc+ln_pdi_mc+ln_mas_mc,
+                        omit_brandequity  = . ~ 1 + `brand_from_jp-us-ch-ge-sw`+ln_rwpspr_windex_mc+ln_wpswdst_windex_mc+ln_llen_windex_mc+ln_nov6sh_windex_mc+ln_market_herf_mc+ln_market_meangrowth_mc+appliance+ln_penn_growthrgdpeyravg_mc+ln_ginicoef_mc+ln_penn_percapitargdpeyravg_mc+ln_penn_popyravg_mc+ln_uai_mc+ln_pdi_mc+ln_mas_mc,
+                        omit_brandequity2  = . ~ 1 + western_brand+ln_rwpspr_windex_mc+ln_wpswdst_windex_mc+ln_llen_windex_mc+ln_nov6sh_windex_mc+ln_market_herf_mc+ln_market_meangrowth_mc+appliance+ln_penn_growthrgdpeyravg_mc+ln_ginicoef_mc+ln_penn_percapitargdpeyravg_mc+ln_penn_popyravg_mc+ln_uai_mc+ln_pdi_mc+ln_mas_mc)
+
+                        
+  for (model_formula in model_formulas) {
+  # Prepare data
+    tmp = data.table(elast[!grepl('super|amazon', brand)])
+    tmp[, internat_brand:=ifelse(ncountries>1,1,0)]
+  
+    dv_name='elastlt'
+    tmp[, ':=' (dv = get(dv_name), dv_se = get(paste0(dv_name,'_se')), w_dv = 1/get(paste0(dv_name,'_se')))]
+  
+  # Winsorization
+    tmp[!is.na(dv), percentile:=ecdf(dv)(dv), by = c('variable')]
+    perc_extract = 0.01
+  
+    tmp[, perc_low := quantile(dv, probs = perc_extract/2), by = c('variable')]
+    tmp[, perc_high := quantile(dv, probs = 1-perc_extract/2), by = c('variable')]
+    
+    tmp[percentile<perc_extract/2, dv:=perc_low]
+    tmp[percentile>(1-perc_extract/2), dv:=perc_high]
+  
+    # check w/ Marnik: one or two tailed?
+    
+    ordered_vars <- c('llen', 'rwpspr', 'wpswdst')
+    
+    model_results <- lapply(ordered_vars, function(var) {
+      estim_data = tmp[grepl(var, variable)]
+      m<-lm(update.formula(dv~1, model_formula), data = estim_data, weights = w_dv)
+    
+      m <- coeftest(m, vcov = vcovCL, cluster = ~ brand + category + country, fix = T, type = 'HC1')
+    
+      return(m)
+    })  
+
+    stargazer(model_results, type = 'text')
+  }
+
+# Correlation emerging market dummy & power distance
+# ==========================================================
+
+with(unique(elast, by = c('country')), cor(pdi, emerging))
+
+
+
 
 
 ###########
