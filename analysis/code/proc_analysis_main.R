@@ -1,11 +1,189 @@
 library(MASS)
 library(car)
 
-# Configure model type and calibrate lag structure
+# Function to estimate error correction models
+estimate_ec <- function(id, vars = c('rwpspr','llen','wpswdst'),
+                          controls_diffs='^comp[_](rwpspr|llen|wpswdst)$', 
+                          controls_laglevels = '',
+                          controls_curr = 'quarter[1-3]|^holiday|^trend',
+                          controls_cop = '^cop[_](rwpspr|llen|wpswdst)$', 
+                          pval = .1,
+                          kickout_ns_copula = T, dv = 'usales') {
+  
+  dt=data.table(brand_panel[brand_id==id])
+  setorder(dt, category,country,brand,date)
+  dt[, ldv := c(NA,get(dv)[-.N]), by = c('category','country','brand')]
+  dt[, ddv := get(dv)-c(NA,get(dv)[-.N]), by = c('category','country','brand')]
+  
+  brands_in_market <- unique(brand_panel[market_id%in%unique(brand_panel[brand_id==id]$market_id)]$brand)
+  
+  
+  print(vars)
+  vars = vars[unlist(lapply(dt[, vars, with=F], use_ts))]
+  print(vars)
+  
+  control_vars = sapply(c(diffs=controls_diffs,lags=controls_laglevels,curr=controls_curr), function(ctrls) if (nchar(ctrls)>0) grep(ctrls, colnames(dt),value=T))
+  control_vars = lapply(control_vars, function(control_var) control_var[unlist(lapply(dt[, control_var, with=F], use_ts))])
+  print(control_vars)
+  
+  dt[, lntrend:=lntrend-mean(lntrend,na.rm=T)]
+  dt[, trend:=trend-mean(trend,na.rm=T)]
+ 
+  vars_delta = paste0('d', c(vars, control_vars$diffs))
+  vars_lags = paste0('lag', c(vars, control_vars$lags))
+  vars_curr = control_vars$curr
+  
+  if (length(c(vars,control_vars$diff))==0) vars_delta=NULL
+  if (length(c(vars,control_vars$lags))==0) vars_lags=NULL
+  
+  if (is.null(controls_cop)) {
+    vars_cop = NULL 
+    } else {
+      if (nchar(controls_cop)==0) {
+        vars_cop=NULL
+      } else {
+    vars_cop = grep(controls_cop, colnames(dt), value=T)
+    vars_cop = vars_cop[unlist(lapply(dt[, vars_cop, with=F], use_ts))]
+      }
+    }
+  
+  for (v in vars_lags) dt[, (v):=c(NA, get(gsub('^lag','',v))[-.N])]
+  
+  my_form = update.formula(ddv~1, as.formula(paste0('.~.+1+', paste0(c(vars_delta, vars_cop, 'ldv', switch(length(vars_lags)>0, paste0('I(-', vars_lags,')')), vars_curr), collapse='+'))))
+  
+  dt[, percentile_obs:=(1:.N)/.N]
+  
+  dt[, estim_set:=T]
+  
+  m = lm(my_form, data= dt) 
+  
+  # remove coefficients with NA values (e.g., attributes that are not identified)
+  kickoutcoef = NULL
+  if (any(is.na(m$coefficients))) kickoutcoef = c(kickoutcoef, names(m$coefficients[is.na(m$coefficients)]))
+  
+  # remove insignificant copula terms
+  if (!is.null(vars_cop) & kickout_ns_copula == T) {
+    tmpres = data.table(variable=rownames(summary(m)$coefficients), summary(m)$coefficients)[grepl(controls_cop, variable)]
+    setnames(tmpres, c('variable','est','se','t','p'))
+    tmpres = tmpres[p>pval]
+  
+    if (nrow(tmpres)>0) kickoutcoef = c(kickoutcoef, tmpres$variable)
+  }
+  
+  if (length(kickoutcoef>0)) {
+    my_form =update.formula(my_form, as.formula(paste0('.~.-', paste0(kickoutcoef, collapse='-'))))
+    m2 = lm(my_form, data= dt, subset = estim_set==T)
+  } else {m2=m}
+  
+  
+ # block holdouts for validation
+    
+  kfolds=10
+  
+  folds = split(1:nrow(dt), cut(1:nrow(dt), kfolds))
+  iter<-0
+ 
+  preds_new=rbindlist(lapply(folds, function(pset) {
+    iter<<-iter+1
+    obs<<-setdiff(1:nrow(dt), c(pset)) #, max(pset)+1))
+    newpset = seq(from=min(pset)+1, to=max(pset)-1)
+    m3=update(m2, .~.,subset=obs)
+    
+    combobs = union(newpset, obs)
+    combobs = combobs[order(combobs)]
+    res=data.table(dt[combobs, c('date', 'ddv','ldv',dv),with=F], kfold=iter,
+                   ddv_hat=predict(m3, newdata=dt[combobs,]))
+    res[, estim_set:=combobs%in%obs]
+    
+    res[, df.residual := m3$df.residual]
+    res[, residual.se := summary(m3)$sigma]
+
+    return(res)
+    
+  }))
+
+  pred_new3 = merge(dt[, c('category','country','brand','date'),with=F],
+                    preds_new,
+                    by=c('date'),all.x=F)
+  
+ 
+  # within-predictions   
+  predictions = cbind(dt[, c('category','country','brand','date', 'estim_set', dv, 'ldv','ddv'),with=F],
+                      ddv_hat=predict(m2, newdata=dt))
+  predictions[, paste0(dv,'_hat') := ldv + ddv_hat]
+  
+  predictions[, df.residual := m2$df.residual]
+  predictions[, residual.se := summary(m2)$sigma]
+  
+  
+  if (!is.null(m2$na.action)) identifiers = dt[-m2$na.action,c('market_id', 'category','country', 'brand', 'brand_id' , 'date'),with=F]
+  if (is.null(m2$na.action)) identifiers = dt[,c('market_id', 'category','country', 'brand', 'brand_id' , 'date'),with=F]
+
+  setkey(identifiers, market_id, date, brand)
+  
+  # for linear model, need to multiply elasticities by mean X / mean sales.
+  means = unlist(dt[, lapply(.SD, mean,na.rm=T), .SDcols=c(dv,vars)])
+  medians = unlist(dt[, lapply(.SD, median,na.rm=T), .SDcols=c(dv,vars)])
+  multipliers_means <- rep(1, length(vars))
+  if (!grepl('^ln|^log', dv)) multipliers_means <- sapply(vars, function(.v) means[.v]/means[dv])
+  multipliers_medians <- rep(1, length(vars))
+  if (!grepl('^ln|^log', dv)) multipliers_medians <- sapply(vars, function(.v) medians[.v]/medians[dv])
+  
+  names(multipliers_means)<-vars
+  names(multipliers_medians)<-vars
+  
+  if (length(vars)>0) {
+  elast2 = rbindlist(lapply(vars, function(v) {
+    st=deltaMethod(m2, paste0(multipliers_means[v],'*(d', v, ')'))
+    
+    if (paste0('I(-lag', v, ')') %in% names(m2$coefficients)) {
+            lt=deltaMethod(m2, paste0(multipliers_means[v],'*((`I(-lag', v, ')`)/(ldv))')) } else {
+              lt=deltaMethod(m2, paste0(multipliers_means[v],'*((0)/(ldv))'))
+            }
+    
+    # at the median
+    st_median=deltaMethod(m2, paste0(multipliers_medians[v],'*(d', v, ')'))
+    
+    if (paste0('I(-lag', v, ')') %in% names(m2$coefficients)) {
+      lt_median=deltaMethod(m2, paste0(multipliers_medians[v],'*((`I(-lag', v, ')`)/(ldv))')) } else {
+        lt_median=deltaMethod(m2, paste0(multipliers_medians[v],'*((0)/(ldv))'))
+      }
+    
+    data.frame(variable=v, elast = st$Estimate, elast_se=st$SE,
+               elastlt = lt$Estimate, elastlt_se = lt$SE, 
+               
+               elastmedian = st_median$Estimate, elastmedian_se = st_median$SE,
+               elastmedianlt = lt_median$Estimate, elastmedianlt_se = lt_median$SE,
+               beta = m2$coefficients[paste0('d',v)], 
+               carryover = m2$coefficients['ldv'])
+    
+  }))
+  
+  uniq_identifiers = copy(identifiers)[1][, date:=NULL]
+  elast2=cbind(uniq_identifiers,elast2)
+  .v=vif(m2)
+  vif2=cbind(uniq_identifiers, data.table(variable=names(.v), vif=.v))
+  } else {
+    elast2=NULL
+    vif2=NULL
+  }
+  
+  return(list(elast=elast2, model=m2, vif=vif2,
+              paneldimension = identifiers,
+              model_matrix = m2$model,
+              dt=dt,
+              orig_results = m$coefficients, kicked_out_coefs = kickoutcoef,
+              predictions=predictions, predictions_kfold = pred_new3, #,#predictions_kfold=pred_new3, 
+              r2_within_dv= summary(m2)$r.squared))
+  
+}
+
+
+# Function to estimate sales response models
 estimate_salesresponse <- function(id, vars = c('rwpspr','llen','wpswdst'),
-                      controls='(^comp[_](rwpspr|llen|wpswdst)$)|quarter[1-3]|^holiday|^trend|(^cop[_](rwpspr|llen|wpswdst)$)', 
-                      pval = .1,
-                      kickout_ns_copula = T, withlagdv=T, dv = 'usales') {
+                                   controls='(^comp[_](rwpspr|llen|wpswdst)$)|quarter[1-3]|^holiday|^trend|(^cop[_](rwpspr|llen|wpswdst)$)', 
+                                   pval = .1,
+                                   kickout_ns_copula = T, withlagdv=T, dv = 'usales') {
   
   
   dt=data.table(brand_panel[brand_id==id])
@@ -34,11 +212,11 @@ estimate_salesresponse <- function(id, vars = c('rwpspr','llen','wpswdst'),
   
   m = lm(my_form, data= dt, subset = estim_set==T)
   
-  # kickout coefs with NA values (e.g., attributes that are not identified)
+  # remove coefficients with NA values (e.g., attributes that are not identified)
   kickoutcoef = NULL
   if (any(is.na(m$coefficients))) kickoutcoef = c(kickoutcoef, names(m$coefficients[is.na(m$coefficients)]))
   
-  # kickout ns. copulas
+  # remove insignificant copula terms
   vars_cop=grep('^cop[_]', control_vars, value=T)
   
   if (!is.null(vars_cop) & kickout_ns_copula == T) {
@@ -104,8 +282,6 @@ estimate_salesresponse <- function(id, vars = c('rwpspr','llen','wpswdst'),
   names(multipliers_means)<-vars
   names(multipliers_medians)<-vars
   
- 
-  
   
   if (length(vars)>0) {
     elast2 = rbindlist(lapply(vars, function(v) {
@@ -151,196 +327,6 @@ estimate_salesresponse <- function(id, vars = c('rwpspr','llen','wpswdst'),
               predictions=predictions, predictions_kfold = pred_new3, r2_within_dv= summary(m2)$r.squared))
   
 }
-
-# Configure model type and calibrate lag structure
-estimate_ec <- function(id, vars = c('rwpspr','llen','wpswdst'),
-                          controls_diffs='^comp[_](rwpspr|llen|wpswdst)$', 
-                          controls_laglevels = '',
-                          controls_curr = 'quarter[1-3]|^holiday|^trend',
-                          controls_cop = '^cop[_](rwpspr|llen|wpswdst)$', 
-                          pval = .1,
-                          kickout_ns_copula = T, dv = 'usales') {
-  
-  dt=data.table(brand_panel[brand_id==id])
-  setorder(dt, category,country,brand,date)
-  dt[, ldv := c(NA,get(dv)[-.N]), by = c('category','country','brand')]
-  dt[, ddv := get(dv)-c(NA,get(dv)[-.N]), by = c('category','country','brand')]
-  
-  brands_in_market <- unique(brand_panel[market_id%in%unique(brand_panel[brand_id==id]$market_id)]$brand)
-  
-  
-  print(vars)
-  vars = vars[unlist(lapply(dt[, vars, with=F], use_ts))]
-  print(vars)
-  
-  control_vars = sapply(c(diffs=controls_diffs,lags=controls_laglevels,curr=controls_curr), function(ctrls) if (nchar(ctrls)>0) grep(ctrls, colnames(dt),value=T))
-  control_vars = lapply(control_vars, function(control_var) control_var[unlist(lapply(dt[, control_var, with=F], use_ts))])
-  print(control_vars)
-  
-  dt[, lntrend:=lntrend-mean(lntrend,na.rm=T)]
-  dt[, trend:=trend-mean(trend,na.rm=T)]
- 
-  
-  vars_delta = paste0('d', c(vars, control_vars$diffs))
-  vars_lags = paste0('lag', c(vars, control_vars$lags))
-  vars_curr = control_vars$curr
-  
-  if (length(c(vars,control_vars$diff))==0) vars_delta=NULL
-  if (length(c(vars,control_vars$lags))==0) vars_lags=NULL
-  
-  if (is.null(controls_cop)) {
-    vars_cop = NULL 
-    } else {
-      if (nchar(controls_cop)==0) {
-        vars_cop=NULL
-      } else {
-    vars_cop = grep(controls_cop, colnames(dt), value=T)
-    vars_cop = vars_cop[unlist(lapply(dt[, vars_cop, with=F], use_ts))]
-      }
-    }
-  #if (is.null(controls_cop)) vars_cop=NULL
-  
-  
-  for (v in vars_lags) dt[, (v):=c(NA, get(gsub('^lag','',v))[-.N])]
-  
-  my_form = update.formula(ddv~1, as.formula(paste0('.~.+1+', paste0(c(vars_delta, vars_cop, 'ldv', switch(length(vars_lags)>0, paste0('I(-', vars_lags,')')), vars_curr), collapse='+'))))
-  
-  dt[, percentile_obs:=(1:.N)/.N]
-  
-  
-  dt[, estim_set:=T]
-  
-  m = lm(my_form, data= dt) #, subset = estim_set==T)
-  
-  #identifiers = unique(dt[,c('market_id', 'category','country', 'brand', 'brand_id' ),with=F], by=c('brand_id'))
-  #setkey(identifiers, market_id, brand)
-  
-  # kickout coefs with NA values (e.g., attributes that are not identified)
-  kickoutcoef = NULL
-  if (any(is.na(m$coefficients))) kickoutcoef = c(kickoutcoef, names(m$coefficients[is.na(m$coefficients)]))
-  
-  # kickout ns. copulas
-  if (!is.null(vars_cop) & kickout_ns_copula == T) {
-    tmpres = data.table(variable=rownames(summary(m)$coefficients), summary(m)$coefficients)[grepl(controls_cop, variable)]
-    setnames(tmpres, c('variable','est','se','t','p'))
-    tmpres = tmpres[p>pval]
-  
-    if (nrow(tmpres)>0) kickoutcoef = c(kickoutcoef, tmpres$variable)
-  }
-  
-  if (length(kickoutcoef>0)) {
-    my_form =update.formula(my_form, as.formula(paste0('.~.-', paste0(kickoutcoef, collapse='-'))))
-    m2 = lm(my_form, data= dt, subset = estim_set==T)
-  } else {m2=m}
-  
-  
- # block holdouts
-    
-  kfolds=10
-  
-  folds = split(1:nrow(dt), cut(1:nrow(dt), kfolds))
-  iter<-0
-  preds_new=rbindlist(lapply(folds, function(pset) {
-    iter<<-iter+1
-    obs<<-setdiff(1:nrow(dt), c(pset)) #, max(pset)+1))
-    newpset = seq(from=min(pset)+1, to=max(pset)-1)
-    m3=update(m2, .~.,subset=obs)
-    
-    combobs = union(newpset, obs)
-    combobs = combobs[order(combobs)]
-    res=data.table(dt[combobs, c('date', 'ddv','ldv',dv),with=F], kfold=iter,
-                   ddv_hat=predict(m3, newdata=dt[combobs,]))
-    res[, estim_set:=combobs%in%obs]
-    
-    res[, df.residual := m3$df.residual]
-    res[, residual.se := summary(m3)$sigma]
-    
-    #plot(res[newpset]$ddv, res[newpset]$ddv_hat, type='p')
-    #plot(res$usales,type='l')
-    #lines(res$ldv+res$ddv_hat,type='l',lty=2)
-    
-    #plot(res$ddv_hat,type='l')
-    #lines(res$ddv,type='l',lty=2)
-    
-    return(res)
-    
-  }))
-
-  pred_new3 = merge(dt[, c('category','country','brand','date'),with=F],
-                    preds_new,
-                    by=c('date'),all.x=F)
-  
- 
-  # within-predictions   
-  predictions = cbind(dt[, c('category','country','brand','date', 'estim_set', dv, 'ldv','ddv'),with=F],
-                      ddv_hat=predict(m2, newdata=dt))
-  predictions[, paste0(dv,'_hat') := ldv + ddv_hat]
-  
-  predictions[, df.residual := m2$df.residual]
-  predictions[, residual.se := summary(m2)$sigma]
-  
-  
-  if (!is.null(m2$na.action)) identifiers = dt[-m2$na.action,c('market_id', 'category','country', 'brand', 'brand_id' , 'date'),with=F]
-  if (is.null(m2$na.action)) identifiers = dt[,c('market_id', 'category','country', 'brand', 'brand_id' , 'date'),with=F]
-
-  setkey(identifiers, market_id, date, brand)
-  
-  # for linear model, need to multiply elasticities by mean X / mean sales.
-  means = unlist(dt[, lapply(.SD, mean,na.rm=T), .SDcols=c(dv,vars)])
-  medians = unlist(dt[, lapply(.SD, median,na.rm=T), .SDcols=c(dv,vars)])
-  multipliers_means <- rep(1, length(vars))
-  if (!grepl('^ln|^log', dv)) multipliers_means <- sapply(vars, function(.v) means[.v]/means[dv])
-  multipliers_medians <- rep(1, length(vars))
-  if (!grepl('^ln|^log', dv)) multipliers_medians <- sapply(vars, function(.v) medians[.v]/medians[dv])
-  
-  names(multipliers_means)<-vars
-  names(multipliers_medians)<-vars
-  
-  if (length(vars)>0) {
-  elast2 = rbindlist(lapply(vars, function(v) {
-    st=deltaMethod(m2, paste0(multipliers_means[v],'*(d', v, ')'))
-    
-    if (paste0('I(-lag', v, ')') %in% names(m2$coefficients)) {
-            lt=deltaMethod(m2, paste0(multipliers_means[v],'*((`I(-lag', v, ')`)/(ldv))')) } else {
-              lt=deltaMethod(m2, paste0(multipliers_means[v],'*((0)/(ldv))'))
-            }
-    # at the median
-    st_median=deltaMethod(m2, paste0(multipliers_medians[v],'*(d', v, ')'))
-    
-    if (paste0('I(-lag', v, ')') %in% names(m2$coefficients)) {
-      lt_median=deltaMethod(m2, paste0(multipliers_medians[v],'*((`I(-lag', v, ')`)/(ldv))')) } else {
-        lt_median=deltaMethod(m2, paste0(multipliers_medians[v],'*((0)/(ldv))'))
-      }
-    
-    data.frame(variable=v, elast = st$Estimate, elast_se=st$SE,
-               elastlt = lt$Estimate, elastlt_se = lt$SE, 
-               
-               elastmedian = st_median$Estimate, elastmedian_se = st_median$SE,
-               elastmedianlt = lt_median$Estimate, elastmedianlt_se = lt_median$SE,
-               beta = m2$coefficients[paste0('d',v)], 
-               carryover = m2$coefficients['ldv'])
-    
-  }))
-  
-  uniq_identifiers = copy(identifiers)[1][, date:=NULL]
-  elast2=cbind(uniq_identifiers,elast2)
-  .v=vif(m2)
-  vif2=cbind(uniq_identifiers, data.table(variable=names(.v), vif=.v))
-  } else {
-    elast2=NULL
-    vif2=NULL
-  }
-  
-  return(list(elast=elast2, model=m2, vif=vif2,
-              paneldimension = identifiers,
-              model_matrix = m2$model,
-              dt=dt,
-              orig_results = m$coefficients, kicked_out_coefs = kickoutcoef,
-              predictions=predictions, predictions_kfold = pred_new3, #,#predictions_kfold=pred_new3, 
-              r2_within_dv= summary(m2)$r.squared))
-  
-}
-
 
 process_sur <- function(mod) {
   vars=as.character(mod$elast$variable)
@@ -406,19 +392,10 @@ model_sur <- function(focal_models, maxiter = 5000) {
     names(newtmp) <- c('y', names(newtmp)[-1])
     
     newret = as.matrix(newtmp)
-    
-    #colnames(newtmp) <- names(newtmp)
+
     return(data.frame(newret))
   })
-  #colnames(single_eqs[[1]])
-  #single_eqs[[1]][1:2,]
   
-  #if (length(single_eqs)==2) {
-  #  single_eqs = lapply(single_eqs, function(x) {
-  #  cols <- grep('comp[_]', colnames(x),value=T)
-  #  if (length(cols)>0) return(x[, -match(cols,colnames(x))])
-  #  return(x)
-  #})}
   
   stacked_eq = rbindlist(single_eqs,fill=T)
   
@@ -443,30 +420,13 @@ model_sur <- function(focal_models, maxiter = 5000) {
   
   index=data.frame(date=index_list$period,brand=index_list$brand)
   
-  #dcast(index, date~brand)
-  if(0) {
-    # remove rows where only 1 brand is observed
-    nbrands_eval <- aggregate(index$brand, by=list(index$date),FUN = length)
-    # first and last stretch of at least two brands
-    nbrands_eval$larger_two <- nbrands_eval$x>=4
-    
-    complete_eqs <- nbrands_eval$`Group.1`[which(nbrands_eval$larger_two==T)]
-    
-    # kick out incomplete ('diffed') vars, i.e., their first observation (as it is NA) by brand
-    X=as.matrix(X[complete_eqs,])
-    Y=as.matrix(Y[complete_eqs,])
-    index=data.frame(index[complete_eqs,])
-  }
   
   #################
   # Estimate SURs #
   #################
   
-  # rescale X matrix (normalize to 1?) - strongly recommended for these models to help conversion
+  # rescale X matrix to ease conversion
   rescale = TRUE
-  
-  # save ranges before rescaling
-  #res$ranges=list(before=data.table(original_variable=colnames(X), min = colMins(X), max=colMaxs(X))[!grepl('[_]sq|[_]cop[_]|[_]dum', original_variable)])
   
   if (rescale==T) rescale_values = apply(X, 2, function(x) max(abs(x)))
   if (rescale==F) rescale_values = apply(X, 2, function(x) 1)
@@ -475,20 +435,8 @@ model_sur <- function(focal_models, maxiter = 5000) {
   X=X/div_matrix
   
   estmethod = "FGLS"
-  #maxiter=5000
   
-  # remove var from itersur
-  #tmp=sapply(1:ncol(X), function(rem) try(itersur(X=as.matrix(X[,-rem]),Y=as.matrix(Y),index=index, method = estmethod, maxiter=maxiter),silent=T))
-  
-  #unlist(lapply(tmp,class))
-  
-  
-  #colnames(X)[which(unlist(lapply(tmp,class))=='character')]
-  
- # !all(order(index[, 2], index[, 1]) == 1:nrow(X))
-  
-  
-  m<-itersur(X=as.matrix(X),Y=as.matrix(Y),index=index, method = estmethod, maxiter=maxiter) #, use_ginv=F
+  m<-itersur(X=as.matrix(X),Y=as.matrix(Y),index=index, method = estmethod, maxiter=maxiter)
   if (m@iterations==maxiter&maxiter>1) stop("Reached max. number of iterations with SUR. Likely did not converge.")
   
   # compare parameter estimates

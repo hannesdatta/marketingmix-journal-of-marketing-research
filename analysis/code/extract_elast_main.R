@@ -1,73 +1,61 @@
-#
-#
-#
 # Extracts elasticities from .RData file
-#
-#
-#
-#
 
 # Load packages
 library(data.table)
-#library(marketingtools)
 
 # Load results
 files <- list.files('../output/', pattern = 'results.*[.]RData$', full.names=T)
 files <- grep('marketshare',files, invert=T, value=T)
 
-#unlink('../output/*.csv')
-
-# load panel data
-brand_panel=fread('../temp/preclean_main.csv')
-brand_panel[, ':=' (date = as.Date(date))]
+# Load panel data
+  brand_panel=fread('../temp/preclean_main.csv')
+  brand_panel[, ':=' (date = as.Date(date))]
 
 # Extract model names from .RData file
-out = lapply(files, function(fn) {
+  out = lapply(files, function(fn) {
+    cat(paste0('Loading ', fn, '...\n'))
+    print(ls())
+    load(file=fn)
+    print(ls())
+    
+    lscall=ls() 
+    models <- setdiff(c(grep('results[_]', lscall, value=T)),'results_brands')
+    model_name = models[1]
+    
+    # Extract elasticities
+    print(model_name)
+    results_brands=eval(parse(text=model_name))
+  
+    # Identify any problems in model estimation
+    checks <- unlist(lapply(results_brands, class))
+    
+    if (nrow(rbindlist(lapply(results_brands, function(x) x$elast)))==0) {
+      elast=NULL} else {
+        # extract elasticities
+        elast <- rbindlist(lapply(results_brands[!checks=='try-error'], function(x) x$elast))
+        
+        setkey(brand_panel, category, country, brand)
+        setkey(elast, category, country, brand)
+        elast[brand_panel, ':=' (selection_obs48=i.obs48, selection_brands=!grepl('allothers|^super|^amazon',brand,ignore.case=T))]
+        
+      }
+    
+    # get predictions
+    preds <- rbindlist(lapply(results_brands[!checks=='try-error'], function(x) x$predictions))
+    
+    # get predictions
+    predsk <- rbindlist(lapply(results_brands[!checks=='try-error'], function(x) x$predictions_kfold))
+    
+    rm(results_brands)
+    
+    eval(parse(text=paste0('rm(', model_name, ')')))
+    
+    
+    return(list(model = model_name, checks=checks, elast=elast, predictions=preds,
+    predictions_kfold = predsk))
+    })
 
-  cat(paste0('Loading ', fn, '...\n'))
-  print(ls())
-  load(file=fn)
-  print(ls())
   
-  lscall=ls() #envir=.GlobalEnv)
-  models <- setdiff(c(grep('results[_]', lscall, value=T)),'results_brands')
-  model_name = models[1]
-  
-  # Extract elasticities
-  print(model_name)
-  results_brands=eval(parse(text=model_name))
-
-  # identify model crashes
-  checks <- unlist(lapply(results_brands, class))
-  
-  if (nrow(rbindlist(lapply(results_brands, function(x) x$elast)))==0) {
-    elast=NULL} else {
-      # extract elasticities
-      elast <- rbindlist(lapply(results_brands[!checks=='try-error'], function(x) x$elast))
-      
-      setkey(brand_panel, category, country, brand)
-      setkey(elast, category, country, brand)
-      elast[brand_panel, ':=' (selection_obs48=i.obs48, selection_brands=!grepl('allothers|^super|^amazon',brand,ignore.case=T))]
-      
-    }
-  
-  # get predictions
-  preds <- rbindlist(lapply(results_brands[!checks=='try-error'], function(x) x$predictions))
-  
-  # get predictions
-  predsk <- rbindlist(lapply(results_brands[!checks=='try-error'], function(x) x$predictions_kfold))
-  
-  #markets=data.table(market_id=analysis_markets)[, ':=' (i=1:.N, available=!checks=='try-error')]
-  
-  rm(results_brands)
-  
-  eval(parse(text=paste0('rm(', model_name, ')')))
-  
-  
-  return(list(model = model_name, checks=checks, elast=elast, predictions=preds,
-  predictions_kfold = predsk))
-  })
-
 results <- out
 
 for (i in seq(along=out)) {
@@ -87,4 +75,3 @@ print(table(ifelse(out[[i]]$checks=='list','models converged','error in estimati
 
 cat('\n\n(File used to enable track changes by makefile).\n')
 sink()
-

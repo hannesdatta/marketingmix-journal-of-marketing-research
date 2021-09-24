@@ -372,7 +372,7 @@ ctrl_vars = out$data[, grepl('^ctrl', colnames(out$data))]
 data = list(y=out$data$y, endog=cbind(out$data$x1, out$data$x2), X=as.matrix(cbind(rep(1,length(out$data$y)), ctrl_vars)))
 
 # assemble starting parameters
-results <- sapply(2:4, function(levels) {
+results <- lapply(2:4, function(levels) {
   cat('Estimationg for ', levels, ' levels...\n')
   #levels = 3
   endogenous_variables = 2
@@ -398,6 +398,10 @@ results <- sapply(2:4, function(levels) {
     control = list(iter.max = 1000, eval.max = 1000)
   )
   
+  rec_pars=map_pars(nlminb$par,
+           levels = levels,
+           endogenous_variables = endogenous_variables)
+  
   if(0) {
   # compare to lm
   summary(lm(y~x1+x2+ctrl_1+ctrl_2+ctrl_3, data=out$data))
@@ -416,10 +420,19 @@ results <- sapply(2:4, function(levels) {
         
   }
   
-  return(c(levels=levels, endogenous_variables=endogenous_variables, unlist(llik_complete(nlminb$par, levels = levels, endogenous_variables = endogenous_variables, data = data))))
+  return(list(summary=c(levels=levels, endogenous_variables=endogenous_variables, unlist(llik_complete(nlminb$par, levels = levels, endogenous_variables = endogenous_variables, data = data))),rec_pars=rec_pars))
 })
 
-results
+lapply(results, function(x) x$summary)
+
+```
+
+```{r}
+
+# does it impact parameter stability --> YES!
+lapply(results, function(x) x$rec_pars$gamma)
+
+
 
 ```
 

@@ -271,3 +271,46 @@ my_capitalize <- function(x) {
     
   })
 }
+
+
+rsq <- function(m) {
+  resid=resid(m)
+  pred=predict(m)
+  y=pred+resid
+  return(cor(y,pred)^2)
+}
+
+
+round_percent <- function(x) { 
+  x <- x/sum(x)*100  # Standardize result
+  res <- floor(x)    # Find integer bits
+  rsum <- sum(res)   # Find out how much we are missing
+  if(rsum<100) { 
+    # Distribute points based on remainders and a random tie breaker
+    o <- order(x%%1, sample(length(x)), decreasing=TRUE) 
+    res[o[1:(100-rsum)]] <- res[o[1:(100-rsum)]]+1
+  } 
+  res 
+}
+
+
+
+replace_categories <- function(x) {
+  ret = rep('', length(x))
+  ret[grepl('washing',x)] <- 'Washing machines'
+  ret[grepl('tv_gen1_crtv',x)] <- 'CRT TVs'
+  ret[grepl('tv_gen2_ptv',x)] <- 'Plasma TVs'
+  ret[grepl('tv_gen3_lcd_only',x)] <- 'LCD TVs'
+  ret[grepl('tablets',x)] <- 'Tablets'
+  ret[grepl('phones_smart',x)] <- 'Smartphones'
+  ret[grepl('phones_mobile',x)] <- 'Mobile phones'
+  ret[grepl('microwave',x)] <- 'Microwaves'
+  ret[grepl('laptop',x)] <- 'Laptop computers'
+  ret[grepl('dvd',x)] <- 'DVD players and recorders'
+  ret[grepl('desktoppc',x)] <- 'Desktop computers'
+  ret[grepl('cooling',x)] <- 'Refrigerators'
+  ret[grepl('camera_slr',x)] <- 'SLR cameras'
+  ret[grepl('camera_compact',x)] <- 'Compact cameras'
+  
+  return(ret)
+}

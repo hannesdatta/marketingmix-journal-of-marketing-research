@@ -40,7 +40,7 @@ init()
 
 
 dir.create('../output')
-#unlink('../output/')
+
 
 ## Load panel data
 	brand_panel=fread('../temp/preclean_main.csv')
@@ -55,33 +55,23 @@ dir.create('../output')
 	analysis_markets <- unique(markets$market_id)
   length(analysis_markets)
  
-  
+# view number of included brands  
   brand_panel[selected==T&timewindow==T&obs48, list(.N),by=c('brand','category','country')][!grepl('allothers',brand)]
   
-  # total u sales
-  alls=sum(brand_panel$usales,na.rm=T)
-  cov=sum(brand_panel[selected==T&timewindow==T&obs48]$usales,na.rm=T)
-  cov/alls # --> report in paper
-  
-  
-  brand_panel[selected==T&timewindow==T&obs48, list(.N),by=c('brand','category','country')][!grepl('allothers',brand)]
-  
-  brand_panel[selected==T&timewindow==T&obs48, list(.N),by=c('brand','category','country')][!grepl('allothers',brand)]
-  brand_panel[selected==T&timewindow==T&obs48, list(.N),by=c('brand')][!grepl('allothers',brand)] # -> uniq brands
-  
-  
-# Define additional variables
+# Define trend
   setorder(brand_panel, market_id, brand, date)
   brand_panel[selected==T&timewindow==T, trend:=as.double(.GRP),by=c('market_id', 'brand','date')]
   brand_panel[selected==T&timewindow==T, trend:=trend-min(trend,na.rm=T)+1,by=c('market_id', 'brand')]
   brand_panel[selected==T&timewindow==T, lntrend:=log(trend),by=c('market_id', 'brand')]
   
+# Define quarterly dummies
   for (q in 1:3) {  
     brand_panel[, paste0('quarter', q):=0]
     brand_panel[quarter==q, paste0('quarter', q):=1]
   }  
     
-  vars=c('rwpspr', 'rwcpspr', 'rnwpr', 'llen', 'wpswdst', 'wcpswdst', 'nwwdst', 'usales', 'lagusales', 'radv', 'nov6sh','nov12sh','nov3sh') #, 'adv')
+# Define focal marketing mix instruments
+  vars=c('rwpspr', 'llen', 'wpswdst', 'usales', 'lagusales', 'radv')
   for (var in vars) {
     brand_panel[, anyzero:=as.numeric(any(get(var)==0),na.rm=T),by=c('market_id', 'brand')]
     brand_panel[is.na(anyzero), anyzero:=0]
@@ -91,8 +81,8 @@ dir.create('../output')
   }
   
   
-  # competitive mmix
-  for (v in c('rwpspr', 'rwcpspr', 'rnwpr', 'llen', 'wpswdst','wcpswdst', 'nwwdst', 'radv', 'nov6sh','nov12sh','nov3sh')) { #}, 'lnadv')) {
+# Define competitive marketing-mix
+  for (v in c('rwpspr', 'llen', 'wpswdst', 'radv')) { 
     setorder(brand_panel, market_id, category, country, brand, date)
     
     # includes current period
@@ -103,16 +93,6 @@ dir.create('../output')
     
     # past-three period sales
     brand_panel[, rollmean_sales:=c(NA, rollmean_salescp[-.N]), by = c('market_id','brand_id')]
-    
-    # including the current period
-    brand_panel[, paste0('numerator_', v):=sum(rollmean_salescp*get(v),na.rm=T), by = c('market_id', 'date')]
-    brand_panel[, paste0('denominator_', v):=sum(rollmean_salescp, na.rm=T), by = c('market_id', 'date')]
-    
-    brand_panel[, paste0('cpcomp_', v):=(get(paste0('numerator_', v))-rollmean_salescp*get(v))/(get(paste0('denominator_', v))-rollmean_salescp)]
-    brand_panel[, paste0('cpcomp_ln', v):=log(get(paste0('cpcomp_', v)))]
-    
-    brand_panel[, paste0('dcpcomp_',v):=get(paste0('cpcomp_', v))-c(NA, get(paste0('cpcomp_', v))[-.N]), by = c('market_id', 'brand_id')]
-    brand_panel[, paste0('dcpcomp_ln',v):=get(paste0('cpcomp_ln', v))-c(NA, get(paste0('cpcomp_ln', v))[-.N]), by = c('market_id', 'brand_id')]
     
     # excluding current period
     brand_panel[, paste0('numerator_', v):=sum(rollmean_sales*get(v),na.rm=T), by = c('market_id', 'date')]
@@ -129,83 +109,43 @@ dir.create('../output')
     brand_panel[, paste0('denominator_', v):=NULL]
     
     }
+ 
   
-  length(unique(brand_panel[selected==T]$brand_id))
-  length(unique(brand_panel[selected==T & timewindow==T &obs48==T]$brand_id))
-  nrow(brand_panel[selected==T])
-  nrow(brand_panel[selected==T & timewindow==T &obs48==T])
-  
-  nrow(brand_panel[selected==T & timewindow==T &obs48==T])/nrow(brand_panel[selected==T])
-  
-  
-  
-  brand_panel[, list(.N),by=c('category','country','brand')] # [!grepl('alloth',brand)]
-  brand_panel[, list(.N),by=c('category','country','brand')][!grepl('alloth',brand)]
-  brand_panel[selected==T & timewindow == T & obs48 == T, list(.N),by=c('category','country','brand')][!grepl('alloth',brand)]
-  # we lose:
-  brand_panel[selected==T & timewindow == T & obs48 == F, list(.N),by=c('category','country','brand')][!grepl('alloth',brand)]
-  brand_panel[selected==T & timewindow == T & obs48 == F, list(.N),by=c('category','country','brand')][!grepl('alloth',brand)][, list(.N, avgN=mean(N)),by=c('category')]
-  
-  rem_obs=nrow(brand_panel[selected==T & timewindow == F & obs48 == T])
-  keep_obs=nrow(brand_panel[selected==T & timewindow == T & obs48 == T])
-  
- # (rem_obs)/keep_obs
-  
-  # share of observations/unit sales in data (reported for paper)
-  sum(brand_panel[selected==T & timewindow==T &obs48==T]$usales, na.rm=T)/sum(brand_panel$usales,na.rm=T)
-
-  brand_panel <- brand_panel[selected==T & timewindow==T &obs48==T] # at least 48 obs for estimation
-  
-  length(unique(brand_panel[selected==T]$brand_id))
-  
-  brand_panel[, list(.N),by=c('brand','category','country')][!grepl('allother',brand)]
-  brand_panel[, list(.N),by=c('brand','category','country')][!grepl('allother',brand)][, list(.N),by=c('brand')] # --> uniq brand
-  
-  
-  # Define copula terms
-  for (var in c('rwpspr', 'rwcpspr', 'rnwpr', 'llen', 'wpswdst', 'wcpswdst', 'nwwdst', 'radv', 'nov3sh','nov6sh','nov12sh')) {
+# Define copula terms
+  for (var in c('rwpspr', 'llen', 'wpswdst', 'radv')) {
     brand_panel[, paste0('cop_', var):=make_copula(get(paste0(var))), by = c('market_id','brand')]
   }
   
-  # share of normality
+# Assess share of normality
   norm_tests <- rbindlist(lapply(c('rwpspr','llen','wpswdst'), function(.v) brand_panel[selected==T&timewindow==T&obs48==T&!is.na(get(.v))&!grepl('allother',brand), list(shapiro_p_val=shapiro.test(get(.v))$p), by = c('category','country','brand')][,variable:=.v]))
   norm_tests[, list(length(which(shapiro_p_val<=.1))/.N),by=c('variable')]
   norm_tests[, list(length(which(shapiro_p_val<=.1))/.N)]
   
-  
-  
-  
-  #brand_panel[, lngdp := log(gdppercapita)]
+# Remaining control variables  
   brand_panel[, lnholiday := log(npublicholidays+1)]
   brand_panel[, holiday := npublicholidays]
-  
+ 
+# Remove "all other" (composite rest brand) from data 
   brand_panel <- brand_panel[!grepl('alloth',brand, ignore.case=T)]
-
-
-  list1= brand_panel[, list(.N),by=c('category','country', 'market_id')]
-  #list2=brand_panel_raw[, list(.N),by=c('category','country', 'market_id')]
-  #list2[!market_id%in%list1$market_id]
-  # we're losing another two tablet categories
 
 
 ##########################
 ### CLUSTER ESTIMATION ###
 ##########################
 
-# try whether cluster exists
-ncpu=7
-try(stopCluster(cl),silent=T)
+# build parallel computation environment
+  ncpu=7 # number of CPUs
+  try(stopCluster(cl),silent=T) # verify cluster isn't running yet
 
-cl<-makePSOCKcluster(ncpu)
-clusterExport(cl,c('brand_panel', 'init'))
-void<-clusterEvalQ(cl, init())
+  cl<-makePSOCKcluster(ncpu) # create cluster
+  clusterExport(cl,c('brand_panel', 'init')) # export data
+  void<-clusterEvalQ(cl, init()) # load packages
 
+# get brand IDs to estimate models
+  bids <- unique(brand_panel$brand_id)
+  length(bids)
 
-
-bids <- unique(brand_panel$brand_id)
-length(bids)
-
-init()
+  init()
 
 
 estim_model <- function(model_name, fun, ...) {
@@ -224,29 +164,36 @@ estim_model <- function(model_name, fun, ...) {
   }
 }
 
+############################
+### DEFINITION OF MODELS ###
+############################
+
 
 ## MAIN MODEL
 estim_model('results_ec_main', 'estimate_ec')
 
-## MAIN MODEL W/ NOVELTY
-estim_model('results_ec_main_w_novelty', 'estimate_ec',vars = c('rwpspr','llen','wpswdst', 'nov6sh'),
-controls_diffs='^comp[_](rwpspr|llen|wpswdst|nov6sh)$', 
-controls_laglevels = '',
-controls_curr = 'quarter[1-3]|^holiday|^trend',
-controls_cop = '^cop[_](rwpspr|llen|wpswdst|nov6sh)$')
-  
 ## MAIN MODEL w/ PRODUCT ATTRIBUTES
 estim_model('results_ec_main_attributes', 'estimate_ec', controls_curr = 'quarter[1-3]|^holiday|^trend|^attr')
 
-## ADDING MARKETING MIX INSTRUMENTS ITERATIVELY
-estim_model('results_ec_nommix', 'estimate_ec', vars = NULL, controls_cop = NULL)
+## MAIN MODEL W/ LONG-TERM COMPETITIVE EFFECTS
+estim_model('results_ec_unrestrictedcompetition', 'estimate_ec', controls_laglevels = '^comp[_](rwpspr|llen|wpswdst)$')
 
-estim_model('results_ec_onlypr', 'estimate_ec', vars = c('rwpspr'), controls_cop = '^cop[_](rwpspr)$')
+## MAIN MODEL WITH LOG TREND (INSTEAD OF LINEAR TREND)
+estim_model('results_ec_lntrend', 'estimate_ec', controls_curr = 'quarter[1-3]|lnholiday|^lntrend')
 
-estim_model('results_ec_onlyllen', 'estimate_ec', vars = c('llen'), controls_cop = '^cop[_](llen)$')
 
-estim_model('results_ec_onlydst', 'estimate_ec', vars = c('wpswdst'), controls_cop = '^cop[_](wpswdst)$')
+#----
 
+
+## REMOVING FOCAL MARKETING MIX INSTRUMENTS ITERATIVELY
+estim_model('results_ec_remocpr', 'estimate_ec', vars = c('llen','wpswdst'), controls_diffs='^comp[_](llen|wpswdst)$', 
+            controls_cop = '^cop[_](llen|wpswdst)$')
+
+estim_model('results_ec_remocllen', 'estimate_ec', vars = c('rwpspr','wpswdst'), controls_diffs='^comp[_](rwpspr|wpswdst)$', 
+            controls_cop = '^cop[_](rwpspr|wpswdst)$')
+
+estim_model('results_ec_remocdst', 'estimate_ec', vars = c('rwpspr','llen'), controls_diffs='^comp[_](rwpspr|llen)$', 
+            controls_cop = '^cop[_](rwpspr|llen)$')
 
 ## ADDING FOCAL & COMPETITIVE MARKETING MIX INSTRUMENTS ITERATIVELY
 estim_model('results_ec_noocmmix', 'estimate_ec', vars = NULL, controls_cop = NULL, controls_diff = NULL)
@@ -260,137 +207,24 @@ estim_model('results_ec_onlyocllen', 'estimate_ec', vars = c('llen'), controls_c
 estim_model('results_ec_onlyocdst', 'estimate_ec', vars = c('wpswdst'), controls_cop = '^cop[_](wpswdst)$',
             controls_diff = '^comp[_](wpswdst)$')
 
-## REMOVING FOCAL MARKETING MIX INSTRUMENTS ITERATIVELY
-estim_model('results_ec_rempr', 'estimate_ec', vars = c('llen','wpswdst'), 
-            controls_cop = '^cop[_](llen|wpswdst)$')
 
-estim_model('results_ec_remllen', 'estimate_ec', vars = c('rwpspr','wpswdst'), 
-            controls_cop = '^cop[_](rwpspr|wpswdst)$')
+#----
 
-estim_model('results_ec_remdst', 'estimate_ec', vars = c('rwpspr','llen'), 
-            controls_cop = '^cop[_](rwpspr|llen)$')
-
-estim_model('results_ec_remocpr', 'estimate_ec', vars = c('llen','wpswdst'), controls_diffs='^comp[_](llen|wpswdst)$', 
-            controls_cop = '^cop[_](llen|wpswdst)$')
-
-estim_model('results_ec_remocllen', 'estimate_ec', vars = c('rwpspr','wpswdst'), controls_diffs='^comp[_](rwpspr|wpswdst)$', 
-            controls_cop = '^cop[_](rwpspr|wpswdst)$')
-
-estim_model('results_ec_remocdst', 'estimate_ec', vars = c('rwpspr','llen'), controls_diffs='^comp[_](rwpspr|llen)$', 
-            controls_cop = '^cop[_](rwpspr|llen)$')
-
-
-
-# do not use copula's
-## REMOVING FOCAL MARKETING MIX INSTRUMENTS ITERATIVELY
-estim_model('results_ec_main_nc', 'estimate_ec', controls_cop = NULL)
-
-estim_model('results_ec_noocmmixnc', 'estimate_ec', vars = NULL, controls_cop = NULL, controls_diff = NULL)
-estim_model('results_ec_nommixnc', 'estimate_ec', vars = NULL, controls_cop = NULL)
-
-estim_model('results_ec_remprnc', 'estimate_ec', vars = c('llen','wpswdst'), 
-            controls_cop =NULL)
-
-estim_model('results_ec_remllennc', 'estimate_ec', vars = c('rwpspr','wpswdst'), 
-            controls_cop = NULL)
-
-estim_model('results_ec_remdstnc', 'estimate_ec', vars = c('rwpspr','llen'), 
-            controls_cop = NULL)
-
-estim_model('results_ec_remocprnc', 'estimate_ec', vars = c('llen','wpswdst'), controls_diffs='^comp[_](llen|wpswdst)$', 
-            controls_cop = NULL)
-
-estim_model('results_ec_remocllennc', 'estimate_ec', vars = c('rwpspr','wpswdst'), controls_diffs='^comp[_](rwpspr|wpswdst)$', 
-            controls_cop = NULL)
-
-estim_model('results_ec_remocdstnc', 'estimate_ec', vars = c('rwpspr','llen'), controls_diffs='^comp[_](rwpspr|llen)$', 
-            controls_cop = NULL)
-
-
-estim_model('results_ec_onlyprnc', 'estimate_ec', vars = c('rwpspr'), controls_cop = NULL)
-
-estim_model('results_ec_onlyllennc', 'estimate_ec', vars = c('llen'), controls_cop = NULL)
-
-estim_model('results_ec_onlydstnc', 'estimate_ec', vars = c('wpswdst'), controls_cop = NULL)
-
-
-
-estim_model('results_ec_onlyocprnc', 'estimate_ec', vars = c('rwpspr'), controls_cop = NULL,
-            controls_diff = '^comp[_](rwpspr)$')
-
-estim_model('results_ec_onlyocllennc', 'estimate_ec', vars = c('llen'), controls_cop = NULL,
-            controls_diff = '^comp[_](llen)$')
-
-estim_model('results_ec_onlyocdstnc', 'estimate_ec', vars = c('wpswdst'), controls_cop = NULL,
-            controls_diff = '^comp[_](wpswdst)$')
-
-
-## WITH VARYING SALES WEIGHTS
-
-# weights t-2, t-1, t ("weights, including current sales")
-
-estim_model('results_ec_main_currweights', 'estimate_ec', vars=c('rwcpspr','llen','nwwdst'),
-            controls_diffs='^cpcomp[_](rwcpspr|llen|wcpswdst)$',
-            controls_cop = '^cop[_](rwcpspr|llen|wcpswdst)$')
-
-## MULTIPLICATIVE ERROR CORRECTION MODEL
-
-estim_model('results_ec_log', 'estimate_ec', dv = 'lnusales',
-            vars = c('lnrwpspr', 'lnllen', 'lnwpswdst'),
-            controls_diffs = '^comp[_](lnrwpspr|lnllen|lnwpswdst)$',
-            controls_laglevels = '',
-            controls_curr = 'quarter[1-3]|^lnholiday|^lntrend',
-            controls_cop = '^cop[_](rwpspr|llen|wpswdst)$', # copula terms of log versus levels is the same
-            pval = .1)
-
-
-### Sales response models
-
-## Linear sales response models
-
-# Linear sales model corresponding to the main model
+## LINEAR SALES RESPONSE MODEL, CORRESPONDING TO THE MAIN MODEL
 estim_model('results_salesresponse_linear', 'estimate_salesresponse')
 
-# No lagged dependent variable
+## LINEAR SALES RESPONSE MODEL, CORRESPONDING TO THE MAIN MODEL (WITHOUT LAGED DV)
 estim_model('results_salesresponse_linear_noldv', 'estimate_salesresponse', withlagdv=F)
 
-# Only lagged dependent variable
+## LINEAR SALES RESPONSE MODEL, ONLY W/ A LAGGED DEPENDENT VARIABLE
 estim_model('results_salesresponse_linear_onlyldv', 'estimate_salesresponse', withlagdv=T, vars=NULL, controls=NULL)
 
-## Log-log sales response models
 
-# Log-log sales model corresponding to the main model
-
-estim_model('results_salesresponse_loglog', 'estimate_salesresponse',vars='lnrwpspr','lnllen','lnwpswdst',
-            controls='(^comp[_](lnrwpspr|lnllen|lnwpswdst)$)|quarter[1-3]|^lnholiday|^lntrend|(^cop[_](rwpspr|llen|wpswdst)$)',
-            dv = 'lnusales')
-
-# No lagged dependent variable
-estim_model('results_salesresponse_loglog_noldv', 'estimate_salesresponse', vars='lnrwpspr','lnllen','lnwpswdst',
-            controls='(^comp[_](lnrwpspr|lnllen|lnwpswdst)$)|quarter[1-3]|^lnholiday|^lntrend|(^cop[_](rwpspr|llen|wpswdst)$)',
-            dv = 'lnusales', withlagdv=F)
-
-# Only lagged dependent variable
-estim_model('results_salesresponse_loglog_onlyldv', 'estimate_salesresponse', vars=NULL, controls = NULL, dv = 'lnusales', withlagdv=T)
-
-
-####### WITH LAGGED COMPETITION VARIABLES ######
-estim_model('results_ec_unrestrictedcompetition', 'estimate_ec',controls_laglevels = '^comp[_](rwpspr|llen|wpswdst)$')
-
-####### WITHOUT ENDOGENEITY CONTROLS ######
-estim_model('results_ec_noendogeneity', 'estimate_ec',controls_cop = NULL)
-
-
-####### WITH LN TREND INSTEAD OF TREND ######
-estim_model('results_ec_lntrend', 'estimate_ec',controls_curr = 'quarter[1-3]|lnholiday|^lntrend')
-
-
-#####################
-# SUR ON MAIN MODEL #
-#####################
+###################################
+# FUNCTION TO ESTIMATE SUR MODELS #
+###################################
 
 do_sur <- function(results_model = results_ec_main) {
-  #results_model <- results_ec_main
   
   estimated_markets <- rbindlist(lapply(results_model, function(x) x$paneldimension[,-c('date'),with=F][1]))
   estimated_markets[, ordered:=1:.N,by=c('market_id')]
@@ -412,7 +246,6 @@ do_sur <- function(results_model = results_ec_main) {
     list(market_id=mid, results=res)
   })
   
-  #
   table(unlist(lapply(sur_res,function(x) class(x$results))))
   which(unlist(lapply(sur_res,function(x) class(x$results)))=='try-error')
   
@@ -431,14 +264,11 @@ do_sur <- function(results_model = results_ec_main) {
   }
   
   
-  # calculation of elasticities [hm...]
   cat('Calculating elasticities', fill=T)
   results_with_sur_models = parLapplyLB(cl, results_model, function(x) {
     try(process_sur(x), silent=T)
   })
-  #which(unlist(lapply(results_with_sur_models, class))=='try-error')
   
-
   # remove models
   ret_model <- lapply(results_with_sur_models, function(x) {
     x$model_matrix <- NULL
@@ -463,6 +293,7 @@ do_sur <- function(results_model = results_ec_main) {
 }
 
 ## Execute SUR computation
+
 # Load models
 if (!file.exists('../output/results_ec_main_sur.RData')) {
   load('../output/results_ec_main.RData')
@@ -470,9 +301,7 @@ if (!file.exists('../output/results_ec_main_sur.RData')) {
   save(results_ec_main_sur, file = '../output/results_ec_main_sur.RData')
 }
 
-surs <- c(#'results_ec_chinahk_withadv', 'results_ec_chinahk_withoutadv',
-          #'results_ec_first60', 'results_ec_last60',
-          'results_ec_main_attributes', 'results_ec_unrestrictedcompetition')
+surs <- c('results_ec_main_attributes', 'results_ec_unrestrictedcompetition')
 
 for (s in surs) {
   cat(paste0('Calculating SUR for ', s), fill=T)
@@ -483,28 +312,6 @@ for (s in surs) {
     eval(parse(text=paste0('save(', s, '_sur, file = \'../output/', s, '_sur.RData\')'))) 
   }
 }
-
-if (!file.exists('../output/results_ec_main_w_novelty_sur.RData')) {
-  load('../output/results_ec_main_w_novelty.RData')
-  results_ec_main_w_novelty_sur <- do_sur(results_ec_main_w_novelty)
-  save(results_ec_main_w_novelty_sur, file = '../output/results_ec_main_w_novelty_sur.RData')
-} 
-
-# Function scans global environment for occurence of regular expression (`regex`), 
-# and saves all objects in `filename`.
-save_by_regex <- function(regex, filename) {
-  lscall = ls(envir=.GlobalEnv)
-  stuff_to_save = grep(regex, lscall, value=T)
-  if (length(stuff_to_save)>0) {
-    cat('saving...\n')
-    cat(paste0('(', paste0(stuff_to_save, collapse=', '), ')\n'))
-    save(list=stuff_to_save , file = filename)
-    cat('...done.\n') } else {
-      cat('No objects to save. Verify regular expression.\n')
-    }
-}
-
-#save_by_regex('^results[_]', filename = '../output/results_main.RData')
 
 
 ######################################
@@ -522,8 +329,7 @@ china_hk = unique(china_hk_selection[selected==T]$brand_id)
 
 length(china_hk)
 
-# find markets with adv
-
+# Locate markets to estimate model on
 table(sapply(china_hk, function(bid) use_ts(brand_panel[brand_id==bid]$adv)))
 brand_panel[brand_id%in%china_hk, list(length(unique(brand))),by=c('category','country')]
 
@@ -534,10 +340,9 @@ estim_model('results_ec_chinahk_withadv', 'estimate_ec', vars = c('rwpspr','llen
             controls_diffs='^comp[_](rwpspr|llen|wpswdst|radv)$', 
             controls_cop = '^cop[_](rwpspr|llen|wpswdst|radv)$')
 
-
 estim_model('results_ec_chinahk_withoutadv', 'estimate_ec')
 
-
+# Estimate SUR
 surs <- c('results_ec_chinahk_withadv', 'results_ec_chinahk_withoutadv')
 
 for (s in surs) {
@@ -563,11 +368,11 @@ brand_sel[, selected:=obs>=8*12]
 selected_bids = brand_sel[selected==T]$brand_id
 length(selected_bids)
 
-
 perc_select=.6
 brand_panel[!is.na(usales), percentile_obs:=(1:.N)/.N, by = c('category','country','brand')]
 brand_panel = brand_panel[percentile_obs<=perc_select & brand_id %in% selected_bids]
 
+# First x%
 
 clusterExport(cl,c('brand_panel'))
 bids = unique(brand_panel$brand_id)
@@ -580,8 +385,9 @@ if (!file.exists('../output/results_ec_first60_sur.RData')) {
   results_ec_first60_sur <- do_sur(results_ec_first60)
   save(results_ec_first60_sur, file = '../output/results_ec_first60_sur.RData')
 }
-# Last X
 
+
+# Last x%
 brand_panel = save_brandpanel
 
 brand_panel[!is.na(usales), percentile_obs:=(1:.N)/.N, by = c('category','country','brand')]
@@ -595,12 +401,12 @@ estim_model('results_ec_last60', 'estimate_ec')
 if (!exists('results_ec_last60')) load('../output/results_ec_last60.RData')
 
 if (!file.exists('../output/results_ec_last60_sur.RData')) {
-  
   results_ec_last60_sur <- do_sur(results_ec_last60)
   save(results_ec_last60_sur, file = '../output/results_ec_last60_sur.RData')
 }
 
-# Done
+# Generate file to indicate the script has completed.
+
 sink('../output/results_main.txt')
 cat('Done.')
 sink()

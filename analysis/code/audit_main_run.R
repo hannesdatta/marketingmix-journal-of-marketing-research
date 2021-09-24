@@ -33,12 +33,12 @@ for (fn in files) {
     results_model <<- eval(parse(text=paste0(mname)))
     markdown_title <<- mname
     zval_sig=qnorm(.95)
-    rmarkdown::render('explore_main.rmd', output_file=paste0('../audit/model_', mname, '.html'))
+    rmarkdown::render('audit_main.rmd', output_file=paste0('../audit/model_', mname, '.html'))
   }
   rm(results_model)
   eval(parse(text=paste0('rm(', mname,')')))
 }
 
-sink('../temp/explore_main.txt')
+sink('../temp/audit_main.txt')
 cat('done.')
 sink()
