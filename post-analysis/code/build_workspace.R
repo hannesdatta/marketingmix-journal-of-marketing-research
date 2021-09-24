@@ -44,7 +44,7 @@ predictions <- rbindlist(lapply(seq(along=files), function(f) {
   pr[, type:=names(files)[f]]
   setcolorder(pr, 'type')
   return(pr)
-  
+
 }), fill = T)
 
 fwrite(predictions, '../output/predictions_within.csv')
@@ -60,7 +60,7 @@ predictions_kfold <- rbindlist(lapply(seq(along=files), function(f) {
   #to_factor = c('date|category|country|brand|type')
   #for (.v in grep(to_factor, colnames(pr),value=T)) pr[, (.v):=as.factor(get(.v))]
   return(pr)
-  
+
 }), fill = T)
 
 fwrite(predictions_kfold, '../output/predictions_kfold.csv')
@@ -68,30 +68,30 @@ rm(predictions_kfold)
 
 merge_covar <- function(dt){
   fns <- list.files('../output/',pattern='covariates.*csv', full.names = T)
-  
+
   for (fn in fns) {
     tmp <- fread(fn)
     aggkey = unlist(strsplit(gsub('[.]csv', '', rev(strsplit(fn,'_')[[1]])[1]), '[-]'))
-    
+
     setkeyv(tmp, aggkey)
     setkeyv(dt, aggkey)
     dt <- merge(dt, tmp, all.x=T, all.y=F)
-    
+
     added_vars <- setdiff(colnames(tmp), aggkey)
     for (.v in added_vars) {
       if (!class(unlist(dt[,.v,with=F]))=='character') dt[!is.na(elastlt), paste0(.v,'_mc'):=(get(.v)-mean(get(.v),na.rm=T)),by=c('variable')]
     }
-    
+
   }
   return(dt)
-    
+
 }
 
 
 elasticities <- elast_list
 
 # merge covariates
-elast_w_covariates = c('ec_main', 'ec_main_sur','ec_main_w_novelty', 'ec_main_w_novelty_sur')
+elast_w_covariates = c('ec_main', 'ec_main_sur')
 
 elasticities2=lapply(elast_list[elast_w_covariates], merge_covar)
 
@@ -103,41 +103,67 @@ setkey(elasticities$marketshare, category,country,brand)
 elasticities$marketshare[elasticities$ec_main_sur, brand_id:=i.brand_id]
 
 # select elasticities for reporting
-  
-  
-  # Select final result set  
-  elast <- elasticities$ec_main_sur 
-  
+
+
+  # Select final result set
+  elast <- elasticities$ec_main_sur
+
   # correct brand classification
-  
+
   # videocon is from india, not from ger
   elast[brand=='videocon']$`brand_from_jp-us-ch-ge-sw`=0
+  elast[brand=='videocon']$western_brand = 0
+  elast[brand=='videocon']$country_of_origin = 'india'
+
   # YOshii is from Japan
   elast[grepl('yoshii', brand)]$`brand_from_jp-us-ch-ge-sw`=1
+  elast[grepl('yoshii', brand)]$western_brand=0
+  elast[grepl('yoshii', brand)]$country_of_origin = 'japan'
+
+
   # Simpson is from Australia
   elast[grepl('simpson', brand)]$`brand_from_jp-us-ch-ge-sw`=0
-  
-  # videocon is from india, not from ger
-  elast[brand=='videocon']$western_brand = 0
-  # YOshii is from Japan
-  elast[grepl('yoshii', brand)]$western_brand=0
-  # Simpson is from Australia
   elast[grepl('simpson', brand)]$western_brand=1
-  
+  elast[grepl('simpson', brand)]$country_of_origin='australia'
+
+  elast[grepl('jinling', brand)]$country_of_origin='china'
+  elast[grepl('ktouch', brand)]$country_of_origin='china'
+  elast[grepl('royalstar', brand)]$country_of_origin='china'
+  elast[grepl('bbk', brand)]$country_of_origin='china'
+
+  elast[grepl('benq', brand)]$country_of_origin='taiwan'
+
+  elast[grepl('leona', brand)]$country_of_origin='thailand'
+
+
+  elast[grepl('bajaj', brand)]$country_of_origin='india'
+  elast[grepl('onida', brand)]$country_of_origin='india'
+
+  elast[grepl('cornell', brand)]$country_of_origin='malaysia'
+  elast[grepl('singer', brand)]$country_of_origin='malaysia'
+
+  elast[grepl('hotpoint', brand)]$country_of_origin='italy'
+
+  elast[grepl('dse', brand)]$brand = 'dicksmith'
+  elast[grepl('dse', brand)]$country_of_origin = 'australia'
+  elast[grepl('dicksmith', brand)]$country_of_origin = 'australia'
+
+
+
   # set order of variables to appear in figures and tables
   ordered_vars =  c('llen', 'rwpspr', 'wpswdst')
   ordered_vars = ordered_vars[which(ordered_vars%in%elast$variable)]
-  
+
   names(ordered_vars) <- paste0(unlist(sanitize_table(data.frame(gsub('^ln', '', ordered_vars)))), ' elasticity')
-  
+
   # Notes for tables
   notes_sig = 'Significance levels: \\* *p*<.1, \\*\\* *p*<.05, \\*\\*\\* *p*<.01 (two-sided).'
   estimnote = paste0('Elasticities are weighted by inverse standard errors.')
-  
+
   # Significance levels
   sigvalue = .1
   zval = qnorm(1-sigvalue/2)
-  
+
   # Compute weights and z-values for estimated short- and long-term elasticities
   for (.var in c('elast', 'elastlt')) {
     elast[!is.na(get(.var)), paste0('w_', .var) := 1/get(paste0(.var, '_se'))]

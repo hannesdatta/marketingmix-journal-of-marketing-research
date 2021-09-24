@@ -157,7 +157,7 @@ for (byvar in c('country', 'category', 'novar')) {
 
 ```{r, results = 'asis', echo = FALSE}
 
-model_formula <- . ~ 1 + sbbe_round1_mc+`brand_from_jp-us-ch-ge-sw`+ln_rwpspr_windex_mc+ln_wpswdst_windex_mc+ln_llen_windex_mc+ln_nov6sh_windex_mc+ln_market_herf_mc+ln_market_meangrowth_mc+appliance+ln_penn_growthrgdpeyravg_mc+ln_ginicoef_mc+ln_penn_percapitargdpeyravg_mc+ln_penn_popyravg_mc+ln_uai_mc+ln_pdi_mc+ln_mas_mc
+model_formula <- . ~ 1 + sbbe_round1_mc+`brand_from_jp-us-ch-ge-sw`+ln_llen_windex_mc+ln_rwpspr_windex_mc+ln_wpswdst_windex_mc+ln_nov6sh_windex_mc+ln_market_herf_mc+ln_market_meangrowth_mc+appliance+ln_penn_popyravg_mc+ln_penn_percapitargdpeyravg_mc+ln_penn_growthrgdpeyravg_mc+ln_ginicoef_mc+ln_pdi_mc+ln_uai_mc+ln_mas_mc
 
 tmp = data.table(elast)
 

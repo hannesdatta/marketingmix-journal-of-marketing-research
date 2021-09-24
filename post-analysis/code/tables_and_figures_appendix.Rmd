@@ -1,5 +1,5 @@
 ---
-title: "Main tables"
+title: "Appendix"
 subtitle: "Cross-National Differences in Market Response: Line-Length, Price, and Distribution Elasticities in Fourteen Indo-Pacific Rim Economies"
 output:
   html_document: default
@@ -30,12 +30,12 @@ library(ggthemes)
 brand_panel=fread('../../analysis/temp/preclean_main.csv')
 brand_panel[, ':=' (date = as.Date(date))]
 
-# Load auxilary functions
+# Load auxiliary functions
 source('proc_auxilary.R')
 source('proc_rename.R')
 
 # Load results
-load('app/app_workspace.RData')
+load('../output/workspace.RData')
 
 predictions <- fread('../output/predictions_within.csv')
 predictions_kfold = fread('../output/predictions_kfold.csv')
@@ -68,9 +68,12 @@ cat("<P style='page-break-before: always'>")
 ```{r sample_origin, echo=FALSE, results='asis'}
 
 cols =  c('country_of_origin')
+
+ 
 tmp = elast[, list(.N), by = c('brand',cols)]
 tmp = tmp[!grepl('alloth', brand)]
 tmp[brand=='threed', brand:='3D']
+tmp <- tmp[!grepl('super|amazon', brand)]
 tmp = tmp[, list(nbrands=length(unique(brand)), all_brands=paste(my_capitalize(brand)[order(brand)], collapse=', ')), by = cols]
 tmp[country_of_origin==''|is.na(country_of_origin), country_of_origin := 'Country not available']
 tmp[, country_of_origin:=my_capitalize(country_of_origin)]
@@ -83,28 +86,8 @@ tmp=sanitize_table(tmp)
 kable(tmp, caption = tab('Country-of-origins for brands in sample^1^', prefix ='A'),format='html') %>%
         kable_styling() %>% footnote(number=paste0('Countries are ordered by the number of brands from a given country; brand names are listed alphabetically.'))
 
-```
+sum(tmp$`Number of brands`)
 
-<P style='page-break-before: always'>
-
-```{r VIFS, echo=FALSE,results='asis', include=FALSE}
-if(0){
-m1 = ~1+ appliance + ln_market_growth_mc + ln_market_herf_mc + local_to_market  + ln_brand_prindex_mean_mc + brandz
-
-m<-lm(update(elast~., m1), data=elast[variable=='llen'])
-
-frame1=data.frame(vif(m))
-colnames(frame1) <- c('VIF')
-frame1$variable=rownames(frame1)
-rownames(frame1)<-NULL
-frame1=frame1[, c('variable','VIF')]
-frame1=sanitize_table(frame1)
-cat("<P style='page-break-before: always'>")
-
-if(0){
-kable(frame1,format='html', caption = tab('Assessing multicollinearity^1^', prefix='A'))%>% kable_styling() %>% footnote(number=paste0('Table reports VIFs values calculated in regression models using main effects for all variables listed above (i.e., excluding brand, category, and country effects).'))
-}
-}
 ```
 
 ```{r overview2, echo=FALSE, warning=FALSE, results='asis'}
@@ -123,26 +106,91 @@ kable(tabl, caption = tab('Overview of markets (category/country combination) in
 
 ```
 
-```{r overview_avgelast, echo=FALSE, results='asis', warning = FALSE}
-#elast_all
-tmp = elast[, list(welast = sum(elastlt*w_elastlt)/sum(w_elastlt)), by = c('category','country', 'variable')]
 
-for (i in ordered_vars) {
-  
-tabl = dcast.data.table(tmp[variable==i], category~country, value.var=c('welast'))
-rownames(tabl) <- NULL
+```{r summarystats_model, echo=FALSE, results= 'asis'}
 
-tabl=sanitize_table(tabl)
-tabl[, sort_category:=tolower(`Category`)]
-setorder(tabl, sort_category)
-tabl[, sort_category:=NULL]
+covars_summary <- gsub('ln', '', c('usales', gsub('rwpspr', 'rwpsprd', ordered_vars)))
 
-print(kable(tabl, digits =3, caption = tab(paste0('Mean ', tolower(names(ordered_vars)[ordered_vars==i]), ' by market (category/country combination)^1^'), prefix='A'))%>% kable_styling() %>% footnote(number=paste0('Elasticities weighted by inverse standard errors.')))
+tmp=data.table(brand_panel)
+nbrands=length(unique(brand_panel$brand))
+nmarkets=length(unique(brand_panel$market_id))
+nobs=nrow(tmp)
+
+tmp=tmp[, lapply(.SD, function(x) c(median=median(x,na.rm=T),firstqnt=quantile(x,.25,na.rm=T),thirdqnt=quantile(x,.75,na.rm=T))), .SDcols=c(covars_summary)]
+
+
+tmp[, var:=rep(c('median', 'firstqnt','thirdqnt'),1)]
+tmp=melt(tmp, id.var=c('var'))
+
+dtf=dcast(tmp, variable~var)
+setcolorder(dtf, c('variable', rep(c('median', 'firstqnt','thirdqnt'),1)))
+
+### add correlation
+give_cor <- function(cordat=data.frame(brand_panel[, covars_summary,with=F])) {
+  correl=cor(cordat,use='pairwise.complete')
+  N=matrix(double(prod(dim(correl))),ncol=ncol(cordat))
+  t=N
+  p=N
+  for (i in 1:nrow(correl)) {
+    for (j in 1:ncol(correl)) {
+      N[i,j]=length(which(complete.cases(cordat[,c(i,j)])))
+      t[i,j]=sqrt(N[i,j]-2)*(correl[i,j]/sqrt(1-correl[i,j]^2))
+      p[i,j]=dt(t[i,j], df=N[i,j]-2)
+    }
+  }
+return(list(cor=correl,p=p))
 }
+
+correl = give_cor(data.frame(brand_panel[, covars_summary,with=F]))
+
+dtf=cbind(dtf,correl$cor[,-ncol(correl$cor)])
+
+
+dtf=sanitize_table(dtf)
+
+
+print(kable(dtf, format='html', initial.zero = FALSE, digits=c(1,0,0,0,3,3,3),caption = tab(paste0('Summary statistics and correlations for variables in sales response model^1^'),prefix='A')) %>% kable_styling() %>% footnote(number=c(paste0('Summary statistics and correlations for variables (prior to the log-operation and mean-centering) are computed across ', prettyNum(nobs, big.mark = ','), ' observations in our sample.'),'Converted to USD.')))
+      #
+    #%>% add_header_above(c(" " = 1, "Summary statistics" = 3, "Correlations" = length(covars_summary)-1)))
 
 ```
 
-<P style='page-break-before: always'>
+
+```{r, result = 'asis'}
+
+# Correlations for equity (standardized within category)
+
+rowvars = c('sbbe_round1_mc','brand_from_jp-us-ch-ge-sw',
+            'ln_llen_windex_mc', 'ln_rwpspr_windex_mc' ,
+            'ln_wpswdst_windex_mc',
+             'ln_nov6sh_windex_mc',
+            'ln_market_herf_mc', 'ln_market_meangrowth_mc',
+             'appliance',
+            'ln_penn_popyravg_mc', 'ln_penn_percapitargdpeyravg_mc',
+            'ln_penn_growthrgdpeyravg_mc', 'ln_ginicoef_mc',
+             'ln_pdi_mc' ,'ln_uai_mc','ln_mas_mc')
+
+
+tmp = unique(elast, by = c('category','country','brand'))[, c(rowvars),with=F]
+tmp = tmp[complete.cases(tmp)]
+
+tmpcor=cor(as.matrix(tmp))
+
+options(width=600)
+sink('../output/correlations_secondstage.txt')
+print(corstars(as.matrix(tmp), method="pearson", removeTriangle='none', ndec=3))
+cat(paste0('\nNumber of observations: ', nrow(as.matrix(tmp)), '\n'))
+sink()
+
+write.table(tmpcor, '../output/correlations_secondstage.csv', row.names=T)
+
+print(corstars(as.matrix(tmp), method="pearson", removeTriangle='none', ndec=3, result = 'html'))
+
+
+
+```
+
+
 
 ```{r attributes, echo = FALSE, results= 'asis'}
 
@@ -182,84 +230,8 @@ print(kable(tabl, digits=3, caption = tab('Overview of physical search attribute
 <P style='page-break-before: always'>
 
 
-```{r summarystats_model, echo=FALSE, results= 'asis'}
-
-covars_summary <- gsub('ln', '', c('usales', gsub('rwpspr', 'rwpsprd', ordered_vars)))
-
-tmp=data.table(brand_panel)
-nbrands=length(unique(brand_panel$brand))
-nmarkets=length(unique(brand_panel$market_id))
-nobs=nrow(tmp)
-
-tmp=tmp[, lapply(.SD, function(x) c(median=median(x,na.rm=T),firstqnt=quantile(x,.25,na.rm=T),thirdqnt=quantile(x,.75,na.rm=T))), .SDcols=c(covars_summary)]
-
-
-tmp[, var:=rep(c('median', 'firstqnt','thirdqnt'),1)]
-tmp=melt(tmp, id.var=c('var'))
-
-dtf=dcast(tmp, variable~var)
-setcolorder(dtf, c('variable', rep(c('median', 'firstqnt','thirdqnt'),1)))
-
-### add correlation
-give_cor <- function(cordat=data.frame(brand_panel[, covars_summary,with=F])) {
-  correl=cor(cordat,use='pairwise.complete')
-  N=matrix(double(prod(dim(correl))),ncol=ncol(cordat))
-  t=N
-  p=N
-  for (i in 1:nrow(correl)) {
-    for (j in 1:ncol(correl)) {
-      N[i,j]=length(which(complete.cases(cordat[,c(i,j)])))
-      t[i,j]=sqrt(N[i,j]-2)*(correl[i,j]/sqrt(1-correl[i,j]^2))
-      p[i,j]=dt(t[i,j], df=N[i,j]-2)
-    }
-  }
-return(list(cor=correl,p=p))
-}
-
-correl = give_cor(data.frame(brand_panel[, covars_summary,with=F]))
-
-#sink('../output/tableA4.txt')
-#correl$cor
-#correl$p
-#sink()
-
-dtf=cbind(dtf,correl$cor[,-ncol(correl$cor)])
-
-
-dtf=sanitize_table(dtf)
-
-
-print(kable(dtf, format='html', initial.zero = FALSE, digits=c(1,0,0,0,3,3,3),caption = tab(paste0('Summary statistics and correlations for variables in sales response model^1^'),prefix='A')) %>% kable_styling() %>% footnote(number=c(paste0('Summary statistics and correlations for variables (prior to the log-operation and mean-centering) are computed across ', prettyNum(nobs, big.mark = ','), ' observations in our sample.'),'Converted to USD.')))
-      #
-    #%>% add_header_above(c(" " = 1, "Summary statistics" = 3, "Correlations" = length(covars_summary)-1)))
-
-```
-
-
-```{r correl, echo=FALSE, message=FALSE, warning=FALSE, results='asis'}
-
-tmp = data.table(dcast(elast,category+country+brand~variable, value.var=c('elastlt')))
-
-printtmp=tmp[, ordered_vars, with = F]#grep('elastlt[_]', colnames(tmp),value=T) ,with=F]
-
-
-tmp2=corstars(printtmp, method=c("pearson"),removeTriangle=c('upper'),result='none')
-
-
-kable(sanitize_table(tmp2), format='html', caption=tab('Correlation among long-term marketing-mix elasticities',prefix='A')) %>%
-        kable_styling()
-
-
-
-```
-
 
 ```{r elasticities_comparison, echo=FALSE, message=FALSE, warning=FALSE, results='asis'}
-  
-elasticities$ec_at_median = copy(elasticities$ec_main_sur)
-elasticities$ec_at_median[, elastlt:=elastmedianlt]
-elasticities$ec_at_median[, elastlt_se:=elastmedianlt_se]
-
 
 unitlist = list(
    list(
@@ -392,19 +364,10 @@ for (u in unitlist) {
 
 ```{r withinR2, results='asis', echo = FALSE, include = TRUE}
 
-if(0) {
-ord=c(
-      'ec_nommix', 'ec_onlyllen', 'ec_onlypr','ec_onlydst',
-      'ec_noocmmix', 'ec_onlyocllen', 'ec_onlyocpr','ec_onlyocdst',
-      'ec_main_nc', 'ec_noocmmixnc', 'ec_onlyocllennc', 'ec_onlyocprnc', 'ec_onlyocdstnc',
-      
-      'ec_main', 
+
+ord=c('salesresponse_linear',
       'ec_lntrend',
-      'salesresponse_linear_noldv',
-      'salesresponse_linear'#,
-     # 'salesresponse_loglog_noldv',
-     # 'salesresponse_loglog'
-      )
+      'ec_main')
 
 sel_ord = ord
 
@@ -473,18 +436,10 @@ r2s=predictions[type%in%sel_ord, list(#R2_diff = cor(dlnusales, dlnusales_hat, u
   
   #setnames(tmp2, 'type', 'Model type')
   print(kable(tmp2, format= 'html', caption =lbl, digits = 5) %>% kable_styling()%>% footnote(number=paste0('Fit metrics computed across the ', nrow(unique(predictions, by =c('category','brand','country'))), ' estimated models, using predicted and observed sales in levels. R2 is the average squared correlation. RMSE is average root mean squared error. MeAPE is the median absolute percentage error. SMAPE is the symmetric mean absolute percentage error (Armstrong and Collopy 1992).')))
-}
+
 ```
 
 ```{r holdoutrsq, results='asis', echo = FALSE, include= TRUE}
-if(0){
-#ord=c('ec_main', 
-#      'ec_main_attributes',
-#      'ec_lntrend',
- #     'ec_unrestrictedcompetition',
- #     'salesresponse_linear',
- #     'salesresponse_linear_noldv')
-
 
 tmppred = predictions_kfold[type%in%ord]
 
@@ -540,141 +495,6 @@ lbl = 'Model selection (hold-out sample)'
   setnames(tmp4, 'type', 'Model type')
   print(kable(tmp4, format= 'html', caption =lbl, digits = 5) %>% add_header_above(list(' '=1, 'R-squared' =2, 'RMSE'=2, 'SMAPE'=2)))
   
-}
-
-```
-
-
-```{r,echo=FALSE, include=FALSE}
-if(0){
-
-r2=tmppred[estim_set==F&type=='ec_main', list(r2=cor(common_dv, common_dv_hat, use='pairwise')^2), by = c('category','country','brand')]
-
-setorder(r2, r2)
-
-
-r2x=tmppred[estim_set==F&type=='ec_main'& brand =='samsung' & category=='phones_smart'&country=='china']
-
-
-r2x[,date:=as.Date(date)]
-
-# selection
-#with(r2x, plot(date, common_dv, lty=1,lwd=2,type='c', main = 'Predicted versus fitted values', xlab = 'Date',ylab='Unit sales'))
-#with(r2x, lines(date, common_dv_hat, lty=2, type = 'c'))
-
-library(ggplot2)
-ggplot() + geom_line(data=r2x, aes(date, common_dv)) +
-  geom_line(data=r2x, linetype = 2, aes(date, common_dv_hat)) + scale_x_date(date_labels = "%b-%Y") + ylab('Unit sales') + xlab('Date')
-}
-```
-
-```{r,echo=FALSE, include=FALSE}
-
-if(0){
-r2=predictions[type=='ec_main', list(r2=cor(common_dv, common_dv_hat, use='pairwise')^2), by = c('category','country','brand')]
-
-setorder(r2, r2)
-
-
-r2x=predictions[type=='ec_main'& brand =='samsung' & category=='phones_smart'&country=='china']
-
-
-r2x[,date:=as.Date(date)]
-
-# selection
-#with(r2x, plot(date, common_dv, lty=1,lwd=2,type='c', main = 'Predicted versus fitted values', xlab = 'Date',ylab='Unit sales'))
-#with(r2x, lines(date, common_dv_hat, lty=2, type = 'c'))
-
-
-r2x <- r2x[complete.cases(r2x[, c('common_dv','common_dv_hat'),with=F]),]
-
-#dates = seq(from=min(r2x$date), to=max(r2x$date), by = "month")
-
-#df <- data.frame(dates, y)  
-
-# use the format you need in your plot using scale_x_date
-library(ggplot2)
-ggplot() + geom_line(data=r2x, aes(date, common_dv)) +
-  geom_line(data=r2x, linetype = 2, aes(date, common_dv_hat)) + scale_x_date(date_labels = "%b-%Y") + ylab('Unit sales') + xlab('Date')
-
-#  geom_line(data = prescription2, aes(x = dates, y = Difference), color = "red") +
-
-#+
-#sgeom_vline(xintercept = as.Date("01-01-2012",  format = "%d-%m-%Y"), linetype = 'dotted', color = 'blue')
-
-}
-```
-
-
-```{r coefvar_by_cc2, echo=F,results='asis', include=FALSE}
-
-qval=qnorm(1-sigvalue/2)
-
-CV = lapply(c('category','country'), function(byvar) {
-
- 
-tmp=elast[!is.na(elastlt), list(N=.N,
-                                  elast = sum(elastlt*w_elastlt)/sum(w_elastlt)),
-                                   by=c('variable', byvar)]
-tmp[, list(CV=sd(elast)/mean(elast)),by=c('variable')][, byvar:=byvar]
-
-})
-
-cv2=rbindlist(CV)
-
-tmp=dcast(cv2, variable~byvar, value.var='CV')
-  tmp=sanitize_table(tmp)
- 
-  cat("<P style='page-break-before: always'>")
-  print(kable(tmp, digits=3, caption = tab(paste0('Coefficient of variation (CV) by Category and Country')), format='html', initial.zero = FALSE) %>% kable_styling() %>% footnote(number='Computed on the basis of weighted elasticities'))
-  
-# pooled
-  
-tmp=elast[!is.na(elastlt), list(N=.N,CV = sd(elastlt)/mean(elastlt)), by = c('variable')]
-print(kable(tmp))
-
-
-
-
-```	
-
-
-# Additional requests/stats for the paper
-
-## Correlations power distance & individualism
-```{r, echo = FALSE}
-countries <- unique(brand_panel, by = c('country'))
-cor(countries$pdi, countries$idv)
-```
-
-## Correlation between long-term elasticity at the mean and at the median
-
-```{r, echo = FALSE}
-elast[, list(correlation=cor(elastlt, elastmedianlt,use='pairwise')),by=c('variable')]
-```
-
-## Compute correlations between country factors and levels/coefficient of variation for price and line length
-
-```{r, results = 'asis', echo = FALSE}
-# filter on data that we use in the second stage
-tmp = brand_panel[brand_id%in%elast$brand_id, list(llen = mean(llen), 
-                         llen_sd = sd(llen)/mean(llen),
-                         price = mean(rwpsprd),
-                         price_sd = sd(rwpsprd),
-                         penn_pop=mean(penn_pop),
-                         penn_growthrgdpe = mean(penn_growthrgdpe),
-                         penn_rgdpe=mean(penn_rgdpe)), by = c('country','category','brand')]
-
-tmp[,llen_coefvar := llen_sd/llen]
-tmp[,price_coefvar := price_sd/price]
-tmp[,penn_gdppercap := penn_rgdpe/penn_pop]
-
-# collapse to country level first
-outc=tmp[, lapply(.SD, mean, na.rm=T), by = c('country'), .SDcols = c('llen','llen_coefvar',
-                                                                      'price','price_coefvar',
-                                                                      'penn_pop','penn_gdppercap','penn_growthrgdpe')]
-
-kable(corstars(data.frame(outc[,-1,with=F])), type= 'html')
 
 
 ```
