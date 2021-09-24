@@ -6,8 +6,6 @@ library(lme4)
 library(bit64)
 library(data.table)
 library(stargazer)
-library(shiny)
-
 
 brand_panel=fread('../externals/preclean_main.csv')
 brand_panel[, ':=' (date = as.Date(date))]
@@ -104,5 +102,48 @@ setkey(elasticities$ec_main_sur, category,country,brand)
 setkey(elasticities$marketshare, category,country,brand)
 elasticities$marketshare[elasticities$ec_main_sur, brand_id:=i.brand_id]
 
+# select elasticities for reporting
+  
+  
+  # Select final result set  
+  elast <- elasticities$ec_main_sur 
+  
+  # correct brand classification
+  
+  # videocon is from india, not from ger
+  elast[brand=='videocon']$`brand_from_jp-us-ch-ge-sw`=0
+  # YOshii is from Japan
+  elast[grepl('yoshii', brand)]$`brand_from_jp-us-ch-ge-sw`=1
+  # Simpson is from Australia
+  elast[grepl('simpson', brand)]$`brand_from_jp-us-ch-ge-sw`=0
+  
+  # videocon is from india, not from ger
+  elast[brand=='videocon']$western_brand = 0
+  # YOshii is from Japan
+  elast[grepl('yoshii', brand)]$western_brand=0
+  # Simpson is from Australia
+  elast[grepl('simpson', brand)]$western_brand=1
+  
+  # set order of variables to appear in figures and tables
+  ordered_vars =  c('llen', 'rwpspr', 'wpswdst')
+  ordered_vars = ordered_vars[which(ordered_vars%in%elast$variable)]
+  
+  names(ordered_vars) <- paste0(unlist(sanitize_table(data.frame(gsub('^ln', '', ordered_vars)))), ' elasticity')
+  
+  # Notes for tables
+  notes_sig = 'Significance levels: \\* *p*<.1, \\*\\* *p*<.05, \\*\\*\\* *p*<.01 (two-sided).'
+  estimnote = paste0('Elasticities are weighted by inverse standard errors.')
+  
+  # Significance levels
+  sigvalue = .1
+  zval = qnorm(1-sigvalue/2)
+  
+  # Compute weights and z-values for estimated short- and long-term elasticities
+  for (.var in c('elast', 'elastlt')) {
+    elast[!is.na(get(.var)), paste0('w_', .var) := 1/get(paste0(.var, '_se'))]
+    # rescale
+    elast[!is.na(get(.var)), paste0('w_', .var) := get(paste0('w_', .var))/max(get(paste0('w_', .var)))]
+    elast[!is.na(get(.var)), paste0('z_', .var) := get(.var)/get(paste0(.var, '_se'))]
+  }
 
-save(elasticities, file= 'app/app_workspace.RData')
+save(elasticities, elast, file= '../output/workspace.RData')
