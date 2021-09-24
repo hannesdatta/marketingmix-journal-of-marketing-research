@@ -2,6 +2,7 @@ rm(list = ls())
 library(knitr)
 library(data.table)
 
+dir.create('../audit/')
 unlink('../audit/*.html')
 
 # Load results

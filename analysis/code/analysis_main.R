@@ -110,6 +110,10 @@ dir.create('../output')
     
     }
  
+
+# Retain only brands/time periods for estimation
+  brand_panel <- brand_panel[selected==T & timewindow==T &obs48==T] 
+
   
 # Define copula terms
   for (var in c('rwpspr', 'llen', 'wpswdst', 'radv')) {
@@ -172,6 +176,8 @@ estim_model <- function(model_name, fun, ...) {
 ## MAIN MODEL
 estim_model('results_ec_main', 'estimate_ec')
 
+#----
+
 ## MAIN MODEL w/ PRODUCT ATTRIBUTES
 estim_model('results_ec_main_attributes', 'estimate_ec', controls_curr = 'quarter[1-3]|^holiday|^trend|^attr')
 
@@ -181,32 +187,38 @@ estim_model('results_ec_unrestrictedcompetition', 'estimate_ec', controls_laglev
 ## MAIN MODEL WITH LOG TREND (INSTEAD OF LINEAR TREND)
 estim_model('results_ec_lntrend', 'estimate_ec', controls_curr = 'quarter[1-3]|lnholiday|^lntrend')
 
-
 #----
 
+## MODELS FOR NESTED F-TESTS
+## (all estimated without Copula terms)
 
-## REMOVING FOCAL MARKETING MIX INSTRUMENTS ITERATIVELY
-estim_model('results_ec_remocpr', 'estimate_ec', vars = c('llen','wpswdst'), controls_diffs='^comp[_](llen|wpswdst)$', 
-            controls_cop = '^cop[_](llen|wpswdst)$')
+### BECHMARK MODELS
 
-estim_model('results_ec_remocllen', 'estimate_ec', vars = c('rwpspr','wpswdst'), controls_diffs='^comp[_](rwpspr|wpswdst)$', 
-            controls_cop = '^cop[_](rwpspr|wpswdst)$')
+estim_model('results_ec_main_nc', 'estimate_ec', controls_cop = NULL)
 
-estim_model('results_ec_remocdst', 'estimate_ec', vars = c('rwpspr','llen'), controls_diffs='^comp[_](rwpspr|llen)$', 
-            controls_cop = '^cop[_](rwpspr|llen)$')
+estim_model('results_ec_noocmmixnc', 'estimate_ec', vars = NULL, controls_cop = NULL, controls_diff = NULL)
 
-## ADDING FOCAL & COMPETITIVE MARKETING MIX INSTRUMENTS ITERATIVELY
-estim_model('results_ec_noocmmix', 'estimate_ec', vars = NULL, controls_cop = NULL, controls_diff = NULL)
+### REMOVING FOCAL AND COMPETITIVE MARKETING MIX INSTRUMENTS ITERATIVELY
 
-estim_model('results_ec_onlyocpr', 'estimate_ec', vars = c('rwpspr'), controls_cop = '^cop[_](rwpspr)$',
+estim_model('results_ec_remocprnc', 'estimate_ec', vars = c('llen','wpswdst'), controls_diffs='^comp[_](llen|wpswdst)$', 
+            controls_cop = NULL)
+
+estim_model('results_ec_remocllennc', 'estimate_ec', vars = c('rwpspr','wpswdst'), controls_diffs='^comp[_](rwpspr|wpswdst)$', 
+            controls_cop = NULL)
+
+estim_model('results_ec_remocdstnc', 'estimate_ec', vars = c('rwpspr','llen'), controls_diffs='^comp[_](rwpspr|llen)$', 
+            controls_cop = NULL)
+
+### ADDING FOCAL AND COMPETITIVE MARKETING MIX INSTRUMENTS ITERATIVELY
+
+estim_model('results_ec_onlyocprnc', 'estimate_ec', vars = c('rwpspr'), controls_cop = NULL,
             controls_diff = '^comp[_](rwpspr)$')
 
-estim_model('results_ec_onlyocllen', 'estimate_ec', vars = c('llen'), controls_cop = '^cop[_](llen)$',
+estim_model('results_ec_onlyocllennc', 'estimate_ec', vars = c('llen'), controls_cop = NULL,
             controls_diff = '^comp[_](llen)$')
 
-estim_model('results_ec_onlyocdst', 'estimate_ec', vars = c('wpswdst'), controls_cop = '^cop[_](wpswdst)$',
+estim_model('results_ec_onlyocdstnc', 'estimate_ec', vars = c('wpswdst'), controls_cop = NULL,
             controls_diff = '^comp[_](wpswdst)$')
-
 
 #----
 

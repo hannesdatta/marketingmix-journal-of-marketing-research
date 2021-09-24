@@ -23,7 +23,7 @@ lscall=ls(envir=.GlobalEnv)
 models <- setdiff(c(grep('results[_]', lscall, value=T)),'results_brands')
 
 # load code to calculate SBBE
-source('sbbe.R')
+source('proc_sbbe.R')
 
 # Extract elasticities
 out = lapply(models, function(model_name) {

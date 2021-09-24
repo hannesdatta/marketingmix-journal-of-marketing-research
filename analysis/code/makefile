@@ -1,5 +1,4 @@
 # Makefile for \analysis 
-# by Hannes Datta
 # requires GNU Make
 
 TEMP_DIR = ../temp
@@ -13,7 +12,7 @@ pre: $(TEMP_DIR)/preclean.txt
 main: $(OUTPUT_DIR)/elasticities_main.txt $(TEMP_DIR)/audit_main.txt
 marketshare: $(OUTPUT_DIR)/elasticities_marketshare.txt $(OUTPUT_DIR)/audit_marketshare.html
 
-###### Build parts ######
+###### BUILD RULES ######
 
 ## DATA CLEANING
 
@@ -38,7 +37,7 @@ $(TEMP_DIR)/audit_main.txt: $(OUTPUT_DIR)/elasticities_main.txt audit_main_run.R
 $(OUTPUT_DIR)/results_marketshare.RData: analysis_marketshare.R $(TEMP_DIR)/preclean.txt proc_analysis_marketshare.R
 	R --vanilla --args "" < "analysis_marketshare.R"
 
-$(OUTPUT_DIR)/elasticities_marketshare.txt: extract_elast_marketshare.R $(OUTPUT_DIR)/results_marketshare.RData sbbe.R
+$(OUTPUT_DIR)/elasticities_marketshare.txt: extract_elast_marketshare.R $(OUTPUT_DIR)/results_marketshare.RData proc_sbbe.R
 	R --vanilla --args "" < "extract_elast_marketshare.R"
 
 $(OUTPUT_DIR)/audit_marketshare.html: $(OUTPUT_DIR)/results_marketshare.RData audit_marketshare.Rmd
