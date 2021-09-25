@@ -7,6 +7,7 @@ library(data.table)
 library(car)
 library(stargazer)
 library(sandwich)
+library(lmtest)
 
 load('../output/workspace.RData')
 brand_panel <- fread('../externals/preclean_main.csv')

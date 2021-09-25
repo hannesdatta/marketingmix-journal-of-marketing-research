@@ -2,6 +2,7 @@ library(ggplot2)
 library(gridExtra)
 library(grid)
 library(stringr)
+library(data.table)
 
 source('proc_auxilary.R')
 
