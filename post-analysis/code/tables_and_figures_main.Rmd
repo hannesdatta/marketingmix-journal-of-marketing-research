@@ -24,17 +24,15 @@ library(lmtest)
 library(sandwich)
 library(gridExtra)
 library(ggthemes)
+library(stringr)
 
-# Load data set
-brand_panel=fread('../../analysis/temp/preclean_main.csv')
-brand_panel[, ':=' (date = as.Date(date))]
+# Load results and data
+load('../output/workspace.RData')
 
 # Load auxiliary functions
 source('proc_auxilary.R')
 source('proc_rename.R')
 
-# Load results
-load('../output/workspace.RData')
 
 # set order of variables to appear in figures and tables
 ordered_vars =  c('llen', 'rwpspr', 'wpswdst')
@@ -85,7 +83,7 @@ tmp[, brand_include:= rank%in%1:3]
 tmp=tmp[, list(cattype=ifelse(unique(appliance)==1, 'Appliances', 'Electronics'), ncountries=unique(ncountries), nbrandsdat=length(unique(brand)), exemplary_brand_names=paste0(my_capitalize(unique(brand[brand_include==T])), collapse=', ')), by='category']
 tmp[, category:=tolower(category)]
 tmp=sanitize_table(tmp)
-setnames(tmp, 'Top 5 brands', 'Top 3 brands^2^')
+setnames(tmp, 'Top 3 brands', 'Top 3 brands^2^')
 
 tmp[, sort_category:=tolower(get('Category'))]
 setorder(tmp, sort_category)
@@ -164,9 +162,9 @@ tmp = data.table(elast)
 dv_name='elastlt'
 tmp[, ':=' (dv = get(dv_name), dv_se = get(paste0(dv_name,'_se')), w_dv = 1/get(paste0(dv_name,'_se')))]
 
-# winsorizations
+# Winsorization
 tmp[!is.na(dv), percentile:=ecdf(dv)(dv), by = c('variable')]
-perc_extract = 0.01 # check w/ marnik
+perc_extract = 0.01 
 
 tmp[, perc_low := quantile(dv, probs = perc_extract), by = c('variable')]
 tmp[, perc_high := quantile(dv, probs = 1-perc_extract), by = c('variable')]
@@ -235,7 +233,7 @@ dt[, elast_x_size:=abs(dv_pred)*avgsales*avgbrandgrowth]
 dt[, optimal:=100*elast_x_size/sum(elast_x_size)]
 
 tmp = dt[, c('country', 'avgsales', 'dv_pred',  'avgbrandgrowth', 'relsales','relelast', 'optimal'),with=F]
-library(stringr)
+
 tmp[, country:= str_to_title(country)]
 setorder(tmp, country)
 
@@ -279,7 +277,7 @@ dt[, elast_x_size:=abs(dv_pred)*avgsales*avgbrandgrowth]
 dt[, optimal:=100*elast_x_size/sum(elast_x_size)]
 
 tmp = dt[, c('category', 'avgsales', 'dv_pred',  'avgbrandgrowth', 'relsales','relelast', 'optimal'),with=F]
-library(stringr)
+
 tmp[, category:= replace_categories(category)]
 setorder(tmp, category)
 

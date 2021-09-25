@@ -105,7 +105,7 @@ camera_compact	Compact cameras	gsub
 category	Category	gsub
 cattype	Category type	gsub
 ncountries	Number of countries with data	gsub
-exemplary_brand_names	Top 5 brands	gsub
+exemplary_brand_names	Top 3 brands	gsub
 welast	Weighted elasticity	grepl
 ^melast|[_]melast	Mean elasticity	grepl
 ftmelast	Mean elasticity^2^	grepl

@@ -26,19 +26,16 @@ library(sandwich)
 library(gridExtra)
 library(ggthemes)
 
-# Load data set
-brand_panel=fread('../../analysis/temp/preclean_main.csv')
-brand_panel[, ':=' (date = as.Date(date))]
+# Load results and data
+load('../output/workspace.RData')
+
+# Load predictions
+predictions <- fread('../output/predictions_within.csv')
+predictions_kfold = fread('../output/predictions_kfold.csv')
 
 # Load auxiliary functions
 source('proc_auxilary.R')
 source('proc_rename.R')
-
-# Load results
-load('../output/workspace.RData')
-
-predictions <- fread('../output/predictions_within.csv')
-predictions_kfold = fread('../output/predictions_kfold.csv')
 
 # set order of variables to appear in figures and tables
 ordered_vars =  c('llen', 'rwpspr', 'wpswdst')
@@ -169,13 +166,14 @@ rowvars = c('sbbe_round1_mc','brand_from_jp-us-ch-ge-sw',
              'ln_pdi_mc' ,'ln_uai_mc','ln_mas_mc')
 
 
-tmp = unique(elast, by = c('category','country','brand'))[, c(rowvars),with=F]
+tmp = unique(elast[!country_of_origin==''], by = c('category','country','brand'))[, c(rowvars),with=F]
 tmp = tmp[complete.cases(tmp)]
 
 tmpcor=cor(as.matrix(tmp))
 
 print(kable(corstars(as.matrix(tmp), method="pearson", removeTriangle='none', ndec=3)))
 
+nrow(tmp)
 
 ```
 

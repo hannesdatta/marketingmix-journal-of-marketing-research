@@ -110,44 +110,50 @@ elasticities$marketshare[elasticities$ec_main_sur, brand_id:=i.brand_id]
 
   # correct brand classification
 
+  reclassify <- function(tmp) {
   # videocon is from india, not from ger
-  elast[brand=='videocon']$`brand_from_jp-us-ch-ge-sw`=0
-  elast[brand=='videocon']$western_brand = 0
-  elast[brand=='videocon']$country_of_origin = 'india'
+  tmp[brand=='videocon']$`brand_from_jp-us-ch-ge-sw`=0
+  tmp[brand=='videocon']$western_brand = 0
+  tmp[brand=='videocon']$country_of_origin = 'india'
 
   # YOshii is from Japan
-  elast[grepl('yoshii', brand)]$`brand_from_jp-us-ch-ge-sw`=1
-  elast[grepl('yoshii', brand)]$western_brand=0
-  elast[grepl('yoshii', brand)]$country_of_origin = 'japan'
+  tmp[grepl('yoshii', brand)]$`brand_from_jp-us-ch-ge-sw`=1
+  tmp[grepl('yoshii', brand)]$western_brand=0
+  tmp[grepl('yoshii', brand)]$country_of_origin = 'japan'
 
 
   # Simpson is from Australia
-  elast[grepl('simpson', brand)]$`brand_from_jp-us-ch-ge-sw`=0
-  elast[grepl('simpson', brand)]$western_brand=1
-  elast[grepl('simpson', brand)]$country_of_origin='australia'
+  tmp[grepl('simpson', brand)]$`brand_from_jp-us-ch-ge-sw`=0
+  tmp[grepl('simpson', brand)]$western_brand=1
+  tmp[grepl('simpson', brand)]$country_of_origin='australia'
 
-  elast[grepl('jinling', brand)]$country_of_origin='china'
-  elast[grepl('ktouch', brand)]$country_of_origin='china'
-  elast[grepl('royalstar', brand)]$country_of_origin='china'
-  elast[grepl('bbk', brand)]$country_of_origin='china'
+  tmp[grepl('jinling', brand)]$country_of_origin='china'
+  tmp[grepl('ktouch', brand)]$country_of_origin='china'
+  tmp[grepl('royalstar', brand)]$country_of_origin='china'
+  tmp[grepl('bbk', brand)]$country_of_origin='china'
 
-  elast[grepl('benq', brand)]$country_of_origin='taiwan'
+  tmp[grepl('benq', brand)]$country_of_origin='taiwan'
 
-  elast[grepl('leona', brand)]$country_of_origin='thailand'
+  tmp[grepl('leona', brand)]$country_of_origin='thailand'
 
 
-  elast[grepl('bajaj', brand)]$country_of_origin='india'
-  elast[grepl('onida', brand)]$country_of_origin='india'
+  tmp[grepl('bajaj', brand)]$country_of_origin='india'
+  tmp[grepl('onida', brand)]$country_of_origin='india'
 
-  elast[grepl('cornell', brand)]$country_of_origin='malaysia'
-  elast[grepl('singer', brand)]$country_of_origin='malaysia'
+  tmp[grepl('cornell', brand)]$country_of_origin='malaysia'
+  tmp[grepl('singer', brand)]$country_of_origin='malaysia'
 
-  elast[grepl('hotpoint', brand)]$country_of_origin='italy'
+  tmp[grepl('hotpoint', brand)]$country_of_origin='italy'
 
-  elast[grepl('dse', brand)]$brand = 'dicksmith'
-  elast[grepl('dse', brand)]$country_of_origin = 'australia'
-  elast[grepl('dicksmith', brand)]$country_of_origin = 'australia'
+  tmp[grepl('dse', brand)]$brand = 'dicksmith'
+  tmp[grepl('dse', brand)]$country_of_origin = 'australia'
+  tmp[grepl('dicksmith', brand)]$country_of_origin = 'australia'
 
+	return(tmp)
+	}
+
+elast<-reclassify(elast)
+brand_panel<-reclassify(brand_panel)
 
 
   # set order of variables to appear in figures and tables
@@ -172,4 +178,4 @@ elasticities$marketshare[elasticities$ec_main_sur, brand_id:=i.brand_id]
     elast[!is.na(get(.var)), paste0('z_', .var) := get(.var)/get(paste0(.var, '_se'))]
   }
 
-save(elasticities, elast, file= '../output/workspace.RData')
+save(elasticities, elast, brand_panel, file= '../output/workspace.RData')
