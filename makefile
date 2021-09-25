@@ -1,11 +1,9 @@
-# Makefile for \derived of the Gfk Singapore project
-# by Hannes Datta
+# Makefile for the entire project
 # requires GNU Make
 
 ###### BUILD COMMANDS ######
 
-# full build
-all: postanalysis
+all: postanalysis simulations
 
 .PHONY: all derived analysis postanalysis
 
@@ -17,4 +15,7 @@ analysis: derived
 
 postanalysis: analysis
 	$(MAKE) -C post-analysis/code
+
+simulation: simulation
+	$(MAKE) -C simulation/code
 
