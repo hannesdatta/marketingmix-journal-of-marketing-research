@@ -9,7 +9,7 @@ OUTPUT_DIR = ../output
 all: main marketshare
 
 pre: $(TEMP_DIR)/preclean.txt
-main: $(OUTPUT_DIR)/elasticities_main.txt $(TEMP_DIR)/audit_main.txt
+main: $(OUTPUT_DIR)/elasticities_main.txt $(OUTPUT_DIR)/audit_main.txt
 marketshare: $(OUTPUT_DIR)/elasticities_marketshare.txt $(OUTPUT_DIR)/audit_marketshare.html
 
 ###### BUILD RULES ######

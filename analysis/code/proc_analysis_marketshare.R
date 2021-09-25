@@ -162,7 +162,7 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 		if (carryover_zero==F) {
 		# add lagged dependent variable
 		lagged_ms = melted_panel[variable==res$variables$y]
-		lagged_ms[, value := makelag(value), by=c('brand')]
+		lagged_ms[, value := lshift(value, 1), by=c('brand')]
 		lagged_ms[, variable:='lagunitsales_sh']
 		melted_panel <- rbind(melted_panel, lagged_ms)
 		rm(lagged_ms)
@@ -192,7 +192,7 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 	  m_form_index = as.formula(~ brand + month)
 		
 	  # recall: MCI takes logs, MNL does not
-		dtbb <- suppressWarnings(attraction_data(formula=m_form, 
+		dtbb <- suppressWarnings(marketingtools:::attraction_data(formula=m_form, 
 								data = dt, 
 								heterogenous = m_form_heterog, 
 								index = m_form_index, 
@@ -227,7 +227,7 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 			
 			to_be_diffed = adf$variable[which(adf$ur==1)]
 			for (variable in to_be_diffed) {
-				X[,variable] = makediff(X[,variable])
+				X[,variable] = dshift(X[,variable])
 				}
 			
 			return(list(adf=adf,data=X))
@@ -347,7 +347,7 @@ analyze_by_market <- function(i, setup_y, setup_x, setup_endogenous=NULL, trend 
 			
 			# execute differencing
 			for (variable in to_be_diffed) {
-				out_matrix[,variable] = makediff(out_matrix[,variable])
+				out_matrix[,variable] = dshift(out_matrix[,variable])
 				}
 		
 			if (trend=='always') ytrend=1
