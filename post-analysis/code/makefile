@@ -22,6 +22,9 @@ $(OUTPUT_DIR)/panel_covariates.txt: panel_covariates.R ../externals/preclean_mai
 
 $(OUTPUT_DIR)/workspace.RData $(OUTPUT_DIR)/predictions_kfold.csv $(OUTPUT_DIR)/predictions_within.csv: ../../derived/output/covariates.txt build_workspace.R $(OUTPUT_DIR)/panel_covariates.txt $(EXT_DIR)/preclean_main.csv proc_auxilary.R proc_rename.R
 	R --vanilla < build_workspace.R
+
+../externals/preclean_main.csv: get_externals.R
+	R --vanilla < get_externals.R
 	
 ###### Generate tables and figures ######
 
