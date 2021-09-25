@@ -10,7 +10,7 @@ library(sandwich)
 
 load('../output/workspace.RData')
 brand_panel <- fread('../externals/preclean_main.csv')
-
+source('proc_auxilary.R')
 
 # Correlations between Hofstede Dimensions
 # ========================================
@@ -252,30 +252,11 @@ with(unique(elast, by = c('country')), cor(pdi, emerging))
 
 
 
-
-
-
-
-
-
-
 # Additional requests/stats for the paper
+# ==========================================================
 
-## Correlations power distance & individualism
-```{r, echo = FALSE}
-countries <- unique(brand_panel, by = c('country'))
-cor(countries$pdi, countries$idv)
-```
+# Compute correlations between country factors and levels/coefficient of variation for price and line length
 
-## Correlation between long-term elasticity at the mean and at the median
-
-```{r, echo = FALSE}
-elast[, list(correlation=cor(elastlt, elastmedianlt,use='pairwise')),by=c('variable')]
-```
-
-## Compute correlations between country factors and levels/coefficient of variation for price and line length
-
-```{r, results = 'asis', echo = FALSE}
 # filter on data that we use in the second stage
 tmp = brand_panel[brand_id%in%elast$brand_id, list(llen = mean(llen),
                                                    llen_sd = sd(llen)/mean(llen),
@@ -294,7 +275,8 @@ outc=tmp[, lapply(.SD, mean, na.rm=T), by = c('country'), .SDcols = c('llen','ll
                                                                       'price','price_coefvar',
                                                                       'penn_pop','penn_gdppercap','penn_growthrgdpe')]
 
-kable(corstars(data.frame(outc[,-1,with=F])), type= 'html')
+print(corstars(data.frame(outc[,-1,with=F])), type= 'text')
 
-
-```
+sink('tables_and_figures_other.log')
+cat('done')
+sink()

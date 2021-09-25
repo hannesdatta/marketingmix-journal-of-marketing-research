@@ -187,7 +187,6 @@ write.table(tmpcor, '../output/correlations_secondstage.csv', row.names=T)
 print(corstars(as.matrix(tmp), method="pearson", removeTriangle='none', ndec=3, result = 'html'))
 
 
-
 ```
 
 
