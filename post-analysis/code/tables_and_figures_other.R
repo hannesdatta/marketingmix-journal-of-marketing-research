@@ -109,7 +109,6 @@ length(copula_terms)/length(non_copula_terms)
 # Load models
   models <- c('ec_main_nc', 'ec_noocmmixnc',
               'ec_main', 'ec_remocprnc', 'ec_remocllennc', 'ec_remocdstnc',
-              'ec_remprnc', 'ec_remllennc', 'ec_remdstnc',
               'ec_onlyocllennc', 'ec_onlyocdstnc',
               'ec_onlyocprnc')
 

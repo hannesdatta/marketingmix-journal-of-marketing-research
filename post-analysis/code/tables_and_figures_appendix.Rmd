@@ -156,9 +156,7 @@ print(kable(dtf, format='html', initial.zero = FALSE, digits=c(1,0,0,0,3,3,3),ca
 ```
 
 
-```{r, result = 'asis'}
-
-# Correlations for equity (standardized within category)
+```{r message=FALSE, warning=FALSE, results='asis', echo = FALSE}
 
 rowvars = c('sbbe_round1_mc','brand_from_jp-us-ch-ge-sw',
             'ln_llen_windex_mc', 'ln_rwpspr_windex_mc' ,
@@ -176,15 +174,7 @@ tmp = tmp[complete.cases(tmp)]
 
 tmpcor=cor(as.matrix(tmp))
 
-options(width=600)
-sink('../output/correlations_secondstage.txt')
-print(corstars(as.matrix(tmp), method="pearson", removeTriangle='none', ndec=3))
-cat(paste0('\nNumber of observations: ', nrow(as.matrix(tmp)), '\n'))
-sink()
-
-write.table(tmpcor, '../output/correlations_secondstage.csv', row.names=T)
-
-print(corstars(as.matrix(tmp), method="pearson", removeTriangle='none', ndec=3, result = 'html'))
+print(kable(corstars(as.matrix(tmp), method="pearson", removeTriangle='none', ndec=3)))
 
 
 ```
