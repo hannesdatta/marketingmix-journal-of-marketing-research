@@ -29,8 +29,8 @@ $(OUTPUT_DIR)/results_main.txt: analysis_main.R $(TEMP_DIR)/preclean.txt proc_an
 $(OUTPUT_DIR)/elasticities_main.txt: extract_elast_main.R $(OUTPUT_DIR)/results_main.txt
 	R --vanilla --args "" < "extract_elast_main.R"
 
-$(TEMP_DIR)/audit_main.txt: $(OUTPUT_DIR)/elasticities_main.txt audit_main_run.R audit_main.Rmd
-	R --vanilla --args "" < "audit_main_run.R"
+$(OUTPUT_DIR)/audit_main.txt: $(OUTPUT_DIR)/elasticities_main.txt audit_main.R 
+	R --vanilla --args "" < "audit_main.R"
 
 ### Market-share attraction model for SBBE computation
 
