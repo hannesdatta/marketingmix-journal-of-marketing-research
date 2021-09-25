@@ -277,6 +277,6 @@ outc=tmp[, lapply(.SD, mean, na.rm=T), by = c('country'), .SDcols = c('llen','ll
 
 print(corstars(data.frame(outc[,-1,with=F])), type= 'text')
 
-sink('tables_and_figures_other.log')
+sink('../output/tables_and_figures_other.log')
 cat('done')
 sink()
