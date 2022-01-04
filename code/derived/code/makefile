@@ -14,7 +14,7 @@ all: build audit
 build: $(OUTPUT_DIR)/datasets.txt $(OUTPUT_DIR)/covariates.txt
 
 # audit
-audit: $(TEMP_DIR)/audit_rawplot.txt $(TEMP_DIR)/audit_markets.txt $(TEMP_DIR)/audit_brands.txt $(TEMP_DIR)/audit_attributes.txt $(TEMP_DIR)/audit_advertising.txt $(AUDIT_DIR)/bav.xlsx
+audit: $(TEMP_DIR)/audit_rawplot.txt $(TEMP_DIR)/audit_markets.txt $(TEMP_DIR)/audit_brands.txt $(TEMP_DIR)/audit_attributes.txt $(TEMP_DIR)/audit_advertising.txt
 
 # building parts of the project
 unzip: $(TEMP_DIR)/unzipped.RData

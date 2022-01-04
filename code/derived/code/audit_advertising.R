@@ -17,9 +17,6 @@
 	library(lattice)
 	library(latticeExtra)
 
-# Load externals
-	source('../external/proc_rename.R')
-
 # Lattice Theme
 	mytheme=custom.theme(symbol = brewer.pal(n = 7, name = "Dark2"),
 				 fill = brewer.pal(n = 7, name = "Dark2"),

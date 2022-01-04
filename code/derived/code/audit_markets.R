@@ -17,8 +17,6 @@
 	library(lattice)
 	library(latticeExtra)
 	library(RColorBrewer)
-# Load externals
-	source('../external/proc_rename.R')
 
 # Lattice Theme
 	mytheme=custom.theme(symbol = brewer.pal(n = 7, name = "Dark2"),
@@ -98,15 +96,6 @@ for (i in unique(paneldata_brands$market_id))	{
 			}
 }
 
-
-# check nov12sh at the beginning of each series
-
-# there seems to be some kind of error here
- # tmp=	paneldata_brands[, list(nov12sh=nov12sh[!is.na(nov12sh)][1]),by = c('market_id','category','country','brand')]
- # tmp=	paneldata_brands[, list(nov12sh=nov12sh[!is.na(nov12sh)][3]),by = c('market_id','category','country','brand')]
- # tmp=	paneldata_brands[, list(nov12sh=nov12sh[!is.na(nov12sh)][6]),by = c('market_id','category','country','brand')]
-  
-	
 sink('../temp/audit_markets.txt')
 cat(paste0('done at: ', Sys.time()))
 sink()

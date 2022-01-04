@@ -89,7 +89,7 @@ for (fn in fns) {
   ####################
   
   # brand novelty
-  for (novelvar in c('nov3sh','nov6sh')) {
+  for (novelvar in c('nov3sh','nov6sh', 'nov12sh')) {
       
     indexn = gsub('[^0-9]','', novelvar)
     
