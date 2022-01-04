@@ -110,5 +110,5 @@ $(OUTPUT_DIR)/gini.csv: covar_gini.R
 	R --vanilla --args "" < "covar_gini.R"
 
 # Prepare Penn World Tables
-$(OUTPUT_DIR)/penn_indicators.csv: covar_pennworldtables.R ../../../../data/penn_worldtables/pwt90.csv
+$(OUTPUT_DIR)/penn_indicators.csv: covar_pennworldtables.R ../../../data/penn_worldtables/pwt90.csv
 	R --vanilla --args "" < "covar_pennworldtables.R"

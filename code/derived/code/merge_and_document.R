@@ -23,7 +23,7 @@ for (fn in fns) {
   # HOLIDAY DATA #
   ################
   
-  holidays <- fread('../../../../data/holidays/holidays.csv')
+  holidays <- fread('../../../data/holidays/holidays.csv')
   
   holidays[country=='AU', country:='australia']
   holidays[country=='CN', country:='china']
@@ -50,25 +50,6 @@ for (fn in fns) {
   brand_panel[holiday_period, npublicholidays:=i.N]
   brand_panel[is.na(npublicholidays), npublicholidays:=0]
   
-  
-  ##########################
-  # DEVELOPMENT INDICATORS #
-  ##########################
-  
-  dev_indicators <- fread('../output/dev_indicators.csv')
-  
-  brand_panel <- merge(brand_panel, dev_indicators, by = c('year', 'country'), all.x=T)
-  
-  # set 2010 values
-  tmp=copy(dev_indicators[year==2010])[, year:=NULL]
-  setnames(tmp, paste0(colnames(tmp), '2010'))
-  brand_panel <- merge(brand_panel, tmp, by.x = c('country'), by.y=c('country2010'), all.x=T)
-  
-  # set mean values
-  tmp=copy(dev_indicators)[, lapply(.SD, mean, na.rm=T), by = c('country'), .SDcols=setdiff(colnames(dev_indicators), c('year','country'))]
-  setnames(tmp, paste0(colnames(tmp), 'avg'))
-  brand_panel <- merge(brand_panel, tmp, by.x = c('country'), by.y=c('countryavg'), all.x=T)
-  
   #########################
   # PENN STATE INDICATORS #
   #########################
@@ -88,106 +69,27 @@ for (fn in fns) {
   setnames(tmp, paste0(colnames(tmp), 'avg'))
   brand_panel <- merge(brand_panel, tmp, by.x = c('country'), by.y=c('penn_countryavg'), all.x=T)
   
-  #######
-  # WGI #
-  #######
+  ########
+  # GINI #
+  ########
   
-  wgi <- fread('../output/wgi.csv')
-  
-  brand_panel <- merge(brand_panel, wgi, by = c('year', 'country'), all.x=T)
-  
-  # set 2010 values
-  tmp=copy(wgi[year==2010])[, year:=NULL]
-  setnames(tmp, paste0(colnames(tmp), '2010'))
-  brand_panel <- merge(brand_panel, tmp, by.x = c('country'), by.y=c('country2010'), all.x=T)
-  
-  # set mean values
-  tmp=copy(wgi)[, lapply(.SD, mean, na.rm=T), by = c('country'), .SDcols=setdiff(colnames(wgi), c('year','country', 'country_code'))]
-  setnames(tmp, paste0(colnames(tmp), 'avg'))
-  brand_panel <- merge(brand_panel, tmp, by.x = c('country'), by.y=c('countryavg'), all.x=T)
-  
-  
-  ######################
-  # WORLD VALUE SURVEY #
-  ######################
-  
-  worldvalues <- fread('../output/worldvalue.csv')
-  brand_panel <- merge(brand_panel, worldvalues,by=c('country'), all.x=T)
-  
-  ###############
-  # RULE OF LAW #
-  ###############
-  
-  tmp <- fread('../output/ruleoflaw.csv')
-  brand_panel <- merge(brand_panel, tmp,by=c('country'), all.x=T)
-  
-
-  ###############
-  # BAV METRICS #
-  ###############
-  
-  tmp <- fread('../output/bav.csv')
-  .vars=grep('[_]R$',colnames(tmp),value=T)
-  tmp_means <- tmp[, lapply(.SD,mean,na.rm=T),by=c('country','brand'),
-                   .SDcols=.vars]
-  for (.var in .vars) setnames(tmp_means, .var, paste0('bav_',gsub('[_]R$|[_]','',tolower(.var),ignore.case=T)))
-  
-  brand_panel <- merge(brand_panel, tmp,by=c('country', 'year', 'brand'), all.x=T)
-  brand_panel <- merge(brand_panel, tmp_means,by=c('country', 'brand'), all.x=T)
-  
-  ###############
-  # GCI METRICS #
-  ###############
-  
-  # Load GCI infrastructure data
-  gci <- fread('../output/gci.csv')
-  brand_panel=merge(brand_panel, gci[, c('country', grep('(p[0-9]|overall|sub|population).*[_]s$', colnames(gci), value=T)),with=F], by = c('country'),all.x=T)
-
-  ################
-  # NEAREST GINI #
-  ################
-  
-  # Load GCI infrastructure data
   gini <- fread('../output/gini.csv')
   brand_panel=merge(brand_panel, gini, by = c('country'),all.x=T)
-  
-  # Load GDP
-  #gdp <- fread('../temp/gdp.csv')
-  #
-  #setkey(gdp, country)
-  #elast[gdp, gdppercap2010:=i.gdppercap2010]
   
   ############
   # HOFSTEDE #
   ############
   
-  tmp <- fread('../../../../data/hofstede/hofstede_rule_of_law.csv')
+  tmp <- fread('../../../data/hofstede/hofstede_rule_of_law.csv')
   tmp[, country:=tolower(country)]
   brand_panel=merge(brand_panel, tmp, by = c('country'),all.x=T)
-  
-  
-  ######################
-  # COUNTRY REPUTATION #
-  ######################
-  
-  
-  # get reputation data
-  rep <- fread('../../../../data/reptrak/reputation.csv')
-  rep[, score2013:=as.numeric(gsub('[,]','.', rep2013))]
-  rep[, score2015:=as.numeric(gsub('[,]','.', rep2015))]
-  rep[!is.na(score2013)&!is.na(score2015), total_score:=(score2013+score2015)/2]
-  rep[is.na(score2013)&!is.na(score2015), total_score:=(score2015)]
-  
-  setkey(rep, country)
-  setkey(brand_panel, country_of_origin)
-  brand_panel[rep, repscore:=i.total_score]
   
   ####################
   # INTERNAL METRICS #
   ####################
   
   # brand novelty
-  for (novelvar in c('nov3sh','nov6sh','nov12sh')) {
+  for (novelvar in c('nov3sh','nov6sh')) {
       
     indexn = gsub('[^0-9]','', novelvar)
     

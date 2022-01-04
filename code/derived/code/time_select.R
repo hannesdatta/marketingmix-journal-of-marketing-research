@@ -1,5 +1,6 @@
 load('../temp/brand_metrics.RData')
 library(data.table)
+library(xlsx)
 
 unlink('../temp/dataset*')
 
@@ -98,7 +99,7 @@ for (seldat in names(all_datasets)) {
 	################################
 	
 	# Load brand-country classifications
-	brands_countries <- fread('../../../../data/country_of_origin/country_of_origin.tsv')
+	brands_countries <- data.table(read.xlsx('../../../data/country_of_origin/country_of_origin.xlsx',1))
 	setkey(brands_countries, brand)
 	
 	brand_panel[, ncountries:=length(unique(country)), by = c('brand')]
