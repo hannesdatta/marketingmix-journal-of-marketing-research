@@ -73,7 +73,7 @@ $(TEMP_DIR)/brand_metrics.RData: brand_metrics.R $(TEMP_DIR)/exch_cpi.RData $(TE
 	R --vanilla --args "" < "brand_metrics.R"
 
 # do final time selection
-$(TEMP_DIR)/datasets.txt: time_select.R $(TEMP_DIR)/brand_metrics.RData ../../../../data/brands_countries/brands_countries.tsv
+$(TEMP_DIR)/datasets.txt: time_select.R $(TEMP_DIR)/brand_metrics.RData ../../../../data/country_of_origin/country_of_origin.xlsx
 	R --vanilla --args "" < "time_select.R"
 
 # do final time selection
