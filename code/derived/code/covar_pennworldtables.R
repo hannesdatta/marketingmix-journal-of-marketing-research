@@ -27,7 +27,7 @@ library(xlsx)
 # Time-varying Penn State World Tables indicators #
 ###################################################
 
-tmp <- fread('../../../../Data/penn_worldtables/pwt90.csv')
+tmp <- fread('../../../Data/penn_worldtables/pwt90.csv')
 
 # keep countries
 tmp <- tmp[grepl('australia|china$|hong|india|indonesia|malaysia|taiwan|thailand|philippines|zealand|japan|korea|singa|viet', country, ignore.case=T)]

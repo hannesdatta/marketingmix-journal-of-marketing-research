@@ -28,7 +28,7 @@ library(zoo)
 # ADVERTISING DATA FOR CHINA   #
 ################################
 
-	file_path = '..\\..\\..\\..\\Data\\advertising\\China\\'
+	file_path = '../../../Data/advertising/China/'
 
 	file_list <- list.files(file_path, recursive=T,include.dirs=T,pattern='.xls')
 	
@@ -88,7 +88,7 @@ library(zoo)
 # ADVERTISING DATA FOR HONG KONG   #
 ####################################
 	
-adv_hk <- data.table(read.xlsx('..\\..\\..\\..\\Data\\advertising\\HongKong\\Massey1087-040101-141231.xls', sheetName='Details', startRow=2, stringsAsFactors=F))
+adv_hk <- data.table(read.xlsx('..\\..\\..\\Data\\advertising\\HongKong\\Massey1087-040101-141231.xls', sheetName='Details', startRow=2, stringsAsFactors=F))
 setnames(adv_hk, tolower(gsub(' |[(]|[)]|[-]|[.]','',colnames(adv_hk))))
 
 adv_hk[, country:=toupper(country)]

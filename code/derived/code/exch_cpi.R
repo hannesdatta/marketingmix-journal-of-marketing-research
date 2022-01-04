@@ -28,7 +28,7 @@ library(xlsx)
 
 
 # Get content of all zip files
-file_path = '..\\..\\..\\..\\Data\\cpi_datastream\\'
+file_path = '..\\..\\..\\Data\\cpi_datastream\\'
 file_list <- list.files(file_path, full.names=T,pattern='xlsx')
 
 indicators <- NULL
