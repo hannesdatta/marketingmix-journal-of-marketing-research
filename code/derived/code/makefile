@@ -19,7 +19,6 @@ audit: $(TEMP_DIR)/audit_rawplot.txt $(TEMP_DIR)/audit_markets.txt $(TEMP_DIR)/a
 # building parts of the project
 unzip: $(TEMP_DIR)/unzipped.RData
 categorize: $(TEMP_DIR)/categorized.RData
-gdponly: $(TEMP_DIR)/gdppercap.RData
 uniq: $(TEMP_DIR)/uniqueness_and_lagsales.RData
 exatt: $(TEMP_DIR)/extract_attributes.RData 
 setatt: $(TEMP_DIR)/attributes.RData
@@ -32,7 +31,6 @@ clean:
 	MKDIR "$(OUTPUT_DIR)"
 	MKDIR "$(TEMP_DIR)"
 	MKDIR "$(AUDIT_DIR)"
-	
 
 ###### DATA PREPARATION ######
 
@@ -104,45 +102,13 @@ $(TEMP_DIR)/audit_advertising.txt: audit_advertising.R #(TEMP_DIR)/advertising.c
 
 ###### COVARIATES ######
 
-$(OUTPUT_DIR)/covariates.txt: $(OUTPUT_DIR)/hdi.csv $(OUTPUT_DIR)/wgi.csv $(OUTPUT_DIR)/gini.csv $(OUTPUT_DIR)/dev_indicators.csv $(OUTPUT_DIR)/ruleoflaw.csv $(OUTPUT_DIR)/worldvalue.csv $(OUTPUT_DIR)/bav.csv $(OUTPUT_DIR)/gci.csv $(OUTPUT_DIR)/penn_indicators.csv covars.R
+$(OUTPUT_DIR)/covariates.txt: $(OUTPUT_DIR)/gini.csv $(OUTPUT_DIR)/penn_indicators.csv covars.R
 	R --vanilla --args "" < "covars.R"
-
-# Prepare HDI data
-$(OUTPUT_DIR)/hdi.csv: covar_hdi.R
-	R --vanilla --args "" < "covar_hdi.R"
 
 # Prepare Gini coefficients
 $(OUTPUT_DIR)/gini.csv: covar_gini.R
 	R --vanilla --args "" < "covar_gini.R"
 
-# Prepare remaining Development Indicators
-$(OUTPUT_DIR)/dev_indicators.csv: covar_devindicators.R ../../../../data/dev_indicators/development_data.xlsx
-	R --vanilla --args "" < "covar_devindicators.R"
-
 # Prepare Penn World Tables
 $(OUTPUT_DIR)/penn_indicators.csv: covar_pennworldtables.R ../../../../data/penn_worldtables/pwt90.csv
 	R --vanilla --args "" < "covar_pennworldtables.R"
-
-# Prepare BAV data
-$(OUTPUT_DIR)/bav.csv: covar_bav.R
-	R --vanilla --args "" < "covar_bav.R"
-
-# Prepare Rule of Law
-$(OUTPUT_DIR)/ruleoflaw.csv: covar_ruleoflaw.R
-	R --vanilla --args "" < "covar_ruleoflaw.R"
-
-# Prepare World Value Survey
-$(OUTPUT_DIR)/worldvalue.csv: covar_worldvalue.R
-	R --vanilla --args "" < "covar_worldvalue.R"
-
-# Prepare WGI
-$(OUTPUT_DIR)/wgi.csv: covar_wgi.R
-	R --vanilla --args "" < "covar_wgi.R"
-
-# Prepare World Value Survey
-$(OUTPUT_DIR)/gci.csv: covar_gci.R
-	R --vanilla --args "" < "covar_gci.R"
-
-# Audit BAV data
-$(AUDIT_DIR)/bav.xlsx: audit_bav.R $(OUTPUT_DIR)/bav.csv $(OUTPUT_DIR)/datasets.txt
-	R --vanilla --args "" < "audit_bav.R"
