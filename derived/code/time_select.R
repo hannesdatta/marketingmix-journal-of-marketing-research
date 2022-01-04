@@ -98,7 +98,7 @@ for (seldat in names(all_datasets)) {
 	################################
 	
 	# Load brand-country classifications
-	brands_countries <- fread('../../../../data/brands_countries/brands_countries.tsv')
+	brands_countries <- fread('../../../../data/country_of_origin/country_of_origin.tsv')
 	setkey(brands_countries, brand)
 	
 	brand_panel[, ncountries:=length(unique(country)), by = c('brand')]

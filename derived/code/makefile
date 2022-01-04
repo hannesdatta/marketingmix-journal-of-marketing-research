@@ -9,8 +9,7 @@ AUDIT_DIR = ../audit
 ###### BUILD COMMANDS ######
 
 # full build
-all: build 
-#audit
+all: build audit
 
 build: $(OUTPUT_DIR)/datasets.txt $(OUTPUT_DIR)/covariates.txt
 
