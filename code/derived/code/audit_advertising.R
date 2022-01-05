@@ -16,6 +16,7 @@
 	library(data.table)
 	library(lattice)
 	library(latticeExtra)
+	library(RColorBrewer)
 
 # Lattice Theme
 	mytheme=custom.theme(symbol = brewer.pal(n = 7, name = "Dark2"),
