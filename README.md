@@ -41,7 +41,7 @@ h) Date of acceptance: 18 October 2021, https://doi.org/10.1177%2F00222437211058
 
 ### Material
 
-No supplementary material, other than computer code in this repository and data files, are needed to replicate the project.
+The folder `data/other` contains supplementary material (e.g., illustrative calculations) used throughout the paper (e.g., the population in the US, relative to the world population). Everything else in this project can be entirely replicated using computer code (`code`) and the remaining raw data files (`data`).
 
 ### Programming code
 - The programming code is fully available, see subfolder `code\`. 
