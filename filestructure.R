@@ -20,6 +20,7 @@ files[, index:=NULL]
 # define files that need to be excluded from the fill tree (e.g., system-internal files)
 files[, exclude:=F]
 files[grepl('^[.]git', full_filepath), exclude:=T]
+files[grepl('[.]gitignore', full_filepath), exclude:=F]
 files[grepl('dataverse_log.json', full_filepath), exclude:=T]
 
 files <- files[exclude==F][, exclude:=NULL]
