@@ -1,4 +1,4 @@
-# Cross-National Differences in Market Response
+# Cross-National Differences in Market Response: Line-Length, Price, and Distribution Elasticities in Fourteen Indo-Pacific Rim Economies
 
 Replication package for [__Cross-National Differences in Market Response: Line-Length, Price, and Distribution Elasticities in Fourteen Indo-Pacific Rim Economies__](https://doi.org/10.1177%2F00222437211058102), *Journal of Marketing Research*, forthcoming. https://doi.org/10.1177%2F00222437211058102.
 
@@ -19,12 +19,19 @@ This replication package consists of six elements, as layed out in the replicati
 ### Metadata and data collection
 
 a) File logs available in `docs/files_in_repository.csv`. All files have been created and edited by Hannes Datta, except (many) of the raw data files (see below).
+
 b) Access was available to all co-authors; final replication package compiled by Hannes Datta. Copies of replication package are stored at Dataverse, and are available from each of the four coauthors.
-c) No ethical review for this project has been carried out
+
+c) No ethical review for this project was conducted nor required by institutional policy at the time of starting this project.
+
 d) Role of co-authors: Hannes Datta (devising and organizing the project, data collection, data analysis, article writing), Harald J. van Heerde (data collection, data analysis, article writing), Marnik G. Dekimpe (data collection, data analysis, article writing), Jan-Benedict E.M. Steenkamp (data collection, data analysis, article writing).
+
 e) Data collection: GfK datasets supplied by GfK Singapore (main datasets); supplementary data compiled by co-authors.
+
 f) Reliance on external data sources: If applicable, sources noted in the paper.
+
 g) No external finances/grants obtained for this projects. Advertising data have been bought with research funds by Marnik G. Dekimpe and Harald J. van Heerde.
+
 h) Date of acceptance: 18 October 2021, https://doi.org/10.1177%2F00222437211058102 (online first on 21 October 2021).
 
 ### Raw data
@@ -57,7 +64,9 @@ No supplementary material, other than computer code in this repository and data 
 - Any processed information is available in the subfolders of each main module - derived, analysis, post-analysis, and simulations. 
 - Processed files include temporary files (`temp/`), auditing files (`audit/`) and output files (`output/`). All these files are exclusively produced on the basis of code. 
 
-### Accepted or published manuscript or publication: Manuscript available at https://doi.org/10.1177%2F00222437211058102.
+### Accepted or published manuscript or publication
+
+Manuscript available at https://doi.org/10.1177%2F00222437211058102.
 
 ## Replication Instructions
 
