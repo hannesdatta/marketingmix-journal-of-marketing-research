@@ -14,37 +14,37 @@ Averaged across brands, categories, and countries, line-length elasticity is .45
 
 ## Overview of this Replication Package
 
-This replication package consists of six elements, as layed out in the replication guidelines from Tilburg School of Economics and Management (TiSEM). 
+This replication package is based on the [replication guidelines]( https://www.tilburguniversity.edu/research/economics-and-management/replication-package) from Tilburg School of Economics and Management (TiSEM). 
 
-### Metadata and data collection
+### 1) Metadata and data collection
 
 a) File logs available in `docs/files_in_repository.csv`. All files have been created and edited by Hannes Datta, except (many) of the raw data files (see below).
 
-b) Access was available to all co-authors; final replication package compiled by Hannes Datta. Copies of replication package are stored at Dataverse, and are available from each of the four coauthors.
+b) Access was available to all coauthors; final replication package compiled by Hannes Datta. Copies of the replication package are stored at Dataverse and are available from each of the four coauthors.
 
-c) No ethical review for this project was conducted nor required by institutional policy at the time of starting this project.
+c) No ethical review for this project was conducted nor required by the institutional policy when starting this project.
 
-d) Role of co-authors: Hannes Datta (devising and organizing the project, data collection, data analysis, article writing), Harald J. van Heerde (data collection, data analysis, article writing), Marnik G. Dekimpe (data collection, data analysis, article writing), Jan-Benedict E.M. Steenkamp (data collection, data analysis, article writing).
+d) Role of coauthors: Hannes Datta (devising and organizing the project, data collection, data analysis, article writing), Harald J. van Heerde (data collection, data analysis, article writing), Marnik G. Dekimpe (data collection, data analysis, article writing), Jan-Benedict E.M. Steenkamp (data collection, data analysis, article writing).
 
-e) Data collection: GfK datasets supplied by GfK Singapore (main datasets); supplementary data compiled by co-authors.
+e) Data collection: GfK datasets supplied by GfK Singapore (main datasets); supplementary data compiled by coauthors.
 
 f) Reliance on external data sources: If applicable, sources noted in the paper.
 
-g) No external finances/grants obtained for this projects. Advertising data have been bought with research funds by Marnik G. Dekimpe and Harald J. van Heerde.
+g) No external finances/grants were obtained for this project. Advertising data have been bought with research funds by Marnik G. Dekimpe and Harald J. van Heerde.
 
 h) Date of acceptance: 18 October 2021, https://doi.org/10.1177%2F00222437211058102 (online first on 21 October 2021).
 
-### Raw data
-- The project relies largely on (confidential) data supplied by GfK singapore, governed by an NDA between GfK and the coauthors. The data is stored in `data/gfk2012` and `data/gfk2015` (marking two delivery batches). Advertising data was bought and is marked confidential, too (`data/advertising`). These datasets are not available to the general public, but only available for replication purposes in the event of an investigation into alleged research misconduct (see also Netherlands Code of Conduct for Research Integrity and TiSEM's replication policy). 
+### 2) Raw data
+- The project relies mainly on (confidential) data supplied by GfK Singapore, governed by an NDA between GfK and the coauthors. The data is stored in `data/gfk2012` and `data/gfk2015` (marking two delivery batches). Advertising data was bought and kept confidential (`data/advertising`). These datasets are not available to the general public but only available for replication purposes in the event of an investigation into alleged research misconduct (see also Netherlands Code of Conduct for Research Integrity and TiSEM's replication policy). 
 - Other data files in this project are obtained from websites, APIs, and official data sources.
 - The `docs/files_in_repository.csv` file contains a list with all files in the package, along with their dates of creation, etc. 
 
-### Material
+### 3) Material
 
-The folder `data/other` contains supplementary material (e.g., illustrative calculations) used throughout the paper (e.g., the population in the US, relative to the world population). Everything else in this project can be entirely replicated using computer code (`code`) and the remaining raw data files (`data`).
+The folder `data/other` contains supplementary material (e.g., illustrative calculations) used throughout the paper (e.g., the population in the US, relative to the world population). This project can be entirely replicated using computer code (`code`) and the remaining raw data files (`data`).
 
-### Programming code
-- The programming code is fully available, see subfolder `code\`. 
+### 4) Programming code
+- The programming code is fully available; see subfolder `code\`. 
 - Submodules are `code\derived` (for converting the raw data to data sets for analysis), `code\anlaysis` (for running the sales response models), `code\post-analysis` (for running seecond-stage regressions), and `code\simulations` for simulation studies. 
 - The order of execution in each submodule is made explicit in `makefile`. 
 
@@ -59,12 +59,12 @@ The folder `data/other` contains supplementary material (e.g., illustrative calc
 │   └── simulations    <- simulation studies (copulas, parameter recovery)
 ```
 
-### Processed database(s)
+### 5) Processed database(s)
 
 - Any processed information is available in the subfolders of each main module - derived, analysis, post-analysis, and simulations. 
-- Processed files include temporary files (`temp/`), auditing files (`audit/`) and output files (`output/`). All these files are exclusively produced on the basis of code. 
+- Processed files include temporary files (`temp/`), auditing files (`audit/`), and output files (`output/`). All these files are exclusively produced based on code. 
 
-### Accepted or published manuscript or publication
+### 6) Accepted or published manuscript or publication
 
 Manuscript available at https://doi.org/10.1177%2F00222437211058102.
 
@@ -84,7 +84,7 @@ Use obtained source code or check out from Git(Hub).
 
 3. Obtain raw data
 
-The directory structure in the repository contains a `data` folder, which could be empty if not received directly from the coauthors (for confidentiality reasons). When replication this project, the raw data files need to be inserted into this folder.
+The directory structure in the repository contains a `data` folder, which could be empty if not received directly from the coauthors (for confidentiality reasons). When replicating the results of this project, the raw data files need to be inserted into this folder.
 
 4. Install required R packages
 
