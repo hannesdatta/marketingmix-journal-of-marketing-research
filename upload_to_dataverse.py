@@ -1,3 +1,5 @@
+### UPLOAD REPLICATION PACKAGE TO DATAVERSE
+
 from datetime import datetime
 import json
 import requests  # http://docs.python-requests.org/en/master/
@@ -39,8 +41,15 @@ def upload(source, target_path, target_filename, restricted = False):
 
 #print(upload('fn').json())
 import pandas as pd
+pd.set_option('display.max_columns', 500)
+pd.set_option('display.width', 1000)
 
 df = pd.read_csv('docs/files_in_repository.csv', keep_default_na=False)
+
+print(df.head())
+
+print(df.filter(df['confidential']=='TRUE').head())
+
 
 log = open('dataverse_log.json', 'w', encoding = 'utf-8')
 import json
