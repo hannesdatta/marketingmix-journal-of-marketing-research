@@ -1,3 +1,0 @@
-# List of confidential files
-confidential_data.R
-data**
