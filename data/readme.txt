@@ -1,3 +1,1 @@
-The raw data is protected by NDAs, and not contained in this repository.
-
-Please approach the authors for more information.
+Many files in this folder are protected by NDAs with the data suppliers (e.g., GfK), and hence are only available on request (see repository readme.md).
