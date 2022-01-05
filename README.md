@@ -16,7 +16,7 @@ Averaged across brands, categories, and countries, line-length elasticity is .45
 
 This replication package is based on the [replication guidelines]( https://www.tilburguniversity.edu/research/economics-and-management/replication-package) from Tilburg School of Economics and Management (TiSEM). 
 
-### Metadata and data collection
+### 1) Metadata and data collection
 
 a) File logs available in `docs/files_in_repository.csv`. All files have been created and edited by Hannes Datta, except (many) of the raw data files (see below).
 
@@ -34,16 +34,16 @@ g) No external finances/grants were obtained for this project. Advertising data 
 
 h) Date of acceptance: 18 October 2021, https://doi.org/10.1177%2F00222437211058102 (online first on 21 October 2021).
 
-### Raw data
+### 2) Raw data
 - The project relies mainly on (confidential) data supplied by GfK Singapore, governed by an NDA between GfK and the coauthors. The data is stored in `data/gfk2012` and `data/gfk2015` (marking two delivery batches). Advertising data was bought and kept confidential (`data/advertising`). These datasets are not available to the general public but only available for replication purposes in the event of an investigation into alleged research misconduct (see also Netherlands Code of Conduct for Research Integrity and TiSEM's replication policy). 
 - Other data files in this project are obtained from websites, APIs, and official data sources.
 - The `docs/files_in_repository.csv` file contains a list with all files in the package, along with their dates of creation, etc. 
 
-### Material
+### 3) Material
 
 The folder `data/other` contains supplementary material (e.g., illustrative calculations) used throughout the paper (e.g., the population in the US, relative to the world population). This project can be entirely replicated using computer code (`code`) and the remaining raw data files (`data`).
 
-### Programming code
+### 4) Programming code
 - The programming code is fully available; see subfolder `code\`. 
 - Submodules are `code\derived` (for converting the raw data to data sets for analysis), `code\anlaysis` (for running the sales response models), `code\post-analysis` (for running seecond-stage regressions), and `code\simulations` for simulation studies. 
 - The order of execution in each submodule is made explicit in `makefile`. 
@@ -59,12 +59,12 @@ The folder `data/other` contains supplementary material (e.g., illustrative calc
 │   └── simulations    <- simulation studies (copulas, parameter recovery)
 ```
 
-### Processed database(s)
+### 5) Processed database(s)
 
 - Any processed information is available in the subfolders of each main module - derived, analysis, post-analysis, and simulations. 
 - Processed files include temporary files (`temp/`), auditing files (`audit/`), and output files (`output/`). All these files are exclusively produced based on code. 
 
-### Accepted or published manuscript or publication
+### 6) Accepted or published manuscript or publication
 
 Manuscript available at https://doi.org/10.1177%2F00222437211058102.
 
