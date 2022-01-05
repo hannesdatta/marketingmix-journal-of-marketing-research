@@ -24,3 +24,4 @@ app/input
 confidential_data.R
 .DS_Store
 **data
+**public

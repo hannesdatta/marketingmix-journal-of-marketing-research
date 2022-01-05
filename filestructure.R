@@ -31,8 +31,8 @@ files[grepl('^[.]confidential', filename), confidential:=T]
 files[grepl('^data', full_filepath), confidential:=T]
 
 # any output/temp/audit files (as they contain stats from the original data)
-files[grepl('temp[/]|audit[/]|output[/]', full_filepath), confidential:=T]
-files[grepl('readme', filename), confidential:=F]
+files[grepl('temp[/]|audit[/]|output[/]|externals[/]|external[/]', full_filepath), confidential:=T]
+files[grepl('readme', filename, ignore.case=T), confidential:=F]
 files[grepl('penn_worldtables', full_filepath), confidential:=F]
 
 
