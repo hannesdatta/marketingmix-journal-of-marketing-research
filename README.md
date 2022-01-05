@@ -30,7 +30,7 @@ e) Data collection: GfK datasets supplied by GfK Singapore (main datasets); supp
 
 f) Reliance on external data sources: If applicable, sources noted in the paper.
 
-g) No external finances/grants were obtained for this project. Advertising data have been bought with research funds by Marnik G. Dekimpe and Harald J. van Heerde.
+g) Research data from GfK has been provided in kind. Advertising data have been bought with research funds from Tilburg University (Marnik G. Dekimpe) and Massey University (Harald J. van Heerde). No other funds were acquired for this project.
 
 h) Date of acceptance: 18 October 2021, https://doi.org/10.1177%2F00222437211058102 (online first on 21 October 2021).
 
