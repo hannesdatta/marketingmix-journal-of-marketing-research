@@ -1,6 +1,6 @@
 # Cross-National Differences in Market Response: Line-Length, Price, and Distribution Elasticities in Fourteen Indo-Pacific Rim Economies
 
-Replication package for [__Cross-National Differences in Market Response: Line-Length, Price, and Distribution Elasticities in Fourteen Indo-Pacific Rim Economies__](https://doi.org/10.1177%2F00222437211058102), *Journal of Marketing Research*, forthcoming. https://doi.org/10.1177%2F00222437211058102.
+Replication package for [__Cross-National Differences in Market Response: Line-Length, Price, and Distribution Elasticities in Fourteen Indo-Pacific Rim Economies__](https://doi.org/10.1177%2F00222437211058102), *Journal of Marketing Research*, February 2022. https://doi.org/10.1177%2F00222437211058102.
 
 by Hannes Datta, Harald J. van Heerde, Marnik G. Dekimpe and Jan-Benedict E.M. Steenkamp
 
@@ -35,7 +35,7 @@ g) Research data from GfK has been provided in kind. Advertising data have been 
 h) Date of acceptance: 18 October 2021, https://doi.org/10.1177%2F00222437211058102 (online first on 21 October 2021).
 
 ### 2) Raw data
-- The project relies mainly on (confidential) data supplied by GfK Singapore, governed by an NDA between GfK and the coauthors. The data is stored in `data/gfk2012` and `data/gfk2015` (marking two delivery batches). Advertising data was bought and kept confidential (`data/advertising`). These datasets are not available to the general public but only available for replication purposes in the event of an investigation into alleged research misconduct (see also Netherlands Code of Conduct for Research Integrity and TiSEM's replication policy). 
+- The project relies mainly on (confidential) data supplied by GfK Singapore, governed by an NDA between GfK and the coauthors. The data is stored in `data/gfk2012` and `data/gfk2015` (marking two delivery batches). Advertising data was bought and kept confidential (`data/advertising`). __These datasets are not available to the general public but only available for replication purposes in the event of an investigation into alleged research misconduct__ (see also Netherlands Code of Conduct for Research Integrity and TiSEM's replication policy). The files are stored at Tilburg University, and copies at all four coauthors. 
 - Other data files in this project are obtained from websites, APIs, and official data sources.
 - The `docs/files_in_repository.csv` file contains a list with all files in the package, along with their dates of creation, etc. 
 
@@ -51,7 +51,7 @@ The folder `data/other` contains supplementary material (e.g., illustrative calc
 
 ```
 ├── README.md (this documentation)
-├── data (raw data)
+├── data (raw data - only available for replication purposes given the NDA between co-authors and data supplier)
 ├── code
 │   ├── analysis       <- analysis: sales response models
 │   ├── derived        <- data preparation
@@ -88,6 +88,10 @@ The directory structure in the repository contains a `data` folder, which could 
 
 4. Install required R packages
 
-Run `install_packages.R` in the repository's root directory.
+Run `install_packages.R` in `code/tools` (using the main project directory as the working directory).
 
 5. Run `make` to build each of the projects' main modules.
+
+## Documentation
+
+The documentation for this project has been build using the tools available in `code\tools`. The data pipeline can be executed using `make release`.
