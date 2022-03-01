@@ -10,6 +10,13 @@ fs <- list.files(all.files=T, full.names=T, recursive=T)
 
 library(data.table)
 
+# Create empty output file
+dir.create('docs')
+sink('docs/files_in_repository.csv')
+cat('Placeholder for final overview file.')
+sink()
+
+
 files = data.table(full_filepath = fs)
 files[, full_filepath := gsub('^[.][/]','',full_filepath)]
 
@@ -41,6 +48,7 @@ files[grepl('penn_worldtables', full_filepath), confidential:=F]
 
 files[grepl('^datareport', full_filepath), confidential:=F]
 files[grepl('^docs[/]', full_filepath), confidential:=F]
+files[grepl('files_in_repository[.]csv', full_filepath), confidential:=F]
 
 
 # include file info
