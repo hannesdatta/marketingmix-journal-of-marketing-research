@@ -40,6 +40,7 @@ files[grepl('readme', filename, ignore.case=T), confidential:=F]
 files[grepl('penn_worldtables', full_filepath), confidential:=F]
 
 files[grepl('^datareport', full_filepath), confidential:=F]
+files[grepl('^docs[/]', full_filepath), confidential:=F]
 
 
 # include file info
