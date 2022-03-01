@@ -16,8 +16,8 @@ analysis: derived
 postanalysis: analysis
 	$(MAKE) -C code/post-analysis/code
 
-simulation: simulation
-	$(MAKE) -C code/simulation/code
+simulations: 
+	$(MAKE) -C code/simulations/code
 
 # Files required to build public release
 
