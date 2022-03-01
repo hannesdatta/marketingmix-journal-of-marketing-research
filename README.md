@@ -35,6 +35,7 @@ g) Research data from GfK has been provided in kind. Advertising data have been 
 h) Date of acceptance: 18 October 2021, https://doi.org/10.1177%2F00222437211058102 (online first on 21 October 2021).
 
 ### 2) Raw data
+
 - The project relies mainly on (confidential) data supplied by GfK Singapore, governed by an NDA between GfK and the coauthors. The data is stored in `data/gfk2012` and `data/gfk2015` (marking two delivery batches). Advertising data was bought and kept confidential (`data/advertising`). __These datasets are not available to the general public but only available for replication purposes in the event of an investigation into alleged research misconduct__ (see also Netherlands Code of Conduct for Research Integrity and TiSEM's replication policy). The files are stored at Tilburg University, and copies at all four coauthors. 
 - Other data files in this project are obtained from websites, APIs, and official data sources.
 - The `docs/files_in_repository.csv` file contains a list with all files in the package, along with their dates of creation, etc. 
@@ -51,7 +52,7 @@ The folder `data/other` contains supplementary material (e.g., illustrative calc
 
 ```
 ├── README.md (this documentation)
-├── data (raw data - only available for replication purposes given the NDA between co-authors and data supplier)
+├── data (raw data - only available for replication purposes given the NDA between coauthors and data supplier)
 ├── code
 │   ├── analysis       <- analysis: sales response models
 │   ├── derived        <- data preparation
@@ -66,7 +67,7 @@ The folder `data/other` contains supplementary material (e.g., illustrative calc
 
 ### 6) Accepted or published manuscript or publication
 
-Manuscript available at https://doi.org/10.1177%2F00222437211058102.
+Published manuscript available at https://doi.org/10.1177%2F00222437211058102.
 
 ## Replication Instructions
 
