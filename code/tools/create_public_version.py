@@ -28,8 +28,8 @@ for index, row in df.iterrows():
     if (row['confidential']==False):
       shutil.copy2(row['full_filepath'], path+row['full_filepath'])
     else:
-      f=open(path+row['full_filepath'],'w')
-      f.write('File has been marked as confidential.\nIt is only available upon request for the purpose of replication.')
+      f=open(path+row['full_filepath']+'.txt','w')
+      f.write('This file replaces the original file (' + row['full_filepath'] + '), which has been marked as confidential and is only available upon request for the purpose of replication. For more information, see readme of this replication package.')
       f.close()
     
     #if (cnt>50): break
