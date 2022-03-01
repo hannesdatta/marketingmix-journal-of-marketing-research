@@ -1,21 +1,30 @@
 # Makefile for the entire project
 # requires GNU Make
 
-###### BUILD COMMANDS ######
+# Main project pipeline
 
 all: postanalysis simulations
 
 .PHONY: all derived analysis postanalysis
 
 derived:
-	$(MAKE) -C derived/code
+	$(MAKE) -C code/derived/code
 
 analysis: derived
-	$(MAKE) -C analysis/code
+	$(MAKE) -C code/analysis/code
 
 postanalysis: analysis
-	$(MAKE) -C post-analysis/code
+	$(MAKE) -C code/post-analysis/code
 
 simulation: simulation
-	$(MAKE) -C simulation/code
+	$(MAKE) -C code/simulation/code
 
+# Files required to build public release
+
+release: docs/files_in_repository.csv public/log.txt
+
+docs/files_in_repository.csv: code/tools/create_file_overview.R
+	Rscript code/tools/create_file_overview.R
+
+public/log.txt: docs/files_in_repository.csv code/tools/create_public_version.py
+	python code/tools/create_public_version.py

@@ -13,8 +13,11 @@ pd.set_option('display.max_columns', 500)
 pd.set_option('display.width', 1000)
 
 path = 'public/'
-shutil.rmtree(path, ignore_errors=False, onerror=None)
-
+try:
+    shutil.rmtree(path, ignore_errors=False, onerror=None)
+except:
+    1+1
+    
 cnt=0
 
 for index, row in df.iterrows():
@@ -32,3 +35,7 @@ for index, row in df.iterrows():
     #if (cnt>50): break
 
 print('done')
+
+f = open('public/log.txt', 'w')
+f.write('Finished building public copy of repository.\n')
+f.close()

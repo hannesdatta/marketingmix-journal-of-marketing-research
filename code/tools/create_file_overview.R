@@ -1,6 +1,9 @@
 ### CREATE DIRECTORY/FILE TREE FROM PROJECT
 ### FOR DOCUMENTATION PURPOSES
 
+cat('Creating directory/file tree from project... please wait.', fill = T)
+
+
 fs <- list.files(all.files=T, full.names=T, recursive=T)
 
 # exclude any invisible files
