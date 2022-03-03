@@ -6,8 +6,10 @@ by Hannes Datta, Harald J. van Heerde, Marnik G. Dekimpe and Jan-Benedict E.M. S
 
 Links:
 - Paper at https://doi.org/10.1177%2F00222437211058102.
-- Replication files (this repository + processed data): https://doi.org/10.34894/EVPJTY
-- Raw data (only available for replication purposes, see below for more details)
+- Replication files
+    - archived version available at https://doi.org/10.34894/EVPJTY
+    - browsable version available at https://github.com/hannesdatta/marketingmix-journal-of-marketing-research
+- Publicly available data does not contain any of the raw data, which is accessible only for replication purposes (see below for more details)
 
 ## Abstract
 
