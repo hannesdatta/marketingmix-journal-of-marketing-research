@@ -9,7 +9,7 @@ Links:
 - Replication files
     - archived version available at https://doi.org/10.34894/EVPJTY
     - browsable version available at https://github.com/hannesdatta/marketingmix-journal-of-marketing-research
-- Publicly available data does not contain any of the raw data, which is accessible only for replication purposes (see below for more details)
+- Publicly available data does __not__ contain any of the raw data, which is accessible only for replication purposes (see below for more details)
 
 ## Abstract
 
@@ -43,7 +43,7 @@ h) Date of acceptance: 18 October 2021, https://doi.org/10.1177%2F00222437211058
 
 ### 2) Raw data
 
-- The project relies mainly on (confidential) data supplied by GfK Singapore, governed by an NDA between GfK and the coauthors. The data is stored in `data/gfk2012` and `data/gfk2015` (marking two delivery batches). Advertising data was bought and kept confidential (`data/advertising`). __These datasets are not available to the general public but only available for replication purposes in the event of an investigation into alleged research misconduct__ (see also Netherlands Code of Conduct for Research Integrity and TiSEM's replication policy). The files are stored at Tilburg University, and copies at all four coauthors. 
+- The project relies mainly on (confidential) data supplied by GfK Singapore, governed by an NDA between GfK and the coauthors. The data is stored in `data/gfk2012` and `data/gfk2015` (marking two delivery batches). Advertising data was bought and kept confidential (`data/advertising`). __These datasets are not available to the general public but only available for replication purposes in the event of an investigation into alleged research misconduct__ (see also Netherlands Code of Conduct for Research Integrity and TiSEM's replication policy). The files are stored at Tilburg University (`\\stafffiles.campus.uvt.nl\files\shared\research\MarketingMix-Pacific-Rim-jmr`), and copies are available with all coauthors. 
 - Other data files in this project are obtained from websites, APIs, and official data sources.
 - The `docs/files_in_repository.csv` file contains a list with all files in the package, along with their dates of creation, etc. 
 
