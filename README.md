@@ -1,6 +1,6 @@
-# Cross-National Differences in Market Response: Line-Length, Price, and Distribution Elasticities in Fourteen Indo-Pacific Rim Economies
+# Cross-National Differences in Market Response: Line-Length, Price, and Distribution Elasticities in 14 Indo-Pacific Rim Economies
 
-Replication package for [__Cross-National Differences in Market Response: Line-Length, Price, and Distribution Elasticities in Fourteen Indo-Pacific Rim Economies__](https://doi.org/10.1177%2F00222437211058102), *Journal of Marketing Research*, February 2022.
+Replication package for [__Cross-National Differences in Market Response: Line-Length, Price, and Distribution Elasticities in 14 Indo-Pacific Rim Economies__](https://doi.org/10.1177%2F00222437211058102), *Journal of Marketing Research*, February 2022.
 
 by Hannes Datta, Harald J. van Heerde, Marnik G. Dekimpe and Jan-Benedict E.M. Steenkamp
 
